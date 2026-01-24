@@ -1,0 +1,85 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_USER: gigme
+      POSTGRES_PASSWORD: gigme
+      POSTGRES_DB: gigme
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  migrate:
+    image: migrate/migrate:v4.17.0
+    depends_on:
+      - db
+    volumes:
+      - ./migrations:/migrations
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      "sleep 5 && migrate -path /migrations -database postgres://gigme:gigme@db:5432/gigme?sslmode=disable up"
+
+  api:
+    build:
+      context: ../backend
+    depends_on:
+      - db
+      - redis
+      - minio
+      - migrate
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://gigme:gigme@db:5432/gigme?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: gigme
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_REGION: us-east-1
+      S3_USE_SSL: "false"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      JWT_SECRET: ${JWT_SECRET}
+      BASE_URL: ${BASE_URL}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
+    ports:
+      - "8080:8080"
+
+  worker:
+    build:
+      context: ../backend
+    depends_on:
+      - db
+      - redis
+      - migrate
+    command: ["/bin/worker"]
+    environment:
+      DATABASE_URL: postgres://gigme:gigme@db:5432/gigme?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      JWT_SECRET: ${JWT_SECRET}
+      BASE_URL: ${BASE_URL}
+
+volumes:
+  db_data:
+  minio_data:

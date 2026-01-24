@@ -1,0 +1,48 @@
+package auth
+
+import (
+	"errors"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+)
+
+const accessTokenTTL = 15 * time.Minute
+
+type AccessClaims struct {
+	UserID    int64  `json:"uid"`
+	TelegramID int64 `json:"tgid"`
+	jwt.RegisteredClaims
+}
+
+func SignAccessToken(secret string, userID int64, telegramID int64) (string, error) {
+	claims := AccessClaims{
+		UserID:     userID,
+		TelegramID: telegramID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   "user",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+func ParseAccessToken(secret string, tokenString string) (*AccessClaims, error) {
+	parsed, err := jwt.ParseWithClaims(tokenString, &AccessClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(secret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := parsed.Claims.(*AccessClaims)
+	if !ok || !parsed.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
+}
