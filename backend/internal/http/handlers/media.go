@@ -2,10 +2,15 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type presignRequest struct {
@@ -129,4 +134,116 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"fileUrl": fileURL,
 	})
+}
+
+func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	idStr := chi.URLParam(r, "id")
+	indexStr := chi.URLParam(r, "index")
+	eventID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || eventID <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid event id")
+		return
+	}
+	index, err := strconv.Atoi(indexStr)
+	if err != nil || index < 0 {
+		writeError(w, http.StatusBadRequest, "invalid index")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+
+	event, err := h.repo.GetEventByID(ctx, eventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		logger.Error("action", "action", "event_media", "status", "db_error", "event_id", eventID, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if event.IsHidden {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	media, err := h.repo.ListEventMedia(ctx, eventID)
+	if err != nil {
+		logger.Error("action", "action", "event_media", "status", "media_error", "event_id", eventID, "error", err)
+		writeError(w, http.StatusInternalServerError, "media error")
+		return
+	}
+	if index >= len(media) {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	url := strings.TrimSpace(media[index])
+	if url == "" || !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	if h.s3 != nil {
+		if key, ok := h.s3.KeyFromURL(url); ok {
+			obj, err := h.s3.GetObject(ctx, key)
+			if err == nil {
+				defer obj.Body.Close()
+				if obj.ContentType != nil {
+					w.Header().Set("Content-Type", *obj.ContentType)
+				}
+				if obj.CacheControl != nil {
+					w.Header().Set("Cache-Control", *obj.CacheControl)
+				} else {
+					w.Header().Set("Cache-Control", "public, max-age=3600")
+				}
+				if obj.ETag != nil {
+					w.Header().Set("ETag", *obj.ETag)
+				}
+				if obj.LastModified != nil {
+					w.Header().Set("Last-Modified", obj.LastModified.UTC().Format(http.TimeFormat))
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = io.Copy(w, obj.Body)
+				return
+			}
+			logger.Warn("action", "action", "event_media", "status", "s3_get_failed", "event_id", eventID, "error", err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid url")
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logger.Error("action", "action", "event_media", "status", "fetch_failed", "event_id", eventID, "error", err)
+		writeError(w, http.StatusBadGateway, "fetch failed")
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		logger.Warn("action", "action", "event_media", "status", "upstream_status", "event_id", eventID, "code", resp.StatusCode)
+		writeError(w, http.StatusBadGateway, "upstream error")
+		return
+	}
+
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	if cc := resp.Header.Get("Cache-Control"); cc != "" {
+		w.Header().Set("Cache-Control", cc)
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+	}
+	if etag := resp.Header.Get("ETag"); etag != "" {
+		w.Header().Set("ETag", etag)
+	}
+	if lm := resp.Header.Get("Last-Modified"); lm != "" {
+		w.Header().Set("Last-Modified", lm)
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, resp.Body)
 }

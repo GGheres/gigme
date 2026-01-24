@@ -27,6 +27,13 @@ type clientLogRequest struct {
 	UserAgent string                 `json:"userAgent"`
 }
 
+var suppressedClientMessages = map[string]struct{}{
+	"api_error":          {},
+	"api_response_error": {},
+	"feed_load_error":    {},
+	"geolocation_error":  {},
+}
+
 func (h *Handler) ClientLogs(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var req clientLogRequest
@@ -61,10 +68,22 @@ func (h *Handler) ClientLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, event := range events {
+		if shouldSuppressClientEvent(event) {
+			continue
+		}
 		logClientEvent(logger, r, event)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func shouldSuppressClientEvent(event clientLogEvent) bool {
+	if event.Message == "" {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(event.Message))
+	_, ok := suppressedClientMessages[message]
+	return ok
 }
 
 func logClientEvent(logger *slog.Logger, r *http.Request, event clientLogEvent) {

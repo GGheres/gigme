@@ -73,6 +73,8 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	r.Get("/media/events/{id}/{index}", h.EventMedia)
+
 	r.Post("/auth/telegram", h.AuthTelegram)
 
 	r.Group(func(r chi.Router) {

@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -88,12 +89,33 @@ func (s *S3Client) PresignPutObject(ctx context.Context, fileName, contentType s
 	return resp.URL, s.publicURLForKey(key), nil
 }
 
+func (s *S3Client) GetObject(ctx context.Context, key string) (*s3.GetObjectOutput, error) {
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	}
+	return s.client.GetObject(ctx, input)
+}
+
 func (s *S3Client) UploadObject(ctx context.Context, fileName, contentType string, body io.Reader, size int64) (string, error) {
 	key := buildObjectKey(fileName)
+	var readSeeker io.ReadSeeker
+	if rs, ok := body.(io.ReadSeeker); ok {
+		readSeeker = rs
+	} else {
+		data, err := io.ReadAll(body)
+		if err != nil {
+			return "", err
+		}
+		readSeeker = bytes.NewReader(data)
+		if size <= 0 {
+			size = int64(len(data))
+		}
+	}
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(key),
-		Body:        body,
+		Body:        readSeeker,
 		ContentType: aws.String(contentType),
 	}
 	if size > 0 {
@@ -120,6 +142,34 @@ func (s *S3Client) publicURLForKey(key string) string {
 	}
 	u.Path = path.Join(u.Path, s.bucket, key)
 	return u.String()
+}
+
+func (s *S3Client) KeyFromURL(rawURL string) (string, bool) {
+	if s == nil || s.bucket == "" {
+		return "", false
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", false
+	}
+	pathPart := u.Path
+	if pathPart == "" {
+		return "", false
+	}
+	needle := "/" + s.bucket + "/"
+	if idx := strings.Index(pathPart, needle); idx >= 0 {
+		key := strings.TrimPrefix(pathPart[idx+len(needle):], "/")
+		if key != "" {
+			return key, true
+		}
+	}
+	if host := u.Hostname(); strings.HasPrefix(host, s.bucket+".") {
+		key := strings.TrimPrefix(pathPart, "/")
+		if key != "" {
+			return key, true
+		}
+	}
+	return "", false
 }
 
 func buildObjectKey(fileName string) string {

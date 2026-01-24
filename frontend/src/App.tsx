@@ -20,6 +20,7 @@ import {
 import { getActiveLogLevel, logDebug, logError, logInfo, logWarn, setLogToken } from './logger'
 
 type LatLng = { lat: number; lng: number }
+type UploadedMedia = { fileUrl: string; previewUrl: string }
 
 const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
@@ -28,6 +29,89 @@ const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+const buildMediaProxyUrl = (eventId: number, index: number) => {
+  if (API_URL_ERROR) return ''
+  return `${API_URL}/media/events/${eventId}/${index}`
+}
+const resolveMediaSrc = (eventId: number, index: number, fallback?: string) => {
+  const proxy = buildMediaProxyUrl(eventId, index)
+  return proxy || fallback || ''
+}
+const NGROK_HOST_RE = /ngrok-free\.app|ngrok\.io/i
+
+const isNgrokUrl = (value?: string) => {
+  if (!value) return false
+  return NGROK_HOST_RE.test(value)
+}
+
+type MediaImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+  src?: string
+  fallbackSrc?: string
+}
+
+const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
+  const [resolvedSrc, setResolvedSrc] = useState<string>(src || '')
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+
+    const clearObjectUrl = () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+    }
+
+    const load = async (value?: string) => {
+      if (!value) return ''
+      if (!isNgrokUrl(value)) return value
+      const res = await fetch(value, {
+        headers: { 'ngrok-skip-browser-warning': 'true' },
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        throw new Error(`media fetch failed (${res.status})`)
+      }
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      objectUrlRef.current = blobUrl
+      return blobUrl
+    }
+
+    const run = async () => {
+      clearObjectUrl()
+      try {
+        const next = await load(src)
+        if (cancelled) return
+        if (next) {
+          setResolvedSrc(next)
+          return
+        }
+      } catch {
+        // try fallback
+      }
+      try {
+        const nextFallback = await load(fallbackSrc)
+        if (cancelled) return
+        setResolvedSrc(nextFallback)
+      } catch {
+        if (!cancelled) setResolvedSrc('')
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+      controller.abort()
+      clearObjectUrl()
+    }
+  }, [src, fallbackSrc])
+
+  if (!resolvedSrc) return null
+  return <img src={resolvedSrc} alt={alt} {...rest} />
+}
 
 const pulseIcon = L.divIcon({
   className: 'pulse-marker',
@@ -89,10 +173,11 @@ function App() {
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [description, setDescription] = useState('')
   const [createLatLng, setCreateLatLng] = useState<LatLng | null>(null)
-  const [uploadedMedia, setUploadedMedia] = useState<string[]>([])
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([])
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstance = useRef<L.Map | null>(null)
   const markerLayer = useRef<L.LayerGroup | null>(null)
@@ -100,12 +185,35 @@ function App() {
   const hasLocation = useRef(false)
   const hasUserMovedMap = useRef(false)
   const hasStoredCenter = useRef(viewLocation != null)
+  const hasLoadedFeed = useRef(false)
   const feedLocation = useMemo(() => {
     const preferView = hasStoredCenter.current || hasUserMovedMap.current
     if (preferView) return viewLocation ?? userLocation
     return userLocation ?? viewLocation
   }, [userLocation, viewLocation])
   const canCreate = useMemo(() => !!token && !!(viewLocation || userLocation), [token, viewLocation, userLocation])
+  const greeting = userName ? `Hi, ${userName}` : 'Events nearby'
+  const mapCenter = viewLocation ?? userLocation
+  const mapCenterLabel = mapCenter ? formatCoords(mapCenter.lat, mapCenter.lng) : 'Locating...'
+  const pinLabel = createLatLng ? formatCoords(createLatLng.lat, createLatLng.lng) : null
+  const selectedInFeed = selectedId != null && feed.some((item) => item.id === selectedId)
+  const detailEvent = selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent : null
+  const uploadedMediaRef = useRef<UploadedMedia[]>([])
+
+  const revokePreviews = (items: UploadedMedia[]) => {
+    items.forEach((item) => {
+      if (item.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(item.previewUrl)
+      }
+    })
+  }
+
+  const clearUploadedMedia = () => {
+    setUploadedMedia((prev) => {
+      revokePreviews(prev)
+      return []
+    })
+  }
 
   useEffect(() => {
     if (API_URL_ERROR) {
@@ -146,6 +254,24 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const setViewportHeight = () => {
+      const vh = window.innerHeight * 0.01
+      document.documentElement.style.setProperty('--vh', `${vh}px`)
+    }
+    setViewportHeight()
+    window.addEventListener('resize', setViewportHeight)
+    return () => window.removeEventListener('resize', setViewportHeight)
+  }, [])
+
+  useEffect(() => {
+    if (selectedId == null) return
+    const target = document.querySelector(`[data-event-id="${selectedId}"]`)
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+    }
+  }, [selectedId])
+
+  useEffect(() => {
     setLogToken(token)
   }, [token])
 
@@ -169,11 +295,7 @@ function App() {
         }
         return next
       })
-      setViewLocation((prev) => {
-        if (hasStoredCenter.current) return prev ?? next
-        if (hasUserMovedMap.current) return prev ?? next
-        return next
-      })
+      setViewLocation(next)
     }
 
     const handleError = () => {
@@ -226,11 +348,24 @@ function App() {
   }, [viewLocation])
 
   useEffect(() => {
+    uploadedMediaRef.current = uploadedMedia
+  }, [uploadedMedia])
+
+  useEffect(() => {
+    return () => {
+      revokePreviews(uploadedMediaRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!mapRef.current || !viewLocation) return
     if (!mapInstance.current) {
-      mapInstance.current = L.map(mapRef.current).setView([viewLocation.lat, viewLocation.lng], 13)
+      mapInstance.current = L.map(mapRef.current, { attributionControl: false, zoomControl: false }).setView(
+        [viewLocation.lat, viewLocation.lng],
+        13
+      )
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+        attribution: '',
       }).addTo(mapInstance.current)
       markerLayer.current = L.layerGroup().addTo(mapInstance.current)
 
@@ -249,15 +384,18 @@ function App() {
         if (!center) return
         const next = { lat: center.lat, lng: center.lng }
         logDebug('map_move_end', { lat: next.lat, lng: next.lng })
-        setViewLocation(next)
-        saveStoredCenter(next)
+        setViewLocation((prev) => {
+          if (!prev) return next
+          const sameLat = Math.abs(prev.lat - next.lat) < 0.00001
+          const sameLng = Math.abs(prev.lng - next.lng) < 0.00001
+          return sameLat && sameLng ? prev : next
+        })
       })
     }
   }, [viewLocation])
 
   useEffect(() => {
     if (!mapInstance.current || !viewLocation) return
-    if (hasUserMovedMap.current) return
     const center = mapInstance.current.getCenter()
     if (center.lat === viewLocation.lat && center.lng === viewLocation.lng) return
     mapInstance.current.setView([viewLocation.lat, viewLocation.lng], mapInstance.current.getZoom(), { animate: false })
@@ -266,11 +404,11 @@ function App() {
   useEffect(() => {
     if (!token || !feedLocation) return
     let cancelled = false
-    let first = true
 
     const load = () => {
       if (cancelled) return
-      if (first) {
+      const showLoading = !hasLoadedFeed.current
+      if (showLoading) {
         setLoading(true)
       }
       logDebug('feed_load_start', { lat: feedLocation.lat, lng: feedLocation.lng })
@@ -288,9 +426,9 @@ function App() {
         })
         .finally(() => {
           if (cancelled) return
-          if (first) {
+          if (showLoading) {
             setLoading(false)
-            first = false
+            hasLoadedFeed.current = true
           }
         })
     }
@@ -365,6 +503,10 @@ function App() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!token) return
+    if (uploading) {
+      setError('Please wait for photos to finish uploading')
+      return
+    }
     const form = new FormData(e.currentTarget)
     const title = String(form.get('title') || '')
     const startsAtLocal = String(form.get('startsAt') || '')
@@ -408,7 +550,7 @@ function App() {
         lat: point.lat,
         lng: point.lng,
         capacity,
-        media: uploadedMedia,
+        media: uploadedMedia.map((item) => item.fileUrl),
       })
       const newMarker: EventMarker = {
         id: created.eventId,
@@ -429,7 +571,7 @@ function App() {
         capacity,
         promotedUntil: undefined,
         creatorName: userName || 'You',
-        thumbnailUrl: uploadedMedia[0],
+        thumbnailUrl: uploadedMedia[0]?.fileUrl,
         participantsCount: 1,
       }
       setMarkers((prev) => {
@@ -444,7 +586,7 @@ function App() {
       })
       mapInstance.current?.setView([point.lat, point.lng], mapInstance.current?.getZoom() ?? 13)
       setCreating(false)
-      setUploadedMedia([])
+      clearUploadedMedia()
       setCreateLatLng(null)
       setDescription('')
       if (feedLocation) {
@@ -473,174 +615,364 @@ function App() {
   const handleFileUpload = async (files: FileList | null) => {
     if (!token || !files) return
     const fileArray = Array.from(files).slice(0, 5 - uploadedMedia.length)
+    if (fileArray.length === 0) return
+    setUploading(true)
     try {
       logInfo('media_upload_start', { count: fileArray.length })
       for (const file of fileArray) {
-        let fileUrl = ''
+        const previewUrl = URL.createObjectURL(file)
         try {
-          logDebug('media_presign_request', { fileName: file.name, sizeBytes: file.size, contentType: file.type })
-          const presign = await presignMedia(token, {
-            fileName: file.name,
-            contentType: file.type,
-            sizeBytes: file.size,
-          })
+          let fileUrl = ''
           try {
-            new URL(presign.uploadUrl)
-          } catch {
-            throw new Error(
-              `Upload URL is invalid. Check S3_PUBLIC_ENDPOINT (got ${presign.uploadUrl}).`
-            )
+            logDebug('media_presign_request', { fileName: file.name, sizeBytes: file.size, contentType: file.type })
+            const presign = await presignMedia(token, {
+              fileName: file.name,
+              contentType: file.type,
+              sizeBytes: file.size,
+            })
+            try {
+              new URL(presign.uploadUrl)
+            } catch {
+              throw new Error(
+                `Upload URL is invalid. Check S3_PUBLIC_ENDPOINT (got ${presign.uploadUrl}).`
+              )
+            }
+            const uploadRes = await fetch(presign.uploadUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': file.type },
+              body: file,
+            })
+            if (!uploadRes.ok) {
+              throw new Error(`Upload failed (${uploadRes.status})`)
+            }
+            fileUrl = presign.fileUrl
+            logInfo('media_upload_presigned_success', { fileName: file.name })
+          } catch (presignErr: any) {
+            const uploaded = await uploadMedia(token, file)
+            fileUrl = uploaded.fileUrl
+            if (!fileUrl) {
+              throw presignErr
+            }
+            logInfo('media_upload_fallback_success', { fileName: file.name })
           }
-          await fetch(presign.uploadUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': file.type },
-            body: file,
-          })
-          fileUrl = presign.fileUrl
-          logInfo('media_upload_presigned_success', { fileName: file.name })
-        } catch (presignErr: any) {
-          const uploaded = await uploadMedia(token, file)
-          fileUrl = uploaded.fileUrl
-          if (!fileUrl) {
-            throw presignErr
-          }
-          logInfo('media_upload_fallback_success', { fileName: file.name })
+          setUploadedMedia((prev) => [...prev, { fileUrl, previewUrl }])
+        } catch (err) {
+          URL.revokeObjectURL(previewUrl)
+          throw err
         }
-        setUploadedMedia((prev) => [...prev, fileUrl])
       }
     } catch (err: any) {
       logError('media_upload_error', { message: err.message })
       setError(err.message)
+    } finally {
+      setUploading(false)
     }
   }
 
   return (
     <div className="app">
-      <header className="header">
-        <div>
+      <header className="hero">
+        <div className="hero__copy">
+          <p className="eyebrow">Local energy</p>
           <h1>Gigme</h1>
-          <p>{userName ? `Hi, ${userName}` : 'Events nearby'}</p>
+          <p className="hero__subtitle">{greeting}</p>
         </div>
-        <button
-          disabled={!canCreate}
-          onClick={() => {
-            setCreating((v) => {
-              const next = !v
-              logInfo('toggle_create_form', { open: next })
-              return next
-            })
-          }}
-        >
-          {creating ? 'Close' : 'Create event'}
-        </button>
+        <div className="hero__actions">
+          <button
+            className="button button--primary"
+            disabled={!canCreate}
+            onClick={() => {
+              setCreating((v) => {
+                const next = !v
+                logInfo('toggle_create_form', { open: next })
+                return next
+              })
+            }}
+          >
+            {creating ? 'Close' : 'Create event'}
+          </button>
+          <span className="chip chip--ghost">{mapCenterLabel}</span>
+        </div>
       </header>
 
-      {error && <div className="error">{error}</div>}
-      {loading && <div className="loading">Loading...</div>}
+      <div className="status-stack">
+        {error && <div className="status status--error">{error}</div>}
+        {loading && <div className="status status--loading">Loading...</div>}
+      </div>
 
-      <div className="map" ref={mapRef} />
+      <div className="layout">
+        <section className="map-card">
+          <div className="map" ref={mapRef} />
+          <div className="map-overlay">
+            <span className="chip">Center: {mapCenterLabel}</span>
+            {pinLabel && <span className="chip chip--accent">Pin: {pinLabel}</span>}
+            <span className="chip chip--ghost">Tap map to pin</span>
+          </div>
+        </section>
 
-      {creating && (
-        <section className="panel">
-          <h2>New event</h2>
-          <form onSubmit={handleCreate}>
-            <label>
-              Title
-              <input name="title" maxLength={80} required />
-            </label>
-            <label>
-              Description
-              <textarea
-                name="description"
-                maxLength={MAX_DESCRIPTION}
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+        {creating && (
+          <section className="panel form-panel">
+            <div className="panel__header">
+              <h2>New event</h2>
+              <span className="chip chip--ghost">Draft</span>
+            </div>
+            <form className="form" onSubmit={handleCreate}>
+              <label className="field">
+                Title
+                <input name="title" maxLength={80} required />
+              </label>
+              <label className="field">
+                Description
+                <textarea
+                  name="description"
+                  maxLength={MAX_DESCRIPTION}
+                  required
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+              <div className="form-grid">
+                <label className="field">
+                  Starts at
+                  <input name="startsAt" type="datetime-local" required />
+                </label>
+                <label className="field">
+                  Ends at
+                  <input name="endsAt" type="datetime-local" />
+                </label>
+                <label className="field">
+                  Participant limit
+                  <input name="capacity" type="number" min={1} />
+                </label>
+              </div>
+            <label className="field">
+              Photos (up to 5)
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploading}
+                onChange={(e) => handleFileUpload(e.target.files)}
               />
             </label>
-            <label>
-              Starts at
-              <input name="startsAt" type="datetime-local" required />
-            </label>
-            <label>
-              Ends at
-              <input name="endsAt" type="datetime-local" />
-            </label>
-            <label>
-              Participant limit
-              <input name="capacity" type="number" min={1} />
-            </label>
-            <label>
-              Photos (up to 5)
-              <input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e.target.files)} />
-            </label>
             <div className="media-list">
-              {uploadedMedia.map((url) => (
-                <img key={url} src={url} alt="media" />
+              {uploadedMedia.map((item) => (
+                <MediaImage
+                  key={item.fileUrl}
+                  src={item.previewUrl || item.fileUrl}
+                  alt="media"
+                />
               ))}
             </div>
+            {uploading && <p className="hint">Uploading photos…</p>}
             <p className="hint">
               Tap on the map to choose event location. Current:{' '}
               {createLatLng ? `${createLatLng.lat.toFixed(4)}, ${createLatLng.lng.toFixed(4)}` : 'not selected'}.
               Coordinates are added to the description.
             </p>
-            <button type="submit">Create</button>
+            <button className="button button--primary" type="submit" disabled={loading || uploading}>
+              {uploading ? 'Uploading…' : 'Create'}
+            </button>
           </form>
         </section>
       )}
 
-      <section className="panel">
-        <h2>Nearby feed</h2>
-        {feed.length === 0 && <p>No events yet</p>}
-        <div className="feed">
-          {feed.map((event) => (
-            <div
-              key={event.id}
-              className="card"
-              onClick={() => {
-                logInfo('feed_card_click', { eventId: event.id })
-                setSelectedId(event.id)
-              }}
-            >
-              {event.thumbnailUrl && <img src={event.thumbnailUrl} alt="thumb" />}
-              <div>
-                <h3>{event.title}</h3>
-                <p>{new Date(event.startsAt).toLocaleString()}</p>
-                <p>{event.creatorName}</p>
-                <p>Participants: {event.participantsCount}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+        <section className="panel feed-panel">
+          <div className="panel__header">
+            <h2>Nearby feed</h2>
+            <span className="chip chip--ghost">{feed.length} events</span>
+          </div>
+          {feed.length === 0 && <p className="empty">No events yet</p>}
+          <div className="feed-grid">
+            {feed.map((event) => {
+              const thumbnailSrc = event.thumbnailUrl ? resolveMediaSrc(event.id, 0, event.thumbnailUrl) : ''
+              if (event.id === selectedId) {
+                if (!detailEvent) {
+                  return (
+                    <article
+                      key={event.id}
+                      className="card card--selected detail-inline detail-inline--loading"
+                      data-event-id={event.id}
+                    >
+                      <div className="card__media">
+                        {thumbnailSrc ? (
+                          <MediaImage
+                            src={thumbnailSrc}
+                            alt="thumb"
+                            fallbackSrc={event.thumbnailUrl}
+                          />
+                        ) : (
+                          <div className="card__placeholder">No photo</div>
+                        )}
+                      </div>
+                      <div className="card__body">
+                        <div className="card__top">
+                          <h3>{event.title}</h3>
+                          <span className="tag">Loading</span>
+                        </div>
+                        <p className="card__time">{new Date(event.startsAt).toLocaleString()}</p>
+                        <p className="card__host">{event.creatorName || 'Community'}</p>
+                      </div>
+                    </article>
+                  )
+                }
 
-      {selectedEvent && (
-        <section className="panel">
-          <h2>{selectedEvent.event.title}</h2>
-          <p>{selectedEvent.event.description}</p>
-          <p>Starts: {new Date(selectedEvent.event.startsAt).toLocaleString()}</p>
-          {selectedEvent.event.endsAt && <p>Ends: {new Date(selectedEvent.event.endsAt).toLocaleString()}</p>}
-          <p>Participants: {selectedEvent.event.participantsCount}</p>
-          <div className="media-list">
-            {selectedEvent.media.map((url) => (
-              <img key={url} src={url} alt="media" />
-            ))}
+                return (
+                  <article key={event.id} className="card card--selected detail-inline" data-event-id={event.id}>
+                    <div className="detail-header">
+                      <div>
+                        <h2>{detailEvent.event.title}</h2>
+                        <p className="detail-meta">{new Date(detailEvent.event.startsAt).toLocaleString()}</p>
+                        {detailEvent.event.endsAt && (
+                          <p className="detail-meta">Ends: {new Date(detailEvent.event.endsAt).toLocaleString()}</p>
+                        )}
+                      </div>
+                      <div className="detail-header__actions">
+                        <span className="chip chip--accent">{detailEvent.event.participantsCount} going</span>
+                        <button
+                          className="button button--ghost button--compact"
+                          onClick={() => setSelectedId(null)}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                    {detailEvent.media[0] && (
+                      <div className="detail-hero">
+                        <MediaImage
+                          src={resolveMediaSrc(detailEvent.event.id, 0, detailEvent.media[0])}
+                          alt="event hero"
+                          fallbackSrc={detailEvent.media[0]}
+                        />
+                      </div>
+                    )}
+                    <p className="detail-description">{detailEvent.event.description}</p>
+                    <div className="media-list">
+                      {detailEvent.media.slice(1).map((url, index) => (
+                        <MediaImage
+                          key={url}
+                          src={resolveMediaSrc(detailEvent.event.id, index + 1, url)}
+                          alt="media"
+                          fallbackSrc={url}
+                        />
+                      ))}
+                    </div>
+                    <div className="actions">
+                      {detailEvent.isJoined ? (
+                        <button className="button button--ghost" onClick={handleLeave}>
+                          Leave event
+                        </button>
+                      ) : (
+                        <button className="button button--accent" onClick={handleJoin}>
+                          Join event
+                        </button>
+                      )}
+                    </div>
+                    <h3>Participants</h3>
+                    <ul className="participants">
+                      {detailEvent.participants.map((p) => (
+                        <li key={p.userId}>{p.name}</li>
+                      ))}
+                    </ul>
+                  </article>
+                )
+              }
+
+              const remaining = event.capacity
+                ? Math.max(event.capacity - event.participantsCount, 0)
+                : null
+              const isFeatured = Boolean(event.promotedUntil)
+              return (
+                <article
+                  key={event.id}
+                  className="card"
+                  data-event-id={event.id}
+                  onClick={() => {
+                    logInfo('feed_card_click', { eventId: event.id })
+                    setSelectedId(event.id)
+                  }}
+                >
+                  <div className="card__media">
+                    {thumbnailSrc ? (
+                      <MediaImage
+                        src={thumbnailSrc}
+                        alt="thumb"
+                        fallbackSrc={event.thumbnailUrl}
+                      />
+                    ) : (
+                      <div className="card__placeholder">No photo</div>
+                    )}
+                  </div>
+                  <div className="card__body">
+                    <div className="card__top">
+                      <h3>{event.title}</h3>
+                      {isFeatured && <span className="tag">Featured</span>}
+                    </div>
+                    <p className="card__time">{new Date(event.startsAt).toLocaleString()}</p>
+                    <p className="card__host">{event.creatorName || 'Community'}</p>
+                    <div className="card__meta">
+                      <span>{event.participantsCount} going</span>
+                      {remaining != null && <span>{remaining} spots</span>}
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
           </div>
-          <div className="actions">
-            {selectedEvent.isJoined ? (
-              <button onClick={handleLeave}>Leave event</button>
-            ) : (
-              <button onClick={handleJoin}>Join event</button>
-            )}
-          </div>
-          <h3>Participants</h3>
-          <ul>
-            {selectedEvent.participants.map((p) => (
-              <li key={p.userId}>{p.name}</li>
-            ))}
-          </ul>
         </section>
-      )}
+
+        {selectedEvent && !selectedInFeed && (
+          <section className="panel detail-panel">
+            <div className="detail-header">
+              <div>
+                <h2>{selectedEvent.event.title}</h2>
+                <p className="detail-meta">{new Date(selectedEvent.event.startsAt).toLocaleString()}</p>
+                {selectedEvent.event.endsAt && (
+                  <p className="detail-meta">Ends: {new Date(selectedEvent.event.endsAt).toLocaleString()}</p>
+                )}
+              </div>
+              <span className="chip chip--accent">{selectedEvent.event.participantsCount} going</span>
+            </div>
+            {selectedEvent.media[0] && (
+              <div className="detail-hero">
+                <MediaImage
+                  src={resolveMediaSrc(selectedEvent.event.id, 0, selectedEvent.media[0])}
+                  alt="event hero"
+                  fallbackSrc={selectedEvent.media[0]}
+                />
+              </div>
+            )}
+            <p className="detail-description">{selectedEvent.event.description}</p>
+            <div className="media-list">
+              {selectedEvent.media.slice(1).map((url, index) => (
+                <MediaImage
+                  key={url}
+                  src={resolveMediaSrc(selectedEvent.event.id, index + 1, url)}
+                  alt="media"
+                  fallbackSrc={url}
+                />
+              ))}
+            </div>
+            <div className="actions">
+              {selectedEvent.isJoined ? (
+                <button className="button button--ghost" onClick={handleLeave}>
+                  Leave event
+                </button>
+              ) : (
+                <button className="button button--accent" onClick={handleJoin}>
+                  Join event
+                </button>
+              )}
+            </div>
+            <h3>Participants</h3>
+            <ul className="participants">
+              {selectedEvent.participants.map((p) => (
+                <li key={p.userId}>{p.name}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
     </div>
   )
 }
