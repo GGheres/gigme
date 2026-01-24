@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"gigme/backend/internal/http/middleware"
@@ -22,6 +24,62 @@ type createEventRequest struct {
 	Capacity    *int     `json:"capacity"`
 	Media       []string `json:"media"`
 	Address     string   `json:"addressLabel"`
+	Filters     []string `json:"filters"`
+}
+
+const maxEventFilters = 3
+
+var allowedEventFilters = map[string]struct{}{
+	"dating": {},
+	"party":  {},
+	"travel": {},
+	"fun":    {},
+	"bar":    {},
+	"feedme": {},
+}
+
+var (
+	errInvalidFilters = errors.New("invalid filters")
+	errTooManyFilters = errors.New("too many filters")
+)
+
+func normalizeEventFilters(filters []string, limit int) ([]string, error) {
+	if len(filters) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(filters))
+	seen := make(map[string]struct{}, len(filters))
+	for _, raw := range filters {
+		if raw == "" {
+			continue
+		}
+		for _, piece := range strings.Split(raw, ",") {
+			filter := strings.ToLower(strings.TrimSpace(piece))
+			if filter == "" {
+				continue
+			}
+			if _, ok := allowedEventFilters[filter]; !ok {
+				return nil, errInvalidFilters
+			}
+			if _, exists := seen[filter]; exists {
+				continue
+			}
+			out = append(out, filter)
+			seen[filter] = struct{}{}
+			if limit > 0 && len(out) > limit {
+				return nil, errTooManyFilters
+			}
+		}
+	}
+	return out, nil
+}
+
+func parseEventFiltersQuery(r *http.Request) ([]string, error) {
+	raw := r.URL.Query().Get("filters")
+	if raw == "" {
+		return nil, nil
+	}
+	return normalizeEventFilters([]string{raw}, 0)
 }
 
 func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +122,21 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("action", "action", "create_event", "status", "media_limit_exceeded")
 		writeError(w, http.StatusBadRequest, "media limit exceeded")
 		return
+	}
+	filters, err := normalizeEventFilters(req.Filters, maxEventFilters)
+	if err != nil {
+		status := "invalid_filters"
+		message := "invalid filters"
+		if errors.Is(err, errTooManyFilters) {
+			status = "filters_limit_exceeded"
+			message = "filters limit exceeded"
+		}
+		logger.Warn("action", "action", "create_event", "status", status)
+		writeError(w, http.StatusBadRequest, message)
+		return
+	}
+	if filters == nil {
+		filters = []string{}
 	}
 
 	startsAt, err := time.Parse(time.RFC3339, req.StartsAt)
@@ -113,6 +186,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		Lng:           req.Lng,
 		Capacity:      req.Capacity,
 		AddressLabel:  req.Address,
+		Filters:       filters,
 	}, req.Media)
 	if err != nil {
 		logger.Error("action", "action", "create_event", "status", "db_error", "error", err)
@@ -171,6 +245,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		"lng", req.Lng,
 		"capacity", req.Capacity,
 		"media_count", len(req.Media),
+		"filters", filters,
 	)
 	writeJSON(w, http.StatusOK, map[string]interface{}{"eventId": eventID})
 }
@@ -191,10 +266,16 @@ func (h *Handler) NearbyEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	lat, lng := parseLatLng(r)
 	radius := parseRadiusM(r)
+	filters, err := parseEventFiltersQuery(r)
+	if err != nil {
+		logger.Warn("action", "action", "nearby_events", "status", "invalid_filters")
+		writeError(w, http.StatusBadRequest, "invalid filters")
+		return
+	}
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	markers, err := h.repo.GetEventMarkers(ctx, from, to, lat, lng, radius)
+	markers, err := h.repo.GetEventMarkers(ctx, from, to, lat, lng, radius, filters)
 	if err != nil {
 		logger.Error("action", "action", "nearby_events", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")
@@ -220,10 +301,16 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 	}
 	lat, lng := parseLatLng(r)
 	radius := parseRadiusM(r)
+	filters, err := parseEventFiltersQuery(r)
+	if err != nil {
+		logger.Warn("action", "action", "feed", "status", "invalid_filters")
+		writeError(w, http.StatusBadRequest, "invalid filters")
+		return
+	}
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	items, err := h.repo.GetFeed(ctx, limit, offset, lat, lng, radius)
+	items, err := h.repo.GetFeed(ctx, limit, offset, lat, lng, radius, filters)
 	if err != nil {
 		logger.Error("action", "action", "feed", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")

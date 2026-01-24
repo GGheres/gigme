@@ -125,13 +125,17 @@ func (r *Repository) CountUserEventsLastHour(ctx context.Context, userID int64) 
 }
 
 func (r *Repository) CreateEvent(ctx context.Context, event models.Event) (int64, error) {
+	filters := event.Filters
+	if filters == nil {
+		filters = []string{}
+	}
 	query := `
 INSERT INTO events (
-	creator_user_id, title, description, starts_at, ends_at, location, address_label, capacity, is_hidden, promoted_until
+	creator_user_id, title, description, starts_at, ends_at, location, address_label, capacity, is_hidden, promoted_until, filters
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11
+	$8, $9, $10, $11, $12
 ) RETURNING id;`
 
 	row := r.pool.QueryRow(ctx, query,
@@ -146,6 +150,7 @@ INSERT INTO events (
 		event.Capacity,
 		event.IsHidden,
 		event.PromotedUntil,
+		filters,
 	)
 
 	var id int64
@@ -174,21 +179,31 @@ func (r *Repository) InsertEventMedia(ctx context.Context, eventID int64, urls [
 	return nil
 }
 
-func (r *Repository) GetEventMarkers(ctx context.Context, from, to *time.Time, lat, lng *float64, radiusMeters int) ([]models.EventMarker, error) {
+func (r *Repository) GetEventMarkers(ctx context.Context, from, to *time.Time, lat, lng *float64, radiusMeters int, filters []string) ([]models.EventMarker, error) {
 	query := `
 SELECT id, title, starts_at,
 	ST_Y(location::geometry) AS lat,
 	ST_X(location::geometry) AS lng,
-	(promoted_until IS NOT NULL AND promoted_until > now()) AS is_promoted
+	(promoted_until IS NOT NULL AND promoted_until > now()) AS is_promoted,
+	filters
 FROM events
 WHERE is_hidden = false
 	AND COALESCE(ends_at, starts_at + interval '2 hours') >= COALESCE($1, now())
 	AND (starts_at <= $2 OR $2 IS NULL)`
 	args := []interface{}{from, to}
 	if lat != nil && lng != nil && radiusMeters > 0 {
-		query += `
-	AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5)`
+		lngIdx := len(args) + 1
+		latIdx := len(args) + 2
+		radiusIdx := len(args) + 3
+		query += fmt.Sprintf(`
+	AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($%d, $%d), 4326)::geography, $%d)`, lngIdx, latIdx, radiusIdx)
 		args = append(args, *lng, *lat, radiusMeters)
+	}
+	if len(filters) > 0 {
+		filterIdx := len(args) + 1
+		query += fmt.Sprintf(`
+	AND filters && $%d`, filterIdx)
+		args = append(args, filters)
 	}
 	query += `
 ORDER BY
@@ -205,7 +220,7 @@ LIMIT 500;`
 	markers := make([]models.EventMarker, 0)
 	for rows.Next() {
 		var m models.EventMarker
-		if err := rows.Scan(&m.ID, &m.Title, &m.StartsAt, &m.Lat, &m.Lng, &m.IsPromoted); err != nil {
+		if err := rows.Scan(&m.ID, &m.Title, &m.StartsAt, &m.Lat, &m.Lng, &m.IsPromoted, &m.Filters); err != nil {
 			return nil, err
 		}
 		markers = append(markers, m)
@@ -213,12 +228,12 @@ LIMIT 500;`
 	return markers, rows.Err()
 }
 
-func (r *Repository) GetFeed(ctx context.Context, limit, offset int, lat, lng *float64, radiusMeters int) ([]models.Event, error) {
+func (r *Repository) GetFeed(ctx context.Context, limit, offset int, lat, lng *float64, radiusMeters int, filters []string) ([]models.Event, error) {
 	query := `
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
-	e.capacity, e.promoted_until,
+	e.capacity, e.promoted_until, e.filters,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
 	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count
@@ -228,9 +243,18 @@ WHERE e.is_hidden = false
 	AND COALESCE(e.ends_at, e.starts_at + interval '2 hours') >= now()`
 	args := []interface{}{limit, offset}
 	if lat != nil && lng != nil && radiusMeters > 0 {
-		query += `
-	AND ST_DWithin(e.location, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5)`
+		lngIdx := len(args) + 1
+		latIdx := len(args) + 2
+		radiusIdx := len(args) + 3
+		query += fmt.Sprintf(`
+	AND ST_DWithin(e.location, ST_SetSRID(ST_MakePoint($%d, $%d), 4326)::geography, $%d)`, lngIdx, latIdx, radiusIdx)
 		args = append(args, *lng, *lat, radiusMeters)
+	}
+	if len(filters) > 0 {
+		filterIdx := len(args) + 1
+		query += fmt.Sprintf(`
+	AND e.filters && $%d`, filterIdx)
+		args = append(args, filters)
 	}
 	query += `
 ORDER BY
@@ -248,7 +272,7 @@ LIMIT $1 OFFSET $2;`
 	for rows.Next() {
 		var e models.Event
 		var thumb sql.NullString
-		if err := rows.Scan(&e.ID, &e.Title, &e.Description, &e.StartsAt, &e.EndsAt, &e.Lat, &e.Lng, &e.Capacity, &e.PromotedUntil, &e.CreatorName, &thumb, &e.Participants); err != nil {
+		if err := rows.Scan(&e.ID, &e.Title, &e.Description, &e.StartsAt, &e.EndsAt, &e.Lat, &e.Lng, &e.Capacity, &e.PromotedUntil, &e.Filters, &e.CreatorName, &thumb, &e.Participants); err != nil {
 			return nil, err
 		}
 		if thumb.Valid {
@@ -264,7 +288,7 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID int64) (models.Ev
 SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
-	e.address_label, e.capacity, e.is_hidden, e.promoted_until,
+	e.address_label, e.capacity, e.is_hidden, e.promoted_until, e.filters,
 	e.created_at, e.updated_at,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count
@@ -275,7 +299,7 @@ WHERE e.id = $1;`
 	row := r.pool.QueryRow(ctx, query, eventID)
 	var e models.Event
 	var address sql.NullString
-	if err := row.Scan(&e.ID, &e.CreatorUserID, &e.Title, &e.Description, &e.StartsAt, &e.EndsAt, &e.Lat, &e.Lng, &address, &e.Capacity, &e.IsHidden, &e.PromotedUntil, &e.CreatedAt, &e.UpdatedAt, &e.CreatorName, &e.Participants); err != nil {
+	if err := row.Scan(&e.ID, &e.CreatorUserID, &e.Title, &e.Description, &e.StartsAt, &e.EndsAt, &e.Lat, &e.Lng, &address, &e.Capacity, &e.IsHidden, &e.PromotedUntil, &e.Filters, &e.CreatedAt, &e.UpdatedAt, &e.CreatorName, &e.Participants); err != nil {
 		return models.Event{}, err
 	}
 	if address.Valid {
@@ -467,16 +491,20 @@ func (r *Repository) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
 
 func (r *Repository) CreateEventWithMedia(ctx context.Context, event models.Event, media []string) (int64, error) {
 	var eventID int64
+	filters := event.Filters
+	if filters == nil {
+		filters = []string{}
+	}
 	return eventID, r.WithTx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx, `
 INSERT INTO events (
-	creator_user_id, title, description, starts_at, ends_at, location, address_label, capacity, is_hidden, promoted_until
+	creator_user_id, title, description, starts_at, ends_at, location, address_label, capacity, is_hidden, promoted_until, filters
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11
+	$8, $9, $10, $11, $12
 ) RETURNING id;`,
-			event.CreatorUserID, event.Title, event.Description, event.StartsAt, event.EndsAt, event.Lng, event.Lat, nullString(event.AddressLabel), event.Capacity, event.IsHidden, event.PromotedUntil)
+			event.CreatorUserID, event.Title, event.Description, event.StartsAt, event.EndsAt, event.Lng, event.Lat, nullString(event.AddressLabel), event.Capacity, event.IsHidden, event.PromotedUntil, filters)
 		if err := row.Scan(&eventID); err != nil {
 			return err
 		}

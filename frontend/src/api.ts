@@ -79,6 +79,7 @@ export type EventMarker = {
   lat: number
   lng: number
   isPromoted: boolean
+  filters?: string[]
 }
 
 export type EventCard = {
@@ -94,6 +95,7 @@ export type EventCard = {
   creatorName?: string
   thumbnailUrl?: string
   participantsCount: number
+  filters?: string[]
 }
 
 export type EventDetail = {
@@ -198,7 +200,7 @@ export function updateLocation(token: string, lat: number, lng: number) {
   )
 }
 
-export function getNearby(token: string, lat: number, lng: number, radiusM = 0) {
+export function getNearby(token: string, lat: number, lng: number, radiusM = 0, filters: string[] = []) {
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
@@ -206,10 +208,13 @@ export function getNearby(token: string, lat: number, lng: number, radiusM = 0) 
   if (radiusM > 0) {
     params.set('radiusM', String(radiusM))
   }
+  if (filters.length > 0) {
+    params.set('filters', filters.join(','))
+  }
   return apiFetch<EventMarker[]>(`/events/nearby?${params.toString()}`, {}, token)
 }
 
-export function getFeed(token: string, lat: number, lng: number, radiusM = 0) {
+export function getFeed(token: string, lat: number, lng: number, radiusM = 0, filters: string[] = []) {
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
@@ -218,6 +223,9 @@ export function getFeed(token: string, lat: number, lng: number, radiusM = 0) {
   })
   if (radiusM > 0) {
     params.set('radiusM', String(radiusM))
+  }
+  if (filters.length > 0) {
+    params.set('filters', filters.join(','))
   }
   return apiFetch<EventCard[]>(`/events/feed?${params.toString()}`, {}, token)
 }
@@ -236,6 +244,7 @@ export function createEvent(token: string, payload: {
   capacity?: number
   media: string[]
   addressLabel?: string
+  filters?: string[]
 }) {
   return apiFetch<{ eventId: number }>(
     '/events',

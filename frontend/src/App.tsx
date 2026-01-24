@@ -21,12 +21,23 @@ import { getActiveLogLevel, logDebug, logError, logInfo, logWarn, setLogToken } 
 
 type LatLng = { lat: number; lng: number }
 type UploadedMedia = { fileUrl: string; previewUrl: string }
+type EventFilter = 'dating' | 'party' | 'travel' | 'fun' | 'bar' | 'feedme'
 
 const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
 const MAX_DESCRIPTION = 1000
 const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
+const MAX_EVENT_FILTERS = 3
+
+const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
+  { id: 'dating', label: 'Dating', icon: '💘' },
+  { id: 'party', label: 'Party', icon: '🎉' },
+  { id: 'travel', label: 'Travel', icon: '✈️' },
+  { id: 'fun', label: 'Fun', icon: '🎈' },
+  { id: 'bar', label: 'Bar', icon: '🍸' },
+  { id: 'feedme', label: 'Feedme', icon: '🍕' },
+]
 
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
 const buildMediaProxyUrl = (eventId: number, index: number) => {
@@ -169,6 +180,8 @@ function App() {
   const [viewLocation, setViewLocation] = useState<LatLng | null>(() => loadStoredCenter())
   const [markers, setMarkers] = useState<EventMarker[]>([])
   const [feed, setFeed] = useState<EventCard[]>([])
+  const [activeFilters, setActiveFilters] = useState<EventFilter[]>([])
+  const [createFilters, setCreateFilters] = useState<EventFilter[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -199,6 +212,23 @@ function App() {
   const selectedInFeed = selectedId != null && feed.some((item) => item.id === selectedId)
   const detailEvent = selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent : null
   const uploadedMediaRef = useRef<UploadedMedia[]>([])
+  const createFiltersLimitReached = createFilters.length >= MAX_EVENT_FILTERS
+
+  const toggleActiveFilter = (id: EventFilter) => {
+    setActiveFilters((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
+  }
+
+  const toggleCreateFilter = (id: EventFilter) => {
+    setCreateFilters((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((f) => f !== id)
+      }
+      if (prev.length >= MAX_EVENT_FILTERS) {
+        return prev
+      }
+      return [...prev, id]
+    })
+  }
 
   const revokePreviews = (items: UploadedMedia[]) => {
     items.forEach((item) => {
@@ -412,7 +442,10 @@ function App() {
         setLoading(true)
       }
       logDebug('feed_load_start', { lat: feedLocation.lat, lng: feedLocation.lng })
-      Promise.all([getNearby(token, feedLocation.lat, feedLocation.lng), getFeed(token, feedLocation.lat, feedLocation.lng)])
+      Promise.all([
+        getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+        getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+      ])
         .then(([nearby, feedItems]) => {
           if (cancelled) return
           setMarkers(nearby)
@@ -440,7 +473,7 @@ function App() {
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [token, feedLocation])
+  }, [token, feedLocation, activeFilters])
 
   useEffect(() => {
     if (!markerLayer.current) return
@@ -529,6 +562,7 @@ function App() {
     const endsAtISO = endsAtLocal ? new Date(endsAtLocal).toISOString() : undefined
     const capacity = capacityRaw ? Number(capacityRaw) : undefined
     const point = createLatLng || viewLocation || userLocation || DEFAULT_CENTER
+    const filters = createFilters
 
     setLoading(true)
     try {
@@ -540,6 +574,7 @@ function App() {
         lat: point.lat,
         lng: point.lng,
         capacity,
+        filters,
         mediaCount: uploadedMedia.length,
       })
       const created = await createEvent(token, {
@@ -551,6 +586,7 @@ function App() {
         lng: point.lng,
         capacity,
         media: uploadedMedia.map((item) => item.fileUrl),
+        filters,
       })
       const newMarker: EventMarker = {
         id: created.eventId,
@@ -559,6 +595,7 @@ function App() {
         lat: point.lat,
         lng: point.lng,
         isPromoted: false,
+        filters,
       }
       const newFeedItem: EventCard = {
         id: created.eventId,
@@ -573,26 +610,32 @@ function App() {
         creatorName: userName || 'You',
         thumbnailUrl: uploadedMedia[0]?.fileUrl,
         participantsCount: 1,
+        filters,
       }
-      setMarkers((prev) => {
-        const exists = prev.some((m) => m.id === newMarker.id)
-        if (exists) return prev
-        return [newMarker, ...prev]
-      })
-      setFeed((prev) => {
-        const exists = prev.some((e) => e.id === newFeedItem.id)
-        if (exists) return prev
-        return [newFeedItem, ...prev]
-      })
+      const matchesActiveFilters =
+        activeFilters.length === 0 || filters.some((filter) => activeFilters.includes(filter))
+      if (matchesActiveFilters) {
+        setMarkers((prev) => {
+          const exists = prev.some((m) => m.id === newMarker.id)
+          if (exists) return prev
+          return [newMarker, ...prev]
+        })
+        setFeed((prev) => {
+          const exists = prev.some((e) => e.id === newFeedItem.id)
+          if (exists) return prev
+          return [newFeedItem, ...prev]
+        })
+      }
       mapInstance.current?.setView([point.lat, point.lng], mapInstance.current?.getZoom() ?? 13)
       setCreating(false)
       clearUploadedMedia()
       setCreateLatLng(null)
       setDescription('')
+      setCreateFilters([])
       if (feedLocation) {
         const [nearby, feedItems] = await Promise.all([
-          getNearby(token, feedLocation.lat, feedLocation.lng),
-          getFeed(token, feedLocation.lat, feedLocation.lng),
+          getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+          getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
         ])
         setMarkers(() => {
           const hasCreated = nearby.some((m) => m.id === newMarker.id)
@@ -672,26 +715,49 @@ function App() {
   return (
     <div className="app">
       <header className="hero">
-        <div className="hero__copy">
-          <p className="eyebrow">Local energy</p>
-          <h1>Gigme</h1>
-          <p className="hero__subtitle">{greeting}</p>
+        <div className="hero__main">
+          <div className="hero__copy">
+            <p className="eyebrow">Local energy</p>
+            <h1>Gigme</h1>
+            <p className="hero__subtitle">{greeting}</p>
+          </div>
+          <div className="hero__actions">
+            <button
+              className="button button--primary"
+              disabled={!canCreate}
+              onClick={() => {
+                setCreating((v) => {
+                  const next = !v
+                  logInfo('toggle_create_form', { open: next })
+                  return next
+                })
+              }}
+            >
+              {creating ? 'Close' : 'Create event'}
+            </button>
+            <span className="chip chip--ghost">{mapCenterLabel}</span>
+          </div>
         </div>
-        <div className="hero__actions">
-          <button
-            className="button button--primary"
-            disabled={!canCreate}
-            onClick={() => {
-              setCreating((v) => {
-                const next = !v
-                logInfo('toggle_create_form', { open: next })
-                return next
-              })
-            }}
-          >
-            {creating ? 'Close' : 'Create event'}
-          </button>
-          <span className="chip chip--ghost">{mapCenterLabel}</span>
+        <div className="hero__filters">
+          <span className="hero__filters-label">Filters</span>
+          <div className="filter-row">
+            {EVENT_FILTERS.map((filter) => {
+              const active = activeFilters.includes(filter.id)
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={`filter-pill filter-pill--icon${active ? ' filter-pill--active' : ''}`}
+                  aria-pressed={active}
+                  aria-label={filter.label}
+                  title={filter.label}
+                  onClick={() => toggleActiveFilter(filter.id)}
+                >
+                  <span aria-hidden="true">{filter.icon}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </header>
 
@@ -731,6 +797,36 @@ function App() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </label>
+              <div className="field">
+                <div className="field__label">
+                  <span>Filters</span>
+                  <span className="field__hint">
+                    {createFilters.length}/{MAX_EVENT_FILTERS}
+                  </span>
+                </div>
+                <div className="filter-row">
+                  {EVENT_FILTERS.map((filter) => {
+                    const active = createFilters.includes(filter.id)
+                    const disabled = !active && createFiltersLimitReached
+                    return (
+                      <button
+                        key={filter.id}
+                        type="button"
+                        className={`filter-pill${active ? ' filter-pill--active' : ''}`}
+                        aria-pressed={active}
+                        disabled={disabled}
+                        onClick={() => toggleCreateFilter(filter.id)}
+                      >
+                        <span className="filter-pill__icon" aria-hidden="true">
+                          {filter.icon}
+                        </span>
+                        <span className="filter-pill__label">{filter.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="hint">Select up to {MAX_EVENT_FILTERS} filters.</p>
+              </div>
               <div className="form-grid">
                 <label className="field">
                   Starts at
