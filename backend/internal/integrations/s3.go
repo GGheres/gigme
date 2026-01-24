@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"path"
 	"strings"
@@ -16,10 +17,12 @@ import (
 )
 
 type S3Client struct {
-	bucket   string
-	endpoint string
-	client   *s3.Client
-	presign  *s3.PresignClient
+	bucket         string
+	endpoint       string
+	publicEndpoint string
+	client         *s3.Client
+	presign        *s3.PresignClient
+	publicPresign  *s3.PresignClient
 }
 
 func NewS3(ctx context.Context, cfg config.S3Config) (*S3Client, error) {
@@ -32,33 +35,38 @@ func NewS3(ctx context.Context, cfg config.S3Config) (*S3Client, error) {
 		region = "us-east-1"
 	}
 
-	endpoint := cfg.Endpoint
-	if endpoint != "" {
-		if !strings.HasPrefix(endpoint, "http") {
-			scheme := "https"
-			if !cfg.UseSSL {
-				scheme = "http"
-			}
-			endpoint = scheme + "://" + endpoint
-		}
+	endpoint := normalizeEndpoint(cfg.Endpoint, cfg.UseSSL)
+	publicEndpoint := normalizeEndpoint(cfg.PublicEndpoint, cfg.UseSSL)
+	if publicEndpoint == "" {
+		publicEndpoint = endpoint
 	}
 
 	options := s3.Options{
-		Region:      region,
-		Credentials: credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""),
-		UsePathStyle:     true,
+		Region:       region,
+		Credentials:  credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""),
+		UsePathStyle: true,
 	}
 	if endpoint != "" {
 		options.BaseEndpoint = aws.String(endpoint)
 	}
 
 	client := s3.New(options)
+	presign := s3.NewPresignClient(client)
+	publicPresign := presign
+	if publicEndpoint != "" && publicEndpoint != endpoint {
+		publicOptions := options
+		publicOptions.BaseEndpoint = aws.String(publicEndpoint)
+		publicClient := s3.New(publicOptions)
+		publicPresign = s3.NewPresignClient(publicClient)
+	}
 
 	return &S3Client{
-		bucket:   cfg.Bucket,
-		endpoint: endpoint,
-		client:   client,
-		presign:  s3.NewPresignClient(client),
+		bucket:         cfg.Bucket,
+		endpoint:       endpoint,
+		publicEndpoint: publicEndpoint,
+		client:         client,
+		presign:        presign,
+		publicPresign:  publicPresign,
 	}, nil
 }
 
@@ -70,7 +78,7 @@ func (s *S3Client) PresignPutObject(ctx context.Context, fileName, contentType s
 		ContentType: aws.String(contentType),
 	}
 
-	resp, err := s.presign.PresignPutObject(ctx, input, func(opts *s3.PresignOptions) {
+	resp, err := s.publicPresign.PresignPutObject(ctx, input, func(opts *s3.PresignOptions) {
 		opts.Expires = 15 * time.Minute
 	})
 	if err != nil {
@@ -80,12 +88,29 @@ func (s *S3Client) PresignPutObject(ctx context.Context, fileName, contentType s
 	return resp.URL, s.publicURLForKey(key), nil
 }
 
+func (s *S3Client) UploadObject(ctx context.Context, fileName, contentType string, body io.Reader, size int64) (string, error) {
+	key := buildObjectKey(fileName)
+	input := &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key),
+		Body:        body,
+		ContentType: aws.String(contentType),
+	}
+	if size > 0 {
+		input.ContentLength = aws.Int64(size)
+	}
+	if _, err := s.client.PutObject(ctx, input); err != nil {
+		return "", err
+	}
+	return s.publicURLForKey(key), nil
+}
+
 func (s *S3Client) publicURLForKey(key string) string {
-	if s.endpoint == "" {
+	if s.publicEndpoint == "" {
 		return fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s.bucket, key)
 	}
 
-	endpoint := s.endpoint
+	endpoint := s.publicEndpoint
 	if !strings.HasPrefix(endpoint, "http") {
 		endpoint = "https://" + endpoint
 	}
@@ -101,4 +126,18 @@ func buildObjectKey(fileName string) string {
 	safeName := strings.ReplaceAll(fileName, " ", "-")
 	now := time.Now().UTC()
 	return fmt.Sprintf("events/%d/%02d/%02d/%d-%s", now.Year(), now.Month(), now.Day(), now.UnixNano(), safeName)
+}
+
+func normalizeEndpoint(endpoint string, useSSL bool) string {
+	if endpoint == "" {
+		return ""
+	}
+	if strings.HasPrefix(endpoint, "http") {
+		return endpoint
+	}
+	scheme := "https"
+	if !useSSL {
+		scheme = "http"
+	}
+	return scheme + "://" + endpoint
 }

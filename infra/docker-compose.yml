@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gigme -d gigme"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7-alpine
@@ -32,7 +37,8 @@ services:
   migrate:
     image: migrate/migrate:v4.17.0
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./migrations:/migrations
     entrypoint: ["/bin/sh", "-c"]
@@ -43,15 +49,20 @@ services:
     build:
       context: ../backend
     depends_on:
-      - db
-      - redis
-      - minio
-      - migrate
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       HTTP_ADDR: ":8080"
       DATABASE_URL: postgres://gigme:gigme@db:5432/gigme?sslmode=disable
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
       S3_BUCKET: gigme
       S3_ACCESS_KEY: minio
       S3_SECRET_KEY: minio123
@@ -69,9 +80,12 @@ services:
     build:
       context: ../backend
     depends_on:
-      - db
-      - redis
-      - migrate
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     command: ["/bin/worker"]
     environment:
       DATABASE_URL: postgres://gigme:gigme@db:5432/gigme?sslmode=disable
@@ -82,4 +96,6 @@ services:
 
 volumes:
   db_data:
+    name: infra_db_data
   minio_data:
+    name: infra_minio_data

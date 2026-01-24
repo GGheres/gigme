@@ -70,6 +70,51 @@ func (r *Repository) GetUserByID(ctx context.Context, id int64) (models.User, er
 	return out, err
 }
 
+func (r *Repository) UpdateUserLocation(ctx context.Context, userID int64, lat, lng float64) error {
+	_, err := r.pool.Exec(ctx, `
+UPDATE users
+SET last_location = ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography,
+	last_seen_at = now(),
+	updated_at = now()
+WHERE id = $1;`, userID, lng, lat)
+	return err
+}
+
+func (r *Repository) GetNearbyUserIDs(ctx context.Context, lat, lng float64, radiusMeters int, excludeUserID int64, seenAfter *time.Time, limit int) ([]int64, error) {
+	query := `
+SELECT id
+FROM users
+WHERE id <> $1
+	AND last_location IS NOT NULL
+	AND ST_DWithin(last_location, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4)
+	AND (last_seen_at >= $5 OR $5 IS NULL)
+ORDER BY last_seen_at DESC`
+	args := []interface{}{excludeUserID, lat, lng, radiusMeters, seenAfter}
+	if limit > 0 {
+		query += `
+LIMIT $6;`
+		args = append(args, limit)
+	} else {
+		query += ";"
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 func (r *Repository) CountUserEventsLastHour(ctx context.Context, userID int64) (int, error) {
 	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM events WHERE creator_user_id = $1 AND created_at >= now() - interval '1 hour'`, userID)
 	var count int
@@ -129,7 +174,7 @@ func (r *Repository) InsertEventMedia(ctx context.Context, eventID int64, urls [
 	return nil
 }
 
-func (r *Repository) GetEventMarkers(ctx context.Context, lat, lng float64, radiusMeters int, from, to *time.Time) ([]models.EventMarker, error) {
+func (r *Repository) GetEventMarkers(ctx context.Context, from, to *time.Time, lat, lng *float64, radiusMeters int) ([]models.EventMarker, error) {
 	query := `
 SELECT id, title, starts_at,
 	ST_Y(location::geometry) AS lat,
@@ -137,15 +182,21 @@ SELECT id, title, starts_at,
 	(promoted_until IS NOT NULL AND promoted_until > now()) AS is_promoted
 FROM events
 WHERE is_hidden = false
-	AND starts_at >= COALESCE($3, now() - interval '2 hours')
-	AND (starts_at <= $4 OR $4 IS NULL)
-	AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $5)
+	AND COALESCE(ends_at, starts_at + interval '2 hours') >= COALESCE($1, now())
+	AND (starts_at <= $2 OR $2 IS NULL)`
+	args := []interface{}{from, to}
+	if lat != nil && lng != nil && radiusMeters > 0 {
+		query += `
+	AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5)`
+		args = append(args, *lng, *lat, radiusMeters)
+	}
+	query += `
 ORDER BY
 	(promoted_until IS NOT NULL AND promoted_until > now()) DESC,
 	starts_at ASC
 LIMIT 500;`
 
-	rows, err := r.pool.Query(ctx, query, lat, lng, from, to, radiusMeters)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +213,7 @@ LIMIT 500;`
 	return markers, rows.Err()
 }
 
-func (r *Repository) GetFeed(ctx context.Context, lat, lng float64, radiusMeters int, limit, offset int) ([]models.Event, error) {
+func (r *Repository) GetFeed(ctx context.Context, limit, offset int, lat, lng *float64, radiusMeters int) ([]models.Event, error) {
 	query := `
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
@@ -174,14 +225,20 @@ SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 FROM events e
 JOIN users u ON u.id = e.creator_user_id
 WHERE e.is_hidden = false
-	AND e.starts_at >= now() - interval '2 hours'
-	AND ST_DWithin(e.location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
+	AND COALESCE(e.ends_at, e.starts_at + interval '2 hours') >= now()`
+	args := []interface{}{limit, offset}
+	if lat != nil && lng != nil && radiusMeters > 0 {
+		query += `
+	AND ST_DWithin(e.location, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5)`
+		args = append(args, *lng, *lat, radiusMeters)
+	}
+	query += `
 ORDER BY
 	(e.promoted_until IS NOT NULL AND e.promoted_until > now()) DESC,
 	e.starts_at ASC
-LIMIT $4 OFFSET $5;`
+LIMIT $1 OFFSET $2;`
 
-	rows, err := r.pool.Query(ctx, query, lat, lng, radiusMeters, limit, offset)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

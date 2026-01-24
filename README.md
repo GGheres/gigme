@@ -16,14 +16,19 @@ BASE_URL=
 ADMIN_TELEGRAM_IDS=123456789
 ```
 
-2. Start infra:
+2. Make sure `infra/.env` exists (so docker compose picks it up):
+```
+cp .env infra/.env
+```
+
+3. Start infra:
 
 ```
 cd infra
 docker compose up --build
 ```
 
-3. Create a bucket in MinIO (once):
+4. Create a bucket in MinIO (once):
 
 ```
 # MinIO console: http://localhost:9001
@@ -31,7 +36,7 @@ docker compose up --build
 # create bucket: gigme
 ```
 
-4. Run the frontend locally:
+5. Run the frontend locally:
 лс
 ```
 cd ../frontend
@@ -45,6 +50,7 @@ VITE_API_URL=http://localhost:8080 npm run dev
 - `DATABASE_URL` - Postgres connection string
 - `REDIS_URL` - (optional)
 - `S3_ENDPOINT` - S3/MinIO endpoint (example `http://minio:9000`)
+- `S3_PUBLIC_ENDPOINT` - public S3/MinIO endpoint for browser uploads (example `http://localhost:9000`)
 - `S3_BUCKET`
 - `S3_ACCESS_KEY`
 - `S3_SECRET_KEY`
@@ -55,9 +61,15 @@ VITE_API_URL=http://localhost:8080 npm run dev
 - `JWT_SECRET`
 - `BASE_URL` - (optional) base URL for links
 - `ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
+- `LOG_LEVEL` - `debug|info|warn|error` (default: `info`)
+- `LOG_FORMAT` - `text|json` (default: `text`)
+- `LOG_FILE` - optional path to also write logs to a file
 
 ### Frontend
 - `VITE_API_URL` - API URL
+- `VITE_LOG_LEVEL` - `debug|info|warn|error|off` (default: `info`). Overrides can be set at runtime with `localStorage.setItem('gigme:logLevel', 'debug')`.
+- `VITE_LOG_TO_SERVER` - `true|false` (default: `true` in dev, `false` in prod). Runtime override: `localStorage.setItem('gigme:logToServer', 'true')`.
+- `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).
 
 ## Test calls
 ```
@@ -71,11 +83,14 @@ GET /events/nearby?lat=52.37&lng=4.9&radiusM=5000
 - Rate limiting: create event (3/hour), join/leave (10/min) - best effort.
 - Notifications: worker scans `notification_jobs`.
 - Media: presigned uploads to S3/MinIO.
+- Nearby notifications depend on clients sending `POST /me/location`.
 
 ## API summary
 Implemented endpoints:
 - `POST /auth/telegram`
+- `POST /logs/client`
 - `GET /me`
+- `POST /me/location`
 - `POST /events`
 - `GET /events/nearby`
 - `GET /events/feed`
