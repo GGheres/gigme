@@ -29,6 +29,9 @@ const MAX_DESCRIPTION = 1000
 const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 const MAX_EVENT_FILTERS = 3
+const LOGO_FRAME_COUNT = 134
+const LOGO_FPS = 24
+const LOGO_FRAME_PREFIX = '/gigmov-frames/frame_'
 
 const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
   { id: 'dating', label: 'Dating', icon: '💘' },
@@ -53,6 +56,14 @@ const NGROK_HOST_RE = /ngrok-free\.app|ngrok\.io/i
 const isNgrokUrl = (value?: string) => {
   if (!value) return false
   return NGROK_HOST_RE.test(value)
+}
+
+const isIOSDevice = () => {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const iOS = /iPad|iPhone|iPod/.test(ua)
+  const iPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
+  return iOS || iPadOS
 }
 
 type MediaImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
@@ -122,6 +133,102 @@ const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
 
   if (!resolvedSrc) return null
   return <img src={resolvedSrc} alt={alt} {...rest} />
+}
+
+const LogoAnimation = () => {
+  const [useCanvas] = useState(() => isIOSDevice())
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const frameRef = useRef(1)
+  const sizeRef = useRef({ width: 0, height: 0 })
+  const imagesRef = useRef<(HTMLImageElement | null)[]>([])
+
+  useEffect(() => {
+    if (!useCanvas) return
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const images = new Array(LOGO_FRAME_COUNT).fill(null) as (HTMLImageElement | null)[]
+    imagesRef.current = images
+
+    for (let i = 1; i <= LOGO_FRAME_COUNT; i += 1) {
+      const img = new Image()
+      img.src = `${LOGO_FRAME_PREFIX}${String(i).padStart(4, '0')}.png`
+      img.onload = () => {
+        images[i - 1] = img
+      }
+    }
+
+    const resize = () => {
+      const rect = container.getBoundingClientRect()
+      if (!rect.width || !rect.height) return
+      const ratio = window.devicePixelRatio || 1
+      canvas.width = Math.max(1, Math.round(rect.width * ratio))
+      canvas.height = Math.max(1, Math.round(rect.height * ratio))
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+      ctx.imageSmoothingEnabled = true
+      sizeRef.current = { width: rect.width, height: rect.height }
+    }
+
+    resize()
+
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null
+    observer?.observe(container)
+    window.addEventListener('orientationchange', resize)
+    window.addEventListener('resize', resize)
+
+    let raf = 0
+    let lastTime = performance.now()
+    const frameDuration = 1000 / LOGO_FPS
+
+    const render = (time: number) => {
+      const elapsed = time - lastTime
+      if (elapsed >= frameDuration) {
+        const advance = Math.floor(elapsed / frameDuration)
+        frameRef.current = ((frameRef.current - 1 + advance) % LOGO_FRAME_COUNT) + 1
+        lastTime = time - (elapsed % frameDuration)
+      }
+
+      const img = imagesRef.current[frameRef.current - 1]
+      const { width, height } = sizeRef.current
+      if (img && width && height) {
+        ctx.clearRect(0, 0, width, height)
+        const scale = Math.min(width / img.width, height / img.height)
+        const drawW = img.width * scale
+        const drawH = img.height * scale
+        const dx = (width - drawW) / 2
+        const dy = (height - drawH) / 2
+        ctx.drawImage(img, dx, dy, drawW, drawH)
+      }
+
+      raf = requestAnimationFrame(render)
+    }
+
+    raf = requestAnimationFrame(render)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      observer?.disconnect()
+      window.removeEventListener('orientationchange', resize)
+      window.removeEventListener('resize', resize)
+    }
+  }, [useCanvas])
+
+  return (
+    <div className="logo-video-wrap" ref={containerRef}>
+      {useCanvas ? (
+        <canvas className="logo-canvas" ref={canvasRef} />
+      ) : (
+        <video className="logo-video" autoPlay loop muted playsInline preload="auto">
+          <source src="/gigmov.webm" type="video/webm" />
+          <source src="/gigmov.mp4" type="video/mp4" />
+        </video>
+      )}
+    </div>
+  )
 }
 
 const pulseIcon = L.divIcon({
@@ -474,6 +581,39 @@ function App() {
           return sameLat && sameLng ? prev : next
         })
       })
+      requestAnimationFrame(() => {
+        mapInstance.current?.invalidateSize()
+      })
+    }
+  }, [viewLocation])
+
+  useEffect(() => {
+    const map = mapInstance.current
+    const node = mapRef.current
+    if (!map || !node) return
+
+    let frame: number | null = null
+    const refresh = () => {
+      if (frame) cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        map.invalidateSize()
+        const center = viewLocation ?? map.getCenter()
+        map.setView([center.lat, center.lng], map.getZoom(), { animate: false })
+      })
+    }
+
+    refresh()
+
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(refresh) : null
+    observer?.observe(node)
+    window.addEventListener('resize', refresh)
+    window.addEventListener('orientationchange', refresh)
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      observer?.disconnect()
+      window.removeEventListener('resize', refresh)
+      window.removeEventListener('orientationchange', refresh)
     }
   }, [viewLocation])
 
@@ -790,6 +930,9 @@ function App() {
             </button>
             <span className="chip chip--ghost">{mapCenterLabel}</span>
           </div>
+        </div>
+        <div className="hero__brand" aria-hidden="true">
+          <LogoAnimation />
         </div>
         <div className="hero__filters">
           <span className="hero__filters-label">Filters</span>
