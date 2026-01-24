@@ -196,29 +196,25 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	_ = h.repo.JoinEvent(ctx, eventID, userID)
 
-	nearbyCutoff := time.Now().Add(-2 * time.Hour)
-	nearbyUserIDs, err := h.repo.GetNearbyUserIDs(ctx, req.Lat, req.Lng, 100000, userID, &nearbyCutoff, 500)
-	if err == nil {
-		for _, nearbyUserID := range nearbyUserIDs {
-			_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
-				UserID:  nearbyUserID,
-				EventID: &eventID,
-				Kind:    "event_nearby",
-				RunAt:   time.Now(),
-				Payload: map[string]interface{}{"eventId": eventID, "title": req.Title},
-				Status:  "pending",
-			})
-		}
+	payload := map[string]interface{}{
+		"eventId":  eventID,
+		"title":    req.Title,
+		"startsAt": req.StartsAt,
 	}
-
-	_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
-		UserID:  userID,
-		EventID: &eventID,
-		Kind:    "event_created",
-		RunAt:   time.Now(),
-		Payload: map[string]interface{}{"eventId": eventID, "title": req.Title},
-		Status:  "pending",
-	})
+	if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
+		payload["apiBaseUrl"] = apiBaseURL
+	}
+	if req.Address != "" {
+		payload["addressLabel"] = req.Address
+	}
+	if len(req.Media) > 0 {
+		payload["photoUrl"] = req.Media[0]
+	}
+	if count, err := h.repo.CreateNotificationJobsForAllUsers(ctx, eventID, "event_created", time.Now(), payload); err != nil {
+		logger.Warn("action", "action", "create_event", "status", "notify_all_failed", "error", err)
+	} else {
+		logger.Info("action", "action", "create_event", "status", "notify_all_enqueued", "count", count)
+	}
 
 	title := req.Title
 	reminderAt := startsAt.Add(-60 * time.Minute)
@@ -517,4 +513,36 @@ func parseRadiusM(r *http.Request) int {
 		return 0
 	}
 	return value
+}
+
+func publicBaseURL(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	host := forwardedHeaderValue(r.Header.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(r.Host)
+	}
+	if host == "" {
+		return ""
+	}
+	proto := forwardedHeaderValue(r.Header.Get("X-Forwarded-Proto"))
+	if proto == "" {
+		if r.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	return proto + "://" + host
+}
+
+func forwardedHeaderValue(value string) string {
+	if value == "" {
+		return ""
+	}
+	if idx := strings.Index(value, ","); idx >= 0 {
+		value = value[:idx]
+	}
+	return strings.TrimSpace(value)
 }

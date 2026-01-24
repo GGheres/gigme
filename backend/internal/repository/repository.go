@@ -369,6 +369,21 @@ RETURNING id;`, job.UserID, job.EventID, job.Kind, job.RunAt, payload, job.Statu
 	return id, nil
 }
 
+func (r *Repository) CreateNotificationJobsForAllUsers(ctx context.Context, eventID int64, kind string, runAt time.Time, payload map[string]interface{}) (int64, error) {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return 0, err
+	}
+	command, err := r.pool.Exec(ctx, `
+INSERT INTO notification_jobs (user_id, event_id, kind, run_at, payload, status)
+SELECT id, $1, $2, $3, $4, 'pending'
+FROM users;`, eventID, kind, runAt, payloadBytes)
+	if err != nil {
+		return 0, err
+	}
+	return command.RowsAffected(), nil
+}
+
 func (r *Repository) FetchDueNotificationJobs(ctx context.Context, limit int) ([]models.NotificationJob, error) {
 	query := `
 WITH cte AS (

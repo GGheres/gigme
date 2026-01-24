@@ -141,6 +141,51 @@ const getInitDataFromLocation = () => {
   return hashParams.get('tgWebAppData') || hashParams.get('initData') || ''
 }
 
+const getEventIdFromLocation = () => {
+  if (typeof window === 'undefined') return null
+  const searchParams = new URLSearchParams(window.location.search)
+  const fromSearch = searchParams.get('eventId') || searchParams.get('event')
+  if (fromSearch) {
+    const parsed = Number(fromSearch)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+  if (!hash) return null
+  const hashParams = new URLSearchParams(hash)
+  const fromHash = hashParams.get('eventId') || hashParams.get('event')
+  if (!fromHash) return null
+  const parsed = Number(fromHash)
+  if (Number.isFinite(parsed) && parsed > 0) return parsed
+  return null
+}
+
+const getEventIdFromTelegram = () => {
+  if (typeof window === 'undefined') return null
+  const tg = (window as any).Telegram?.WebApp
+  const startParam = tg?.initDataUnsafe?.start_param || tg?.initDataUnsafe?.startParam
+  if (!startParam) return null
+  const match = String(startParam).match(/\d+/)
+  if (!match) return null
+  const parsed = Number(match[0])
+  if (!Number.isFinite(parsed) || parsed <= 0) return null
+  return parsed
+}
+
+const updateEventIdInLocation = (eventId: number | null) => {
+  if (typeof window === 'undefined') return
+  try {
+    const url = new URL(window.location.href)
+    if (eventId && eventId > 0) {
+      url.searchParams.set('eventId', String(eventId))
+    } else {
+      url.searchParams.delete('eventId')
+    }
+    window.history.replaceState({}, '', url.toString())
+  } catch {
+    // ignore invalid URL updates
+  }
+}
+
 const upsertCoordsInDescription = (value: string, lat: number, lng: number) => {
   const coordsLine = `${COORDS_LABEL} ${formatCoords(lat, lng)}`
   const cleaned = value
@@ -182,7 +227,7 @@ function App() {
   const [feed, setFeed] = useState<EventCard[]>([])
   const [activeFilters, setActiveFilters] = useState<EventFilter[]>([])
   const [createFilters, setCreateFilters] = useState<EventFilter[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(() => getEventIdFromLocation())
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -258,6 +303,10 @@ function App() {
       tg.ready()
       tg.expand()
       logDebug('telegram_webapp_ready')
+      const startEventId = getEventIdFromTelegram()
+      if (startEventId) {
+        setSelectedId((prev) => prev ?? startEventId)
+      }
     }
     const initData = tg?.initData || getInitDataFromLocation()
     if (!initData) {
@@ -299,6 +348,10 @@ function App() {
     if (target instanceof HTMLElement) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
     }
+  }, [selectedId])
+
+  useEffect(() => {
+    updateEventIdInLocation(selectedId)
   }, [selectedId])
 
   useEffect(() => {
@@ -770,7 +823,6 @@ function App() {
         <section className="map-card">
           <div className="map" ref={mapRef} />
           <div className="map-overlay">
-            <span className="chip">Center: {mapCenterLabel}</span>
             {pinLabel && <span className="chip chip--accent">Pin: {pinLabel}</span>}
             <span className="chip chip--ghost">Tap map to pin</span>
           </div>
@@ -881,7 +933,9 @@ function App() {
           {feed.length === 0 && <p className="empty">No events yet</p>}
           <div className="feed-grid">
             {feed.map((event) => {
-              const thumbnailSrc = event.thumbnailUrl ? resolveMediaSrc(event.id, 0, event.thumbnailUrl) : ''
+              const proxyThumb = buildMediaProxyUrl(event.id, 0)
+              const thumbnailSrc = event.thumbnailUrl || proxyThumb
+              const thumbnailFallback = event.thumbnailUrl ? proxyThumb : undefined
               if (event.id === selectedId) {
                 if (!detailEvent) {
                   return (
@@ -895,7 +949,7 @@ function App() {
                           <MediaImage
                             src={thumbnailSrc}
                             alt="thumb"
-                            fallbackSrc={event.thumbnailUrl}
+                            fallbackSrc={thumbnailFallback}
                           />
                         ) : (
                           <div className="card__placeholder">No photo</div>
@@ -993,7 +1047,7 @@ function App() {
                       <MediaImage
                         src={thumbnailSrc}
                         alt="thumb"
-                        fallbackSrc={event.thumbnailUrl}
+                        fallbackSrc={thumbnailFallback}
                       />
                     ) : (
                       <div className="card__placeholder">No photo</div>
