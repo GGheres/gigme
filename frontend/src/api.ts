@@ -117,6 +117,30 @@ export type EventDetail = {
   isJoined: boolean
 }
 
+export type AdminEventUpdate = {
+  title?: string
+  description?: string
+  startsAt?: string
+  endsAt?: string
+  lat?: number
+  lng?: number
+  capacity?: number
+  media?: string[]
+  addressLabel?: string
+  filters?: string[]
+  contactTelegram?: string
+  contactWhatsapp?: string
+  contactWechat?: string
+  contactFbMessenger?: string
+  contactSnapchat?: string
+}
+
+export type PromoteRequest = {
+  promotedUntil?: string
+  durationMinutes?: number
+  clear?: boolean
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}, token?: string) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -270,6 +294,18 @@ export function joinEvent(token: string, id: number) {
 
 export function leaveEvent(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/events/${id}/leave`, { method: 'POST' }, token)
+}
+
+export function promoteEvent(token: string, id: number, payload: PromoteRequest) {
+  return apiFetch<{ ok: boolean }>(`/events/${id}/promote`, { method: 'POST', body: JSON.stringify(payload) }, token)
+}
+
+export function updateEventAdmin(token: string, id: number, payload: AdminEventUpdate) {
+  return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
+}
+
+export function deleteEventAdmin(token: string, id: number) {
+  return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'DELETE' }, token)
 }
 
 export function presignMedia(token: string, payload: {

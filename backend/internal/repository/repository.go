@@ -668,6 +668,88 @@ func (r *Repository) SetEventHidden(ctx context.Context, eventID int64, hidden b
 	return err
 }
 
+func (r *Repository) UpdateEventWithMedia(ctx context.Context, event models.Event, media []string, replaceMedia bool) error {
+	filters := event.Filters
+	if filters == nil {
+		filters = []string{}
+	}
+	return r.WithTx(ctx, func(tx pgx.Tx) error {
+		command, err := tx.Exec(ctx, `
+UPDATE events SET
+	title = $1,
+	description = $2,
+	starts_at = $3,
+	ends_at = $4,
+	location = ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography,
+	address_label = $7,
+	contact_telegram = $8,
+	contact_whatsapp = $9,
+	contact_wechat = $10,
+	contact_fb_messenger = $11,
+	contact_snapchat = $12,
+	capacity = $13,
+	filters = $14,
+	updated_at = now()
+WHERE id = $15;`,
+			event.Title,
+			event.Description,
+			event.StartsAt,
+			event.EndsAt,
+			event.Lng,
+			event.Lat,
+			nullString(event.AddressLabel),
+			nullString(event.ContactTelegram),
+			nullString(event.ContactWhatsapp),
+			nullString(event.ContactWechat),
+			nullString(event.ContactFbMessenger),
+			nullString(event.ContactSnapchat),
+			event.Capacity,
+			filters,
+			event.ID,
+		)
+		if err != nil {
+			return err
+		}
+		if command.RowsAffected() == 0 {
+			return pgx.ErrNoRows
+		}
+		if !replaceMedia {
+			return nil
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM event_media WHERE event_id = $1`, event.ID); err != nil {
+			return err
+		}
+		for _, url := range media {
+			if _, err := tx.Exec(ctx, `INSERT INTO event_media (event_id, url, type) VALUES ($1, $2, 'image')`, event.ID, url); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) SetEventPromotedUntil(ctx context.Context, eventID int64, until *time.Time) error {
+	command, err := r.pool.Exec(ctx, `UPDATE events SET promoted_until = $1, updated_at = now() WHERE id = $2`, until, eventID)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteEvent(ctx context.Context, eventID int64) error {
+	command, err := r.pool.Exec(ctx, `DELETE FROM events WHERE id = $1`, eventID)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 func (r *Repository) ensurePool() error {
 	if r.pool == nil {
 		return fmt.Errorf("db pool is nil")

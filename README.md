@@ -97,6 +97,10 @@ Implemented endpoints:
 - `GET /events/{id}`
 - `POST /events/{id}/join`
 - `POST /events/{id}/leave`
-- `POST /events/{id}/promote` (501)
+- `POST /events/{id}/promote` (admin only)
 - `POST /media/presign`
 - `POST /admin/events/{id}/hide`
+- `PATCH /admin/events/{id}` (admin only)
+- `DELETE /admin/events/{id}` (admin only)
+
+Promoted events are marked as featured and sorted to the top while `promoted_until` is in the future.

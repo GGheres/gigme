@@ -12,6 +12,7 @@ import (
 	"gigme/backend/internal/models"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 type createEventRequest struct {
@@ -30,6 +31,12 @@ type createEventRequest struct {
 	ContactWechat      string   `json:"contactWechat"`
 	ContactFbMessenger string   `json:"contactFbMessenger"`
 	ContactSnapchat    string   `json:"contactSnapchat"`
+}
+
+type promoteEventRequest struct {
+	PromotedUntil   *string `json:"promotedUntil"`
+	DurationMinutes *int    `json:"durationMinutes"`
+	Clear           bool    `json:"clear"`
 }
 
 const maxEventFilters = 3
@@ -527,8 +534,76 @@ func (h *Handler) LeaveEvent(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PromoteEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	logger.Warn("action", "action", "promote_event", "status", "not_implemented")
-	writeError(w, http.StatusNotImplemented, "not implemented")
+	if _, ok := h.requireAdmin(logger, w, r, "promote_event"); !ok {
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "promote_event", "status", "invalid_event_id")
+		writeError(w, http.StatusBadRequest, "invalid event id")
+		return
+	}
+
+	var req promoteEventRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("action", "action", "promote_event", "status", "invalid_json")
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	if req.DurationMinutes != nil && req.PromotedUntil != nil {
+		logger.Warn("action", "action", "promote_event", "status", "conflicting_params")
+		writeError(w, http.StatusBadRequest, "provide promotedUntil or durationMinutes")
+		return
+	}
+
+	var promotedUntil *time.Time
+	if req.Clear {
+		promotedUntil = nil
+	} else if req.DurationMinutes != nil {
+		if *req.DurationMinutes <= 0 {
+			logger.Warn("action", "action", "promote_event", "status", "invalid_duration")
+			writeError(w, http.StatusBadRequest, "durationMinutes must be > 0")
+			return
+		}
+		until := time.Now().Add(time.Duration(*req.DurationMinutes) * time.Minute)
+		promotedUntil = &until
+	} else if req.PromotedUntil != nil {
+		value := strings.TrimSpace(*req.PromotedUntil)
+		if value == "" {
+			promotedUntil = nil
+		} else {
+			parsed, err := time.Parse(time.RFC3339, value)
+			if err != nil {
+				logger.Warn("action", "action", "promote_event", "status", "invalid_promoted_until")
+				writeError(w, http.StatusBadRequest, "invalid promotedUntil")
+				return
+			}
+			promotedUntil = &parsed
+		}
+	} else {
+		logger.Warn("action", "action", "promote_event", "status", "missing_payload")
+		writeError(w, http.StatusBadRequest, "promote payload required")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+
+	if err := h.repo.SetEventPromotedUntil(ctx, id, promotedUntil); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			logger.Warn("action", "action", "promote_event", "status", "not_found", "event_id", id)
+			writeError(w, http.StatusNotFound, "event not found")
+			return
+		}
+		logger.Error("action", "action", "promote_event", "status", "db_error", "event_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	logger.Info("action", "action", "promote_event", "status", "success", "event_id", id)
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func parseLatLng(r *http.Request) (*float64, *float64) {

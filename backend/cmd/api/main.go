@@ -96,6 +96,8 @@ func main() {
 		r.Post("/media/presign", h.PresignMedia)
 		r.Post("/media/upload", h.UploadMedia)
 		r.Post("/admin/events/{id}/hide", h.HideEvent)
+		r.Patch("/admin/events/{id}", h.UpdateEventAdmin)
+		r.Delete("/admin/events/{id}", h.DeleteEventAdmin)
 	})
 
 	srv := &http.Server{
@@ -124,7 +126,7 @@ func main() {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization,Content-Type,Ngrok-Skip-Browser-Warning")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

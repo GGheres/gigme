@@ -5,6 +5,7 @@ import {
   API_URL_ERROR,
   authTelegram,
   createEvent,
+  deleteEventAdmin,
   EventCard,
   EventDetail,
   EventMarker,
@@ -13,8 +14,11 @@ import {
   getNearby,
   joinEvent,
   leaveEvent,
+  promoteEvent,
   presignMedia,
+  updateEventAdmin,
   uploadMedia,
+  User,
   updateLocation,
 } from './api'
 import { getActiveLogLevel, logDebug, logError, logInfo, logWarn, setLogToken } from './logger'
@@ -22,6 +26,66 @@ import { getActiveLogLevel, logDebug, logError, logInfo, logWarn, setLogToken } 
 type LatLng = { lat: number; lng: number }
 type UploadedMedia = { fileUrl: string; previewUrl: string }
 type EventFilter = 'dating' | 'party' | 'travel' | 'fun' | 'bar' | 'feedme' | 'sport' | 'study' | 'business'
+type FormDefaults = {
+  title: string
+  startsAt: string
+  endsAt: string
+  capacity: string
+  contactTelegram: string
+  contactWhatsapp: string
+  contactWechat: string
+  contactFbMessenger: string
+  contactSnapchat: string
+}
+
+const EMPTY_FORM_DEFAULTS: FormDefaults = {
+  title: '',
+  startsAt: '',
+  endsAt: '',
+  capacity: '',
+  contactTelegram: '',
+  contactWhatsapp: '',
+  contactWechat: '',
+  contactFbMessenger: '',
+  contactSnapchat: '',
+}
+
+const parseAdminIds = (value: string) => {
+  const set = new Set<number>()
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .forEach((item) => {
+      if (!item) return
+      const parsed = Number(item)
+      if (Number.isFinite(parsed) && parsed > 0) {
+        set.add(parsed)
+      }
+    })
+  return set
+}
+
+const ADMIN_TELEGRAM_IDS = parseAdminIds(String(import.meta.env.VITE_ADMIN_TELEGRAM_IDS || ''))
+
+const formatDateTimeLocal = (value?: string | null) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (num: number) => String(num).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`
+}
+
+const sortFeedItems = (items: EventCard[]) => {
+  const now = Date.now()
+  return [...items].sort((a, b) => {
+    const aPromoted = a.promotedUntil ? new Date(a.promotedUntil).getTime() > now : false
+    const bPromoted = b.promotedUntil ? new Date(b.promotedUntil).getTime() > now : false
+    if (aPromoted !== bPromoted) return aPromoted ? -1 : 1
+    return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
+  })
+}
 
 const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
@@ -530,6 +594,7 @@ const saveStoredCenter = (center: LatLng) => {
 
 function App() {
   const [token, setToken] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [userName, setUserName] = useState<string>('')
   const [userLocation, setUserLocation] = useState<LatLng | null>(null)
   const [viewLocation, setViewLocation] = useState<LatLng | null>(() => loadStoredCenter())
@@ -543,6 +608,11 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [editingEventId, setEditingEventId] = useState<number | null>(null)
+  const [formDefaults, setFormDefaults] = useState<FormDefaults>(EMPTY_FORM_DEFAULTS)
+  const [formKey, setFormKey] = useState(0)
+  const [adminBusy, setAdminBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [createLatLng, setCreateLatLng] = useState<LatLng | null>(null)
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([])
@@ -561,6 +631,8 @@ function App() {
   const hasUserMovedMap = useRef(false)
   const hasStoredCenter = useRef(viewLocation != null)
   const hasLoadedFeed = useRef(false)
+  const isEditing = editingEventId != null
+  const isAdmin = Boolean(user && ADMIN_TELEGRAM_IDS.has(user.telegramId))
   const feedLocation = useMemo(() => {
     const preferView = hasStoredCenter.current || hasUserMovedMap.current
     if (preferView) return viewLocation ?? userLocation
@@ -634,6 +706,40 @@ function App() {
     })
   }
 
+  const replaceUploadedMedia = (next: UploadedMedia[]) => {
+    setUploadedMedia((prev) => {
+      revokePreviews(prev)
+      return next
+    })
+  }
+
+  const resetFormState = (close: boolean) => {
+    setEditingEventId(null)
+    setCreateErrors({})
+    setCreateFilters([])
+    setCreateLatLng(null)
+    setDescription('')
+    setFormDefaults(EMPTY_FORM_DEFAULTS)
+    setFormKey((prev) => prev + 1)
+    setFormError(null)
+    clearUploadedMedia()
+    if (close) {
+      setCreating(false)
+    }
+  }
+
+  const buildFormDefaults = (event: EventDetail['event']): FormDefaults => ({
+    title: event.title || '',
+    startsAt: formatDateTimeLocal(event.startsAt),
+    endsAt: formatDateTimeLocal(event.endsAt),
+    capacity: event.capacity != null ? String(event.capacity) : '',
+    contactTelegram: event.contactTelegram || '',
+    contactWhatsapp: event.contactWhatsapp || '',
+    contactWechat: event.contactWechat || '',
+    contactFbMessenger: event.contactFbMessenger || '',
+    contactSnapchat: event.contactSnapchat || '',
+  })
+
   const focusMapAt = (lat: number, lng: number) => {
     hasUserMovedMap.current = true
     if (mapCardRef.current) {
@@ -652,6 +758,27 @@ function App() {
   const focusCreatePin = () => {
     if (!createLatLng) return
     focusMapAt(createLatLng.lat, createLatLng.lng)
+  }
+
+  const startEditFromDetail = (source?: EventDetail | null) => {
+    const target = source ?? detailEvent ?? selectedEvent
+    if (!target) return
+    const event = target.event
+    setEditingEventId(event.id)
+    setError(null)
+    setFormError(null)
+    setCreateErrors({})
+    setDescription(event.description || '')
+    setCreateFilters(event.filters || [])
+    setCreateLatLng({ lat: event.lat, lng: event.lng })
+    setFormDefaults(buildFormDefaults(event))
+    setFormKey((prev) => prev + 1)
+    replaceUploadedMedia(target.media.map((url) => ({ fileUrl: url, previewUrl: url })))
+    setCreating(true)
+    focusMapAt(event.lat, event.lng)
+    requestAnimationFrame(() => {
+      createPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   const renderDescription = (value: string) => {
@@ -714,6 +841,7 @@ function App() {
     authTelegram(initData)
       .then((res) => {
         setToken(res.accessToken)
+        setUser(res.user)
         const name = [res.user.firstName, res.user.lastName].filter(Boolean).join(' ')
         setUserName(name)
         setError(null)
@@ -722,6 +850,7 @@ function App() {
       })
       .catch((err) => {
         setLogToken(null)
+        setUser(null)
         logError('auth_error', { message: err.message })
         setError(`Auth error: ${err.message}`)
       })
@@ -768,6 +897,17 @@ function App() {
       setCreateErrors({})
     }
   }, [creating])
+
+  useEffect(() => {
+    if (!isEditing) return
+    if (!creating) {
+      setCreating(true)
+    }
+    const raf = requestAnimationFrame(() => {
+      createPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [isEditing, creating])
 
   useEffect(() => {
     updateEventIdInLocation(selectedId)
@@ -1080,7 +1220,8 @@ function App() {
     e.preventDefault()
     if (!token) return
     if (uploading) {
-      setError('Please wait for photos to finish uploading')
+      setFormError('Please wait for photos to finish uploading')
+      setError(null)
       return
     }
     const form = new FormData(e.currentTarget)
@@ -1119,22 +1260,129 @@ function App() {
     if (Object.keys(nextErrors).length > 0) {
       logWarn('create_event_invalid_form', { titleLength: title.length, descriptionLength: descriptionValue.length })
       setCreateErrors(nextErrors)
-      setError('Please fill in required fields')
+      setFormError('Please fill in required fields')
+      setError(null)
       scrollToCreateError(nextErrors)
       return
     }
 
     const startsAtISO = new Date(startsAtLocal).toISOString()
     const endsAtISO = endsAtLocal ? new Date(endsAtLocal).toISOString() : undefined
+    const endsAtPayload = endsAtLocal ? endsAtISO : ''
     const capacity = capacityRaw ? Number(capacityRaw) : undefined
     const point = createLatLng
     if (!point) return
     const filters = createFilters
+    const media = uploadedMedia.map((item) => item.fileUrl)
+    const createPayload = {
+      title,
+      description: descriptionValue,
+      startsAt: startsAtISO,
+      endsAt: endsAtISO,
+      lat: point.lat,
+      lng: point.lng,
+      capacity,
+      media,
+      filters,
+      contactTelegram: contactTelegram || undefined,
+      contactWhatsapp: contactWhatsapp || undefined,
+      contactWechat: contactWechat || undefined,
+      contactFbMessenger: contactFbMessenger || undefined,
+      contactSnapchat: contactSnapchat || undefined,
+    }
+    const updatePayload = {
+      title,
+      description: descriptionValue,
+      startsAt: startsAtISO,
+      endsAt: endsAtPayload,
+      lat: point.lat,
+      lng: point.lng,
+      capacity,
+      media,
+      filters,
+      contactTelegram,
+      contactWhatsapp,
+      contactWechat,
+      contactFbMessenger,
+      contactSnapchat,
+    }
 
     setError(null)
+    setFormError(null)
     setCreateErrors({})
     setLoading(true)
     try {
+      if (isEditing && editingEventId != null) {
+        logInfo('admin_update_event_start', {
+          eventId: editingEventId,
+          titleLength: title.length,
+          descriptionLength: descriptionValue.length,
+          startsAt: startsAtISO,
+          endsAt: endsAtISO,
+          lat: point.lat,
+          lng: point.lng,
+          capacity,
+          filters,
+          mediaCount: media.length,
+          contacts: contactEntries.filter(Boolean).length,
+        })
+        await updateEventAdmin(token, editingEventId, updatePayload)
+        const updated = await getEvent(token, editingEventId)
+        setSelectedEvent(updated)
+        if (feedLocation) {
+          const [nearby, feedItems] = await Promise.all([
+            getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+            getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+          ])
+          setMarkers(nearby)
+          setFeed(feedItems)
+        } else {
+          setMarkers((prev) =>
+            prev.map((marker) =>
+              marker.id === updated.event.id
+                ? {
+                    ...marker,
+                    title: updated.event.title,
+                    startsAt: updated.event.startsAt,
+                    lat: updated.event.lat,
+                    lng: updated.event.lng,
+                    filters: updated.event.filters || [],
+                  }
+                : marker
+            )
+          )
+          setFeed((prev) =>
+            sortFeedItems(
+              prev.map((item) =>
+                item.id === updated.event.id
+                  ? {
+                      ...item,
+                      title: updated.event.title,
+                      description: updated.event.description,
+                      startsAt: updated.event.startsAt,
+                      endsAt: updated.event.endsAt,
+                      lat: updated.event.lat,
+                      lng: updated.event.lng,
+                      capacity: updated.event.capacity,
+                      promotedUntil: updated.event.promotedUntil,
+                      filters: updated.event.filters || [],
+                      contactTelegram: updated.event.contactTelegram,
+                      contactWhatsapp: updated.event.contactWhatsapp,
+                      contactWechat: updated.event.contactWechat,
+                      contactFbMessenger: updated.event.contactFbMessenger,
+                      contactSnapchat: updated.event.contactSnapchat,
+                      thumbnailUrl: updated.media[0],
+                    }
+                  : item
+              )
+            )
+          )
+        }
+        resetFormState(true)
+        logInfo('admin_update_event_success', { eventId: editingEventId })
+        return
+      }
+
       logInfo('create_event_start', {
         titleLength: title.length,
         descriptionLength: descriptionValue.length,
@@ -1147,22 +1395,7 @@ function App() {
         mediaCount: uploadedMedia.length,
         contacts: contactEntries.filter(Boolean).length,
       })
-      const created = await createEvent(token, {
-        title,
-        description: descriptionValue,
-        startsAt: startsAtISO,
-        endsAt: endsAtISO,
-        lat: point.lat,
-        lng: point.lng,
-        capacity,
-        media: uploadedMedia.map((item) => item.fileUrl),
-        filters,
-        contactTelegram: contactTelegram || undefined,
-        contactWhatsapp: contactWhatsapp || undefined,
-        contactWechat: contactWechat || undefined,
-        contactFbMessenger: contactFbMessenger || undefined,
-        contactSnapchat: contactSnapchat || undefined,
-      })
+      const created = await createEvent(token, createPayload)
       const newMarker: EventMarker = {
         id: created.eventId,
         title,
@@ -1183,7 +1416,7 @@ function App() {
         capacity,
         promotedUntil: undefined,
         creatorName: userName || 'You',
-        thumbnailUrl: uploadedMedia[0]?.fileUrl,
+        thumbnailUrl: media[0],
         participantsCount: 1,
         filters,
         contactTelegram: contactTelegram || undefined,
@@ -1208,11 +1441,7 @@ function App() {
         })
       }
       mapInstance.current?.setView([point.lat, point.lng], mapInstance.current?.getZoom() ?? 13)
-      setCreating(false)
-      clearUploadedMedia()
-      setCreateLatLng(null)
-      setDescription('')
-      setCreateFilters([])
+      resetFormState(true)
       if (feedLocation) {
         const [nearby, feedItems] = await Promise.all([
           getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
@@ -1230,10 +1459,22 @@ function App() {
       logInfo('create_event_success', { eventId: created.eventId })
     } catch (err: any) {
       logError('create_event_error', { message: err.message })
-      setError(err.message)
+      setFormError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  const removeUploadedMediaAt = (index: number) => {
+    setUploadedMedia((prev) => {
+      if (index < 0 || index >= prev.length) return prev
+      const next = [...prev]
+      const [removed] = next.splice(index, 1)
+      if (removed?.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(removed.previewUrl)
+      }
+      return next
+    })
   }
 
   const handleFileUpload = async (files: FileList | null) => {
@@ -1287,9 +1528,74 @@ function App() {
       }
     } catch (err: any) {
       logError('media_upload_error', { message: err.message })
-      setError(err.message)
+      setFormError(err.message)
+      setError(null)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleAdminDelete = async () => {
+    if (!token) return
+    const target = detailEvent ?? selectedEvent
+    if (!target) return
+    const confirmed = window.confirm('Delete this event? This cannot be undone.')
+    if (!confirmed) return
+    setAdminBusy(true)
+    setError(null)
+    const eventId = target.event.id
+    try {
+      await deleteEventAdmin(token, eventId)
+      setFeed((prev) => prev.filter((item) => item.id !== eventId))
+      setMarkers((prev) => prev.filter((marker) => marker.id !== eventId))
+      setSelectedEvent(null)
+      setSelectedId(null)
+      if (isEditing && editingEventId === eventId) {
+        resetFormState(true)
+      }
+      logInfo('admin_delete_event_success', { eventId })
+    } catch (err: any) {
+      logError('admin_delete_event_error', { message: err.message, eventId })
+      setError(err.message)
+    } finally {
+      setAdminBusy(false)
+    }
+  }
+
+  const handleAdminPromote = async (mode: '24h' | '7d' | 'clear') => {
+    if (!token) return
+    const target = detailEvent ?? selectedEvent
+    if (!target) return
+    setAdminBusy(true)
+    setError(null)
+    const eventId = target.event.id
+    const payload =
+      mode === 'clear'
+        ? { clear: true }
+        : { durationMinutes: mode === '24h' ? 24 * 60 : 7 * 24 * 60 }
+    try {
+      await promoteEvent(token, eventId, payload)
+      const updated = await getEvent(token, eventId)
+      const isPromoted = updated.event.promotedUntil
+        ? new Date(updated.event.promotedUntil).getTime() > Date.now()
+        : false
+      setSelectedEvent(updated)
+      setMarkers((prev) =>
+        prev.map((marker) => (marker.id === eventId ? { ...marker, isPromoted } : marker))
+      )
+      setFeed((prev) =>
+        sortFeedItems(
+          prev.map((item) =>
+            item.id === eventId ? { ...item, promotedUntil: updated.event.promotedUntil } : item
+          )
+        )
+      )
+      logInfo('admin_promote_event_success', { eventId, mode })
+    } catch (err: any) {
+      logError('admin_promote_event_error', { message: err.message, eventId, mode })
+      setError(err.message)
+    } finally {
+      setAdminBusy(false)
     }
   }
 
@@ -1307,14 +1613,17 @@ function App() {
               className="button button--primary"
               disabled={!canCreate}
               onClick={() => {
-                setCreating((v) => {
-                  const next = !v
-                  logInfo('toggle_create_form', { open: next })
-                  return next
-                })
+                if (creating) {
+                  logInfo('toggle_create_form', { open: false })
+                  resetFormState(true)
+                  return
+                }
+                logInfo('toggle_create_form', { open: true })
+                resetFormState(false)
+                setCreating(true)
               }}
             >
-              {creating ? 'Close' : 'Create event'}
+              {creating ? (isEditing ? 'Close edit' : 'Close') : 'Create event'}
             </button>
             <span className="chip chip--ghost">{mapCenterLabel}</span>
           </div>
@@ -1346,7 +1655,7 @@ function App() {
       </header>
 
       <div className="status-stack">
-        {error && <div className="status status--error">{error}</div>}
+        {error && !formError && <div className="status status--error">{error}</div>}
         {loading && <div className="status status--loading">Loading...</div>}
       </div>
 
@@ -1366,10 +1675,11 @@ function App() {
         {creating && (
           <section className="panel form-panel" ref={createPanelRef}>
             <div className="panel__header">
-              <h2>New event</h2>
-              <span className="chip chip--ghost">Draft</span>
+              <h2>{isEditing ? 'Edit event' : 'New event'}</h2>
+              <span className="chip chip--ghost">{isEditing ? 'Editing' : 'Draft'}</span>
             </div>
-            <form className="form" onSubmit={handleCreate}>
+            {formError && <div className="form-banner status status--error">{formError}</div>}
+            <form className="form" onSubmit={handleCreate} key={formKey}>
               <label
                 className={`field${createErrors.title ? ' field--error' : ''}`}
                 ref={titleFieldRef}
@@ -1379,6 +1689,7 @@ function App() {
                   name="title"
                   maxLength={80}
                   required
+                  defaultValue={formDefaults.title}
                   aria-invalid={Boolean(createErrors.title)}
                   aria-describedby={createErrors.title ? 'create-title-error' : undefined}
                   onChange={() => clearCreateError('title')}
@@ -1452,6 +1763,7 @@ function App() {
                     name="startsAt"
                     type="datetime-local"
                     required
+                    defaultValue={formDefaults.startsAt}
                     aria-invalid={Boolean(createErrors.startsAt)}
                     aria-describedby={createErrors.startsAt ? 'create-starts-error' : undefined}
                     onChange={() => clearCreateError('startsAt')}
@@ -1464,11 +1776,11 @@ function App() {
                 </label>
                 <label className="field">
                   Ends at
-                  <input name="endsAt" type="datetime-local" />
+                  <input name="endsAt" type="datetime-local" defaultValue={formDefaults.endsAt} />
                 </label>
                 <label className="field">
                   Participant limit
-                  <input name="capacity" type="number" min={1} />
+                  <input name="capacity" type="number" min={1} defaultValue={formDefaults.capacity} />
                 </label>
               </div>
               <div
@@ -1486,6 +1798,7 @@ function App() {
                       name="contactTelegram"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="@username"
+                      defaultValue={formDefaults.contactTelegram}
                       onChange={() => clearCreateError('contacts')}
                     />
                   </label>
@@ -1495,6 +1808,7 @@ function App() {
                       name="contactWhatsapp"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="+1 555 000 0000"
+                      defaultValue={formDefaults.contactWhatsapp}
                       onChange={() => clearCreateError('contacts')}
                     />
                   </label>
@@ -1504,6 +1818,7 @@ function App() {
                       name="contactWechat"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="WeChat ID"
+                      defaultValue={formDefaults.contactWechat}
                       onChange={() => clearCreateError('contacts')}
                     />
                   </label>
@@ -1513,6 +1828,7 @@ function App() {
                       name="contactFbMessenger"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="m.me/username"
+                      defaultValue={formDefaults.contactFbMessenger}
                       onChange={() => clearCreateError('contacts')}
                     />
                   </label>
@@ -1522,6 +1838,7 @@ function App() {
                       name="contactSnapchat"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="snap username"
+                      defaultValue={formDefaults.contactSnapchat}
                       onChange={() => clearCreateError('contacts')}
                     />
                   </label>
@@ -1544,12 +1861,18 @@ function App() {
                 />
               </label>
               <div className="media-list">
-                {uploadedMedia.map((item) => (
-                  <MediaImage
-                    key={item.fileUrl}
-                    src={item.previewUrl || item.fileUrl}
-                    alt="media"
-                  />
+                {uploadedMedia.map((item, index) => (
+                  <div className="media-item" key={`${item.fileUrl}-${index}`}>
+                    <MediaImage src={item.previewUrl || item.fileUrl} alt="media" />
+                    <button
+                      type="button"
+                      className="media-remove"
+                      onClick={() => removeUploadedMediaAt(index)}
+                      aria-label="Remove photo"
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
               </div>
               {uploading && <p className="hint">Uploading photos…</p>}
@@ -1570,9 +1893,21 @@ function App() {
                 .
                 Coordinates are added to the description.
               </p>
-              <button className="button button--primary" type="submit" disabled={loading || uploading}>
-                {uploading ? 'Uploading…' : 'Create'}
-              </button>
+              <div className="form-actions">
+                <button className="button button--primary" type="submit" disabled={loading || uploading}>
+                  {uploading ? 'Uploading…' : isEditing ? 'Save changes' : 'Create'}
+                </button>
+                {isEditing && (
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    disabled={loading || uploading}
+                    onClick={() => resetFormState(true)}
+                  >
+                    Cancel edit
+                  </button>
+                )}
+              </div>
             </form>
           </section>
         )}
@@ -1670,6 +2005,70 @@ function App() {
                         </button>
                       )}
                     </div>
+                    {isAdmin && (
+                      <div className="admin-actions">
+                        <span className="chip chip--ghost">
+                          {isEditing && editingEventId === detailEvent.event.id ? 'Editing' : 'Admin'}
+                        </span>
+                        <button
+                          type="button"
+                          className="button button--ghost button--compact"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            startEditFromDetail(detailEvent)
+                          }}
+                          disabled={adminBusy || (isEditing && editingEventId === detailEvent.event.id)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--danger button--compact"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleAdminDelete()
+                          }}
+                          disabled={adminBusy}
+                        >
+                          Delete
+                        </button>
+                        <div className="admin-actions__group">
+                          <button
+                            type="button"
+                            className="button button--accent button--compact"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleAdminPromote('24h')
+                            }}
+                            disabled={adminBusy}
+                          >
+                            Promote 24h
+                          </button>
+                          <button
+                            type="button"
+                            className="button button--accent button--compact"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleAdminPromote('7d')
+                            }}
+                            disabled={adminBusy}
+                          >
+                            Promote 7d
+                          </button>
+                          <button
+                            type="button"
+                            className="button button--ghost button--compact"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleAdminPromote('clear')
+                            }}
+                            disabled={adminBusy}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <ContactIcons source={detailEvent.event} unlocked={detailEvent.isJoined} className="detail-contacts" />
                     <h3>Participants</h3>
                     <ul className="participants">
@@ -1768,6 +2167,70 @@ function App() {
                 </button>
               )}
             </div>
+            {isAdmin && (
+              <div className="admin-actions">
+                <span className="chip chip--ghost">
+                  {isEditing && editingEventId === selectedEvent.event.id ? 'Editing' : 'Admin'}
+                </span>
+                <button
+                  type="button"
+                  className="button button--ghost button--compact"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    startEditFromDetail(selectedEvent)
+                  }}
+                  disabled={adminBusy || (isEditing && editingEventId === selectedEvent.event.id)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="button button--danger button--compact"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    handleAdminDelete()
+                  }}
+                  disabled={adminBusy}
+                >
+                  Delete
+                </button>
+                <div className="admin-actions__group">
+                  <button
+                    type="button"
+                    className="button button--accent button--compact"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleAdminPromote('24h')
+                    }}
+                    disabled={adminBusy}
+                  >
+                    Promote 24h
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--accent button--compact"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleAdminPromote('7d')
+                    }}
+                    disabled={adminBusy}
+                  >
+                    Promote 7d
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost button--compact"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleAdminPromote('clear')
+                    }}
+                    disabled={adminBusy}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
             <ContactIcons source={selectedEvent.event} unlocked={selectedEvent.isJoined} className="detail-contacts" />
             <h3>Participants</h3>
             <ul className="participants">
