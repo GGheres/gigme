@@ -21,7 +21,7 @@ import { getActiveLogLevel, logDebug, logError, logInfo, logWarn, setLogToken } 
 
 type LatLng = { lat: number; lng: number }
 type UploadedMedia = { fileUrl: string; previewUrl: string }
-type EventFilter = 'dating' | 'party' | 'travel' | 'fun' | 'bar' | 'feedme'
+type EventFilter = 'dating' | 'party' | 'travel' | 'fun' | 'bar' | 'feedme' | 'sport' | 'study' | 'business'
 
 const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
@@ -30,6 +30,7 @@ const MAX_CONTACT_LENGTH = 120
 const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 const MAX_EVENT_FILTERS = 3
+const FOCUS_ZOOM = 16
 const LOGO_FRAME_COUNT = 134
 const LOGO_FPS = 24
 const LOGO_FRAME_PREFIX = '/gigmov-frames/frame_'
@@ -41,9 +42,15 @@ const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
   { id: 'fun', label: 'Fun', icon: '🎈' },
   { id: 'bar', label: 'Bar', icon: '🍸' },
   { id: 'feedme', label: 'Feedme', icon: '🍕' },
+  { id: 'sport', label: 'Sport', icon: '🏀' },
+  { id: 'study', label: 'Study', icon: '📚' },
+  { id: 'business', label: 'Business', icon: '💼' },
 ]
 
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+const buildCoordsUrl = (lat: number, lng: number) =>
+  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+const COORDS_REGEX = /Coordinates:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i
 const buildMediaProxyUrl = (eventId: number, index: number) => {
   if (API_URL_ERROR) return ''
   return `${API_URL}/media/events/${eventId}/${index}`
@@ -67,6 +74,20 @@ const isIOSDevice = () => {
   return iOS || iPadOS
 }
 
+const isAndroidDevice = () => {
+  if (typeof navigator === 'undefined') return false
+  return /Android/i.test(navigator.userAgent || '')
+}
+
+const parseCoordsFromLine = (line: string): LatLng | null => {
+  const match = line.match(COORDS_REGEX)
+  if (!match) return null
+  const lat = Number(match[1])
+  const lng = Number(match[2])
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  return { lat, lng }
+}
+
 type ContactKind = 'telegram' | 'whatsapp' | 'wechat' | 'fbmessenger' | 'snapchat'
 type ContactSource = {
   contactTelegram?: string
@@ -74,6 +95,14 @@ type ContactSource = {
   contactWechat?: string
   contactFbMessenger?: string
   contactSnapchat?: string
+}
+
+type CreateErrors = {
+  title?: string
+  description?: string
+  startsAt?: string
+  contacts?: string
+  location?: string
 }
 
 const CONTACT_CONFIG: { id: ContactKind; label: string; shortLabel: string; field: keyof ContactSource }[] = [
@@ -468,7 +497,7 @@ const updateEventIdInLocation = (eventId: number | null) => {
 }
 
 const upsertCoordsInDescription = (value: string, lat: number, lng: number) => {
-  const coordsLine = `${COORDS_LABEL} ${formatCoords(lat, lng)}`
+  const coordsLine = `${COORDS_LABEL} ${formatCoords(lat, lng)} (${buildCoordsUrl(lat, lng)})`
   const cleaned = value
     .split('\n')
     .filter((line) => !line.trim().startsWith(COORDS_LABEL))
@@ -517,10 +546,17 @@ function App() {
   const [description, setDescription] = useState('')
   const [createLatLng, setCreateLatLng] = useState<LatLng | null>(null)
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([])
+  const [createErrors, setCreateErrors] = useState<CreateErrors>({})
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstance = useRef<L.Map | null>(null)
   const markerLayer = useRef<L.LayerGroup | null>(null)
   const draftMarker = useRef<L.Marker | null>(null)
+  const createPanelRef = useRef<HTMLElement | null>(null)
+  const mapCardRef = useRef<HTMLElement | null>(null)
+  const titleFieldRef = useRef<HTMLElement | null>(null)
+  const descriptionFieldRef = useRef<HTMLElement | null>(null)
+  const startsAtFieldRef = useRef<HTMLElement | null>(null)
+  const contactsFieldRef = useRef<HTMLElement | null>(null)
   const hasLocation = useRef(false)
   const hasUserMovedMap = useRef(false)
   const hasStoredCenter = useRef(viewLocation != null)
@@ -535,10 +571,37 @@ function App() {
   const mapCenter = viewLocation ?? userLocation
   const mapCenterLabel = mapCenter ? formatCoords(mapCenter.lat, mapCenter.lng) : 'Locating...'
   const pinLabel = createLatLng ? formatCoords(createLatLng.lat, createLatLng.lng) : null
+  const createCoordsLabel = createLatLng ? `${createLatLng.lat.toFixed(4)}, ${createLatLng.lng.toFixed(4)}` : null
   const selectedInFeed = selectedId != null && feed.some((item) => item.id === selectedId)
   const detailEvent = selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent : null
   const uploadedMediaRef = useRef<UploadedMedia[]>([])
   const createFiltersLimitReached = createFilters.length >= MAX_EVENT_FILTERS
+  const createErrorOrder: (keyof CreateErrors)[] = ['title', 'description', 'startsAt', 'contacts', 'location']
+  const createErrorRefs: Record<keyof CreateErrors, React.RefObject<HTMLElement>> = {
+    title: titleFieldRef,
+    description: descriptionFieldRef,
+    startsAt: startsAtFieldRef,
+    contacts: contactsFieldRef,
+    location: mapCardRef,
+  }
+
+  const clearCreateError = (key: keyof CreateErrors) => {
+    setCreateErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
+  const scrollToCreateError = (errors: CreateErrors) => {
+    const first = createErrorOrder.find((key) => errors[key])
+    if (!first) return
+    const target = createErrorRefs[first]?.current
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: first === 'location' ? 'center' : 'start' })
+    }
+  }
 
   const toggleActiveFilter = (id: EventFilter) => {
     setActiveFilters((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
@@ -568,6 +631,57 @@ function App() {
     setUploadedMedia((prev) => {
       revokePreviews(prev)
       return []
+    })
+  }
+
+  const focusMapAt = (lat: number, lng: number) => {
+    hasUserMovedMap.current = true
+    if (mapCardRef.current) {
+      mapCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    const map = mapInstance.current
+    if (map) {
+      logDebug('map_focus_point', { lat, lng })
+      const nextZoom = Math.max(map.getZoom(), FOCUS_ZOOM)
+      map.setView([lat, lng], nextZoom, { animate: true })
+    } else {
+      setViewLocation({ lat, lng })
+    }
+  }
+
+  const focusCreatePin = () => {
+    if (!createLatLng) return
+    focusMapAt(createLatLng.lat, createLatLng.lng)
+  }
+
+  const renderDescription = (value: string) => {
+    const lines = value.split('\n')
+    return lines.map((line, index) => {
+      const coords = parseCoordsFromLine(line)
+      const content = coords ? (
+        <span className="detail-coords">
+          {COORDS_LABEL}{' '}
+          <a
+            href={buildCoordsUrl(coords.lat, coords.lng)}
+            className="link-button"
+            onClick={(event) => {
+              event.preventDefault()
+              focusMapAt(coords.lat, coords.lng)
+            }}
+            aria-label={`Center map on ${formatCoords(coords.lat, coords.lng)}`}
+          >
+            {formatCoords(coords.lat, coords.lng)}
+          </a>
+        </span>
+      ) : (
+        line
+      )
+      return (
+        <React.Fragment key={`desc-${index}`}>
+          {index > 0 && <br />}
+          {content}
+        </React.Fragment>
+      )
     })
   }
 
@@ -624,12 +738,36 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (!isAndroidDevice()) return
+    const root = document.documentElement
+    root.classList.add('android')
+    return () => root.classList.remove('android')
+  }, [])
+
+  useEffect(() => {
     if (selectedId == null) return
     const target = document.querySelector(`[data-event-id="${selectedId}"]`)
     if (target instanceof HTMLElement) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
     }
   }, [selectedId])
+
+  useEffect(() => {
+    if (!creating) return
+    const target = createPanelRef.current
+    if (!target) return
+    const raf = requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [creating])
+
+  useEffect(() => {
+    if (!creating) {
+      setCreateErrors({})
+    }
+  }, [creating])
 
   useEffect(() => {
     updateEventIdInLocation(selectedId)
@@ -742,6 +880,12 @@ function App() {
         logDebug('map_click', { lat: next.lat, lng: next.lng })
         setCreateLatLng(next)
         setDescription((prev) => upsertCoordsInDescription(prev, next.lat, next.lng))
+        setCreateErrors((prev) => {
+          if (!prev.location) return prev
+          const nextErrors = { ...prev }
+          delete nextErrors.location
+          return nextErrors
+        })
       })
       mapInstance.current.on('moveend', () => {
         const center = mapInstance.current?.getCenter()
@@ -950,12 +1094,6 @@ function App() {
     const contactFbMessenger = String(form.get('contactFbMessenger') || '').trim()
     const contactSnapchat = String(form.get('contactSnapchat') || '').trim()
     const descriptionValue = description.trim()
-
-    if (!title || !descriptionValue || !startsAtLocal) {
-      logWarn('create_event_invalid_form', { titleLength: title.length, descriptionLength: descriptionValue.length })
-      setError('Please fill all required fields')
-      return
-    }
     const contactEntries = [
       contactTelegram,
       contactWhatsapp,
@@ -963,22 +1101,38 @@ function App() {
       contactFbMessenger,
       contactSnapchat,
     ]
+    const nextErrors: CreateErrors = {}
+    if (!title) nextErrors.title = 'Enter an event title'
+    if (!descriptionValue) nextErrors.description = 'Add a description'
+    if (!startsAtLocal) nextErrors.startsAt = 'Select date and time'
+    if (!createLatLng) nextErrors.location = 'Pick a point on the map'
+    const filledContacts = contactEntries.filter(Boolean).length
+    if (filledContacts === 0) {
+      nextErrors.contacts = 'Provide at least one contact'
+    }
     if (contactEntries.some((value) => value.length > MAX_CONTACT_LENGTH)) {
-      setError(`Contact info too long (max ${MAX_CONTACT_LENGTH} characters)`)
-      return
+      nextErrors.contacts = `Contact is too long (max ${MAX_CONTACT_LENGTH} characters)`
     }
     if (description.length > MAX_DESCRIPTION) {
-      logWarn('create_event_description_too_long', { descriptionLength: description.length })
-      setError(`Description too long (max ${MAX_DESCRIPTION} characters)`)
+      nextErrors.description = `Description is too long (max ${MAX_DESCRIPTION} characters)`
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      logWarn('create_event_invalid_form', { titleLength: title.length, descriptionLength: descriptionValue.length })
+      setCreateErrors(nextErrors)
+      setError('Please fill in required fields')
+      scrollToCreateError(nextErrors)
       return
     }
 
     const startsAtISO = new Date(startsAtLocal).toISOString()
     const endsAtISO = endsAtLocal ? new Date(endsAtLocal).toISOString() : undefined
     const capacity = capacityRaw ? Number(capacityRaw) : undefined
-    const point = createLatLng || viewLocation || userLocation || DEFAULT_CENTER
+    const point = createLatLng
+    if (!point) return
     const filters = createFilters
 
+    setError(null)
+    setCreateErrors({})
     setLoading(true)
     try {
       logInfo('create_event_start', {
@@ -1197,34 +1351,66 @@ function App() {
       </div>
 
       <div className="layout">
-        <section className="map-card">
+        <section
+          className={`map-card${createErrors.location ? ' map-card--error' : ''}`}
+          ref={mapCardRef}
+        >
           <div className="map" ref={mapRef} />
           <div className="map-overlay">
             {pinLabel && <span className="chip chip--accent">Pin: {pinLabel}</span>}
             <span className="chip chip--ghost">Tap map to pin</span>
+            {createErrors.location && creating && <span className="chip chip--danger">{createErrors.location}</span>}
           </div>
         </section>
 
         {creating && (
-          <section className="panel form-panel">
+          <section className="panel form-panel" ref={createPanelRef}>
             <div className="panel__header">
               <h2>New event</h2>
               <span className="chip chip--ghost">Draft</span>
             </div>
             <form className="form" onSubmit={handleCreate}>
-              <label className="field">
+              <label
+                className={`field${createErrors.title ? ' field--error' : ''}`}
+                ref={titleFieldRef}
+              >
                 Title
-                <input name="title" maxLength={80} required />
+                <input
+                  name="title"
+                  maxLength={80}
+                  required
+                  aria-invalid={Boolean(createErrors.title)}
+                  aria-describedby={createErrors.title ? 'create-title-error' : undefined}
+                  onChange={() => clearCreateError('title')}
+                />
+                {createErrors.title && (
+                  <span className="field__error" id="create-title-error" role="alert">
+                    {createErrors.title}
+                  </span>
+                )}
               </label>
-              <label className="field">
+              <label
+                className={`field${createErrors.description ? ' field--error' : ''}`}
+                ref={descriptionFieldRef}
+              >
                 Description
                 <textarea
                   name="description"
                   maxLength={MAX_DESCRIPTION}
                   required
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  aria-invalid={Boolean(createErrors.description)}
+                  aria-describedby={createErrors.description ? 'create-description-error' : undefined}
+                  onChange={(e) => {
+                    setDescription(e.target.value)
+                    clearCreateError('description')
+                  }}
                 />
+                {createErrors.description && (
+                  <span className="field__error" id="create-description-error" role="alert">
+                    {createErrors.description}
+                  </span>
+                )}
               </label>
               <div className="field">
                 <div className="field__label">
@@ -1257,9 +1443,24 @@ function App() {
                 <p className="hint">Select up to {MAX_EVENT_FILTERS} filters.</p>
               </div>
               <div className="form-grid">
-                <label className="field">
+                <label
+                  className={`field${createErrors.startsAt ? ' field--error' : ''}`}
+                  ref={startsAtFieldRef}
+                >
                   Starts at
-                  <input name="startsAt" type="datetime-local" required />
+                  <input
+                    name="startsAt"
+                    type="datetime-local"
+                    required
+                    aria-invalid={Boolean(createErrors.startsAt)}
+                    aria-describedby={createErrors.startsAt ? 'create-starts-error' : undefined}
+                    onChange={() => clearCreateError('startsAt')}
+                  />
+                  {createErrors.startsAt && (
+                    <span className="field__error" id="create-starts-error" role="alert">
+                      {createErrors.startsAt}
+                    </span>
+                  )}
                 </label>
                 <label className="field">
                   Ends at
@@ -1270,7 +1471,10 @@ function App() {
                   <input name="capacity" type="number" min={1} />
                 </label>
               </div>
-              <div className="field">
+              <div
+                className={`field${createErrors.contacts ? ' field--error' : ''}`}
+                ref={contactsFieldRef}
+              >
                 <div className="field__label">
                   <span>Contacts</span>
                   <span className="field__hint">Visible after joining</span>
@@ -1282,6 +1486,7 @@ function App() {
                       name="contactTelegram"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="@username"
+                      onChange={() => clearCreateError('contacts')}
                     />
                   </label>
                   <label className="field">
@@ -1290,6 +1495,7 @@ function App() {
                       name="contactWhatsapp"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="+1 555 000 0000"
+                      onChange={() => clearCreateError('contacts')}
                     />
                   </label>
                   <label className="field">
@@ -1298,6 +1504,7 @@ function App() {
                       name="contactWechat"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="WeChat ID"
+                      onChange={() => clearCreateError('contacts')}
                     />
                   </label>
                   <label className="field">
@@ -1306,6 +1513,7 @@ function App() {
                       name="contactFbMessenger"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="m.me/username"
+                      onChange={() => clearCreateError('contacts')}
                     />
                   </label>
                   <label className="field">
@@ -1314,9 +1522,15 @@ function App() {
                       name="contactSnapchat"
                       maxLength={MAX_CONTACT_LENGTH}
                       placeholder="snap username"
+                      onChange={() => clearCreateError('contacts')}
                     />
                   </label>
                 </div>
+                {createErrors.contacts && (
+                  <span className="field__error" role="alert">
+                    {createErrors.contacts}
+                  </span>
+                )}
                 <p className="hint">Add handles or links to reach the host after joining.</p>
               </div>
               <label className="field">
@@ -1340,8 +1554,20 @@ function App() {
               </div>
               {uploading && <p className="hint">Uploading photos…</p>}
               <p className="hint">
-                Tap on the map to choose event location. Current:{' '}
-                {createLatLng ? `${createLatLng.lat.toFixed(4)}, ${createLatLng.lng.toFixed(4)}` : 'not selected'}.
+                Tap on the map to choose event location (required). Current:{' '}
+                {createCoordsLabel ? (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={focusCreatePin}
+                    aria-label={`Center map on ${createCoordsLabel}`}
+                  >
+                    {createCoordsLabel}
+                  </button>
+                ) : (
+                  'not selected'
+                )}
+                .
                 Coordinates are added to the description.
               </p>
               <button className="button button--primary" type="submit" disabled={loading || uploading}>
@@ -1422,7 +1648,7 @@ function App() {
                         />
                       </div>
                     )}
-                    <p className="detail-description">{detailEvent.event.description}</p>
+                    <p className="detail-description">{renderDescription(detailEvent.event.description)}</p>
                     <div className="media-list">
                       {detailEvent.media.slice(1).map((url, index) => (
                         <MediaImage
@@ -1520,7 +1746,7 @@ function App() {
                 />
               </div>
             )}
-            <p className="detail-description">{selectedEvent.event.description}</p>
+            <p className="detail-description">{renderDescription(selectedEvent.event.description)}</p>
             <div className="media-list">
               {selectedEvent.media.slice(1).map((url, index) => (
                 <MediaImage

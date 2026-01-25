@@ -36,12 +36,15 @@ const maxEventFilters = 3
 const maxContactLength = 120
 
 var allowedEventFilters = map[string]struct{}{
-	"dating": {},
-	"party":  {},
-	"travel": {},
-	"fun":    {},
-	"bar":    {},
-	"feedme": {},
+	"dating":   {},
+	"party":    {},
+	"travel":   {},
+	"fun":      {},
+	"bar":      {},
+	"feedme":   {},
+	"sport":    {},
+	"study":    {},
+	"business": {},
 }
 
 var (

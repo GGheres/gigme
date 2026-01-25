@@ -2,6 +2,13 @@
 
 :root {
   --bg: #f3f1ee;
+  --root-gradient: linear-gradient(
+    160deg,
+    rgba(255, 123, 31, 0.12) 0%,
+    rgba(102, 211, 100, 0.12) 32%,
+    rgba(59, 123, 255, 0.14) 62%,
+    rgba(106, 76, 255, 0.12) 100%
+  );
   --surface: rgba(255, 255, 255, 0.86);
   --surface-strong: #ffffff;
   --ink: #14161f;
@@ -11,6 +18,10 @@
   --accent-green: #66d364;
   --accent-purple: #6a4cff;
   --accent: var(--accent-orange);
+  --danger: #ff5d5d;
+  --panel-grad-1: rgba(255, 123, 31, 0.18);
+  --panel-grad-2: rgba(102, 211, 100, 0.16);
+  --panel-grad-3: rgba(59, 123, 255, 0.2);
   --line: rgba(20, 22, 31, 0.12);
   --shadow: 0 28px 70px rgba(20, 16, 34, 0.16);
   --font-display: 'Bricolage Grotesque', sans-serif;
@@ -26,7 +37,8 @@ body {
   min-height: 100vh;
   font-family: var(--font-body);
   color: var(--ink);
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--root-gradient);
   position: relative;
   overflow-x: hidden;
 }
@@ -36,12 +48,12 @@ body::before {
   position: fixed;
   inset: -20% -10% auto -10%;
   height: 70vh;
-  background: radial-gradient(circle at 12% 25%, rgba(59, 123, 255, 0.36), transparent 60%),
-    radial-gradient(circle at 48% 10%, rgba(102, 211, 100, 0.36), transparent 56%),
-    radial-gradient(circle at 84% 35%, rgba(255, 123, 31, 0.35), transparent 58%),
-    radial-gradient(circle at 70% 90%, rgba(106, 76, 255, 0.3), transparent 62%);
+  background: radial-gradient(circle at 12% 25%, rgba(59, 123, 255, 0.22), transparent 62%),
+    radial-gradient(circle at 48% 10%, rgba(102, 211, 100, 0.22), transparent 60%),
+    radial-gradient(circle at 84% 35%, rgba(255, 123, 31, 0.2), transparent 62%),
+    radial-gradient(circle at 70% 90%, rgba(106, 76, 255, 0.2), transparent 64%);
   z-index: -2;
-  filter: blur(4px);
+  filter: blur(10px);
 }
 
 body::after {
@@ -322,6 +334,10 @@ p {
   gap: 18px;
 }
 
+.layout > * {
+  min-width: 0;
+}
+
 .map-card {
   grid-area: map;
   position: relative;
@@ -330,6 +346,11 @@ p {
   border: 1px solid rgba(255, 255, 255, 0.7);
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(246, 248, 255, 0.86));
   box-shadow: var(--shadow);
+}
+
+.map-card--error {
+  border-color: rgba(255, 93, 93, 0.45);
+  box-shadow: 0 0 0 3px rgba(255, 93, 93, 0.12), var(--shadow);
 }
 
 .map {
@@ -411,10 +432,12 @@ p {
 .panel {
   padding: 18px;
   border-radius: 22px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.8));
+  background: linear-gradient(135deg, var(--panel-grad-1), var(--panel-grad-2) 45%, var(--panel-grad-3));
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .panel__header {
@@ -427,10 +450,31 @@ p {
 
 .form-panel {
   grid-area: create;
+  scroll-margin-top: 16px;
 }
 
 .feed-panel {
   grid-area: feed;
+}
+
+/* Android WebView scroll repaint workaround */
+.android .feed-panel {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.android .feed-grid {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.android .feed-grid > .card {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .detail-panel {
@@ -441,6 +485,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .field {
@@ -449,6 +494,16 @@ p {
   gap: 8px;
   font-weight: 600;
   color: var(--ink);
+}
+
+.field--error {
+  color: #8f1f1f;
+}
+
+.field--error input,
+.field--error textarea {
+  border-color: rgba(255, 93, 93, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 93, 93, 0.16);
 }
 
 .field__label {
@@ -464,6 +519,19 @@ p {
   font-size: 12px;
   color: var(--muted);
   font-weight: 500;
+}
+
+.field__error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8f1f1f;
+  background: rgba(255, 93, 93, 0.14);
+  border-radius: 10px;
+  padding: 6px 10px;
+  width: fit-content;
 }
 
 .form-grid {
@@ -511,6 +579,27 @@ input[type='file']::file-selector-button {
   font-size: 13px;
   color: var(--muted);
   line-height: 1.4;
+}
+
+.link-button {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--accent-blue);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent-purple);
+}
+
+.link-button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .filter-row {
@@ -890,6 +979,12 @@ input[type='file']::file-selector-button {
 
 .chip--ghost {
   background: rgba(20, 22, 31, 0.04);
+}
+
+.chip--danger {
+  background: rgba(255, 93, 93, 0.14);
+  border-color: rgba(255, 93, 93, 0.4);
+  color: #8f1f1f;
 }
 
 button {
