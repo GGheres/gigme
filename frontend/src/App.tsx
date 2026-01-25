@@ -26,6 +26,7 @@ type EventFilter = 'dating' | 'party' | 'travel' | 'fun' | 'bar' | 'feedme'
 const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
 const MAX_DESCRIPTION = 1000
+const MAX_CONTACT_LENGTH = 120
 const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 const MAX_EVENT_FILTERS = 3
@@ -64,6 +65,118 @@ const isIOSDevice = () => {
   const iOS = /iPad|iPhone|iPod/.test(ua)
   const iPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
   return iOS || iPadOS
+}
+
+type ContactKind = 'telegram' | 'whatsapp' | 'wechat' | 'fbmessenger' | 'snapchat'
+type ContactSource = {
+  contactTelegram?: string
+  contactWhatsapp?: string
+  contactWechat?: string
+  contactFbMessenger?: string
+  contactSnapchat?: string
+}
+
+const CONTACT_CONFIG: { id: ContactKind; label: string; shortLabel: string; field: keyof ContactSource }[] = [
+  { id: 'telegram', label: 'Telegram', shortLabel: 'TG', field: 'contactTelegram' },
+  { id: 'whatsapp', label: 'WhatsApp', shortLabel: 'WA', field: 'contactWhatsapp' },
+  { id: 'wechat', label: 'WeChat', shortLabel: 'WC', field: 'contactWechat' },
+  { id: 'fbmessenger', label: 'Messenger', shortLabel: 'FB', field: 'contactFbMessenger' },
+  { id: 'snapchat', label: 'Snapchat', shortLabel: 'SC', field: 'contactSnapchat' },
+]
+
+const CONTACT_ICON_SRC: Record<ContactKind, string> = {
+  telegram: '/contacts/telegram.png',
+  whatsapp: '/contacts/whatsapp.png',
+  wechat: '/contacts/wechat.ico',
+  fbmessenger: '/contacts/messenger.png',
+  snapchat: '/contacts/snapchat.ico',
+}
+
+const isLikelyUrl = (value: string) => /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)
+const ensureHttps = (value: string) => (value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`)
+
+const normalizeHandle = (value: string, hosts: string[]) => {
+  let out = value.trim().replace(/^@+/, '')
+  const lower = out.toLowerCase()
+  for (const host of hosts) {
+    const idx = lower.indexOf(host)
+    if (idx >= 0) {
+      out = out.slice(idx + host.length)
+      out = out.replace(/^\/+/, '')
+      break
+    }
+  }
+  return out
+}
+
+const buildContactHref = (kind: ContactKind, value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (isLikelyUrl(trimmed)) return trimmed
+  switch (kind) {
+    case 'telegram': {
+      if (/t\.me\/|telegram\.me\//i.test(trimmed)) {
+        return ensureHttps(trimmed)
+      }
+      return `https://t.me/${normalizeHandle(trimmed, ['t.me/', 'telegram.me/'])}`
+    }
+    case 'whatsapp': {
+      if (/wa\.me\/|api\.whatsapp\.com\//i.test(trimmed)) {
+        return ensureHttps(trimmed)
+      }
+      const digits = trimmed.replace(/[^\d]/g, '')
+      if (digits) {
+        return `https://wa.me/${digits}`
+      }
+      return `https://wa.me/${encodeURIComponent(trimmed.replace(/^\+/, ''))}`
+    }
+    case 'wechat': {
+      if (/wechat\.com\/|weixin\.qq\.com\//i.test(trimmed)) {
+        return ensureHttps(trimmed)
+      }
+      return `weixin://dl/chat?${encodeURIComponent(trimmed)}`
+    }
+    case 'fbmessenger': {
+      if (/m\.me\/|messenger\.com\/t\/|facebook\.com\/messages\/t\//i.test(trimmed)) {
+        return ensureHttps(trimmed)
+      }
+      return `https://m.me/${normalizeHandle(trimmed, ['m.me/', 'messenger.com/t/', 'facebook.com/messages/t/'])}`
+    }
+    case 'snapchat': {
+      if (/snapchat\.com\/add\//i.test(trimmed)) {
+        return ensureHttps(trimmed)
+      }
+      return `https://www.snapchat.com/add/${normalizeHandle(trimmed, ['snapchat.com/add/'])}`
+    }
+    default:
+      return ''
+  }
+}
+
+type ContactItem = {
+  id: ContactKind
+  label: string
+  shortLabel: string
+  value: string
+  href: string
+}
+
+const buildContactItems = (source: ContactSource): ContactItem[] => {
+  const items: ContactItem[] = []
+  for (const config of CONTACT_CONFIG) {
+    const raw = source[config.field]
+    if (!raw) continue
+    const value = raw.trim()
+    if (!value) continue
+    items.push({
+      id: config.id,
+      label: config.label,
+      shortLabel: config.shortLabel,
+      value,
+      href: buildContactHref(config.id, value),
+    })
+  }
+  return items
 }
 
 type MediaImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
@@ -133,6 +246,67 @@ const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
 
   if (!resolvedSrc) return null
   return <img src={resolvedSrc} alt={alt} {...rest} />
+}
+
+type ContactIconsProps = {
+  source: ContactSource
+  unlocked?: boolean
+  className?: string
+}
+
+const ContactIcons = ({ source, unlocked = false, className }: ContactIconsProps) => {
+  const items = buildContactItems(source)
+  if (items.length === 0) return null
+  const label = unlocked ? 'Contact creator' : 'Join event to contact'
+  return (
+    <div className={`card__contacts${className ? ` ${className}` : ''}`} data-locked={!unlocked}>
+      {items.map((item) => {
+        const title = unlocked ? `${item.label}: ${item.value}` : label
+        const classes = `contact-icon contact-icon--${item.id}${unlocked ? '' : ' contact-icon--locked'}`
+        const iconSrc = CONTACT_ICON_SRC[item.id]
+        if (unlocked && item.href) {
+          return (
+            <a
+              key={item.id}
+              className={classes}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              title={title}
+              aria-label={title}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {iconSrc ? (
+                <img className="contact-icon__img" src={iconSrc} alt="" loading="lazy" />
+              ) : (
+                <span className="contact-icon__fallback" aria-hidden="true">
+                  {item.shortLabel}
+                </span>
+              )}
+            </a>
+          )
+        }
+        return (
+          <span
+            key={item.id}
+            className={classes}
+            title={title}
+            aria-label={title}
+            aria-disabled
+            onClick={(event) => event.stopPropagation()}
+          >
+            {iconSrc ? (
+              <img className="contact-icon__img" src={iconSrc} alt="" loading="lazy" />
+            ) : (
+              <span className="contact-icon__fallback" aria-hidden="true">
+                {item.shortLabel}
+              </span>
+            )}
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 const LogoAnimation = () => {
@@ -714,6 +888,22 @@ function App() {
     await joinEvent(token, selectedEvent.event.id)
     const updated = await getEvent(token, selectedEvent.event.id)
     setSelectedEvent(updated)
+    setFeed((prev) =>
+      prev.map((item) =>
+        item.id === updated.event.id
+          ? {
+              ...item,
+              participantsCount: updated.event.participantsCount,
+              isJoined: updated.isJoined,
+              contactTelegram: updated.event.contactTelegram,
+              contactWhatsapp: updated.event.contactWhatsapp,
+              contactWechat: updated.event.contactWechat,
+              contactFbMessenger: updated.event.contactFbMessenger,
+              contactSnapchat: updated.event.contactSnapchat,
+            }
+          : item
+      )
+    )
     logInfo('join_event_success', { eventId: selectedEvent.event.id })
   }
 
@@ -723,6 +913,22 @@ function App() {
     await leaveEvent(token, selectedEvent.event.id)
     const updated = await getEvent(token, selectedEvent.event.id)
     setSelectedEvent(updated)
+    setFeed((prev) =>
+      prev.map((item) =>
+        item.id === updated.event.id
+          ? {
+              ...item,
+              participantsCount: updated.event.participantsCount,
+              isJoined: updated.isJoined,
+              contactTelegram: updated.event.contactTelegram,
+              contactWhatsapp: updated.event.contactWhatsapp,
+              contactWechat: updated.event.contactWechat,
+              contactFbMessenger: updated.event.contactFbMessenger,
+              contactSnapchat: updated.event.contactSnapchat,
+            }
+          : item
+      )
+    )
     logInfo('leave_event_success', { eventId: selectedEvent.event.id })
   }
 
@@ -738,11 +944,27 @@ function App() {
     const startsAtLocal = String(form.get('startsAt') || '')
     const endsAtLocal = String(form.get('endsAt') || '')
     const capacityRaw = String(form.get('capacity') || '')
+    const contactTelegram = String(form.get('contactTelegram') || '').trim()
+    const contactWhatsapp = String(form.get('contactWhatsapp') || '').trim()
+    const contactWechat = String(form.get('contactWechat') || '').trim()
+    const contactFbMessenger = String(form.get('contactFbMessenger') || '').trim()
+    const contactSnapchat = String(form.get('contactSnapchat') || '').trim()
     const descriptionValue = description.trim()
 
     if (!title || !descriptionValue || !startsAtLocal) {
       logWarn('create_event_invalid_form', { titleLength: title.length, descriptionLength: descriptionValue.length })
       setError('Please fill all required fields')
+      return
+    }
+    const contactEntries = [
+      contactTelegram,
+      contactWhatsapp,
+      contactWechat,
+      contactFbMessenger,
+      contactSnapchat,
+    ]
+    if (contactEntries.some((value) => value.length > MAX_CONTACT_LENGTH)) {
+      setError(`Contact info too long (max ${MAX_CONTACT_LENGTH} characters)`)
       return
     }
     if (description.length > MAX_DESCRIPTION) {
@@ -769,6 +991,7 @@ function App() {
         capacity,
         filters,
         mediaCount: uploadedMedia.length,
+        contacts: contactEntries.filter(Boolean).length,
       })
       const created = await createEvent(token, {
         title,
@@ -780,6 +1003,11 @@ function App() {
         capacity,
         media: uploadedMedia.map((item) => item.fileUrl),
         filters,
+        contactTelegram: contactTelegram || undefined,
+        contactWhatsapp: contactWhatsapp || undefined,
+        contactWechat: contactWechat || undefined,
+        contactFbMessenger: contactFbMessenger || undefined,
+        contactSnapchat: contactSnapchat || undefined,
       })
       const newMarker: EventMarker = {
         id: created.eventId,
@@ -804,6 +1032,12 @@ function App() {
         thumbnailUrl: uploadedMedia[0]?.fileUrl,
         participantsCount: 1,
         filters,
+        contactTelegram: contactTelegram || undefined,
+        contactWhatsapp: contactWhatsapp || undefined,
+        contactWechat: contactWechat || undefined,
+        contactFbMessenger: contactFbMessenger || undefined,
+        contactSnapchat: contactSnapchat || undefined,
+        isJoined: true,
       }
       const matchesActiveFilters =
         activeFilters.length === 0 || filters.some((filter) => activeFilters.includes(filter))
@@ -1036,37 +1270,86 @@ function App() {
                   <input name="capacity" type="number" min={1} />
                 </label>
               </div>
-            <label className="field">
-              Photos (up to 5)
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={uploading}
-                onChange={(e) => handleFileUpload(e.target.files)}
-              />
-            </label>
-            <div className="media-list">
-              {uploadedMedia.map((item) => (
-                <MediaImage
-                  key={item.fileUrl}
-                  src={item.previewUrl || item.fileUrl}
-                  alt="media"
+              <div className="field">
+                <div className="field__label">
+                  <span>Contacts</span>
+                  <span className="field__hint">Visible after joining</span>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    Telegram
+                    <input
+                      name="contactTelegram"
+                      maxLength={MAX_CONTACT_LENGTH}
+                      placeholder="@username"
+                    />
+                  </label>
+                  <label className="field">
+                    WhatsApp
+                    <input
+                      name="contactWhatsapp"
+                      maxLength={MAX_CONTACT_LENGTH}
+                      placeholder="+1 555 000 0000"
+                    />
+                  </label>
+                  <label className="field">
+                    WeChat
+                    <input
+                      name="contactWechat"
+                      maxLength={MAX_CONTACT_LENGTH}
+                      placeholder="WeChat ID"
+                    />
+                  </label>
+                  <label className="field">
+                    Messenger
+                    <input
+                      name="contactFbMessenger"
+                      maxLength={MAX_CONTACT_LENGTH}
+                      placeholder="m.me/username"
+                    />
+                  </label>
+                  <label className="field">
+                    Snapchat
+                    <input
+                      name="contactSnapchat"
+                      maxLength={MAX_CONTACT_LENGTH}
+                      placeholder="snap username"
+                    />
+                  </label>
+                </div>
+                <p className="hint">Add handles or links to reach the host after joining.</p>
+              </div>
+              <label className="field">
+                Photos (up to 5)
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={uploading}
+                  onChange={(e) => handleFileUpload(e.target.files)}
                 />
-              ))}
-            </div>
-            {uploading && <p className="hint">Uploading photos…</p>}
-            <p className="hint">
-              Tap on the map to choose event location. Current:{' '}
-              {createLatLng ? `${createLatLng.lat.toFixed(4)}, ${createLatLng.lng.toFixed(4)}` : 'not selected'}.
-              Coordinates are added to the description.
-            </p>
-            <button className="button button--primary" type="submit" disabled={loading || uploading}>
-              {uploading ? 'Uploading…' : 'Create'}
-            </button>
-          </form>
-        </section>
-      )}
+              </label>
+              <div className="media-list">
+                {uploadedMedia.map((item) => (
+                  <MediaImage
+                    key={item.fileUrl}
+                    src={item.previewUrl || item.fileUrl}
+                    alt="media"
+                  />
+                ))}
+              </div>
+              {uploading && <p className="hint">Uploading photos…</p>}
+              <p className="hint">
+                Tap on the map to choose event location. Current:{' '}
+                {createLatLng ? `${createLatLng.lat.toFixed(4)}, ${createLatLng.lng.toFixed(4)}` : 'not selected'}.
+                Coordinates are added to the description.
+              </p>
+              <button className="button button--primary" type="submit" disabled={loading || uploading}>
+                {uploading ? 'Uploading…' : 'Create'}
+              </button>
+            </form>
+          </section>
+        )}
 
         <section className="panel feed-panel">
           <div className="panel__header">
@@ -1161,6 +1444,7 @@ function App() {
                         </button>
                       )}
                     </div>
+                    <ContactIcons source={detailEvent.event} unlocked={detailEvent.isJoined} className="detail-contacts" />
                     <h3>Participants</h3>
                     <ul className="participants">
                       {detailEvent.participants.map((p) => (
@@ -1207,6 +1491,7 @@ function App() {
                       <span>{event.participantsCount} going</span>
                       {remaining != null && <span>{remaining} spots</span>}
                     </div>
+                    <ContactIcons source={event} unlocked={Boolean(event.isJoined)} />
                   </div>
                 </article>
               )
@@ -1257,6 +1542,7 @@ function App() {
                 </button>
               )}
             </div>
+            <ContactIcons source={selectedEvent.event} unlocked={selectedEvent.isJoined} className="detail-contacts" />
             <h3>Participants</h3>
             <ul className="participants">
               {selectedEvent.participants.map((p) => (

@@ -90,12 +90,18 @@ export type EventCard = {
   endsAt?: string
   lat: number
   lng: number
+  contactTelegram?: string
+  contactWhatsapp?: string
+  contactWechat?: string
+  contactFbMessenger?: string
+  contactSnapchat?: string
   capacity?: number
   promotedUntil?: string
   creatorName?: string
   thumbnailUrl?: string
   participantsCount: number
   filters?: string[]
+  isJoined?: boolean
 }
 
 export type EventDetail = {
@@ -245,6 +251,11 @@ export function createEvent(token: string, payload: {
   media: string[]
   addressLabel?: string
   filters?: string[]
+  contactTelegram?: string
+  contactWhatsapp?: string
+  contactWechat?: string
+  contactFbMessenger?: string
+  contactSnapchat?: string
 }) {
   return apiFetch<{ eventId: number }>(
     '/events',

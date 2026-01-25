@@ -703,6 +703,64 @@ input[type='file']::file-selector-button {
   flex-wrap: wrap;
 }
 
+.card__contacts {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.contact-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(15, 20, 40, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.contact-icon:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(20, 16, 34, 0.12);
+}
+
+.contact-icon--locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+  box-shadow: none;
+}
+
+.contact-icon--locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.contact-icon__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.contact-icon__fallback {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.detail-contacts {
+  margin: 4px 0 12px;
+}
+
 .tag {
   font-size: 11px;
   font-weight: 700;

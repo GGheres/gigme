@@ -15,19 +15,25 @@ import (
 )
 
 type createEventRequest struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	StartsAt    string   `json:"startsAt"`
-	EndsAt      *string  `json:"endsAt"`
-	Lat         float64  `json:"lat"`
-	Lng         float64  `json:"lng"`
-	Capacity    *int     `json:"capacity"`
-	Media       []string `json:"media"`
-	Address     string   `json:"addressLabel"`
-	Filters     []string `json:"filters"`
+	Title              string   `json:"title"`
+	Description        string   `json:"description"`
+	StartsAt           string   `json:"startsAt"`
+	EndsAt             *string  `json:"endsAt"`
+	Lat                float64  `json:"lat"`
+	Lng                float64  `json:"lng"`
+	Capacity           *int     `json:"capacity"`
+	Media              []string `json:"media"`
+	Address            string   `json:"addressLabel"`
+	Filters            []string `json:"filters"`
+	ContactTelegram    string   `json:"contactTelegram"`
+	ContactWhatsapp    string   `json:"contactWhatsapp"`
+	ContactWechat      string   `json:"contactWechat"`
+	ContactFbMessenger string   `json:"contactFbMessenger"`
+	ContactSnapchat    string   `json:"contactSnapchat"`
 }
 
 const maxEventFilters = 3
+const maxContactLength = 120
 
 var allowedEventFilters = map[string]struct{}{
 	"dating": {},
@@ -139,6 +145,37 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		filters = []string{}
 	}
 
+	contactTelegram := strings.TrimSpace(req.ContactTelegram)
+	if len(contactTelegram) > maxContactLength {
+		logger.Warn("action", "action", "create_event", "status", "contact_telegram_too_long")
+		writeError(w, http.StatusBadRequest, "contact telegram too long")
+		return
+	}
+	contactWhatsapp := strings.TrimSpace(req.ContactWhatsapp)
+	if len(contactWhatsapp) > maxContactLength {
+		logger.Warn("action", "action", "create_event", "status", "contact_whatsapp_too_long")
+		writeError(w, http.StatusBadRequest, "contact whatsapp too long")
+		return
+	}
+	contactWechat := strings.TrimSpace(req.ContactWechat)
+	if len(contactWechat) > maxContactLength {
+		logger.Warn("action", "action", "create_event", "status", "contact_wechat_too_long")
+		writeError(w, http.StatusBadRequest, "contact wechat too long")
+		return
+	}
+	contactFbMessenger := strings.TrimSpace(req.ContactFbMessenger)
+	if len(contactFbMessenger) > maxContactLength {
+		logger.Warn("action", "action", "create_event", "status", "contact_fb_messenger_too_long")
+		writeError(w, http.StatusBadRequest, "contact fb messenger too long")
+		return
+	}
+	contactSnapchat := strings.TrimSpace(req.ContactSnapchat)
+	if len(contactSnapchat) > maxContactLength {
+		logger.Warn("action", "action", "create_event", "status", "contact_snapchat_too_long")
+		writeError(w, http.StatusBadRequest, "contact snapchat too long")
+		return
+	}
+
 	startsAt, err := time.Parse(time.RFC3339, req.StartsAt)
 	if err != nil {
 		logger.Warn("action", "action", "create_event", "status", "invalid_starts_at")
@@ -177,16 +214,21 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventID, err := h.repo.CreateEventWithMedia(ctx, models.Event{
-		CreatorUserID: userID,
-		Title:         req.Title,
-		Description:   req.Description,
-		StartsAt:      startsAt,
-		EndsAt:        endsAt,
-		Lat:           req.Lat,
-		Lng:           req.Lng,
-		Capacity:      req.Capacity,
-		AddressLabel:  req.Address,
-		Filters:       filters,
+		CreatorUserID:      userID,
+		Title:              req.Title,
+		Description:        req.Description,
+		StartsAt:           startsAt,
+		EndsAt:             endsAt,
+		Lat:                req.Lat,
+		Lng:                req.Lng,
+		Capacity:           req.Capacity,
+		AddressLabel:       req.Address,
+		ContactTelegram:    contactTelegram,
+		ContactWhatsapp:    contactWhatsapp,
+		ContactWechat:      contactWechat,
+		ContactFbMessenger: contactFbMessenger,
+		ContactSnapchat:    contactSnapchat,
+		Filters:            filters,
 	}, req.Media)
 	if err != nil {
 		logger.Error("action", "action", "create_event", "status", "db_error", "error", err)
@@ -283,6 +325,7 @@ func (h *Handler) NearbyEvents(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
+	userID, _ := middleware.UserIDFromContext(r.Context())
 	limit := 50
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
@@ -306,7 +349,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	items, err := h.repo.GetFeed(ctx, limit, offset, lat, lng, radius, filters)
+	items, err := h.repo.GetFeed(ctx, userID, limit, offset, lat, lng, radius, filters)
 	if err != nil {
 		logger.Error("action", "action", "feed", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")

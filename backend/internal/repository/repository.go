@@ -131,11 +131,13 @@ func (r *Repository) CreateEvent(ctx context.Context, event models.Event) (int64
 	}
 	query := `
 INSERT INTO events (
-	creator_user_id, title, description, starts_at, ends_at, location, address_label, capacity, is_hidden, promoted_until, filters
+	creator_user_id, title, description, starts_at, ends_at, location, address_label,
+	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
+	capacity, is_hidden, promoted_until, filters
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 ) RETURNING id;`
 
 	row := r.pool.QueryRow(ctx, query,
@@ -147,6 +149,11 @@ INSERT INTO events (
 		event.Lng,
 		event.Lat,
 		nullString(event.AddressLabel),
+		nullString(event.ContactTelegram),
+		nullString(event.ContactWhatsapp),
+		nullString(event.ContactWechat),
+		nullString(event.ContactFbMessenger),
+		nullString(event.ContactSnapchat),
 		event.Capacity,
 		event.IsHidden,
 		event.PromotedUntil,
@@ -228,20 +235,23 @@ LIMIT 500;`
 	return markers, rows.Err()
 }
 
-func (r *Repository) GetFeed(ctx context.Context, limit, offset int, lat, lng *float64, radiusMeters int, filters []string) ([]models.Event, error) {
+func (r *Repository) GetFeed(ctx context.Context, userID int64, limit, offset int, lat, lng *float64, radiusMeters int, filters []string) ([]models.Event, error) {
 	query := `
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
 	e.capacity, e.promoted_until, e.filters,
+	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
-	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count
+	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
+	(ep.user_id IS NOT NULL) AS is_joined
 FROM events e
 JOIN users u ON u.id = e.creator_user_id
+LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.user_id = $1
 WHERE e.is_hidden = false
 	AND COALESCE(e.ends_at, e.starts_at + interval '2 hours') >= now()`
-	args := []interface{}{limit, offset}
+	args := []interface{}{userID, limit, offset}
 	if lat != nil && lng != nil && radiusMeters > 0 {
 		lngIdx := len(args) + 1
 		latIdx := len(args) + 2
@@ -260,7 +270,7 @@ WHERE e.is_hidden = false
 ORDER BY
 	(e.promoted_until IS NOT NULL AND e.promoted_until > now()) DESC,
 	e.starts_at ASC
-LIMIT $1 OFFSET $2;`
+LIMIT $2 OFFSET $3;`
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -272,8 +282,48 @@ LIMIT $1 OFFSET $2;`
 	for rows.Next() {
 		var e models.Event
 		var thumb sql.NullString
-		if err := rows.Scan(&e.ID, &e.Title, &e.Description, &e.StartsAt, &e.EndsAt, &e.Lat, &e.Lng, &e.Capacity, &e.PromotedUntil, &e.Filters, &e.CreatorName, &thumb, &e.Participants); err != nil {
+		var contactTelegram sql.NullString
+		var contactWhatsapp sql.NullString
+		var contactWechat sql.NullString
+		var contactFbMessenger sql.NullString
+		var contactSnapchat sql.NullString
+		if err := rows.Scan(
+			&e.ID,
+			&e.Title,
+			&e.Description,
+			&e.StartsAt,
+			&e.EndsAt,
+			&e.Lat,
+			&e.Lng,
+			&e.Capacity,
+			&e.PromotedUntil,
+			&e.Filters,
+			&contactTelegram,
+			&contactWhatsapp,
+			&contactWechat,
+			&contactFbMessenger,
+			&contactSnapchat,
+			&e.CreatorName,
+			&thumb,
+			&e.Participants,
+			&e.IsJoined,
+		); err != nil {
 			return nil, err
+		}
+		if contactTelegram.Valid {
+			e.ContactTelegram = contactTelegram.String
+		}
+		if contactWhatsapp.Valid {
+			e.ContactWhatsapp = contactWhatsapp.String
+		}
+		if contactWechat.Valid {
+			e.ContactWechat = contactWechat.String
+		}
+		if contactFbMessenger.Valid {
+			e.ContactFbMessenger = contactFbMessenger.String
+		}
+		if contactSnapchat.Valid {
+			e.ContactSnapchat = contactSnapchat.String
 		}
 		if thumb.Valid {
 			e.ThumbnailURL = thumb.String
@@ -288,7 +338,9 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID int64) (models.Ev
 SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
-	e.address_label, e.capacity, e.is_hidden, e.promoted_until, e.filters,
+	e.address_label,
+	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
+	e.capacity, e.is_hidden, e.promoted_until, e.filters,
 	e.created_at, e.updated_at,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count
@@ -299,11 +351,54 @@ WHERE e.id = $1;`
 	row := r.pool.QueryRow(ctx, query, eventID)
 	var e models.Event
 	var address sql.NullString
-	if err := row.Scan(&e.ID, &e.CreatorUserID, &e.Title, &e.Description, &e.StartsAt, &e.EndsAt, &e.Lat, &e.Lng, &address, &e.Capacity, &e.IsHidden, &e.PromotedUntil, &e.Filters, &e.CreatedAt, &e.UpdatedAt, &e.CreatorName, &e.Participants); err != nil {
+	var contactTelegram sql.NullString
+	var contactWhatsapp sql.NullString
+	var contactWechat sql.NullString
+	var contactFbMessenger sql.NullString
+	var contactSnapchat sql.NullString
+	if err := row.Scan(
+		&e.ID,
+		&e.CreatorUserID,
+		&e.Title,
+		&e.Description,
+		&e.StartsAt,
+		&e.EndsAt,
+		&e.Lat,
+		&e.Lng,
+		&address,
+		&contactTelegram,
+		&contactWhatsapp,
+		&contactWechat,
+		&contactFbMessenger,
+		&contactSnapchat,
+		&e.Capacity,
+		&e.IsHidden,
+		&e.PromotedUntil,
+		&e.Filters,
+		&e.CreatedAt,
+		&e.UpdatedAt,
+		&e.CreatorName,
+		&e.Participants,
+	); err != nil {
 		return models.Event{}, err
 	}
 	if address.Valid {
 		e.AddressLabel = address.String
+	}
+	if contactTelegram.Valid {
+		e.ContactTelegram = contactTelegram.String
+	}
+	if contactWhatsapp.Valid {
+		e.ContactWhatsapp = contactWhatsapp.String
+	}
+	if contactWechat.Valid {
+		e.ContactWechat = contactWechat.String
+	}
+	if contactFbMessenger.Valid {
+		e.ContactFbMessenger = contactFbMessenger.String
+	}
+	if contactSnapchat.Valid {
+		e.ContactSnapchat = contactSnapchat.String
 	}
 	return e, nil
 }
@@ -513,13 +608,32 @@ func (r *Repository) CreateEventWithMedia(ctx context.Context, event models.Even
 	return eventID, r.WithTx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx, `
 INSERT INTO events (
-	creator_user_id, title, description, starts_at, ends_at, location, address_label, capacity, is_hidden, promoted_until, filters
+	creator_user_id, title, description, starts_at, ends_at, location, address_label,
+	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
+	capacity, is_hidden, promoted_until, filters
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 ) RETURNING id;`,
-			event.CreatorUserID, event.Title, event.Description, event.StartsAt, event.EndsAt, event.Lng, event.Lat, nullString(event.AddressLabel), event.Capacity, event.IsHidden, event.PromotedUntil, filters)
+			event.CreatorUserID,
+			event.Title,
+			event.Description,
+			event.StartsAt,
+			event.EndsAt,
+			event.Lng,
+			event.Lat,
+			nullString(event.AddressLabel),
+			nullString(event.ContactTelegram),
+			nullString(event.ContactWhatsapp),
+			nullString(event.ContactWechat),
+			nullString(event.ContactFbMessenger),
+			nullString(event.ContactSnapchat),
+			event.Capacity,
+			event.IsHidden,
+			event.PromotedUntil,
+			filters,
+		)
 		if err := row.Scan(&eventID); err != nil {
 			return err
 		}
