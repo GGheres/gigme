@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/models"
@@ -41,6 +42,9 @@ type promoteEventRequest struct {
 
 const maxEventFilters = 3
 const maxContactLength = 120
+const maxEventsPerHour = 3
+const maxTitleLength = 80
+const maxDescriptionLength = 1000
 
 var allowedEventFilters = map[string]struct{}{
 	"dating":   {},
@@ -114,12 +118,14 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Title) == 0 || len(req.Title) > 80 {
+	title := strings.TrimSpace(req.Title)
+	if title == "" || utf8.RuneCountInString(title) > maxTitleLength {
 		logger.Warn("action", "action", "create_event", "status", "invalid_title")
 		writeError(w, http.StatusBadRequest, "title length invalid")
 		return
 	}
-	if len(req.Description) == 0 || len(req.Description) > 1000 {
+	description := strings.TrimSpace(req.Description)
+	if description == "" || utf8.RuneCountInString(description) > maxDescriptionLength {
 		logger.Warn("action", "action", "create_event", "status", "invalid_description")
 		writeError(w, http.StatusBadRequest, "description length invalid")
 		return
@@ -156,31 +162,31 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contactTelegram := strings.TrimSpace(req.ContactTelegram)
-	if len(contactTelegram) > maxContactLength {
+	if utf8.RuneCountInString(contactTelegram) > maxContactLength {
 		logger.Warn("action", "action", "create_event", "status", "contact_telegram_too_long")
 		writeError(w, http.StatusBadRequest, "contact telegram too long")
 		return
 	}
 	contactWhatsapp := strings.TrimSpace(req.ContactWhatsapp)
-	if len(contactWhatsapp) > maxContactLength {
+	if utf8.RuneCountInString(contactWhatsapp) > maxContactLength {
 		logger.Warn("action", "action", "create_event", "status", "contact_whatsapp_too_long")
 		writeError(w, http.StatusBadRequest, "contact whatsapp too long")
 		return
 	}
 	contactWechat := strings.TrimSpace(req.ContactWechat)
-	if len(contactWechat) > maxContactLength {
+	if utf8.RuneCountInString(contactWechat) > maxContactLength {
 		logger.Warn("action", "action", "create_event", "status", "contact_wechat_too_long")
 		writeError(w, http.StatusBadRequest, "contact wechat too long")
 		return
 	}
 	contactFbMessenger := strings.TrimSpace(req.ContactFbMessenger)
-	if len(contactFbMessenger) > maxContactLength {
+	if utf8.RuneCountInString(contactFbMessenger) > maxContactLength {
 		logger.Warn("action", "action", "create_event", "status", "contact_fb_messenger_too_long")
 		writeError(w, http.StatusBadRequest, "contact fb messenger too long")
 		return
 	}
 	contactSnapchat := strings.TrimSpace(req.ContactSnapchat)
-	if len(contactSnapchat) > maxContactLength {
+	if utf8.RuneCountInString(contactSnapchat) > maxContactLength {
 		logger.Warn("action", "action", "create_event", "status", "contact_snapchat_too_long")
 		writeError(w, http.StatusBadRequest, "contact snapchat too long")
 		return
@@ -217,22 +223,23 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "rate limit check failed")
 		return
 	}
-	if count >= 5 {
+	if count >= maxEventsPerHour {
 		logger.Warn("action", "action", "create_event", "status", "rate_limited")
 		writeError(w, http.StatusTooManyRequests, "event create limit reached")
 		return
 	}
 
+	addressLabel := strings.TrimSpace(req.Address)
 	eventID, err := h.repo.CreateEventWithMedia(ctx, models.Event{
 		CreatorUserID:      userID,
-		Title:              req.Title,
-		Description:        req.Description,
+		Title:              title,
+		Description:        description,
 		StartsAt:           startsAt,
 		EndsAt:             endsAt,
 		Lat:                req.Lat,
 		Lng:                req.Lng,
 		Capacity:           req.Capacity,
-		AddressLabel:       req.Address,
+		AddressLabel:       addressLabel,
 		ContactTelegram:    contactTelegram,
 		ContactWhatsapp:    contactWhatsapp,
 		ContactWechat:      contactWechat,
@@ -250,14 +257,14 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	payload := map[string]interface{}{
 		"eventId":  eventID,
-		"title":    req.Title,
+		"title":    title,
 		"startsAt": req.StartsAt,
 	}
 	if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
 		payload["apiBaseUrl"] = apiBaseURL
 	}
-	if req.Address != "" {
-		payload["addressLabel"] = req.Address
+	if addressLabel != "" {
+		payload["addressLabel"] = addressLabel
 	}
 	if len(req.Media) > 0 {
 		payload["photoUrl"] = req.Media[0]
@@ -268,7 +275,6 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		logger.Info("action", "action", "create_event", "status", "notify_all_enqueued", "count", count)
 	}
 
-	title := req.Title
 	reminderAt := startsAt.Add(-60 * time.Minute)
 	if reminderAt.After(time.Now()) {
 		_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
@@ -286,7 +292,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		"action", "create_event",
 		"status", "success",
 		"event_id", eventID,
-		"title", req.Title,
+		"title", title,
 		"starts_at", startsAt,
 		"ends_at", endsAt,
 		"lat", req.Lat,
@@ -640,6 +646,7 @@ func publicBaseURL(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
+	// Respect reverse proxy headers so generated links point to the public origin.
 	host := forwardedHeaderValue(r.Header.Get("X-Forwarded-Host"))
 	if host == "" {
 		host = strings.TrimSpace(r.Host)

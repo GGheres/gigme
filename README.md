@@ -37,7 +37,6 @@ docker compose up --build
 ```
 
 5. Run the frontend locally:
-лс
 ```
 cd ../frontend
 npm install
@@ -70,6 +69,30 @@ VITE_API_URL=http://localhost:8080 npm run dev
 - `VITE_LOG_LEVEL` - `debug|info|warn|error|off` (default: `info`). Overrides can be set at runtime with `localStorage.setItem('gigme:logLevel', 'debug')`.
 - `VITE_LOG_TO_SERVER` - `true|false` (default: `true` in dev, `false` in prod). Runtime override: `localStorage.setItem('gigme:logToServer', 'true')`.
 - `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).
+- `VITE_PRESIGN_ENABLED` - `true|false` (default: `true`). Set `false` to always upload via API instead of presigned S3.
+
+## Deployment (prod, Docker Compose)
+1. Copy and fill the production env file:
+
+```
+cp infra/.env.prod.example infra/.env.prod
+```
+
+2. Build and start the stack:
+
+```
+docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d --build
+```
+
+3. Create the S3/MinIO bucket (once), for example `gigme`.
+
+Notes:
+- `VITE_*` variables are baked into the frontend build. Rebuild the `frontend` image after changing them.
+- Set `BASE_URL` to the public WebApp URL so Telegram buttons point to the correct host.
+- If you use managed Postgres/S3, update `DATABASE_URL` / `S3_*` in `infra/.env.prod`.
+- DNS: point `spacefestivals.fun` (and optionally `www.spacefestivals.fun`) to your server IP; API is served from `/api` on the same domain. Ensure ports 80/443 are open (Caddy handles TLS).
+- If `VITE_PRESIGN_ENABLED=false`, uploads go through the API and `S3_PUBLIC_ENDPOINT` can stay internal (e.g. `http://minio:9000`).
+- MinIO ports are not exposed in the prod compose; access is internal-only.
 
 ## Test calls
 ```

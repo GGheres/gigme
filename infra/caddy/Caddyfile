@@ -1,0 +1,15 @@
+{
+  email {$CADDY_EMAIL}
+}
+
+spacefestivals.fun {
+  encode zstd gzip
+  handle_path /api/* {
+    reverse_proxy api:8080
+  }
+  reverse_proxy frontend:80
+}
+
+www.spacefestivals.fun {
+  redir https://spacefestivals.fun{uri} permanent
+}

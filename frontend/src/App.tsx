@@ -202,6 +202,14 @@ const normalizeHandle = (value: string, hosts: string[]) => {
   return out
 }
 
+const isPresignEnabled = () => {
+  const raw = String(import.meta.env.VITE_PRESIGN_ENABLED || '').trim().toLowerCase()
+  if (!raw) return true
+  if (['false', '0', 'no', 'off'].includes(raw)) return false
+  if (['true', '1', 'yes', 'on'].includes(raw)) return true
+  return true
+}
+
 const buildContactHref = (kind: ContactKind, value: string) => {
   const trimmed = value.trim()
   if (!trimmed) return ''
@@ -295,6 +303,7 @@ const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
     const load = async (value?: string) => {
       if (!value) return ''
       if (!isNgrokUrl(value)) return value
+      // Ngrok can serve a warning interstitial; fetching manually avoids the HTML response.
       const res = await fetch(value, {
         headers: { 'ngrok-skip-browser-warning': 'true' },
         signal: controller.signal,
@@ -1168,52 +1177,70 @@ function App() {
 
   const handleJoin = async () => {
     if (!token || !selectedEvent) return
+    setError(null)
+    setLoading(true)
     logInfo('join_event_start', { eventId: selectedEvent.event.id })
-    await joinEvent(token, selectedEvent.event.id)
-    const updated = await getEvent(token, selectedEvent.event.id)
-    setSelectedEvent(updated)
-    setFeed((prev) =>
-      prev.map((item) =>
-        item.id === updated.event.id
-          ? {
-              ...item,
-              participantsCount: updated.event.participantsCount,
-              isJoined: updated.isJoined,
-              contactTelegram: updated.event.contactTelegram,
-              contactWhatsapp: updated.event.contactWhatsapp,
-              contactWechat: updated.event.contactWechat,
-              contactFbMessenger: updated.event.contactFbMessenger,
-              contactSnapchat: updated.event.contactSnapchat,
-            }
-          : item
+    try {
+      await joinEvent(token, selectedEvent.event.id)
+      const updated = await getEvent(token, selectedEvent.event.id)
+      setSelectedEvent(updated)
+      setFeed((prev) =>
+        prev.map((item) =>
+          item.id === updated.event.id
+            ? {
+                ...item,
+                participantsCount: updated.event.participantsCount,
+                isJoined: updated.isJoined,
+                contactTelegram: updated.event.contactTelegram,
+                contactWhatsapp: updated.event.contactWhatsapp,
+                contactWechat: updated.event.contactWechat,
+                contactFbMessenger: updated.event.contactFbMessenger,
+                contactSnapchat: updated.event.contactSnapchat,
+              }
+            : item
+        )
       )
-    )
-    logInfo('join_event_success', { eventId: selectedEvent.event.id })
+      logInfo('join_event_success', { eventId: selectedEvent.event.id })
+    } catch (err: any) {
+      logError('join_event_error', { message: err.message, eventId: selectedEvent.event.id })
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleLeave = async () => {
     if (!token || !selectedEvent) return
+    setError(null)
+    setLoading(true)
     logInfo('leave_event_start', { eventId: selectedEvent.event.id })
-    await leaveEvent(token, selectedEvent.event.id)
-    const updated = await getEvent(token, selectedEvent.event.id)
-    setSelectedEvent(updated)
-    setFeed((prev) =>
-      prev.map((item) =>
-        item.id === updated.event.id
-          ? {
-              ...item,
-              participantsCount: updated.event.participantsCount,
-              isJoined: updated.isJoined,
-              contactTelegram: updated.event.contactTelegram,
-              contactWhatsapp: updated.event.contactWhatsapp,
-              contactWechat: updated.event.contactWechat,
-              contactFbMessenger: updated.event.contactFbMessenger,
-              contactSnapchat: updated.event.contactSnapchat,
-            }
-          : item
+    try {
+      await leaveEvent(token, selectedEvent.event.id)
+      const updated = await getEvent(token, selectedEvent.event.id)
+      setSelectedEvent(updated)
+      setFeed((prev) =>
+        prev.map((item) =>
+          item.id === updated.event.id
+            ? {
+                ...item,
+                participantsCount: updated.event.participantsCount,
+                isJoined: updated.isJoined,
+                contactTelegram: updated.event.contactTelegram,
+                contactWhatsapp: updated.event.contactWhatsapp,
+                contactWechat: updated.event.contactWechat,
+                contactFbMessenger: updated.event.contactFbMessenger,
+                contactSnapchat: updated.event.contactSnapchat,
+              }
+            : item
+        )
       )
-    )
-    logInfo('leave_event_success', { eventId: selectedEvent.event.id })
+      logInfo('leave_event_success', { eventId: selectedEvent.event.id })
+    } catch (err: any) {
+      logError('leave_event_error', { message: err.message, eventId: selectedEvent.event.id })
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -1482,43 +1509,51 @@ function App() {
     const fileArray = Array.from(files).slice(0, 5 - uploadedMedia.length)
     if (fileArray.length === 0) return
     setUploading(true)
+    const presignEnabled = isPresignEnabled()
     try {
       logInfo('media_upload_start', { count: fileArray.length })
       for (const file of fileArray) {
         const previewUrl = URL.createObjectURL(file)
         try {
           let fileUrl = ''
-          try {
-            logDebug('media_presign_request', { fileName: file.name, sizeBytes: file.size, contentType: file.type })
-            const presign = await presignMedia(token, {
-              fileName: file.name,
-              contentType: file.type,
-              sizeBytes: file.size,
-            })
+          if (presignEnabled) {
             try {
-              new URL(presign.uploadUrl)
-            } catch {
-              throw new Error(
-                `Upload URL is invalid. Check S3_PUBLIC_ENDPOINT (got ${presign.uploadUrl}).`
-              )
+              // Prefer presigned uploads to keep large files off the API server.
+              logDebug('media_presign_request', { fileName: file.name, sizeBytes: file.size, contentType: file.type })
+              const presign = await presignMedia(token, {
+                fileName: file.name,
+                contentType: file.type,
+                sizeBytes: file.size,
+              })
+              try {
+                new URL(presign.uploadUrl)
+              } catch {
+                throw new Error(
+                  `Upload URL is invalid. Check S3_PUBLIC_ENDPOINT (got ${presign.uploadUrl}).`
+                )
+              }
+              const uploadRes = await fetch(presign.uploadUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': file.type },
+                body: file,
+              })
+              if (!uploadRes.ok) {
+                throw new Error(`Upload failed (${uploadRes.status})`)
+              }
+              fileUrl = presign.fileUrl
+              logInfo('media_upload_presigned_success', { fileName: file.name })
+            } catch (presignErr: any) {
+              const uploaded = await uploadMedia(token, file)
+              fileUrl = uploaded.fileUrl
+              if (!fileUrl) {
+                throw presignErr
+              }
+              logInfo('media_upload_fallback_success', { fileName: file.name })
             }
-            const uploadRes = await fetch(presign.uploadUrl, {
-              method: 'PUT',
-              headers: { 'Content-Type': file.type },
-              body: file,
-            })
-            if (!uploadRes.ok) {
-              throw new Error(`Upload failed (${uploadRes.status})`)
-            }
-            fileUrl = presign.fileUrl
-            logInfo('media_upload_presigned_success', { fileName: file.name })
-          } catch (presignErr: any) {
+          } else {
             const uploaded = await uploadMedia(token, file)
             fileUrl = uploaded.fileUrl
-            if (!fileUrl) {
-              throw presignErr
-            }
-            logInfo('media_upload_fallback_success', { fileName: file.name })
+            logInfo('media_upload_direct_success', { fileName: file.name })
           }
           setUploadedMedia((prev) => [...prev, { fileUrl, previewUrl }])
         } catch (err) {

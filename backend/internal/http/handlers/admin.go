@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gigme/backend/internal/http/middleware"
 
@@ -144,7 +145,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
-		if len(title) == 0 || len(title) > 80 {
+		if title == "" || utf8.RuneCountInString(title) > maxTitleLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "invalid_title")
 			writeError(w, http.StatusBadRequest, "title length invalid")
 			return
@@ -154,7 +155,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 
 	if req.Description != nil {
 		description := strings.TrimSpace(*req.Description)
-		if len(description) == 0 || len(description) > 1000 {
+		if description == "" || utf8.RuneCountInString(description) > maxDescriptionLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "invalid_description")
 			writeError(w, http.StatusBadRequest, "description length invalid")
 			return
@@ -213,7 +214,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 
 	if req.ContactTelegram != nil {
 		value := strings.TrimSpace(*req.ContactTelegram)
-		if len(value) > maxContactLength {
+		if utf8.RuneCountInString(value) > maxContactLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "contact_telegram_too_long")
 			writeError(w, http.StatusBadRequest, "contact telegram too long")
 			return
@@ -222,7 +223,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ContactWhatsapp != nil {
 		value := strings.TrimSpace(*req.ContactWhatsapp)
-		if len(value) > maxContactLength {
+		if utf8.RuneCountInString(value) > maxContactLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "contact_whatsapp_too_long")
 			writeError(w, http.StatusBadRequest, "contact whatsapp too long")
 			return
@@ -231,7 +232,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ContactWechat != nil {
 		value := strings.TrimSpace(*req.ContactWechat)
-		if len(value) > maxContactLength {
+		if utf8.RuneCountInString(value) > maxContactLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "contact_wechat_too_long")
 			writeError(w, http.StatusBadRequest, "contact wechat too long")
 			return
@@ -240,7 +241,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ContactFbMessenger != nil {
 		value := strings.TrimSpace(*req.ContactFbMessenger)
-		if len(value) > maxContactLength {
+		if utf8.RuneCountInString(value) > maxContactLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "contact_fb_messenger_too_long")
 			writeError(w, http.StatusBadRequest, "contact fb messenger too long")
 			return
@@ -249,7 +250,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ContactSnapchat != nil {
 		value := strings.TrimSpace(*req.ContactSnapchat)
-		if len(value) > maxContactLength {
+		if utf8.RuneCountInString(value) > maxContactLength {
 			logger.Warn("action", "action", "admin_update_event", "status", "contact_snapchat_too_long")
 			writeError(w, http.StatusBadRequest, "contact snapchat too long")
 			return

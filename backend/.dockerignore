@@ -1,0 +1,7 @@
+.git
+.env
+.env.*
+*.log
+bin/
+node_modules/
+dist/
