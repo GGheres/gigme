@@ -285,9 +285,16 @@ type MediaImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & 
   fallbackSrc?: string
 }
 
-const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
-  const [resolvedSrc, setResolvedSrc] = useState<string>(src || '')
+const MediaImage = ({ src, fallbackSrc, alt, onError, ...rest }: MediaImageProps) => {
+  const [candidateSrc, setCandidateSrc] = useState<string>(src || fallbackSrc || '')
+  const [resolvedSrc, setResolvedSrc] = useState<string>(src || fallbackSrc || '')
   const objectUrlRef = useRef<string | null>(null)
+  const triedFallbackRef = useRef(false)
+
+  useEffect(() => {
+    triedFallbackRef.current = false
+    setCandidateSrc(src || fallbackSrc || '')
+  }, [src, fallbackSrc])
 
   useEffect(() => {
     let cancelled = false
@@ -320,7 +327,7 @@ const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
     const run = async () => {
       clearObjectUrl()
       try {
-        const next = await load(src)
+        const next = await load(candidateSrc)
         if (cancelled) return
         if (next) {
           setResolvedSrc(next)
@@ -329,13 +336,12 @@ const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
       } catch {
         // try fallback
       }
-      try {
-        const nextFallback = await load(fallbackSrc)
-        if (cancelled) return
-        setResolvedSrc(nextFallback)
-      } catch {
+      if (!fallbackSrc || triedFallbackRef.current || fallbackSrc === candidateSrc) {
         if (!cancelled) setResolvedSrc('')
+        return
       }
+      triedFallbackRef.current = true
+      setCandidateSrc(fallbackSrc)
     }
 
     run()
@@ -344,10 +350,25 @@ const MediaImage = ({ src, fallbackSrc, alt, ...rest }: MediaImageProps) => {
       controller.abort()
       clearObjectUrl()
     }
-  }, [src, fallbackSrc])
+  }, [candidateSrc, fallbackSrc])
 
   if (!resolvedSrc) return null
-  return <img src={resolvedSrc} alt={alt} {...rest} />
+  return (
+    <img
+      src={resolvedSrc}
+      alt={alt}
+      onError={(event) => {
+        if (fallbackSrc && !triedFallbackRef.current && fallbackSrc !== candidateSrc) {
+          triedFallbackRef.current = true
+          setCandidateSrc(fallbackSrc)
+        } else {
+          setResolvedSrc('')
+        }
+        onError?.(event)
+      }}
+      {...rest}
+    />
+  )
 }
 
 type ContactIconsProps = {
@@ -1956,8 +1977,8 @@ function App() {
           <div className="feed-grid">
             {feed.map((event) => {
               const proxyThumb = buildMediaProxyUrl(event.id, 0)
-              const thumbnailSrc = event.thumbnailUrl || proxyThumb
-              const thumbnailFallback = event.thumbnailUrl ? proxyThumb : undefined
+              const thumbnailSrc = proxyThumb || event.thumbnailUrl
+              const thumbnailFallback = proxyThumb && event.thumbnailUrl ? event.thumbnailUrl : undefined
               if (event.id === selectedId) {
                 if (!detailEvent) {
                   return (

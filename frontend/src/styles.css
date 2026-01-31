@@ -1,14 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #f3f1ee;
-  --root-gradient: linear-gradient(
-    160deg,
-    rgba(255, 123, 31, 0.12) 0%,
-    rgba(102, 211, 100, 0.12) 32%,
-    rgba(59, 123, 255, 0.14) 62%,
-    rgba(106, 76, 255, 0.12) 100%
+  --bg: #1c3f67;
+  --bg-grad-wide: linear-gradient(
+    120deg,
+    #2b5fa5 0%,
+    #3aa6c6 32%,
+    #7fd0b7 52%,
+    #f2c678 72%,
+    #a88bd5 100%
   );
+  --bg-grad-tall: linear-gradient(
+    165deg,
+    #2f68b7 0%,
+    #49b8d2 38%,
+    #9fdc9d 56%,
+    #f5c06c 78%,
+    #946cc4 100%
+  );
+  --bg-glow-wide: radial-gradient(circle at 12% 18%, rgba(75, 150, 255, 0.42), transparent 58%),
+    radial-gradient(circle at 48% 10%, rgba(120, 225, 205, 0.34), transparent 60%),
+    radial-gradient(circle at 82% 32%, rgba(255, 200, 110, 0.32), transparent 62%),
+    radial-gradient(circle at 75% 85%, rgba(120, 90, 210, 0.3), transparent 66%);
+  --bg-glow-tall: radial-gradient(circle at 18% 14%, rgba(90, 165, 255, 0.48), transparent 60%),
+    radial-gradient(circle at 55% 22%, rgba(130, 230, 210, 0.34), transparent 62%),
+    radial-gradient(circle at 78% 55%, rgba(255, 205, 120, 0.32), transparent 64%),
+    radial-gradient(circle at 40% 82%, rgba(120, 95, 220, 0.34), transparent 66%);
+  --bg-map-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900' viewBox='0 0 900 900'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.22' stroke-width='1'%3E%3Cpath d='M-40 140 C 140 40 240 220 420 160 S 760 220 940 120'/%3E%3Cpath d='M-30 360 C 120 300 220 430 420 380 S 700 340 930 420'/%3E%3Cpath d='M-50 620 C 150 520 260 700 460 630 S 760 640 930 560'/%3E%3Cpath d='M120 -20 C 60 140 240 200 180 360 S 220 660 130 920'/%3E%3Cpath d='M420 -40 C 360 160 540 200 480 380 S 520 680 430 940'/%3E%3Cpath d='M720 -60 C 660 160 820 220 780 380 S 820 700 710 920'/%3E%3C/g%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.12' stroke-width='1'%3E%3Ccircle cx='200' cy='260' r='60'/%3E%3Ccircle cx='640' cy='260' r='78'/%3E%3Ccircle cx='320' cy='620' r='90'/%3E%3C/g%3E%3C/svg%3E");
+  --bg-icon-glow: radial-gradient(circle at 20% 35%, rgba(120, 190, 255, 0.28), transparent 36%),
+    radial-gradient(circle at 45% 40%, rgba(120, 220, 190, 0.28), transparent 35%),
+    radial-gradient(circle at 68% 38%, rgba(255, 220, 140, 0.3), transparent 34%),
+    radial-gradient(circle at 78% 62%, rgba(140, 110, 220, 0.26), transparent 36%),
+    radial-gradient(circle at 35% 68%, rgba(255, 170, 180, 0.22), transparent 34%);
   --surface: rgba(255, 255, 255, 0.86);
   --surface-strong: #ffffff;
   --ink: #14161f;
@@ -38,7 +61,7 @@ body {
   font-family: var(--font-body);
   color: var(--ink);
   background-color: var(--bg);
-  background-image: var(--root-gradient);
+  background-image: var(--bg-grad-wide);
   position: relative;
   overflow-x: hidden;
 }
@@ -48,27 +71,63 @@ body::before {
   position: fixed;
   inset: -20% -10% auto -10%;
   height: 70vh;
-  background: radial-gradient(circle at 12% 25%, rgba(59, 123, 255, 0.22), transparent 62%),
-    radial-gradient(circle at 48% 10%, rgba(102, 211, 100, 0.22), transparent 60%),
-    radial-gradient(circle at 84% 35%, rgba(255, 123, 31, 0.2), transparent 62%),
-    radial-gradient(circle at 70% 90%, rgba(106, 76, 255, 0.2), transparent 64%);
+  background: var(--bg-glow-wide);
   z-index: -2;
-  filter: blur(10px);
+  filter: blur(12px);
+  opacity: 0.85;
+  animation: bgFloat 16s ease-in-out infinite;
 }
 
 body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(rgba(20, 22, 31, 0.04) 1px, transparent 1px),
-    radial-gradient(rgba(20, 22, 31, 0.03) 1px, transparent 1px);
-  background-size: 36px 36px, 72px 72px;
-  background-position: 0 0, 16px 16px;
-  opacity: 0.3;
+  background-image: var(--bg-map-pattern), var(--bg-icon-glow);
+  background-size: 900px 900px, 120% 120%;
+  background-position: 0 0, 0 0;
+  opacity: 0.45;
   z-index: -1;
   pointer-events: none;
+  mix-blend-mode: screen;
+  animation: bgDrift 22s ease-in-out infinite;
 }
 
+@keyframes bgFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -2%, 0);
+  }
+}
+
+@keyframes bgDrift {
+  0%,
+  100% {
+    background-position: 0 0, 0 0;
+  }
+  50% {
+    background-position: 60px -40px, -40px 30px;
+  }
+}
+
+@media (max-width: 900px) {
+  body {
+    background-image: var(--bg-grad-tall);
+  }
+
+  body::before {
+    inset: -25% -15% auto -15%;
+    height: 80vh;
+    background: var(--bg-glow-tall);
+  }
+
+  body::after {
+    background-size: 700px 700px, 150% 150%;
+    opacity: 0.5;
+  }
+}
 h1,
 h2,
 h3 {
