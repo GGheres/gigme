@@ -90,7 +90,7 @@ Notes:
 - `VITE_*` variables are baked into the frontend build. Rebuild the `frontend` image after changing them.
 - Set `BASE_URL` to the public WebApp URL so Telegram buttons point to the correct host.
 - If you use managed Postgres/S3, update `DATABASE_URL` / `S3_*` in `infra/.env.prod`.
-- DNS: point `spacefestivals.fun` (and optionally `www.spacefestivals.fun`) to your server IP; API is served from `/api` on the same domain. Ensure ports 80/443 are open (Caddy handles TLS).
+- DNS: point `spacefestival.fun` (and optionally `www.spacefestival.fun`) to your server IP; API is served from `/api` on the same domain. Ensure ports 80/443 are open (Caddy handles TLS).
 - If `VITE_PRESIGN_ENABLED=false`, uploads go through the API and `S3_PUBLIC_ENDPOINT` can stay internal (e.g. `http://minio:9000`).
 - MinIO ports are not exposed in the prod compose; access is internal-only.
 
