@@ -64,14 +64,14 @@ func main() {
 		}
 
 		for _, job := range jobs {
-			if err := handleJob(ctx, repo, telegram, cfg.BaseURL, job, logger); err != nil {
+			if err := handleJob(ctx, repo, telegram, cfg.BaseURL, cfg.APIPublicURL, job, logger); err != nil {
 				logger.Error("job_failed", "job_id", job.ID, "error", err)
 			}
 		}
 	}
 }
 
-func handleJob(ctx context.Context, repo *repository.Repository, telegram *integrations.TelegramClient, baseURL string, job models.NotificationJob, logger *slog.Logger) error {
+func handleJob(ctx context.Context, repo *repository.Repository, telegram *integrations.TelegramClient, baseURL, apiBaseURL string, job models.NotificationJob, logger *slog.Logger) error {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -81,7 +81,7 @@ func handleJob(ctx context.Context, repo *repository.Repository, telegram *integ
 		return repo.UpdateNotificationJobStatus(ctx, job.ID, "failed", job.Attempts+1, err.Error(), nil)
 	}
 
-	message := buildNotification(job, baseURL)
+	message := buildNotification(job, baseURL, apiBaseURL)
 	if message.Text == "" {
 		return repo.UpdateNotificationJobStatus(ctx, job.ID, "failed", job.Attempts+1, "unknown job kind", nil)
 	}
@@ -143,14 +143,14 @@ type notificationMessage struct {
 	ButtonText       string
 }
 
-func buildNotification(job models.NotificationJob, baseURL string) notificationMessage {
+func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) notificationMessage {
 	title := payloadString(job.Payload, "title")
 	eventURL := buildEventURL(baseURL, extractEventID(job))
 	switch job.Kind {
 	case "event_created":
-		return buildEventCard(job, baseURL, "Новое событие")
+		return buildEventCard(job, baseURL, apiBaseURL, "Новое событие")
 	case "event_nearby":
-		return buildEventCard(job, baseURL, "Событие рядом")
+		return buildEventCard(job, baseURL, apiBaseURL, "Событие рядом")
 	case "joined":
 		return notificationMessage{
 			Text:       withTitle("Вы присоединились к событию", title),
@@ -168,7 +168,7 @@ func buildNotification(job models.NotificationJob, baseURL string) notificationM
 	}
 }
 
-func buildEventCard(job models.NotificationJob, baseURL, heading string) notificationMessage {
+func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading string) notificationMessage {
 	title := payloadString(job.Payload, "title")
 	startsAt := formatStartsAt(payloadString(job.Payload, "startsAt"))
 	address := payloadString(job.Payload, "addressLabel")
@@ -179,7 +179,10 @@ func buildEventCard(job models.NotificationJob, baseURL, heading string) notific
 	if photoURL != "" && !strings.HasPrefix(photoURL, "http://") && !strings.HasPrefix(photoURL, "https://") {
 		photoURL = ""
 	}
-	mediaBaseURL := payloadString(job.Payload, "apiBaseUrl")
+	mediaBaseURL := strings.TrimSpace(apiBaseURL)
+	if mediaBaseURL == "" {
+		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
+	}
 	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
 	if previewURL == "" {
 		previewURL = buildMediaPreviewURL(baseURL, extractEventID(job))

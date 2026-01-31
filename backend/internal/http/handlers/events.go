@@ -260,7 +260,9 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		"title":    title,
 		"startsAt": req.StartsAt,
 	}
-	if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
+	if apiBaseURL := strings.TrimSpace(h.cfg.APIPublicURL); apiBaseURL != "" {
+		payload["apiBaseUrl"] = apiBaseURL
+	} else if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
 		payload["apiBaseUrl"] = apiBaseURL
 	}
 	if addressLabel != "" {

@@ -2,6 +2,9 @@
 
 :root {
   --bg: #1c3f67;
+  --bg-image-wide: url('/bg/bg-wide.png');
+  --bg-image-tall: url('/bg/bg-tall.png');
+  --bg-overlay: none;
   --bg-grad-wide: linear-gradient(
     120deg,
     #2b5fa5 0%,
@@ -61,7 +64,10 @@ body {
   font-family: var(--font-body);
   color: var(--ink);
   background-color: var(--bg);
-  background-image: var(--bg-grad-wide);
+  background-image: var(--bg-image-wide), var(--bg-grad-wide);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   position: relative;
   overflow-x: hidden;
 }
@@ -69,63 +75,29 @@ body {
 body::before {
   content: '';
   position: fixed;
-  inset: -20% -10% auto -10%;
-  height: 70vh;
-  background: var(--bg-glow-wide);
+  inset: 0;
+  background: var(--bg-overlay);
   z-index: -2;
-  filter: blur(12px);
-  opacity: 0.85;
-  animation: bgFloat 16s ease-in-out infinite;
+  filter: blur(4px);
+  opacity: 0.12;
 }
 
 body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: var(--bg-map-pattern), var(--bg-icon-glow);
-  background-size: 900px 900px, 120% 120%;
-  background-position: 0 0, 0 0;
-  opacity: 0.45;
+  background: none;
+  opacity: 0;
   z-index: -1;
   pointer-events: none;
-  mix-blend-mode: screen;
-  animation: bgDrift 22s ease-in-out infinite;
-}
-
-@keyframes bgFloat {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -2%, 0);
-  }
-}
-
-@keyframes bgDrift {
-  0%,
-  100% {
-    background-position: 0 0, 0 0;
-  }
-  50% {
-    background-position: 60px -40px, -40px 30px;
-  }
 }
 
 @media (max-width: 900px) {
   body {
-    background-image: var(--bg-grad-tall);
-  }
-
-  body::before {
-    inset: -25% -15% auto -15%;
-    height: 80vh;
-    background: var(--bg-glow-tall);
-  }
-
-  body::after {
-    background-size: 700px 700px, 150% 150%;
-    opacity: 0.5;
+    background-image: var(--bg-image-tall), var(--bg-grad-tall);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
   }
 }
 h1,

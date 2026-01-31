@@ -59,6 +59,7 @@ VITE_API_URL=http://localhost:8080 npm run dev
 - `TELEGRAM_BOT_USERNAME`
 - `JWT_SECRET`
 - `BASE_URL` - (optional) base URL for links
+- `API_PUBLIC_URL` - optional public API base URL for notification media (example `https://spacefestival.fun/api`)
 - `ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
 - `LOG_LEVEL` - `debug|info|warn|error` (default: `info`)
 - `LOG_FORMAT` - `text|json` (default: `text`)
