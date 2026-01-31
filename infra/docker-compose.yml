@@ -72,6 +72,7 @@ services:
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       JWT_SECRET: ${JWT_SECRET}
       BASE_URL: ${BASE_URL}
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
     ports:
       - "8080:8080"
@@ -93,6 +94,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       JWT_SECRET: ${JWT_SECRET}
       BASE_URL: ${BASE_URL}
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
 
 volumes:
   db_data:

@@ -316,7 +316,8 @@ func buildMediaPreviewURL(baseURL string, eventID int64) string {
 	}
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
-	parsed.Path = path.Join("/", "media", "events", strconv.FormatInt(eventID, 10), "0")
+	basePath := strings.TrimSpace(parsed.Path)
+	parsed.Path = path.Join("/", basePath, "media", "events", strconv.FormatInt(eventID, 10), "0")
 	return parsed.String()
 }
 
