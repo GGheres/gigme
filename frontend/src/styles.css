@@ -706,9 +706,9 @@ input[type='file']::file-selector-button {
 }
 
 .feed-grid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  grid-template-columns: 1fr;
 }
 
 .feed-grid > .card {
