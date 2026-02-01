@@ -714,6 +714,9 @@ function App() {
   const detailEvent = selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent : null
   const uploadedMediaRef = useRef<UploadedMedia[]>([])
   const createFiltersLimitReached = createFilters.length >= MAX_EVENT_FILTERS
+  const activeFilterCount = activeFilters.length
+  const activeFiltersLabel =
+    activeFilterCount > 0 ? `${activeFilterCount} active` : `Up to ${MAX_EVENT_FILTERS}`
   const createErrorOrder: (keyof CreateErrors)[] = ['title', 'description', 'startsAt', 'contacts', 'location']
   const createErrorRefs: Record<keyof CreateErrors, React.RefObject<HTMLElement>> = {
     title: titleFieldRef,
@@ -824,6 +827,32 @@ function App() {
   const focusCreatePin = () => {
     if (!createLatLng) return
     focusMapAt(createLatLng.lat, createLatLng.lng)
+  }
+
+  const openCreateForm = (source: string) => {
+    if (creating) return
+    logInfo('toggle_create_form', { open: true, source })
+    resetFormState(false)
+    setCreating(true)
+  }
+
+  const closeCreateForm = (source: string) => {
+    logInfo('toggle_create_form', { open: false, source })
+    resetFormState(true)
+  }
+
+  const toggleCreateForm = () => {
+    if (creating) {
+      closeCreateForm('hero')
+    } else {
+      openCreateForm('hero')
+    }
+  }
+
+  const clearActiveFilters = () => {
+    if (activeFilters.length === 0) return
+    logInfo('feed_filters_clear', { count: activeFilters.length })
+    setActiveFilters([])
   }
 
   const startEditFromDetail = (source?: EventDetail | null) => {
@@ -1866,16 +1895,7 @@ function App() {
             <button
               className="button button--primary"
               disabled={!canCreate}
-              onClick={() => {
-                if (creating) {
-                  logInfo('toggle_create_form', { open: false })
-                  resetFormState(true)
-                  return
-                }
-                logInfo('toggle_create_form', { open: true })
-                resetFormState(false)
-                setCreating(true)
-              }}
+              onClick={toggleCreateForm}
             >
               {creating ? (isEditing ? 'Close edit' : 'Close') : 'Create event'}
             </button>
@@ -1886,7 +1906,21 @@ function App() {
           <LogoAnimation />
         </div>
         <div className="hero__filters">
-          <span className="hero__filters-label">Filters</span>
+          <div className="hero__filters-head">
+            <div className="hero__filters-title">
+              <span className="hero__filters-label">Filters</span>
+              <span className="hero__filters-count">{activeFiltersLabel}</span>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                className="button button--ghost button--compact"
+                onClick={clearActiveFilters}
+              >
+                Clear
+              </button>
+            )}
+          </div>
           <div className="filter-row">
             {EVENT_FILTERS.map((filter) => {
               const active = activeFilters.includes(filter.id)
@@ -2005,7 +2039,9 @@ function App() {
                     )
                   })}
                 </div>
-                <p className="hint">Select up to {MAX_EVENT_FILTERS} filters.</p>
+                <p className="hint">
+                  Select up to {MAX_EVENT_FILTERS} filters. {createFilters.length}/{MAX_EVENT_FILTERS} selected.
+                </p>
               </div>
               <div className="form-grid">
                 <label
@@ -2171,7 +2207,22 @@ function App() {
             <h2>Nearby feed</h2>
             <span className="chip chip--ghost">{feed.length} events</span>
           </div>
-          {feed.length === 0 && <p className="empty">No events yet</p>}
+          {feed.length === 0 && (
+            <div className="empty-state">
+              <div>
+                <h3>No events yet</h3>
+                <p>Be the first to drop a pin and invite people around you.</p>
+              </div>
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={!canCreate}
+                onClick={() => openCreateForm('empty_state')}
+              >
+                Create the first event
+              </button>
+            </div>
+          )}
           <div className="feed-grid">
             {feed.map((event) => {
               const proxyThumb = buildMediaProxyUrl(event.id, 0)
