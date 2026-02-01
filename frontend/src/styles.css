@@ -924,7 +924,7 @@ input[type='file']::file-selector-button {
   margin-top: 4px;
 }
 
-.detail-inline {
+.detail-panel--inline {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -933,15 +933,12 @@ input[type='file']::file-selector-button {
   max-height: calc(var(--vh, 1vh) * 100 - 24px);
   overflow: auto;
   animation: expand 0.35s ease;
-  padding: 18px;
 }
 
-.detail-inline--loading {
+.detail-panel--loading {
   display: grid;
   grid-template-columns: 110px 1fr;
   align-items: center;
-  min-height: calc(var(--vh, 1vh) * 100 - 24px);
-  max-height: calc(var(--vh, 1vh) * 100 - 24px);
 }
 
 .detail-hero {
@@ -1376,7 +1373,7 @@ button {
     height: 180px;
   }
 
-  .detail-inline--loading {
+  .detail-panel--loading {
     grid-template-columns: 1fr;
   }
 }

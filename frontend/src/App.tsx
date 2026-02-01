@@ -697,7 +697,6 @@ function App() {
   const mapCenterLabel = mapCenter ? formatCoords(mapCenter.lat, mapCenter.lng) : 'Locating...'
   const pinLabel = createLatLng ? formatCoords(createLatLng.lat, createLatLng.lng) : null
   const createCoordsLabel = createLatLng ? `${createLatLng.lat.toFixed(4)}, ${createLatLng.lng.toFixed(4)}` : null
-  const selectedInFeed = selectedId != null && feed.some((item) => item.id === selectedId)
   const detailEvent = selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent : null
   const uploadedMediaRef = useRef<UploadedMedia[]>([])
   const createFiltersLimitReached = createFilters.length >= MAX_EVENT_FILTERS
@@ -2157,7 +2156,7 @@ function App() {
                   return (
                     <article
                       key={event.id}
-                      className="card card--selected detail-inline detail-inline--loading"
+                      className="panel detail-panel detail-panel--inline detail-panel--loading"
                       data-event-id={event.id}
                     >
                       <div className="card__media">
@@ -2184,7 +2183,7 @@ function App() {
                 }
 
                 return (
-                  <article key={event.id} className="card card--selected detail-inline" data-event-id={event.id}>
+                  <article key={event.id} className="panel detail-panel detail-panel--inline" data-event-id={event.id}>
                     <div className="detail-header">
                       <div>
                         <h2>{detailEvent.event.title}</h2>
@@ -2193,15 +2192,7 @@ function App() {
                           <p className="detail-meta">Ends: {new Date(detailEvent.event.endsAt).toLocaleString()}</p>
                         )}
                       </div>
-                      <div className="detail-header__actions">
-                        <span className="chip chip--accent">{detailEvent.event.participantsCount} going</span>
-                        <button
-                          className="button button--ghost button--compact"
-                          onClick={() => setSelectedId(null)}
-                        >
-                          Close
-                        </button>
-                      </div>
+                      <span className="chip chip--accent">{detailEvent.event.participantsCount} going</span>
                     </div>
                     {detailEvent.media[0] && (
                       <div className="detail-hero">
@@ -2417,188 +2408,6 @@ function App() {
             })}
           </div>
         </section>
-
-        {selectedEvent && !selectedInFeed && (
-          <section className="panel detail-panel">
-            <div className="detail-header">
-              <div>
-                <h2>{selectedEvent.event.title}</h2>
-                <p className="detail-meta">{new Date(selectedEvent.event.startsAt).toLocaleString()}</p>
-                {selectedEvent.event.endsAt && (
-                  <p className="detail-meta">Ends: {new Date(selectedEvent.event.endsAt).toLocaleString()}</p>
-                )}
-              </div>
-              <span className="chip chip--accent">{selectedEvent.event.participantsCount} going</span>
-            </div>
-            {selectedEvent.media[0] && (
-              <div className="detail-hero">
-                <MediaImage
-                  src={resolveMediaSrc(selectedEvent.event.id, 0, selectedEvent.media[0])}
-                  alt="event hero"
-                  fallbackSrc={selectedEvent.media[0]}
-                />
-              </div>
-            )}
-            <p className="detail-description">{renderDescription(selectedEvent.event.description)}</p>
-            <div className="media-list">
-              {selectedEvent.media.slice(1).map((url, index) => (
-                <MediaImage
-                  key={url}
-                  src={resolveMediaSrc(selectedEvent.event.id, index + 1, url)}
-                  alt="media"
-                  fallbackSrc={url}
-                />
-              ))}
-            </div>
-            <div className="actions">
-              {selectedEvent.isJoined ? (
-                <button className="button button--ghost" onClick={handleLeave}>
-                  Leave event
-                </button>
-              ) : (
-                <button className="button button--accent" onClick={handleJoin}>
-                  Join event
-                </button>
-              )}
-              <button className="button button--ghost" type="button" onClick={handleShareEvent}>
-                Share
-              </button>
-            </div>
-            <div className="engagement">
-              <button
-                type="button"
-                className={`button button--ghost button--compact${selectedEvent.event.isLiked ? ' button--liked' : ''}`}
-                onClick={handleLikeToggle}
-                disabled={likeBusy}
-              >
-                {selectedEvent.event.isLiked ? '♥ Liked' : '♡ Like'}
-              </button>
-              <div className="engagement__meta">
-                <span>{selectedEvent.event.likesCount} likes</span>
-                <span>{selectedEvent.event.commentsCount} comments</span>
-              </div>
-            </div>
-            <section className="comments">
-              <div className="comments__header">
-                <h3>Comments</h3>
-                <span className="chip chip--ghost">
-                  {commentsLoading ? 'Loading…' : comments.length}
-                </span>
-              </div>
-              <div className="comments__list">
-                {commentsLoading ? (
-                  <p className="hint">Loading comments…</p>
-                ) : comments.length === 0 ? (
-                  <p className="empty">No comments yet</p>
-                ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="comment">
-                      <div className="comment__meta">
-                        <span className="comment__author">{comment.userName}</span>
-                        <span className="comment__time">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="comment__body">{comment.body}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-              <form className="comment-form" onSubmit={handleAddComment}>
-                <textarea
-                  value={commentBody}
-                  onChange={(event) => setCommentBody(event.target.value)}
-                  placeholder="Write a comment…"
-                  maxLength={MAX_COMMENT_LENGTH}
-                  rows={3}
-                />
-                <div className="comment-form__actions">
-                  <span className="hint">
-                    {commentBody.length}/{MAX_COMMENT_LENGTH}
-                  </span>
-                  <button
-                    className="button button--accent button--compact"
-                    type="submit"
-                    disabled={commentSending || !commentBody.trim()}
-                  >
-                    {commentSending ? 'Sending…' : 'Send'}
-                  </button>
-                </div>
-              </form>
-            </section>
-            {isAdmin && (
-              <div className="admin-actions">
-                <span className="chip chip--ghost">
-                  {isEditing && editingEventId === selectedEvent.event.id ? 'Editing' : 'Admin'}
-                </span>
-                <button
-                  type="button"
-                  className="button button--ghost button--compact"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    startEditFromDetail(selectedEvent)
-                  }}
-                  disabled={adminBusy || (isEditing && editingEventId === selectedEvent.event.id)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="button button--danger button--compact"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    handleAdminDelete()
-                  }}
-                  disabled={adminBusy}
-                >
-                  Delete
-                </button>
-                <div className="admin-actions__group">
-                  <button
-                    type="button"
-                    className="button button--accent button--compact"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      handleAdminPromote('24h')
-                    }}
-                    disabled={adminBusy}
-                  >
-                    Promote 24h
-                  </button>
-                  <button
-                    type="button"
-                    className="button button--accent button--compact"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      handleAdminPromote('7d')
-                    }}
-                    disabled={adminBusy}
-                  >
-                    Promote 7d
-                  </button>
-                  <button
-                    type="button"
-                    className="button button--ghost button--compact"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      handleAdminPromote('clear')
-                    }}
-                    disabled={adminBusy}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-            )}
-            <ContactIcons source={selectedEvent.event} unlocked={selectedEvent.isJoined} className="detail-contacts" />
-            <h3>Participants</h3>
-            <ul className="participants">
-              {selectedEvent.participants.map((p) => (
-                <li key={p.userId}>{p.name}</li>
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
     </div>
   )
