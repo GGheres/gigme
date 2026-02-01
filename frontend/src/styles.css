@@ -929,8 +929,8 @@ input[type='file']::file-selector-button {
   flex-direction: column;
   gap: 14px;
   width: 100%;
-  min-height: 180px;
-  max-height: calc(var(--vh, 1vh) * 50 - 24px);
+  min-height: calc(var(--vh, 1vh) * 100 - 24px);
+  max-height: calc(var(--vh, 1vh) * 100 - 24px);
   overflow: auto;
   animation: expand 0.35s ease;
   padding: 18px;
@@ -940,8 +940,8 @@ input[type='file']::file-selector-button {
   display: grid;
   grid-template-columns: 110px 1fr;
   align-items: center;
-  min-height: 180px;
-  max-height: calc(var(--vh, 1vh) * 50 - 24px);
+  min-height: calc(var(--vh, 1vh) * 100 - 24px);
+  max-height: calc(var(--vh, 1vh) * 100 - 24px);
 }
 
 .detail-hero {

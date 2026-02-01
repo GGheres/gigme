@@ -655,6 +655,8 @@ function App() {
   const [commentBody, setCommentBody] = useState('')
   const [commentSending, setCommentSending] = useState(false)
   const [likeBusy, setLikeBusy] = useState(false)
+  const scrollAttemptsRef = useRef(0)
+  const scrolledEventRef = useRef<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -926,12 +928,34 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (selectedId == null) return
-    const target = document.querySelector(`[data-event-id="${selectedId}"]`)
-    if (target instanceof HTMLElement) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+    if (selectedId == null) {
+      scrollAttemptsRef.current = 0
+      scrolledEventRef.current = null
+      return
     }
-  }, [selectedId])
+    if (scrolledEventRef.current === selectedId) return
+    const tryScroll = () => {
+      if (scrolledEventRef.current === selectedId) return
+      const target = document.querySelector(`[data-event-id="${selectedId}"]`)
+      if (target instanceof HTMLElement) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+        scrolledEventRef.current = selectedId
+        return
+      }
+      const fallback = document.querySelector('.detail-panel')
+      if (fallback instanceof HTMLElement) {
+        fallback.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
+        scrolledEventRef.current = selectedId
+        return
+      }
+      if (scrollAttemptsRef.current < 6) {
+        scrollAttemptsRef.current += 1
+        window.setTimeout(tryScroll, 300)
+      }
+    }
+    scrollAttemptsRef.current = 0
+    tryScroll()
+  }, [selectedId, feed.length, selectedEvent])
 
   useEffect(() => {
     if (!creating) return
