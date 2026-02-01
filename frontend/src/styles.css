@@ -708,9 +708,14 @@ input[type='file']::file-selector-button {
 .feed-grid {
   display: grid;
   gap: 14px;
+  grid-template-columns: 1fr;
 }
 
 .feed-grid > .card {
+  animation-fill-mode: both;
+}
+
+.feed-grid > .panel {
   animation-fill-mode: both;
 }
 
