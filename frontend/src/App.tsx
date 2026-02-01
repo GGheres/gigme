@@ -71,6 +71,7 @@ const parseAdminIds = (value: string) => {
 }
 
 const ADMIN_TELEGRAM_IDS = parseAdminIds(String(import.meta.env.VITE_ADMIN_TELEGRAM_IDS || ''))
+const TELEGRAM_BOT_USERNAME = String(import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '').trim()
 
 const formatDateTimeLocal = (value?: string | null) => {
   if (!value) return ''
@@ -122,6 +123,16 @@ const buildCoordsUrl = (lat: number, lng: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
 const buildShareUrl = (eventId: number) => {
   if (typeof window === 'undefined') return ''
+  const botUsername = TELEGRAM_BOT_USERNAME.replace(/^@+/, '').trim()
+  if (botUsername) {
+    try {
+      const tgUrl = new URL(`https://t.me/${botUsername}`)
+      tgUrl.searchParams.set('start', `event_${eventId}`)
+      return tgUrl.toString()
+    } catch {
+      // fall through to web share URL
+    }
+  }
   try {
     const url = new URL(window.location.origin + window.location.pathname)
     url.searchParams.set('eventId', String(eventId))
