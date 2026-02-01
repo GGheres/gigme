@@ -6,19 +6,23 @@
 - `infra/` - docker-compose and Postgres/PostGIS migrations
 
 ## Quick start (dev)
-1. Create `.env` in the repo root:
+1. Create `infra/.env` (used by docker compose):
 
 ```
 TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
 TELEGRAM_BOT_USERNAME=YOUR_BOT_USERNAME
 JWT_SECRET=replace_me
 BASE_URL=
+API_PUBLIC_URL=
 ADMIN_TELEGRAM_IDS=123456789
+S3_PUBLIC_ENDPOINT=http://localhost:9000
 ```
 
-2. Make sure `infra/.env` exists (so docker compose picks it up):
+2. Create `frontend/.env` (used by Vite dev/build):
 ```
-cp .env infra/.env
+VITE_API_URL=http://localhost:8080
+VITE_ADMIN_TELEGRAM_IDS=123456789
+VITE_TELEGRAM_BOT_USERNAME=YOUR_BOT_USERNAME
 ```
 
 3. Start infra:
@@ -40,7 +44,7 @@ docker compose up --build
 ```
 cd ../frontend
 npm install
-VITE_API_URL=http://localhost:8080 npm run dev
+npm run dev
 ```
 
 ## Environment variables
@@ -67,6 +71,8 @@ VITE_API_URL=http://localhost:8080 npm run dev
 
 ### Frontend
 - `VITE_API_URL` - API URL
+- `VITE_ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
+- `VITE_TELEGRAM_BOT_USERNAME` - Telegram bot username for share links
 - `VITE_LOG_LEVEL` - `debug|info|warn|error|off` (default: `info`). Overrides can be set at runtime with `localStorage.setItem('gigme:logLevel', 'debug')`.
 - `VITE_LOG_TO_SERVER` - `true|false` (default: `true` in dev, `false` in prod). Runtime override: `localStorage.setItem('gigme:logToServer', 'true')`.
 - `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).

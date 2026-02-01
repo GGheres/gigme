@@ -6,10 +6,12 @@ import (
 )
 
 type WindowLimiter struct {
-	mu     sync.Mutex
-	limit  int
-	window time.Duration
-	items  map[string]*windowEntry
+	mu              sync.Mutex
+	limit           int
+	window          time.Duration
+	items           map[string]*windowEntry
+	lastCleanup     time.Time
+	cleanupInterval time.Duration
 }
 
 type windowEntry struct {
@@ -19,9 +21,11 @@ type windowEntry struct {
 
 func NewWindowLimiter(limit int, window time.Duration) *WindowLimiter {
 	return &WindowLimiter{
-		limit:  limit,
-		window: window,
-		items:  make(map[string]*windowEntry),
+		limit:           limit,
+		window:          window,
+		items:           make(map[string]*windowEntry),
+		lastCleanup:     time.Now(),
+		cleanupInterval: window,
 	}
 }
 
@@ -29,6 +33,8 @@ func (l *WindowLimiter) Allow(key string) bool {
 	now := time.Now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	l.maybeCleanup(now)
 
 	entry, ok := l.items[key]
 	if !ok {
@@ -48,4 +54,19 @@ func (l *WindowLimiter) Allow(key string) bool {
 
 	entry.count++
 	return true
+}
+
+func (l *WindowLimiter) maybeCleanup(now time.Time) {
+	if l.cleanupInterval <= 0 || l.window <= 0 {
+		return
+	}
+	if !l.lastCleanup.IsZero() && now.Sub(l.lastCleanup) < l.cleanupInterval {
+		return
+	}
+	for key, entry := range l.items {
+		if now.Sub(entry.start) >= l.window {
+			delete(l.items, key)
+		}
+	}
+	l.lastCleanup = now
 }

@@ -76,6 +76,7 @@ func main() {
 	r.Get("/media/events/{id}/{index}", h.EventMedia)
 
 	r.Post("/auth/telegram", h.AuthTelegram)
+	r.Post("/telegram/webhook", h.TelegramWebhook)
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.OptionalAuthMiddleware(cfg.JWTSecret))

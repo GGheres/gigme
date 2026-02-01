@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NGROK_ENV="$ROOT_DIR/.env.ngrok"
-ROOT_ENV="$ROOT_DIR/.env"
 FRONT_ENV="$ROOT_DIR/frontend/.env"
 INFRA_ENV="$ROOT_DIR/infra/.env"
 
@@ -90,23 +89,17 @@ if [[ -z "$webapp_url" || -z "$api_url" ]]; then
   exit 1
 fi
 
-set_kv "$ROOT_ENV" "BASE_URL" "$webapp_url"
-set_kv "$ROOT_ENV" "VITE_API_URL" "$api_url"
 set_kv "$FRONT_ENV" "VITE_API_URL" "$api_url"
+set_kv "$INFRA_ENV" "BASE_URL" "$webapp_url"
 
-if [[ -f "$INFRA_ENV" ]]; then
-  set_kv "$INFRA_ENV" "BASE_URL" "$webapp_url"
-  set_kv "$INFRA_ENV" "VITE_API_URL" "$api_url"
-fi
-
-bot_token=$(get_var "$ROOT_ENV" "TELEGRAM_BOT_TOKEN")
+bot_token=$(get_var "$INFRA_ENV" "TELEGRAM_BOT_TOKEN")
 if [[ -n "$bot_token" ]]; then
   webhook_url="${api_url}/telegram/webhook"
   curl -sS -X POST "https://api.telegram.org/bot${bot_token}/setWebhook" \
     -d "url=${webhook_url}" >/dev/null
   echo "Webhook set to ${webhook_url}"
 else
-  echo "TELEGRAM_BOT_TOKEN missing in .env; skipped webhook update."
+  echo "TELEGRAM_BOT_TOKEN missing in infra/.env; skipped webhook update."
 fi
 
-echo "Updated BASE_URL and VITE_API_URL in .env and frontend/.env"
+echo "Updated BASE_URL in infra/.env and VITE_API_URL in frontend/.env"

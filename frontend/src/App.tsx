@@ -133,13 +133,7 @@ const buildShareUrl = (eventId: number) => {
       // fall through to web share URL
     }
   }
-  try {
-    const url = new URL(window.location.origin + window.location.pathname)
-    url.searchParams.set('eventId', String(eventId))
-    return url.toString()
-  } catch {
-    return ''
-  }
+  return ''
 }
 const COORDS_REGEX = /Coordinates:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i
 const buildMediaProxyUrl = (eventId: number, index: number) => {
@@ -538,6 +532,13 @@ const LogoAnimation = () => {
       observer?.disconnect()
       window.removeEventListener('orientationchange', resize)
       window.removeEventListener('resize', resize)
+      images.forEach((img, idx) => {
+        if (!img) return
+        img.onload = null
+        img.src = ''
+        images[idx] = null
+      })
+      imagesRef.current = []
     }
   }, [useCanvas])
 
@@ -1129,6 +1130,18 @@ function App() {
       })
     }
   }, [viewLocation])
+
+  useEffect(() => {
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.off()
+        mapInstance.current.remove()
+        mapInstance.current = null
+      }
+      markerLayer.current = null
+      draftMarker.current = null
+    }
+  }, [])
 
   useEffect(() => {
     const map = mapInstance.current
