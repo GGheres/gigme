@@ -718,27 +718,25 @@ func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if event.CreatorUserID != userID {
-		payload := map[string]interface{}{
-			"eventId":       eventID,
-			"title":         event.Title,
-			"comment":       comment.Body,
-			"commenterName": comment.UserName,
-		}
-		if apiBaseURL := strings.TrimSpace(h.cfg.APIPublicURL); apiBaseURL != "" {
-			payload["apiBaseUrl"] = apiBaseURL
-		} else if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
-			payload["apiBaseUrl"] = apiBaseURL
-		}
-		_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
-			UserID:  event.CreatorUserID,
-			EventID: &eventID,
-			Kind:    "comment_added",
-			RunAt:   time.Now(),
-			Payload: payload,
-			Status:  "pending",
-		})
+	payload := map[string]interface{}{
+		"eventId":       eventID,
+		"title":         event.Title,
+		"comment":       comment.Body,
+		"commenterName": comment.UserName,
 	}
+	if apiBaseURL := strings.TrimSpace(h.cfg.APIPublicURL); apiBaseURL != "" {
+		payload["apiBaseUrl"] = apiBaseURL
+	} else if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
+		payload["apiBaseUrl"] = apiBaseURL
+	}
+	_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
+		UserID:  event.CreatorUserID,
+		EventID: &eventID,
+		Kind:    "comment_added",
+		RunAt:   time.Now(),
+		Payload: payload,
+		Status:  "pending",
+	})
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{"comment": comment, "commentsCount": commentsCount})
 	logger.Info("action", "action", "add_comment", "status", "success", "event_id", eventID, "user_id", userID)

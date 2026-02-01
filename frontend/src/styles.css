@@ -1008,6 +1008,8 @@ input[type='file']::file-selector-button {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin: 14px 0;
 }
 

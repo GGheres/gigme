@@ -120,6 +120,16 @@ const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
 const buildCoordsUrl = (lat: number, lng: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+const buildShareUrl = (eventId: number) => {
+  if (typeof window === 'undefined') return ''
+  try {
+    const url = new URL(window.location.origin + window.location.pathname)
+    url.searchParams.set('eventId', String(eventId))
+    return url.toString()
+  } catch {
+    return ''
+  }
+}
 const COORDS_REGEX = /Coordinates:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i
 const buildMediaProxyUrl = (eventId: number, index: number) => {
   if (API_URL_ERROR) return ''
@@ -1367,6 +1377,39 @@ function App() {
     }
   }
 
+  const handleShareEvent = async () => {
+    if (!selectedEvent) return
+    const eventId = selectedEvent.event.id
+    const url = buildShareUrl(eventId)
+    if (!url) {
+      setError('Не удалось создать ссылку для шаринга')
+      return
+    }
+    const title = selectedEvent.event.title || 'Gigme event'
+    const text = `Event: ${title}`
+    const tg = (window as any).Telegram?.WebApp
+    const tgShareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`
+    try {
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(tgShareUrl)
+        return
+      }
+      if (navigator.share) {
+        await navigator.share({ title, text, url })
+        return
+      }
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url)
+        setError('Ссылка скопирована')
+        window.setTimeout(() => setError(null), 2000)
+        return
+      }
+    } catch (err: any) {
+      logError('share_error', { message: err.message })
+    }
+    window.prompt('Ссылка на событие', url)
+  }
+
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!token) return
@@ -2166,6 +2209,9 @@ function App() {
                           Join event
                         </button>
                       )}
+                      <button className="button button--ghost" type="button" onClick={handleShareEvent}>
+                        Share
+                      </button>
                     </div>
                     <div className="engagement">
                       <button
@@ -2390,6 +2436,9 @@ function App() {
                   Join event
                 </button>
               )}
+              <button className="button button--ghost" type="button" onClick={handleShareEvent}>
+                Share
+              </button>
             </div>
             <div className="engagement">
               <button
