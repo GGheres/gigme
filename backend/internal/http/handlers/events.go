@@ -40,11 +40,16 @@ type promoteEventRequest struct {
 	Clear           bool    `json:"clear"`
 }
 
+type commentRequest struct {
+	Body string `json:"body"`
+}
+
 const maxEventFilters = 3
 const maxContactLength = 120
 const maxEventsPerHour = 3
 const maxTitleLength = 80
 const maxDescriptionLength = 1000
+const maxCommentLength = 400
 
 var allowedEventFilters = map[string]struct{}{
 	"dating":   {},
@@ -421,6 +426,14 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 			isJoined = joined
 		}
 	}
+	isLiked := false
+	if userID != 0 {
+		liked, err := h.repo.IsEventLiked(ctx, eventID, userID)
+		if err == nil {
+			isLiked = liked
+		}
+	}
+	event.IsLiked = isLiked
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"event":        event,
@@ -538,6 +551,192 @@ func (h *Handler) LeaveEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Info("action", "action", "leave_event", "status", "success", "event_id", id)
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
+}
+
+func (h *Handler) LikeEvent(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		logger.Warn("action", "action", "like_event", "status", "unauthorized")
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "like_event", "status", "invalid_event_id")
+		writeError(w, http.StatusBadRequest, "invalid event id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	event, err := h.repo.GetEventByID(ctx, id)
+	if err != nil {
+		logger.Warn("action", "action", "like_event", "status", "not_found", "event_id", id)
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	if event.IsHidden {
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	if err := h.repo.LikeEvent(ctx, id, userID); err != nil {
+		logger.Error("action", "action", "like_event", "status", "db_error", "event_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	count, err := h.repo.CountEventLikes(ctx, id)
+	if err != nil {
+		logger.Error("action", "action", "like_event", "status", "count_error", "event_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	logger.Info("action", "action", "like_event", "status", "success", "event_id", id, "user_id", userID)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "likesCount": count, "isLiked": true})
+}
+
+func (h *Handler) UnlikeEvent(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		logger.Warn("action", "action", "unlike_event", "status", "unauthorized")
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "unlike_event", "status", "invalid_event_id")
+		writeError(w, http.StatusBadRequest, "invalid event id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	if err := h.repo.UnlikeEvent(ctx, id, userID); err != nil {
+		logger.Error("action", "action", "unlike_event", "status", "db_error", "event_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	count, err := h.repo.CountEventLikes(ctx, id)
+	if err != nil {
+		logger.Error("action", "action", "unlike_event", "status", "count_error", "event_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	logger.Info("action", "action", "unlike_event", "status", "success", "event_id", id, "user_id", userID)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "likesCount": count, "isLiked": false})
+}
+
+func (h *Handler) ListEventComments(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	eventID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "list_comments", "status", "invalid_event_id")
+		writeError(w, http.StatusBadRequest, "invalid event id")
+		return
+	}
+	limit := 50
+	offset := 0
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			if parsed > 200 {
+				parsed = 200
+			}
+			limit = parsed
+		}
+	}
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	event, err := h.repo.GetEventByID(ctx, eventID)
+	if err != nil || event.IsHidden {
+		logger.Warn("action", "action", "list_comments", "status", "not_found", "event_id", eventID)
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	comments, err := h.repo.ListEventComments(ctx, eventID, limit, offset)
+	if err != nil {
+		logger.Error("action", "action", "list_comments", "status", "db_error", "event_id", eventID, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, comments)
+}
+
+func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		logger.Warn("action", "action", "add_comment", "status", "unauthorized")
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	eventID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "add_comment", "status", "invalid_event_id")
+		writeError(w, http.StatusBadRequest, "invalid event id")
+		return
+	}
+	var req commentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("action", "action", "add_comment", "status", "invalid_json")
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	body := strings.TrimSpace(req.Body)
+	if body == "" || utf8.RuneCountInString(body) > maxCommentLength {
+		logger.Warn("action", "action", "add_comment", "status", "invalid_body")
+		writeError(w, http.StatusBadRequest, "comment length invalid")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	event, err := h.repo.GetEventByID(ctx, eventID)
+	if err != nil {
+		logger.Warn("action", "action", "add_comment", "status", "not_found", "event_id", eventID)
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	if event.IsHidden {
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+
+	comment, err := h.repo.AddEventComment(ctx, eventID, userID, body)
+	if err != nil {
+		logger.Error("action", "action", "add_comment", "status", "db_error", "event_id", eventID, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	commentsCount, err := h.repo.CountEventComments(ctx, eventID)
+	if err != nil {
+		logger.Error("action", "action", "add_comment", "status", "count_error", "event_id", eventID, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if event.CreatorUserID != userID {
+		payload := map[string]interface{}{
+			"eventId":       eventID,
+			"title":         event.Title,
+			"comment":       comment.Body,
+			"commenterName": comment.UserName,
+		}
+		_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
+			UserID:  event.CreatorUserID,
+			EventID: &eventID,
+			Kind:    "comment_added",
+			RunAt:   time.Now(),
+			Payload: payload,
+			Status:  "pending",
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"comment": comment, "commentsCount": commentsCount})
+	logger.Info("action", "action", "add_comment", "status", "success", "event_id", eventID, "user_id", userID)
 }
 
 func (h *Handler) PromoteEvent(w http.ResponseWriter, r *http.Request) {

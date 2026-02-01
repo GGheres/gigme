@@ -36,6 +36,9 @@ type Event struct {
 	ThumbnailURL       string     `json:"thumbnailUrl,omitempty"`
 	Filters            []string   `json:"filters,omitempty"`
 	IsJoined           bool       `json:"isJoined,omitempty"`
+	LikesCount         int        `json:"likesCount"`
+	CommentsCount      int        `json:"commentsCount"`
+	IsLiked            bool       `json:"isLiked,omitempty"`
 	CreatedAt          time.Time  `json:"createdAt"`
 	UpdatedAt          time.Time  `json:"updatedAt"`
 }
@@ -66,4 +69,13 @@ type NotificationJob struct {
 	Status    string                 `json:"status"`
 	Attempts  int                    `json:"attempts"`
 	LastError string                 `json:"lastError,omitempty"`
+}
+
+type EventComment struct {
+	ID        int64     `json:"id"`
+	EventID   int64     `json:"eventId"`
+	UserID    int64     `json:"userId"`
+	UserName  string    `json:"userName"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"createdAt"`
 }

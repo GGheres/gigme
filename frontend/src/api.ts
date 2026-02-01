@@ -100,8 +100,11 @@ export type EventCard = {
   creatorName?: string
   thumbnailUrl?: string
   participantsCount: number
+  likesCount: number
+  commentsCount: number
   filters?: string[]
   isJoined?: boolean
+  isLiked?: boolean
 }
 
 export type EventDetail = {
@@ -115,6 +118,15 @@ export type EventDetail = {
   participants: { userId: number; name: string; joinedAt: string }[]
   media: string[]
   isJoined: boolean
+}
+
+export type EventComment = {
+  id: number
+  eventId: number
+  userId: number
+  userName: string
+  body: string
+  createdAt: string
 }
 
 export type AdminEventUpdate = {
@@ -306,6 +318,35 @@ export function updateEventAdmin(token: string, id: number, payload: AdminEventU
 
 export function deleteEventAdmin(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'DELETE' }, token)
+}
+
+export function likeEvent(token: string, id: number) {
+  return apiFetch<{ ok: boolean; likesCount: number; isLiked: boolean }>(
+    `/events/${id}/like`,
+    { method: 'POST' },
+    token
+  )
+}
+
+export function unlikeEvent(token: string, id: number) {
+  return apiFetch<{ ok: boolean; likesCount: number; isLiked: boolean }>(
+    `/events/${id}/like`,
+    { method: 'DELETE' },
+    token
+  )
+}
+
+export function getEventComments(token: string, id: number, limit = 50, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return apiFetch<EventComment[]>(`/events/${id}/comments?${params.toString()}`, {}, token)
+}
+
+export function addEventComment(token: string, id: number, body: string) {
+  return apiFetch<{ comment: EventComment; commentsCount: number }>(
+    `/events/${id}/comments`,
+    { method: 'POST', body: JSON.stringify({ body }) },
+    token
+  )
 }
 
 export function presignMedia(token: string, payload: {

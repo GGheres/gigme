@@ -3,19 +3,24 @@ import L from 'leaflet'
 import {
   API_URL,
   API_URL_ERROR,
+  addEventComment,
   authTelegram,
   createEvent,
   deleteEventAdmin,
   EventCard,
+  EventComment,
   EventDetail,
   EventMarker,
+  getEventComments,
   getEvent,
   getFeed,
   getNearby,
   joinEvent,
+  likeEvent,
   leaveEvent,
   promoteEvent,
   presignMedia,
+  unlikeEvent,
   updateEventAdmin,
   uploadMedia,
   User,
@@ -91,6 +96,7 @@ const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
 const MAX_DESCRIPTION = 1000
 const MAX_CONTACT_LENGTH = 120
+const MAX_COMMENT_LENGTH = 400
 const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 const MAX_EVENT_FILTERS = 3
@@ -634,6 +640,11 @@ function App() {
   const [createFilters, setCreateFilters] = useState<EventFilter[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(() => getEventIdFromLocation())
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null)
+  const [comments, setComments] = useState<EventComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentBody, setCommentBody] = useState('')
+  const [commentSending, setCommentSending] = useState(false)
+  const [likeBusy, setLikeBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -1195,6 +1206,30 @@ function App() {
       })
   }, [token, selectedId])
 
+  useEffect(() => {
+    if (!token || selectedId == null) {
+      setComments([])
+      setCommentBody('')
+      return
+    }
+    let cancelled = false
+    setCommentsLoading(true)
+    setCommentBody('')
+    getEventComments(token, selectedId, 100, 0)
+      .then((items) => {
+        if (!cancelled) setComments(items)
+      })
+      .catch((err) => {
+        if (!cancelled) logError('comments_load_error', { message: err.message, eventId: selectedId })
+      })
+      .finally(() => {
+        if (!cancelled) setCommentsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, selectedId])
+
 
   const handleJoin = async () => {
     if (!token || !selectedEvent) return
@@ -1261,6 +1296,74 @@ function App() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleLikeToggle = async () => {
+    if (!token || !selectedEvent || likeBusy) return
+    setError(null)
+    setLikeBusy(true)
+    const eventId = selectedEvent.event.id
+    try {
+      const res = selectedEvent.event.isLiked
+        ? await unlikeEvent(token, eventId)
+        : await likeEvent(token, eventId)
+      setSelectedEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              event: { ...prev.event, likesCount: res.likesCount, isLiked: res.isLiked },
+            }
+          : prev
+      )
+      setFeed((prev) =>
+        prev.map((item) =>
+          item.id === eventId ? { ...item, likesCount: res.likesCount, isLiked: res.isLiked } : item
+        )
+      )
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLikeBusy(false)
+    }
+  }
+
+  const handleAddComment = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!token || !selectedEvent || commentSending) return
+    const trimmed = commentBody.trim()
+    if (!trimmed) {
+      setError('Comment cannot be empty')
+      return
+    }
+    if (trimmed.length > MAX_COMMENT_LENGTH) {
+      setError(`Комментарий слишком длинный (макс ${MAX_COMMENT_LENGTH})`)
+      return
+    }
+    setError(null)
+    setCommentSending(true)
+    const eventId = selectedEvent.event.id
+    try {
+      const res = await addEventComment(token, eventId, trimmed)
+      setComments((prev) => [...prev, res.comment])
+      setCommentBody('')
+      setSelectedEvent((prev) =>
+        prev
+          ? {
+              ...prev,
+              event: { ...prev.event, commentsCount: res.commentsCount },
+            }
+          : prev
+      )
+      setFeed((prev) =>
+        prev.map((item) =>
+          item.id === eventId ? { ...item, commentsCount: res.commentsCount } : item
+        )
+      )
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setCommentSending(false)
     }
   }
 
@@ -1466,6 +1569,8 @@ function App() {
         creatorName: userName || 'You',
         thumbnailUrl: media[0],
         participantsCount: 1,
+        likesCount: 0,
+        commentsCount: 0,
         filters,
         contactTelegram: contactTelegram || undefined,
         contactWhatsapp: contactWhatsapp || undefined,
@@ -1473,6 +1578,7 @@ function App() {
         contactFbMessenger: contactFbMessenger || undefined,
         contactSnapchat: contactSnapchat || undefined,
         isJoined: true,
+        isLiked: false,
       }
       const matchesActiveFilters =
         activeFilters.length === 0 || filters.some((filter) => activeFilters.includes(filter))
@@ -2061,6 +2167,68 @@ function App() {
                         </button>
                       )}
                     </div>
+                    <div className="engagement">
+                      <button
+                        type="button"
+                        className={`button button--ghost button--compact${detailEvent.event.isLiked ? ' button--liked' : ''}`}
+                        onClick={handleLikeToggle}
+                        disabled={likeBusy}
+                      >
+                        {detailEvent.event.isLiked ? '♥ Liked' : '♡ Like'}
+                      </button>
+                      <div className="engagement__meta">
+                        <span>{detailEvent.event.likesCount} likes</span>
+                        <span>{detailEvent.event.commentsCount} comments</span>
+                      </div>
+                    </div>
+                    <section className="comments">
+                      <div className="comments__header">
+                        <h3>Comments</h3>
+                        <span className="chip chip--ghost">
+                          {commentsLoading ? 'Loading…' : comments.length}
+                        </span>
+                      </div>
+                      <div className="comments__list">
+                        {commentsLoading ? (
+                          <p className="hint">Loading comments…</p>
+                        ) : comments.length === 0 ? (
+                          <p className="empty">No comments yet</p>
+                        ) : (
+                          comments.map((comment) => (
+                            <div key={comment.id} className="comment">
+                              <div className="comment__meta">
+                                <span className="comment__author">{comment.userName}</span>
+                                <span className="comment__time">
+                                  {new Date(comment.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="comment__body">{comment.body}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <form className="comment-form" onSubmit={handleAddComment}>
+                        <textarea
+                          value={commentBody}
+                          onChange={(event) => setCommentBody(event.target.value)}
+                          placeholder="Write a comment…"
+                          maxLength={MAX_COMMENT_LENGTH}
+                          rows={3}
+                        />
+                        <div className="comment-form__actions">
+                          <span className="hint">
+                            {commentBody.length}/{MAX_COMMENT_LENGTH}
+                          </span>
+                          <button
+                            className="button button--accent button--compact"
+                            type="submit"
+                            disabled={commentSending || !commentBody.trim()}
+                          >
+                            {commentSending ? 'Sending…' : 'Send'}
+                          </button>
+                        </div>
+                      </form>
+                    </section>
                     {isAdmin && (
                       <div className="admin-actions">
                         <span className="chip chip--ghost">
@@ -2223,6 +2391,68 @@ function App() {
                 </button>
               )}
             </div>
+            <div className="engagement">
+              <button
+                type="button"
+                className={`button button--ghost button--compact${selectedEvent.event.isLiked ? ' button--liked' : ''}`}
+                onClick={handleLikeToggle}
+                disabled={likeBusy}
+              >
+                {selectedEvent.event.isLiked ? '♥ Liked' : '♡ Like'}
+              </button>
+              <div className="engagement__meta">
+                <span>{selectedEvent.event.likesCount} likes</span>
+                <span>{selectedEvent.event.commentsCount} comments</span>
+              </div>
+            </div>
+            <section className="comments">
+              <div className="comments__header">
+                <h3>Comments</h3>
+                <span className="chip chip--ghost">
+                  {commentsLoading ? 'Loading…' : comments.length}
+                </span>
+              </div>
+              <div className="comments__list">
+                {commentsLoading ? (
+                  <p className="hint">Loading comments…</p>
+                ) : comments.length === 0 ? (
+                  <p className="empty">No comments yet</p>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="comment">
+                      <div className="comment__meta">
+                        <span className="comment__author">{comment.userName}</span>
+                        <span className="comment__time">
+                          {new Date(comment.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="comment__body">{comment.body}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <form className="comment-form" onSubmit={handleAddComment}>
+                <textarea
+                  value={commentBody}
+                  onChange={(event) => setCommentBody(event.target.value)}
+                  placeholder="Write a comment…"
+                  maxLength={MAX_COMMENT_LENGTH}
+                  rows={3}
+                />
+                <div className="comment-form__actions">
+                  <span className="hint">
+                    {commentBody.length}/{MAX_COMMENT_LENGTH}
+                  </span>
+                  <button
+                    className="button button--accent button--compact"
+                    type="submit"
+                    disabled={commentSending || !commentBody.trim()}
+                  >
+                    {commentSending ? 'Sending…' : 'Send'}
+                  </button>
+                </div>
+              </form>
+            </section>
             {isAdmin && (
               <div className="admin-actions">
                 <span className="chip chip--ghost">

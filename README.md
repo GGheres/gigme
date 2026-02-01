@@ -119,6 +119,10 @@ Implemented endpoints:
 - `GET /events/nearby`
 - `GET /events/feed`
 - `GET /events/{id}`
+- `POST /events/{id}/like`
+- `DELETE /events/{id}/like`
+- `GET /events/{id}/comments`
+- `POST /events/{id}/comments`
 - `POST /events/{id}/join`
 - `POST /events/{id}/leave`
 - `POST /events/{id}/promote` (admin only)

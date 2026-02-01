@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gigme/backend/internal/config"
 	"gigme/backend/internal/db"
@@ -151,6 +152,8 @@ func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) n
 		return buildEventCard(job, baseURL, apiBaseURL, "Новое событие")
 	case "event_nearby":
 		return buildEventCard(job, baseURL, apiBaseURL, "Событие рядом")
+	case "comment_added":
+		return buildCommentNotification(job, baseURL)
 	case "joined":
 		return notificationMessage{
 			Text:       withTitle("Вы присоединились к событию", title),
@@ -187,9 +190,16 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 	if previewURL == "" {
 		previewURL = buildMediaPreviewURL(baseURL, extractEventID(job))
 	}
-	if photoURL == "" {
-		photoURL = previewURL
-		previewURL = ""
+
+	primaryPhoto := ""
+	fallbackPhoto := ""
+	if previewURL != "" {
+		primaryPhoto = previewURL
+		if photoURL != "" && photoURL != previewURL {
+			fallbackPhoto = photoURL
+		}
+	} else if photoURL != "" {
+		primaryPhoto = photoURL
 	}
 
 	lines := make([]string, 0, 4)
@@ -213,10 +223,39 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 
 	return notificationMessage{
 		Text:             text,
-		PhotoURL:         photoURL,
-		FallbackPhotoURL: previewURL,
+		PhotoURL:         primaryPhoto,
+		FallbackPhotoURL: fallbackPhoto,
 		ButtonURL:        eventURL,
 		ButtonText:       buttonText(eventURL),
+	}
+}
+
+func buildCommentNotification(job models.NotificationJob, baseURL string) notificationMessage {
+	title := payloadString(job.Payload, "title")
+	commenter := payloadString(job.Payload, "commenterName")
+	comment := strings.TrimSpace(payloadString(job.Payload, "comment"))
+	if commenter == "" {
+		commenter = "Новый комментарий"
+	}
+	if comment != "" {
+		comment = truncateRunes(comment, 200)
+	}
+	lines := make([]string, 0, 3)
+	if title != "" {
+		lines = append(lines, fmt.Sprintf("Новый комментарий к событию: %s", title))
+	} else {
+		lines = append(lines, "Новый комментарий к событию")
+	}
+	if comment != "" {
+		lines = append(lines, fmt.Sprintf("%s: %s", commenter, comment))
+	} else if commenter != "" {
+		lines = append(lines, commenter)
+	}
+	eventURL := buildEventURL(baseURL, extractEventID(job))
+	return notificationMessage{
+		Text:       strings.Join(lines, "\n"),
+		ButtonURL:  eventURL,
+		ButtonText: buttonText(eventURL),
 	}
 }
 
@@ -349,4 +388,21 @@ func mergeEventIDIntoFragment(fragment string, eventID int64) string {
 		return fragment + "&eventId=" + strconv.FormatInt(eventID, 10)
 	}
 	return fragment
+}
+
+func truncateRunes(value string, max int) string {
+	if max <= 0 || value == "" {
+		return ""
+	}
+	if utf8.RuneCountInString(value) <= max {
+		return value
+	}
+	out := make([]rune, 0, max)
+	for _, r := range value {
+		out = append(out, r)
+		if len(out) >= max {
+			break
+		}
+	}
+	return string(out) + "…"
 }

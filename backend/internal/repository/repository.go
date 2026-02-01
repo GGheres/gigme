@@ -245,7 +245,10 @@ SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
 	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
-	(ep.user_id IS NOT NULL) AS is_joined
+	(SELECT count(*) FROM event_likes WHERE event_id = e.id) AS likes_count,
+	(SELECT count(*) FROM event_comments WHERE event_id = e.id) AS comments_count,
+	(ep.user_id IS NOT NULL) AS is_joined,
+	(SELECT EXISTS(SELECT 1 FROM event_likes WHERE event_id = e.id AND user_id = $1)) AS is_liked
 FROM events e
 JOIN users u ON u.id = e.creator_user_id
 LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.user_id = $1
@@ -306,7 +309,10 @@ LIMIT $2 OFFSET $3;`
 			&e.CreatorName,
 			&thumb,
 			&e.Participants,
+			&e.LikesCount,
+			&e.CommentsCount,
 			&e.IsJoined,
+			&e.IsLiked,
 		); err != nil {
 			return nil, err
 		}
@@ -343,7 +349,9 @@ SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
 	e.capacity, e.is_hidden, e.promoted_until, e.filters,
 	e.created_at, e.updated_at,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
-	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count
+	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
+	(SELECT count(*) FROM event_likes WHERE event_id = e.id) AS likes_count,
+	(SELECT count(*) FROM event_comments WHERE event_id = e.id) AS comments_count
 FROM events e
 JOIN users u ON u.id = e.creator_user_id
 WHERE e.id = $1;`
@@ -379,6 +387,8 @@ WHERE e.id = $1;`
 		&e.UpdatedAt,
 		&e.CreatorName,
 		&e.Participants,
+		&e.LikesCount,
+		&e.CommentsCount,
 	); err != nil {
 		return models.Event{}, err
 	}
@@ -446,6 +456,95 @@ func (r *Repository) JoinEvent(ctx context.Context, eventID, userID int64) error
 func (r *Repository) LeaveEvent(ctx context.Context, eventID, userID int64) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2`, eventID, userID)
 	return err
+}
+
+func (r *Repository) LikeEvent(ctx context.Context, eventID, userID int64) error {
+	_, err := r.pool.Exec(ctx, `INSERT INTO event_likes (event_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, eventID, userID)
+	return err
+}
+
+func (r *Repository) UnlikeEvent(ctx context.Context, eventID, userID int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM event_likes WHERE event_id = $1 AND user_id = $2`, eventID, userID)
+	return err
+}
+
+func (r *Repository) IsEventLiked(ctx context.Context, eventID, userID int64) (bool, error) {
+	row := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM event_likes WHERE event_id = $1 AND user_id = $2)`, eventID, userID)
+	var exists bool
+	if err := row.Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (r *Repository) CountEventLikes(ctx context.Context, eventID int64) (int, error) {
+	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM event_likes WHERE event_id = $1`, eventID)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repository) CountEventComments(ctx context.Context, eventID int64) (int, error) {
+	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM event_comments WHERE event_id = $1`, eventID)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repository) AddEventComment(ctx context.Context, eventID, userID int64, body string) (models.EventComment, error) {
+	query := `
+WITH inserted AS (
+	INSERT INTO event_comments (event_id, user_id, body)
+	VALUES ($1, $2, $3)
+	RETURNING id, event_id, user_id, body, created_at
+)
+SELECT inserted.id, inserted.event_id, inserted.user_id, inserted.body, inserted.created_at,
+	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS user_name
+FROM inserted
+JOIN users u ON u.id = inserted.user_id;`
+	row := r.pool.QueryRow(ctx, query, eventID, userID, body)
+	var comment models.EventComment
+	if err := row.Scan(&comment.ID, &comment.EventID, &comment.UserID, &comment.Body, &comment.CreatedAt, &comment.UserName); err != nil {
+		return models.EventComment{}, err
+	}
+	return comment, nil
+}
+
+func (r *Repository) ListEventComments(ctx context.Context, eventID int64, limit, offset int) ([]models.EventComment, error) {
+	rows, err := r.pool.Query(ctx, `
+SELECT c.id, c.event_id, c.user_id, c.body, c.created_at,
+	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS user_name
+FROM event_comments c
+JOIN users u ON u.id = c.user_id
+WHERE c.event_id = $1
+ORDER BY c.created_at ASC
+LIMIT $2 OFFSET $3;`, eventID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	comments := make([]models.EventComment, 0)
+	for rows.Next() {
+		var comment models.EventComment
+		if err := rows.Scan(&comment.ID, &comment.EventID, &comment.UserID, &comment.Body, &comment.CreatedAt, &comment.UserName); err != nil {
+			return nil, err
+		}
+		comments = append(comments, comment)
+	}
+	return comments, rows.Err()
+}
+
+func (r *Repository) GetEventCreatorUserID(ctx context.Context, eventID int64) (int64, error) {
+	row := r.pool.QueryRow(ctx, `SELECT creator_user_id FROM events WHERE id = $1`, eventID)
+	var userID int64
+	if err := row.Scan(&userID); err != nil {
+		return 0, err
+	}
+	return userID, nil
 }
 
 func (r *Repository) CreateNotificationJob(ctx context.Context, job models.NotificationJob) (int64, error) {
