@@ -153,7 +153,7 @@ func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) n
 	case "event_nearby":
 		return buildEventCard(job, baseURL, apiBaseURL, "Событие рядом")
 	case "comment_added":
-		return buildCommentNotification(job, baseURL)
+		return buildCommentNotification(job, baseURL, apiBaseURL)
 	case "joined":
 		return notificationMessage{
 			Text:       withTitle("Вы присоединились к событию", title),
@@ -230,7 +230,7 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 	}
 }
 
-func buildCommentNotification(job models.NotificationJob, baseURL string) notificationMessage {
+func buildCommentNotification(job models.NotificationJob, baseURL, apiBaseURL string) notificationMessage {
 	title := payloadString(job.Payload, "title")
 	commenter := payloadString(job.Payload, "commenterName")
 	comment := strings.TrimSpace(payloadString(job.Payload, "comment"))
@@ -252,10 +252,16 @@ func buildCommentNotification(job models.NotificationJob, baseURL string) notifi
 		lines = append(lines, commenter)
 	}
 	eventURL := buildEventURL(baseURL, extractEventID(job))
+	mediaBaseURL := strings.TrimSpace(apiBaseURL)
+	if mediaBaseURL == "" {
+		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
+	}
+	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
 	return notificationMessage{
-		Text:       strings.Join(lines, "\n"),
-		ButtonURL:  eventURL,
-		ButtonText: buttonText(eventURL),
+		Text:             strings.Join(lines, "\n"),
+		PhotoURL:         previewURL,
+		ButtonURL:        eventURL,
+		ButtonText:       buttonText(eventURL),
 	}
 }
 

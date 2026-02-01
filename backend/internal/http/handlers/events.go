@@ -725,6 +725,11 @@ func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 			"comment":       comment.Body,
 			"commenterName": comment.UserName,
 		}
+		if apiBaseURL := strings.TrimSpace(h.cfg.APIPublicURL); apiBaseURL != "" {
+			payload["apiBaseUrl"] = apiBaseURL
+		} else if apiBaseURL := publicBaseURL(r); apiBaseURL != "" {
+			payload["apiBaseUrl"] = apiBaseURL
+		}
 		_, _ = h.repo.CreateNotificationJob(ctx, models.NotificationJob{
 			UserID:  event.CreatorUserID,
 			EventID: &eventID,
