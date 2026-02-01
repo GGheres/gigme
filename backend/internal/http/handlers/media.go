@@ -150,6 +150,7 @@ func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid index")
 		return
 	}
+	accessKey := accessKeyFromRequest(r)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
@@ -165,6 +166,10 @@ func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.IsHidden {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if event.IsPrivate && accessKey != event.AccessKey {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}

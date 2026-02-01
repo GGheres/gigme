@@ -105,6 +105,8 @@ export type EventCard = {
   filters?: string[]
   isJoined?: boolean
   isLiked?: boolean
+  isPrivate?: boolean
+  accessKey?: string
 }
 
 export type EventDetail = {
@@ -242,7 +244,14 @@ export function updateLocation(token: string, lat: number, lng: number) {
   )
 }
 
-export function getNearby(token: string, lat: number, lng: number, radiusM = 0, filters: string[] = []) {
+export function getNearby(
+  token: string,
+  lat: number,
+  lng: number,
+  radiusM = 0,
+  filters: string[] = [],
+  accessKeys: string[] = []
+) {
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
@@ -253,10 +262,20 @@ export function getNearby(token: string, lat: number, lng: number, radiusM = 0, 
   if (filters.length > 0) {
     params.set('filters', filters.join(','))
   }
+  if (accessKeys.length > 0) {
+    params.set('eventKeys', accessKeys.join(','))
+  }
   return apiFetch<EventMarker[]>(`/events/nearby?${params.toString()}`, {}, token)
 }
 
-export function getFeed(token: string, lat: number, lng: number, radiusM = 0, filters: string[] = []) {
+export function getFeed(
+  token: string,
+  lat: number,
+  lng: number,
+  radiusM = 0,
+  filters: string[] = [],
+  accessKeys: string[] = []
+) {
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
@@ -269,11 +288,19 @@ export function getFeed(token: string, lat: number, lng: number, radiusM = 0, fi
   if (filters.length > 0) {
     params.set('filters', filters.join(','))
   }
+  if (accessKeys.length > 0) {
+    params.set('eventKeys', accessKeys.join(','))
+  }
   return apiFetch<EventCard[]>(`/events/feed?${params.toString()}`, {}, token)
 }
 
-export function getEvent(token: string, id: number) {
-  return apiFetch<EventDetail>(`/events/${id}`, {}, token)
+export function getEvent(token: string, id: number, accessKey?: string) {
+  const params = new URLSearchParams()
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<EventDetail>(`/events/${id}${suffix}`, {}, token)
 }
 
 export function createEvent(token: string, payload: {
@@ -287,25 +314,36 @@ export function createEvent(token: string, payload: {
   media: string[]
   addressLabel?: string
   filters?: string[]
+  isPrivate?: boolean
   contactTelegram?: string
   contactWhatsapp?: string
   contactWechat?: string
   contactFbMessenger?: string
   contactSnapchat?: string
 }) {
-  return apiFetch<{ eventId: number }>(
+  return apiFetch<{ eventId: number; accessKey?: string }>(
     '/events',
     { method: 'POST', body: JSON.stringify(payload) },
     token
   )
 }
 
-export function joinEvent(token: string, id: number) {
-  return apiFetch<{ ok: boolean }>(`/events/${id}/join`, { method: 'POST' }, token)
+export function joinEvent(token: string, id: number, accessKey?: string) {
+  const params = new URLSearchParams()
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<{ ok: boolean }>(`/events/${id}/join${suffix}`, { method: 'POST' }, token)
 }
 
-export function leaveEvent(token: string, id: number) {
-  return apiFetch<{ ok: boolean }>(`/events/${id}/leave`, { method: 'POST' }, token)
+export function leaveEvent(token: string, id: number, accessKey?: string) {
+  const params = new URLSearchParams()
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<{ ok: boolean }>(`/events/${id}/leave${suffix}`, { method: 'POST' }, token)
 }
 
 export function promoteEvent(token: string, id: number, payload: PromoteRequest) {
@@ -320,30 +358,48 @@ export function deleteEventAdmin(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'DELETE' }, token)
 }
 
-export function likeEvent(token: string, id: number) {
+export function likeEvent(token: string, id: number, accessKey?: string) {
+  const params = new URLSearchParams()
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ ok: boolean; likesCount: number; isLiked: boolean }>(
-    `/events/${id}/like`,
+    `/events/${id}/like${suffix}`,
     { method: 'POST' },
     token
   )
 }
 
-export function unlikeEvent(token: string, id: number) {
+export function unlikeEvent(token: string, id: number, accessKey?: string) {
+  const params = new URLSearchParams()
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ ok: boolean; likesCount: number; isLiked: boolean }>(
-    `/events/${id}/like`,
+    `/events/${id}/like${suffix}`,
     { method: 'DELETE' },
     token
   )
 }
 
-export function getEventComments(token: string, id: number, limit = 50, offset = 0) {
+export function getEventComments(token: string, id: number, limit = 50, offset = 0, accessKey?: string) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
   return apiFetch<EventComment[]>(`/events/${id}/comments?${params.toString()}`, {}, token)
 }
 
-export function addEventComment(token: string, id: number, body: string) {
+export function addEventComment(token: string, id: number, body: string, accessKey?: string) {
+  const params = new URLSearchParams()
+  if (accessKey) {
+    params.set('eventKey', accessKey)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ comment: EventComment; commentsCount: number }>(
-    `/events/${id}/comments`,
+    `/events/${id}/comments${suffix}`,
     { method: 'POST', body: JSON.stringify({ body }) },
     token
   )

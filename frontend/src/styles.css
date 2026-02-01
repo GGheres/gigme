@@ -615,6 +615,14 @@ p {
   width: fit-content;
 }
 
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -631,6 +639,14 @@ textarea {
   background: rgba(255, 255, 255, 0.95);
   color: var(--ink);
   transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 6px;
+  accent-color: rgba(59, 123, 255, 0.9);
 }
 
 input:focus,

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -27,6 +29,7 @@ type createEventRequest struct {
 	Media              []string `json:"media"`
 	Address            string   `json:"addressLabel"`
 	Filters            []string `json:"filters"`
+	IsPrivate          bool     `json:"isPrivate"`
 	ContactTelegram    string   `json:"contactTelegram"`
 	ContactWhatsapp    string   `json:"contactWhatsapp"`
 	ContactWechat      string   `json:"contactWechat"`
@@ -50,6 +53,8 @@ const maxEventsPerHour = 3
 const maxTitleLength = 80
 const maxDescriptionLength = 1000
 const maxCommentLength = 400
+const maxAccessKeyLength = 64
+const maxAccessKeys = 20
 
 var allowedEventFilters = map[string]struct{}{
 	"dating":   {},
@@ -105,6 +110,108 @@ func parseEventFiltersQuery(r *http.Request) ([]string, error) {
 		return nil, nil
 	}
 	return normalizeEventFilters([]string{raw}, 0)
+}
+
+func normalizeAccessKeys(values []string, limit int) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		if raw == "" {
+			continue
+		}
+		for _, piece := range strings.Split(raw, ",") {
+			key := strings.TrimSpace(piece)
+			if key == "" {
+				continue
+			}
+			if utf8.RuneCountInString(key) > maxAccessKeyLength {
+				continue
+			}
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			out = append(out, key)
+			seen[key] = struct{}{}
+			if limit > 0 && len(out) >= limit {
+				return out
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func parseAccessKeysQuery(r *http.Request) []string {
+	if r == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(r.URL.Query().Get("eventKeys"))
+	if raw == "" {
+		raw = strings.TrimSpace(r.URL.Query().Get("accessKeys"))
+	}
+	if raw == "" {
+		raw = strings.TrimSpace(r.URL.Query().Get("eventKey"))
+	}
+	if raw == "" {
+		raw = strings.TrimSpace(r.URL.Query().Get("accessKey"))
+	}
+	if raw == "" {
+		return nil
+	}
+	return normalizeAccessKeys([]string{raw}, maxAccessKeys)
+}
+
+func accessKeyFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	q := r.URL.Query()
+	raw := strings.TrimSpace(q.Get("eventKey"))
+	if raw == "" {
+		raw = strings.TrimSpace(q.Get("accessKey"))
+	}
+	if raw == "" {
+		raw = strings.TrimSpace(q.Get("key"))
+	}
+	if raw == "" {
+		return ""
+	}
+	if utf8.RuneCountInString(raw) > maxAccessKeyLength {
+		return ""
+	}
+	return raw
+}
+
+func generateAccessKey() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func (h *Handler) allowPrivateEvent(ctx context.Context, event models.Event, userID int64, accessKey string) bool {
+	if !event.IsPrivate {
+		return true
+	}
+	if userID != 0 && userID == event.CreatorUserID {
+		return true
+	}
+	if accessKey != "" && accessKey == event.AccessKey {
+		return true
+	}
+	if userID != 0 {
+		joined, err := h.repo.IsUserJoined(ctx, event.ID, userID)
+		if err == nil && joined {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
@@ -235,6 +342,16 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	addressLabel := strings.TrimSpace(req.Address)
+	accessKey := ""
+	if req.IsPrivate {
+		var genErr error
+		accessKey, genErr = generateAccessKey()
+		if genErr != nil {
+			logger.Error("action", "action", "create_event", "status", "access_key_failed", "error", genErr)
+			writeError(w, http.StatusInternalServerError, "failed to create event")
+			return
+		}
+	}
 	eventID, err := h.repo.CreateEventWithMedia(ctx, models.Event{
 		CreatorUserID:      userID,
 		Title:              title,
@@ -251,6 +368,8 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		ContactFbMessenger: contactFbMessenger,
 		ContactSnapchat:    contactSnapchat,
 		Filters:            filters,
+		IsPrivate:          req.IsPrivate,
+		AccessKey:          accessKey,
 	}, req.Media)
 	if err != nil {
 		logger.Error("action", "action", "create_event", "status", "db_error", "error", err)
@@ -276,10 +395,12 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	if len(req.Media) > 0 {
 		payload["photoUrl"] = req.Media[0]
 	}
-	if count, err := h.repo.CreateNotificationJobsForAllUsers(ctx, eventID, "event_created", time.Now(), payload); err != nil {
-		logger.Warn("action", "action", "create_event", "status", "notify_all_failed", "error", err)
-	} else {
-		logger.Info("action", "action", "create_event", "status", "notify_all_enqueued", "count", count)
+	if !req.IsPrivate {
+		if count, err := h.repo.CreateNotificationJobsForAllUsers(ctx, eventID, "event_created", time.Now(), payload); err != nil {
+			logger.Warn("action", "action", "create_event", "status", "notify_all_failed", "error", err)
+		} else {
+			logger.Info("action", "action", "create_event", "status", "notify_all_enqueued", "count", count)
+		}
 	}
 
 	reminderAt := startsAt.Add(-60 * time.Minute)
@@ -308,11 +429,16 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		"media_count", len(req.Media),
 		"filters", filters,
 	)
-	writeJSON(w, http.StatusOK, map[string]interface{}{"eventId": eventID})
+	resp := map[string]interface{}{"eventId": eventID}
+	if accessKey != "" {
+		resp["accessKey"] = accessKey
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) NearbyEvents(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
+	userID, _ := middleware.UserIDFromContext(r.Context())
 	var from *time.Time
 	if v := r.URL.Query().Get("from"); v != "" {
 		if parsed, err := time.Parse(time.RFC3339, v); err == nil {
@@ -333,10 +459,11 @@ func (h *Handler) NearbyEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid filters")
 		return
 	}
+	accessKeys := parseAccessKeysQuery(r)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	markers, err := h.repo.GetEventMarkers(ctx, from, to, lat, lng, radius, filters)
+	markers, err := h.repo.GetEventMarkers(ctx, userID, from, to, lat, lng, radius, filters, accessKeys)
 	if err != nil {
 		logger.Error("action", "action", "nearby_events", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")
@@ -369,10 +496,11 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid filters")
 		return
 	}
+	accessKeys := parseAccessKeysQuery(r)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	items, err := h.repo.GetFeed(ctx, userID, limit, offset, lat, lng, radius, filters)
+	items, err := h.repo.GetFeed(ctx, userID, limit, offset, lat, lng, radius, filters, accessKeys)
 	if err != nil {
 		logger.Error("action", "action", "feed", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")
@@ -391,6 +519,7 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID, _ := middleware.UserIDFromContext(r.Context())
+	accessKey := accessKeyFromRequest(r)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
@@ -406,6 +535,22 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "event not found")
 		return
 	}
+	isJoined := false
+	if userID != 0 {
+		joined, err := h.repo.IsUserJoined(ctx, eventID, userID)
+		if err == nil {
+			isJoined = joined
+		}
+	}
+	if event.IsPrivate {
+		isCreator := userID != 0 && userID == event.CreatorUserID
+		accessMatch := accessKey != "" && accessKey == event.AccessKey
+		if !isCreator && !accessMatch && !isJoined {
+			logger.Warn("action", "action", "get_event", "status", "private", "event_id", eventID)
+			writeError(w, http.StatusNotFound, "event not found")
+			return
+		}
+	}
 
 	participants, err := h.repo.GetParticipantsPreview(ctx, eventID, 10)
 	if err != nil {
@@ -418,13 +563,6 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		logger.Error("action", "action", "get_event", "status", "media_error", "event_id", eventID, "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
-	}
-	isJoined := false
-	if userID != 0 {
-		joined, err := h.repo.IsUserJoined(ctx, eventID, userID)
-		if err == nil {
-			isJoined = joined
-		}
 	}
 	isLiked := false
 	if userID != 0 {
@@ -463,16 +601,23 @@ func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid event id")
 		return
 	}
+	accessKey := accessKeyFromRequest(r)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
 
-	cap, err := h.repo.GetEventCapacity(ctx, id)
+	event, err := h.repo.GetEventByID(ctx, id)
 	if err != nil {
 		logger.Warn("action", "action", "join_event", "status", "not_found", "event_id", id)
 		writeError(w, http.StatusNotFound, "event not found")
 		return
 	}
+	if event.IsHidden || !h.allowPrivateEvent(ctx, event, userID, accessKey) {
+		logger.Warn("action", "action", "join_event", "status", "private", "event_id", id)
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	cap := event.Capacity
 	if cap != nil {
 		count, err := h.repo.CountParticipants(ctx, id)
 		if err != nil {
@@ -567,6 +712,7 @@ func (h *Handler) LikeEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid event id")
 		return
 	}
+	accessKey := accessKeyFromRequest(r)
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
 	event, err := h.repo.GetEventByID(ctx, id)
@@ -576,6 +722,10 @@ func (h *Handler) LikeEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.IsHidden {
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	if !h.allowPrivateEvent(ctx, event, userID, accessKey) {
 		writeError(w, http.StatusNotFound, "event not found")
 		return
 	}
@@ -627,12 +777,14 @@ func (h *Handler) UnlikeEvent(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListEventComments(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
+	userID, _ := middleware.UserIDFromContext(r.Context())
 	eventID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		logger.Warn("action", "action", "list_comments", "status", "invalid_event_id")
 		writeError(w, http.StatusBadRequest, "invalid event id")
 		return
 	}
+	accessKey := accessKeyFromRequest(r)
 	limit := 50
 	offset := 0
 	if raw := r.URL.Query().Get("limit"); raw != "" {
@@ -653,6 +805,11 @@ func (h *Handler) ListEventComments(w http.ResponseWriter, r *http.Request) {
 	event, err := h.repo.GetEventByID(ctx, eventID)
 	if err != nil || event.IsHidden {
 		logger.Warn("action", "action", "list_comments", "status", "not_found", "event_id", eventID)
+		writeError(w, http.StatusNotFound, "event not found")
+		return
+	}
+	if !h.allowPrivateEvent(ctx, event, userID, accessKey) {
+		logger.Warn("action", "action", "list_comments", "status", "private", "event_id", eventID)
 		writeError(w, http.StatusNotFound, "event not found")
 		return
 	}
@@ -679,6 +836,7 @@ func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid event id")
 		return
 	}
+	accessKey := accessKeyFromRequest(r)
 	var req commentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Warn("action", "action", "add_comment", "status", "invalid_json")
@@ -700,7 +858,7 @@ func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "event not found")
 		return
 	}
-	if event.IsHidden {
+	if event.IsHidden || !h.allowPrivateEvent(ctx, event, userID, accessKey) {
 		writeError(w, http.StatusNotFound, "event not found")
 		return
 	}

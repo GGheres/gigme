@@ -30,7 +30,9 @@ type Event struct {
 	ContactSnapchat    string     `json:"contactSnapchat,omitempty"`
 	Capacity           *int       `json:"capacity,omitempty"`
 	IsHidden           bool       `json:"isHidden"`
+	IsPrivate          bool       `json:"isPrivate"`
 	PromotedUntil      *time.Time `json:"promotedUntil,omitempty"`
+	AccessKey          string     `json:"accessKey,omitempty"`
 	Participants       int        `json:"participantsCount"`
 	CreatorName        string     `json:"creatorName,omitempty"`
 	ThumbnailURL       string     `json:"thumbnailUrl,omitempty"`

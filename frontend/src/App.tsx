@@ -41,6 +41,7 @@ type FormDefaults = {
   contactWechat: string
   contactFbMessenger: string
   contactSnapchat: string
+  isPrivate: boolean
 }
 
 const EMPTY_FORM_DEFAULTS: FormDefaults = {
@@ -53,6 +54,7 @@ const EMPTY_FORM_DEFAULTS: FormDefaults = {
   contactWechat: '',
   contactFbMessenger: '',
   contactSnapchat: '',
+  isPrivate: false,
 }
 
 const parseAdminIds = (value: string) => {
@@ -93,6 +95,59 @@ const sortFeedItems = (items: EventCard[]) => {
   })
 }
 
+const buildEventCardFromDetail = (detail: EventDetail, accessKey?: string): EventCard => ({
+  id: detail.event.id,
+  title: detail.event.title,
+  description: detail.event.description,
+  startsAt: detail.event.startsAt,
+  endsAt: detail.event.endsAt,
+  lat: detail.event.lat,
+  lng: detail.event.lng,
+  capacity: detail.event.capacity,
+  promotedUntil: detail.event.promotedUntil,
+  creatorName: detail.event.creatorName,
+  thumbnailUrl: detail.media[0],
+  participantsCount: detail.event.participantsCount,
+  likesCount: detail.event.likesCount,
+  commentsCount: detail.event.commentsCount,
+  filters: detail.event.filters || [],
+  contactTelegram: detail.event.contactTelegram,
+  contactWhatsapp: detail.event.contactWhatsapp,
+  contactWechat: detail.event.contactWechat,
+  contactFbMessenger: detail.event.contactFbMessenger,
+  contactSnapchat: detail.event.contactSnapchat,
+  isJoined: detail.isJoined,
+  isLiked: detail.event.isLiked,
+  isPrivate: detail.event.isPrivate,
+  accessKey,
+})
+
+const mergeFeedWithShared = (feedItems: EventCard[], sharedEvents: Record<number, EventCard>) => {
+  if (!sharedEvents || Object.keys(sharedEvents).length === 0) return feedItems
+  const map = new Map(feedItems.map((item) => [item.id, item]))
+  Object.values(sharedEvents).forEach((item) => {
+    map.set(item.id, item)
+  })
+  return sortFeedItems(Array.from(map.values()))
+}
+
+const mergeMarkersWithShared = (markers: EventMarker[], sharedEvents: Record<number, EventCard>) => {
+  if (!sharedEvents || Object.keys(sharedEvents).length === 0) return markers
+  const map = new Map(markers.map((item) => [item.id, item]))
+  Object.values(sharedEvents).forEach((event) => {
+    map.set(event.id, {
+      id: event.id,
+      title: event.title,
+      startsAt: event.startsAt,
+      lat: event.lat,
+      lng: event.lng,
+      isPromoted: Boolean(event.promotedUntil),
+      filters: event.filters || [],
+    })
+  })
+  return Array.from(map.values())
+}
+
 const DEFAULT_CENTER: LatLng = { lat: 52.37, lng: 4.9 }
 const COORDS_LABEL = 'Coordinates:'
 const MAX_DESCRIPTION = 1000
@@ -105,6 +160,8 @@ const FOCUS_ZOOM = 16
 const LOGO_FRAME_COUNT = 134
 const LOGO_FPS = 24
 const LOGO_FRAME_PREFIX = '/gigmov-frames/frame_'
+const EVENT_KEY_STORAGE = 'gigme:eventKeys'
+const MAX_EVENT_KEY_LENGTH = 64
 
 const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
   { id: 'dating', label: 'Dating', icon: '💘' },
@@ -121,13 +178,13 @@ const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
 const buildCoordsUrl = (lat: number, lng: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
-const buildShareUrl = (eventId: number) => {
+const buildShareUrl = (eventId: number, accessKey?: string) => {
   if (typeof window === 'undefined') return ''
   const botUsername = TELEGRAM_BOT_USERNAME.replace(/^@+/, '').trim()
+  const payload = accessKey ? `event_${eventId}_${accessKey}` : `event_${eventId}`
   if (botUsername) {
     try {
       const tgUrl = new URL(`https://t.me/${botUsername}`)
-      const payload = `event_${eventId}`
       tgUrl.searchParams.set('startapp', payload)
       tgUrl.searchParams.set('start', payload)
       return tgUrl.toString()
@@ -135,15 +192,30 @@ const buildShareUrl = (eventId: number) => {
       // fall through to web share URL
     }
   }
-  return ''
+  try {
+    const url = new URL(window.location.origin)
+    url.pathname = window.location.pathname
+    url.searchParams.set('eventId', String(eventId))
+    if (accessKey) {
+      url.searchParams.set('eventKey', accessKey)
+    } else {
+      url.searchParams.delete('eventKey')
+    }
+    return url.toString()
+  } catch {
+    return ''
+  }
 }
 const COORDS_REGEX = /Coordinates:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i
-const buildMediaProxyUrl = (eventId: number, index: number) => {
+const buildMediaProxyUrl = (eventId: number, index: number, accessKey?: string) => {
   if (API_URL_ERROR) return ''
-  return `${API_URL}/media/events/${eventId}/${index}`
+  const base = `${API_URL}/media/events/${eventId}/${index}`
+  if (!accessKey) return base
+  const separator = base.includes('?') ? '&' : '?'
+  return `${base}${separator}eventKey=${encodeURIComponent(accessKey)}`
 }
-const resolveMediaSrc = (eventId: number, index: number, fallback?: string) => {
-  const proxy = buildMediaProxyUrl(eventId, index)
+const resolveMediaSrc = (eventId: number, index: number, fallback?: string, accessKey?: string) => {
+  const proxy = buildMediaProxyUrl(eventId, index, accessKey)
   return proxy || fallback || ''
 }
 const NGROK_HOST_RE = /ngrok-free\.app|ngrok\.io/i
@@ -575,37 +647,58 @@ const getInitDataFromLocation = () => {
   return hashParams.get('tgWebAppData') || hashParams.get('initData') || ''
 }
 
-const getEventIdFromLocation = () => {
-  if (typeof window === 'undefined') return null
-  const searchParams = new URLSearchParams(window.location.search)
-  const fromSearch = searchParams.get('eventId') || searchParams.get('event')
-  if (fromSearch) {
-    const parsed = Number(fromSearch)
-    if (Number.isFinite(parsed) && parsed > 0) return parsed
-  }
-  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
-  if (!hash) return null
-  const hashParams = new URLSearchParams(hash)
-  const fromHash = hashParams.get('eventId') || hashParams.get('event')
-  if (!fromHash) return null
-  const parsed = Number(fromHash)
-  if (Number.isFinite(parsed) && parsed > 0) return parsed
-  return null
-}
+type EventLink = { eventId: number | null; eventKey: string }
 
-const getEventIdFromTelegram = () => {
-  if (typeof window === 'undefined') return null
-  const tg = (window as any).Telegram?.WebApp
-  const startParam = tg?.initDataUnsafe?.start_param || tg?.initDataUnsafe?.startParam
-  if (!startParam) return null
-  const match = String(startParam).match(/\d+/)
-  if (!match) return null
-  const parsed = Number(match[0])
+const parseEventId = (value: string | null) => {
+  if (!value) return null
+  const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) return null
   return parsed
 }
 
-const updateEventIdInLocation = (eventId: number | null) => {
+const parseEventKey = (value: string | null) => {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.length > MAX_EVENT_KEY_LENGTH) return ''
+  return trimmed
+}
+
+const extractEventLinkFromParams = (params: URLSearchParams): EventLink => {
+  const eventId = parseEventId(params.get('eventId') || params.get('event'))
+  if (!eventId) return { eventId: null, eventKey: '' }
+  const eventKey = parseEventKey(params.get('eventKey') || params.get('key') || params.get('accessKey'))
+  return { eventId, eventKey }
+}
+
+const getEventLinkFromLocation = (): EventLink => {
+  if (typeof window === 'undefined') return { eventId: null, eventKey: '' }
+  const searchParams = new URLSearchParams(window.location.search)
+  const fromSearch = extractEventLinkFromParams(searchParams)
+  if (fromSearch.eventId) return fromSearch
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+  if (!hash) return { eventId: null, eventKey: '' }
+  const hashParams = new URLSearchParams(hash)
+  return extractEventLinkFromParams(hashParams)
+}
+
+const getEventLinkFromTelegram = (): EventLink => {
+  if (typeof window === 'undefined') return { eventId: null, eventKey: '' }
+  const tg = (window as any).Telegram?.WebApp
+  const startParam = tg?.initDataUnsafe?.start_param || tg?.initDataUnsafe?.startParam
+  if (!startParam) return { eventId: null, eventKey: '' }
+  const raw = String(startParam)
+  const match = raw.match(/event_(\d+)(?:_([a-zA-Z0-9_-]+))?/i)
+  if (match) {
+    const eventId = parseEventId(match[1])
+    if (!eventId) return { eventId: null, eventKey: '' }
+    return { eventId, eventKey: parseEventKey(match[2] || '') }
+  }
+  const fallbackMatch = raw.match(/\d+/)
+  const eventId = fallbackMatch ? parseEventId(fallbackMatch[0]) : null
+  return { eventId, eventKey: '' }
+}
+
+const updateEventLinkInLocation = (eventId: number | null, eventKey?: string) => {
   if (typeof window === 'undefined') return
   try {
     const url = new URL(window.location.href)
@@ -613,6 +706,11 @@ const updateEventIdInLocation = (eventId: number | null) => {
       url.searchParams.set('eventId', String(eventId))
     } else {
       url.searchParams.delete('eventId')
+    }
+    if (eventKey) {
+      url.searchParams.set('eventKey', eventKey)
+    } else {
+      url.searchParams.delete('eventKey')
     }
     window.history.replaceState({}, '', url.toString())
   } catch {
@@ -647,6 +745,43 @@ const loadStoredCenter = (): LatLng | null => {
   }
 }
 
+const loadStoredEventKeys = () => {
+  if (typeof window === 'undefined') return {} as Record<number, string>
+  try {
+    const raw = window.localStorage.getItem(EVENT_KEY_STORAGE)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, string>
+    const out: Record<number, string> = {}
+    Object.entries(parsed || {}).forEach(([key, value]) => {
+      const id = Number(key)
+      if (!Number.isFinite(id) || id <= 0) return
+      const cleaned = parseEventKey(value)
+      if (!cleaned) return
+      out[id] = cleaned
+    })
+    return out
+  } catch {
+    return {}
+  }
+}
+
+const saveStoredEventKeys = (value: Record<number, string>) => {
+  if (typeof window === 'undefined') return
+  try {
+    const sanitized: Record<number, string> = {}
+    Object.entries(value).forEach(([key, val]) => {
+      const id = Number(key)
+      if (!Number.isFinite(id) || id <= 0) return
+      const cleaned = parseEventKey(val)
+      if (!cleaned) return
+      sanitized[id] = cleaned
+    })
+    window.localStorage.setItem(EVENT_KEY_STORAGE, JSON.stringify(sanitized))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 const saveStoredCenter = (center: LatLng) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(center))
@@ -662,8 +797,17 @@ function App() {
   const [feed, setFeed] = useState<EventCard[]>([])
   const [activeFilters, setActiveFilters] = useState<EventFilter[]>([])
   const [createFilters, setCreateFilters] = useState<EventFilter[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(() => getEventIdFromLocation())
+  const [selectedId, setSelectedId] = useState<number | null>(() => getEventLinkFromLocation().eventId)
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null)
+  const [eventAccessKeys, setEventAccessKeys] = useState<Record<number, string>>(() => {
+    const stored = loadStoredEventKeys()
+    const link = getEventLinkFromLocation()
+    if (link.eventId && link.eventKey) {
+      stored[link.eventId] = link.eventKey
+    }
+    return stored
+  })
+  const [sharedEvents, setSharedEvents] = useState<Record<number, EventCard>>({})
   const [comments, setComments] = useState<EventComment[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentBody, setCommentBody] = useState('')
@@ -700,6 +844,15 @@ function App() {
   const hasLoadedFeed = useRef(false)
   const isEditing = editingEventId != null
   const isAdmin = Boolean(user && ADMIN_TELEGRAM_IDS.has(user.telegramId))
+  const accessKeysList = useMemo(() => {
+    const values = Object.values(eventAccessKeys).filter(Boolean)
+    return Array.from(new Set(values))
+  }, [eventAccessKeys])
+  const selectedAccessKey =
+    selectedId != null
+      ? eventAccessKeys[selectedId] ||
+        (selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent.event.accessKey || '' : '')
+      : ''
   const feedLocation = useMemo(() => {
     const preferView = hasStoredCenter.current || hasUserMovedMap.current
     if (preferView) return viewLocation ?? userLocation
@@ -807,6 +960,7 @@ function App() {
     contactWechat: event.contactWechat || '',
     contactFbMessenger: event.contactFbMessenger || '',
     contactSnapchat: event.contactSnapchat || '',
+    isPrivate: Boolean(event.isPrivate),
   })
 
   const focusMapAt = (lat: number, lng: number) => {
@@ -920,9 +1074,12 @@ function App() {
       tg.ready()
       tg.expand()
       logDebug('telegram_webapp_ready')
-      const startEventId = getEventIdFromTelegram()
-      if (startEventId) {
-        setSelectedId((prev) => prev ?? startEventId)
+      const startLink = getEventLinkFromTelegram()
+      if (startLink.eventId) {
+        setSelectedId((prev) => prev ?? startLink.eventId)
+        if (startLink.eventKey) {
+          setEventAccessKeys((prev) => ({ ...prev, [startLink.eventId]: startLink.eventKey }))
+        }
       }
     }
     const initData = tg?.initData || getInitDataFromLocation()
@@ -1027,8 +1184,12 @@ function App() {
   }, [isEditing, creating])
 
   useEffect(() => {
-    updateEventIdInLocation(selectedId)
-  }, [selectedId])
+    updateEventLinkInLocation(selectedId, selectedAccessKey)
+  }, [selectedId, selectedAccessKey])
+
+  useEffect(() => {
+    saveStoredEventKeys(eventAccessKeys)
+  }, [eventAccessKeys])
 
   useEffect(() => {
     setLogToken(token)
@@ -1223,13 +1384,13 @@ function App() {
       }
       logDebug('feed_load_start', { lat: feedLocation.lat, lng: feedLocation.lng })
       Promise.all([
-        getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
-        getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+        getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
+        getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
       ])
         .then(([nearby, feedItems]) => {
           if (cancelled) return
-          setMarkers(nearby)
-          setFeed(feedItems)
+          setMarkers(mergeMarkersWithShared(nearby, sharedEvents))
+          setFeed(mergeFeedWithShared(feedItems, sharedEvents))
           setError(null)
           logInfo('feed_load_success', { markers: nearby.length, feed: feedItems.length })
         })
@@ -1253,7 +1414,7 @@ function App() {
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [token, feedLocation, activeFilters])
+  }, [token, feedLocation, activeFilters, accessKeysList, sharedEvents])
 
   useEffect(() => {
     if (!markerLayer.current) return
@@ -1286,13 +1447,28 @@ function App() {
   useEffect(() => {
     if (!token || selectedId == null) return
     logDebug('event_select', { eventId: selectedId })
-    getEvent(token, selectedId)
-      .then((detail) => setSelectedEvent(detail))
+    getEvent(token, selectedId, selectedAccessKey)
+      .then((detail) => {
+        const detailAccessKey = detail.event.accessKey || selectedAccessKey
+        if (detailAccessKey) {
+          setEventAccessKeys((prev) => {
+            if (prev[detail.event.id] === detailAccessKey) return prev
+            return { ...prev, [detail.event.id]: detailAccessKey }
+          })
+        }
+        if (detail.event.isPrivate) {
+          const card = buildEventCardFromDetail(detail, detailAccessKey)
+          setSharedEvents((prev) => ({ ...prev, [detail.event.id]: card }))
+          setFeed((prev) => mergeFeedWithShared(prev, { [detail.event.id]: card }))
+          setMarkers((prev) => mergeMarkersWithShared(prev, { [detail.event.id]: card }))
+        }
+        setSelectedEvent(detail)
+      })
       .catch((err) => {
         logError('event_load_error', { message: err.message, eventId: selectedId })
         setError(err.message)
       })
-  }, [token, selectedId])
+  }, [token, selectedId, selectedAccessKey])
 
   useEffect(() => {
     if (!token || selectedId == null) {
@@ -1303,7 +1479,7 @@ function App() {
     let cancelled = false
     setCommentsLoading(true)
     setCommentBody('')
-    getEventComments(token, selectedId, 100, 0)
+    getEventComments(token, selectedId, 100, 0, selectedAccessKey)
       .then((items) => {
         if (!cancelled) setComments(items)
       })
@@ -1316,7 +1492,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [token, selectedId])
+  }, [token, selectedId, selectedAccessKey])
 
 
   const handleJoin = async () => {
@@ -1325,8 +1501,8 @@ function App() {
     setLoading(true)
     logInfo('join_event_start', { eventId: selectedEvent.event.id })
     try {
-      await joinEvent(token, selectedEvent.event.id)
-      const updated = await getEvent(token, selectedEvent.event.id)
+      await joinEvent(token, selectedEvent.event.id, selectedAccessKey)
+      const updated = await getEvent(token, selectedEvent.event.id, selectedAccessKey)
       setSelectedEvent(updated)
       setFeed((prev) =>
         prev.map((item) =>
@@ -1359,8 +1535,8 @@ function App() {
     setLoading(true)
     logInfo('leave_event_start', { eventId: selectedEvent.event.id })
     try {
-      await leaveEvent(token, selectedEvent.event.id)
-      const updated = await getEvent(token, selectedEvent.event.id)
+      await leaveEvent(token, selectedEvent.event.id, selectedAccessKey)
+      const updated = await getEvent(token, selectedEvent.event.id, selectedAccessKey)
       setSelectedEvent(updated)
       setFeed((prev) =>
         prev.map((item) =>
@@ -1394,8 +1570,8 @@ function App() {
     const eventId = selectedEvent.event.id
     try {
       const res = selectedEvent.event.isLiked
-        ? await unlikeEvent(token, eventId)
-        : await likeEvent(token, eventId)
+        ? await unlikeEvent(token, eventId, selectedAccessKey)
+        : await likeEvent(token, eventId, selectedAccessKey)
       setSelectedEvent((prev) =>
         prev
           ? {
@@ -1432,7 +1608,7 @@ function App() {
     setCommentSending(true)
     const eventId = selectedEvent.event.id
     try {
-      const res = await addEventComment(token, eventId, trimmed)
+      const res = await addEventComment(token, eventId, trimmed, selectedAccessKey)
       setComments((prev) => [...prev, res.comment])
       setCommentBody('')
       setSelectedEvent((prev) =>
@@ -1458,7 +1634,8 @@ function App() {
   const handleShareEvent = async () => {
     if (!selectedEvent) return
     const eventId = selectedEvent.event.id
-    const url = buildShareUrl(eventId)
+    const accessKey = selectedEvent.event.accessKey || eventAccessKeys[eventId]
+    const url = buildShareUrl(eventId, accessKey)
     if (!url) {
       setError('Не удалось создать ссылку для шаринга')
       return
@@ -1501,6 +1678,7 @@ function App() {
     const startsAtLocal = String(form.get('startsAt') || '')
     const endsAtLocal = String(form.get('endsAt') || '')
     const capacityRaw = String(form.get('capacity') || '')
+    const isPrivate = form.get('isPrivate') === 'on'
     const contactTelegram = String(form.get('contactTelegram') || '').trim()
     const contactWhatsapp = String(form.get('contactWhatsapp') || '').trim()
     const contactWechat = String(form.get('contactWechat') || '').trim()
@@ -1556,6 +1734,7 @@ function App() {
       capacity,
       media,
       filters,
+      isPrivate,
       contactTelegram: contactTelegram || undefined,
       contactWhatsapp: contactWhatsapp || undefined,
       contactWechat: contactWechat || undefined,
@@ -1599,15 +1778,15 @@ function App() {
           contacts: contactEntries.filter(Boolean).length,
         })
         await updateEventAdmin(token, editingEventId, updatePayload)
-        const updated = await getEvent(token, editingEventId)
+        const updated = await getEvent(token, editingEventId, eventAccessKeys[editingEventId])
         setSelectedEvent(updated)
         if (feedLocation) {
           const [nearby, feedItems] = await Promise.all([
-            getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
-            getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+            getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
+            getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
           ])
-          setMarkers(nearby)
-          setFeed(feedItems)
+          setMarkers(mergeMarkersWithShared(nearby, sharedEvents))
+          setFeed(mergeFeedWithShared(feedItems, sharedEvents))
         } else {
           setMarkers((prev) =>
             prev.map((marker) =>
@@ -1643,6 +1822,8 @@ function App() {
                       contactWechat: updated.event.contactWechat,
                       contactFbMessenger: updated.event.contactFbMessenger,
                       contactSnapchat: updated.event.contactSnapchat,
+                      isPrivate: updated.event.isPrivate,
+                      accessKey: updated.event.accessKey,
                       thumbnailUrl: updated.media[0],
                     }
                   : item
@@ -1668,6 +1849,12 @@ function App() {
         contacts: contactEntries.filter(Boolean).length,
       })
       const created = await createEvent(token, createPayload)
+      if (created.accessKey) {
+        setEventAccessKeys((prev) => {
+          if (prev[created.eventId] === created.accessKey) return prev
+          return { ...prev, [created.eventId]: created.accessKey }
+        })
+      }
       const newMarker: EventMarker = {
         id: created.eventId,
         title,
@@ -1700,6 +1887,11 @@ function App() {
         contactSnapchat: contactSnapchat || undefined,
         isJoined: true,
         isLiked: false,
+        isPrivate,
+        accessKey: created.accessKey,
+      }
+      if (isPrivate) {
+        setSharedEvents((prev) => ({ ...prev, [created.eventId]: newFeedItem }))
       }
       const matchesActiveFilters =
         activeFilters.length === 0 || filters.some((filter) => activeFilters.includes(filter))
@@ -1719,16 +1911,18 @@ function App() {
       resetFormState(true)
       if (feedLocation) {
         const [nearby, feedItems] = await Promise.all([
-          getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
-          getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters),
+          getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
+          getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
         ])
         setMarkers(() => {
           const hasCreated = nearby.some((m) => m.id === newMarker.id)
-          return hasCreated ? nearby : [newMarker, ...nearby]
+          const base = hasCreated ? nearby : [newMarker, ...nearby]
+          return mergeMarkersWithShared(base, sharedEvents)
         })
         setFeed(() => {
           const hasCreated = feedItems.some((e) => e.id === newFeedItem.id)
-          return hasCreated ? feedItems : [newFeedItem, ...feedItems]
+          const base = hasCreated ? feedItems : [newFeedItem, ...feedItems]
+          return mergeFeedWithShared(base, sharedEvents)
         })
       }
       logInfo('create_event_success', { eventId: created.eventId })
@@ -1831,6 +2025,18 @@ function App() {
       await deleteEventAdmin(token, eventId)
       setFeed((prev) => prev.filter((item) => item.id !== eventId))
       setMarkers((prev) => prev.filter((marker) => marker.id !== eventId))
+      setSharedEvents((prev) => {
+        if (!prev[eventId]) return prev
+        const next = { ...prev }
+        delete next[eventId]
+        return next
+      })
+      setEventAccessKeys((prev) => {
+        if (!prev[eventId]) return prev
+        const next = { ...prev }
+        delete next[eventId]
+        return next
+      })
       setSelectedEvent(null)
       setSelectedId(null)
       if (isEditing && editingEventId === eventId) {
@@ -1858,7 +2064,7 @@ function App() {
         : { durationMinutes: mode === '24h' ? 24 * 60 : 7 * 24 * 60 }
     try {
       await promoteEvent(token, eventId, payload)
-      const updated = await getEvent(token, eventId)
+      const updated = await getEvent(token, eventId, eventAccessKeys[eventId])
       const isPromoted = updated.event.promotedUntil
         ? new Date(updated.event.promotedUntil).getTime() > Date.now()
         : false
@@ -2140,6 +2346,17 @@ function App() {
                 )}
                 <p className="hint">Add handles or links to reach the host after joining.</p>
               </div>
+              <div className="field">
+                <div className="field__label">
+                  <span>Privacy</span>
+                  <span className="field__hint">Link only</span>
+                </div>
+                <label className="checkbox-row">
+                  <input type="checkbox" name="isPrivate" defaultChecked={formDefaults.isPrivate} />
+                  <span>Private event (visible only via link)</span>
+                </label>
+                <p className="hint">Private events stay off the public map and feed.</p>
+              </div>
               <label className="field">
                 Photos (up to 5)
                 <input
@@ -2225,9 +2442,11 @@ function App() {
           )}
           <div className="feed-grid">
             {feed.map((event) => {
-              const proxyThumb = buildMediaProxyUrl(event.id, 0)
-              const thumbnailSrc = proxyThumb || event.thumbnailUrl
-              const thumbnailFallback = proxyThumb && event.thumbnailUrl ? event.thumbnailUrl : undefined
+              const accessKey = event.accessKey || eventAccessKeys[event.id]
+              const proxyThumb = buildMediaProxyUrl(event.id, 0, accessKey)
+              const allowFallback = !event.isPrivate || Boolean(accessKey)
+              const thumbnailSrc = proxyThumb || (allowFallback ? event.thumbnailUrl : undefined)
+              const thumbnailFallback = proxyThumb && allowFallback && event.thumbnailUrl ? event.thumbnailUrl : undefined
               if (event.id === selectedId) {
                 if (!detailEvent) {
                   return (
@@ -2259,6 +2478,8 @@ function App() {
                   )
                 }
 
+                const detailAccessKey = detailEvent.event.accessKey || eventAccessKeys[detailEvent.event.id]
+                const allowMediaFallback = !detailEvent.event.isPrivate || Boolean(detailAccessKey)
                 return (
                   <article key={event.id} className="panel detail-panel detail-panel--inline" data-event-id={event.id}>
                     <div className="detail-header">
@@ -2274,9 +2495,9 @@ function App() {
                     {detailEvent.media[0] && (
                       <div className="detail-hero">
                         <MediaImage
-                          src={resolveMediaSrc(detailEvent.event.id, 0, detailEvent.media[0])}
+                          src={resolveMediaSrc(detailEvent.event.id, 0, allowMediaFallback ? detailEvent.media[0] : undefined, detailAccessKey)}
                           alt="event hero"
-                          fallbackSrc={detailEvent.media[0]}
+                          fallbackSrc={allowMediaFallback ? detailEvent.media[0] : undefined}
                         />
                       </div>
                     )}
@@ -2285,9 +2506,9 @@ function App() {
                       {detailEvent.media.slice(1).map((url, index) => (
                         <MediaImage
                           key={url}
-                          src={resolveMediaSrc(detailEvent.event.id, index + 1, url)}
+                          src={resolveMediaSrc(detailEvent.event.id, index + 1, allowMediaFallback ? url : undefined, detailAccessKey)}
                           alt="media"
-                          fallbackSrc={url}
+                          fallbackSrc={allowMediaFallback ? url : undefined}
                         />
                       ))}
                     </div>

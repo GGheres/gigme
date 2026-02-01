@@ -133,11 +133,11 @@ func (r *Repository) CreateEvent(ctx context.Context, event models.Event) (int64
 INSERT INTO events (
 	creator_user_id, title, description, starts_at, ends_at, location, address_label,
 	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
-	capacity, is_hidden, promoted_until, filters
+	capacity, is_hidden, is_private, access_key, promoted_until, filters
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
 ) RETURNING id;`
 
 	row := r.pool.QueryRow(ctx, query,
@@ -156,6 +156,8 @@ INSERT INTO events (
 		nullString(event.ContactSnapchat),
 		event.Capacity,
 		event.IsHidden,
+		event.IsPrivate,
+		nullString(event.AccessKey),
 		event.PromotedUntil,
 		filters,
 	)
@@ -186,36 +188,45 @@ func (r *Repository) InsertEventMedia(ctx context.Context, eventID int64, urls [
 	return nil
 }
 
-func (r *Repository) GetEventMarkers(ctx context.Context, from, to *time.Time, lat, lng *float64, radiusMeters int, filters []string) ([]models.EventMarker, error) {
+func (r *Repository) GetEventMarkers(ctx context.Context, userID int64, from, to *time.Time, lat, lng *float64, radiusMeters int, filters []string, accessKeys []string) ([]models.EventMarker, error) {
 	query := `
-SELECT id, title, starts_at,
-	ST_Y(location::geometry) AS lat,
-	ST_X(location::geometry) AS lng,
-	(promoted_until IS NOT NULL AND promoted_until > now()) AS is_promoted,
-	filters
-FROM events
-WHERE is_hidden = false
-	AND COALESCE(ends_at, starts_at + interval '2 hours') >= COALESCE($1, now())
-	AND (starts_at <= $2 OR $2 IS NULL)`
-	args := []interface{}{from, to}
+SELECT e.id, e.title, e.starts_at,
+	ST_Y(e.location::geometry) AS lat,
+	ST_X(e.location::geometry) AS lng,
+	(e.promoted_until IS NOT NULL AND e.promoted_until > now()) AS is_promoted,
+	e.filters
+FROM events e
+LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.user_id = $1
+WHERE e.is_hidden = false
+	AND COALESCE(e.ends_at, e.starts_at + interval '2 hours') >= COALESCE($2, now())
+	AND (e.starts_at <= $3 OR $3 IS NULL)`
+	args := []interface{}{userID, from, to}
+	privacy := "e.is_private = false OR e.creator_user_id = $1 OR ep.user_id IS NOT NULL"
+	if len(accessKeys) > 0 {
+		keyIdx := len(args) + 1
+		privacy = fmt.Sprintf("%s OR e.access_key = ANY($%d)", privacy, keyIdx)
+		args = append(args, accessKeys)
+	}
+	query += fmt.Sprintf(`
+	AND (%s)`, privacy)
 	if lat != nil && lng != nil && radiusMeters > 0 {
 		lngIdx := len(args) + 1
 		latIdx := len(args) + 2
 		radiusIdx := len(args) + 3
 		query += fmt.Sprintf(`
-	AND ST_DWithin(location, ST_SetSRID(ST_MakePoint($%d, $%d), 4326)::geography, $%d)`, lngIdx, latIdx, radiusIdx)
+	AND ST_DWithin(e.location, ST_SetSRID(ST_MakePoint($%d, $%d), 4326)::geography, $%d)`, lngIdx, latIdx, radiusIdx)
 		args = append(args, *lng, *lat, radiusMeters)
 	}
 	if len(filters) > 0 {
 		filterIdx := len(args) + 1
 		query += fmt.Sprintf(`
-	AND filters && $%d`, filterIdx)
+	AND e.filters && $%d`, filterIdx)
 		args = append(args, filters)
 	}
 	query += `
 ORDER BY
-	(promoted_until IS NOT NULL AND promoted_until > now()) DESC,
-	starts_at ASC
+	(e.promoted_until IS NOT NULL AND e.promoted_until > now()) DESC,
+	e.starts_at ASC
 LIMIT 500;`
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -235,12 +246,12 @@ LIMIT 500;`
 	return markers, rows.Err()
 }
 
-func (r *Repository) GetFeed(ctx context.Context, userID int64, limit, offset int, lat, lng *float64, radiusMeters int, filters []string) ([]models.Event, error) {
+func (r *Repository) GetFeed(ctx context.Context, userID int64, limit, offset int, lat, lng *float64, radiusMeters int, filters []string, accessKeys []string) ([]models.Event, error) {
 	query := `
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
-	e.capacity, e.promoted_until, e.filters,
+	e.capacity, e.promoted_until, e.filters, e.is_private,
 	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
@@ -255,6 +266,14 @@ LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.user_id = $1
 WHERE e.is_hidden = false
 	AND COALESCE(e.ends_at, e.starts_at + interval '2 hours') >= now()`
 	args := []interface{}{userID, limit, offset}
+	privacy := "e.is_private = false OR e.creator_user_id = $1 OR ep.user_id IS NOT NULL"
+	if len(accessKeys) > 0 {
+		keyIdx := len(args) + 1
+		privacy = fmt.Sprintf("%s OR e.access_key = ANY($%d)", privacy, keyIdx)
+		args = append(args, accessKeys)
+	}
+	query += fmt.Sprintf(`
+	AND (%s)`, privacy)
 	if lat != nil && lng != nil && radiusMeters > 0 {
 		lngIdx := len(args) + 1
 		latIdx := len(args) + 2
@@ -301,6 +320,7 @@ LIMIT $2 OFFSET $3;`
 			&e.Capacity,
 			&e.PromotedUntil,
 			&e.Filters,
+			&e.IsPrivate,
 			&contactTelegram,
 			&contactWhatsapp,
 			&contactWechat,
@@ -346,7 +366,7 @@ SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_X(e.location::geometry) AS lng,
 	e.address_label,
 	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
-	e.capacity, e.is_hidden, e.promoted_until, e.filters,
+	e.capacity, e.is_hidden, e.is_private, e.access_key, e.promoted_until, e.filters,
 	e.created_at, e.updated_at,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
@@ -364,6 +384,7 @@ WHERE e.id = $1;`
 	var contactWechat sql.NullString
 	var contactFbMessenger sql.NullString
 	var contactSnapchat sql.NullString
+	var accessKey sql.NullString
 	if err := row.Scan(
 		&e.ID,
 		&e.CreatorUserID,
@@ -381,6 +402,8 @@ WHERE e.id = $1;`
 		&contactSnapchat,
 		&e.Capacity,
 		&e.IsHidden,
+		&e.IsPrivate,
+		&accessKey,
 		&e.PromotedUntil,
 		&e.Filters,
 		&e.CreatedAt,
@@ -409,6 +432,9 @@ WHERE e.id = $1;`
 	}
 	if contactSnapchat.Valid {
 		e.ContactSnapchat = contactSnapchat.String
+	}
+	if accessKey.Valid {
+		e.AccessKey = accessKey.String
 	}
 	return e, nil
 }
@@ -709,11 +735,11 @@ func (r *Repository) CreateEventWithMedia(ctx context.Context, event models.Even
 INSERT INTO events (
 	creator_user_id, title, description, starts_at, ends_at, location, address_label,
 	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
-	capacity, is_hidden, promoted_until, filters
+	capacity, is_hidden, is_private, access_key, promoted_until, filters
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
 ) RETURNING id;`,
 			event.CreatorUserID,
 			event.Title,
@@ -730,6 +756,8 @@ INSERT INTO events (
 			nullString(event.ContactSnapchat),
 			event.Capacity,
 			event.IsHidden,
+			event.IsPrivate,
+			nullString(event.AccessKey),
 			event.PromotedUntil,
 			filters,
 		)

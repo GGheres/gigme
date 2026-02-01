@@ -31,7 +31,30 @@ type telegramChat struct {
 	ID int64 `json:"id"`
 }
 
+var startEventPayloadRe = regexp.MustCompile(`(?i)event_(\d+)(?:_([a-z0-9_-]+))?`)
 var startEventIDRe = regexp.MustCompile(`\d+`)
+
+func parseStartPayload(payload string) (int64, string) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return 0, ""
+	}
+	if match := startEventPayloadRe.FindStringSubmatch(payload); len(match) >= 2 {
+		if parsed, err := strconv.ParseInt(match[1], 10, 64); err == nil && parsed > 0 {
+			key := ""
+			if len(match) > 2 {
+				key = strings.TrimSpace(match[2])
+			}
+			return parsed, key
+		}
+	}
+	if match := startEventIDRe.FindString(payload); match != "" {
+		if parsed, err := strconv.ParseInt(match, 10, 64); err == nil && parsed > 0 {
+			return parsed, ""
+		}
+	}
+	return 0, ""
+}
 
 func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
@@ -55,29 +78,27 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 
 	webAppURL := strings.TrimSpace(h.cfg.BaseURL)
 	startPayload := strings.TrimSpace(strings.TrimPrefix(text, "/start"))
-	eventID := int64(0)
-	if startPayload != "" {
-		if match := startEventIDRe.FindString(startPayload); match != "" {
-			if parsed, err := strconv.ParseInt(match, 10, 64); err == nil && parsed > 0 {
-				eventID = parsed
-			}
-		}
-	}
+	eventID, accessKey := parseStartPayload(startPayload)
 
 	if eventID > 0 {
 		ctx, cancel := h.withTimeout(r.Context())
 		defer cancel()
 		event, err := h.repo.GetEventByID(ctx, eventID)
 		if err == nil && !event.IsHidden {
+			if event.IsPrivate && (accessKey == "" || accessKey != event.AccessKey) {
+				event = models.Event{}
+			}
+		}
+		if event.ID > 0 {
 			text := buildEventCardText(event)
-			mediaURL := resolveEventMediaURL(ctx, h, eventID)
+			mediaURL := resolveEventMediaURL(ctx, h, eventID, accessKey)
 			var markup *integrations.ReplyMarkup
 			if webAppURL != "" {
 				markup = &integrations.ReplyMarkup{
 					InlineKeyboard: [][]integrations.InlineKeyboardButton{{
 						{
 							Text:   "Открыть событие",
-							WebApp: &integrations.WebAppInfo{URL: buildEventURL(webAppURL, eventID)},
+							WebApp: &integrations.WebAppInfo{URL: buildEventURL(webAppURL, eventID, accessKey)},
 						},
 					}},
 				}
@@ -143,7 +164,7 @@ func buildEventCardText(event models.Event) string {
 	return out
 }
 
-func resolveEventMediaURL(ctx context.Context, h *Handler, eventID int64) string {
+func resolveEventMediaURL(ctx context.Context, h *Handler, eventID int64, accessKey string) string {
 	if h == nil || h.repo == nil || eventID <= 0 {
 		return ""
 	}
@@ -156,7 +177,7 @@ func resolveEventMediaURL(ctx context.Context, h *Handler, eventID int64) string
 		apiBase = strings.TrimSpace(h.cfg.BaseURL)
 	}
 	if apiBase != "" {
-		if preview := buildMediaPreviewURL(apiBase, eventID); preview != "" {
+		if preview := buildMediaPreviewURL(apiBase, eventID, accessKey); preview != "" {
 			return preview
 		}
 	}
@@ -167,7 +188,7 @@ func resolveEventMediaURL(ctx context.Context, h *Handler, eventID int64) string
 	return ""
 }
 
-func buildEventURL(baseURL string, eventID int64) string {
+func buildEventURL(baseURL string, eventID int64, accessKey string) string {
 	if baseURL == "" || eventID <= 0 {
 		return ""
 	}
@@ -177,16 +198,22 @@ func buildEventURL(baseURL string, eventID int64) string {
 		if strings.Contains(baseURL, "?") {
 			separator = "&"
 		}
-		return baseURL + separator + "eventId=" + strconv.FormatInt(eventID, 10)
+		link := baseURL + separator + "eventId=" + strconv.FormatInt(eventID, 10)
+		if accessKey != "" {
+			link += "&eventKey=" + url.QueryEscape(accessKey)
+		}
+		return link
 	}
-	query := parsed.Query()
-	query.Set("eventId", strconv.FormatInt(eventID, 10))
+	query := url.Values{}
+	if accessKey != "" {
+		query.Set("eventKey", accessKey)
+	}
 	parsed.RawQuery = query.Encode()
 	parsed.Fragment = mergeEventIDIntoFragment(parsed.Fragment, eventID)
 	return parsed.String()
 }
 
-func buildMediaPreviewURL(baseURL string, eventID int64) string {
+func buildMediaPreviewURL(baseURL string, eventID int64, accessKey string) string {
 	if baseURL == "" || eventID <= 0 {
 		return ""
 	}
@@ -194,7 +221,12 @@ func buildMediaPreviewURL(baseURL string, eventID int64) string {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return ""
 	}
-	parsed.RawQuery = ""
+	query := parsed.Query()
+	query.Set("eventId", strconv.FormatInt(eventID, 10))
+	if accessKey != "" {
+		query.Set("eventKey", accessKey)
+	}
+	parsed.RawQuery = query.Encode()
 	parsed.Fragment = ""
 	basePath := strings.TrimSpace(parsed.Path)
 	parsed.Path = path.Join("/", basePath, "media", "events", strconv.FormatInt(eventID, 10), "0")
