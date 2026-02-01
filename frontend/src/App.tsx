@@ -127,7 +127,9 @@ const buildShareUrl = (eventId: number) => {
   if (botUsername) {
     try {
       const tgUrl = new URL(`https://t.me/${botUsername}`)
-      tgUrl.searchParams.set('start', `event_${eventId}`)
+      const payload = `event_${eventId}`
+      tgUrl.searchParams.set('startapp', payload)
+      tgUrl.searchParams.set('start', payload)
       return tgUrl.toString()
     } catch {
       // fall through to web share URL
