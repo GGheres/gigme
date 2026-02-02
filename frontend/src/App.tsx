@@ -156,6 +156,7 @@ const MAX_COMMENT_LENGTH = 400
 const LOCATION_POLL_MS = 60000
 const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 const MAX_EVENT_FILTERS = 3
+const NEARBY_RADIUS_M = 100_000
 const FOCUS_ZOOM = 16
 const LOGO_FRAME_COUNT = 134
 const LOGO_FPS = 24
@@ -205,6 +206,26 @@ const buildShareUrl = (eventId: number, accessKey?: string) => {
   } catch {
     return ''
   }
+}
+
+const toRadians = (value: number) => (value * Math.PI) / 180
+const getDistanceKm = (from: LatLng, to: LatLng) => {
+  const dLat = toRadians(to.lat - from.lat)
+  const dLng = toRadians(to.lng - from.lng)
+  const lat1 = toRadians(from.lat)
+  const lat2 = toRadians(to.lat)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return 6371 * c
+}
+
+const formatDistanceLabel = (km: number) => {
+  if (!Number.isFinite(km)) return ''
+  if (km < 1) return `${Math.max(1, Math.round(km * 1000))} m`
+  if (km < 10) return `${km.toFixed(1)} km`
+  return `${Math.round(km)} km`
 }
 const COORDS_REGEX = /Coordinates:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i
 const buildMediaProxyUrl = (eventId: number, index: number, accessKey?: string) => {
@@ -796,6 +817,7 @@ function App() {
   const [markers, setMarkers] = useState<EventMarker[]>([])
   const [feed, setFeed] = useState<EventCard[]>([])
   const [activeFilters, setActiveFilters] = useState<EventFilter[]>([])
+  const [nearbyOnly, setNearbyOnly] = useState(false)
   const [createFilters, setCreateFilters] = useState<EventFilter[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(() => getEventLinkFromLocation().eventId)
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null)
@@ -858,6 +880,12 @@ function App() {
     if (preferView) return viewLocation ?? userLocation
     return userLocation ?? viewLocation
   }, [userLocation, viewLocation])
+  const feedRadiusM = nearbyOnly ? NEARBY_RADIUS_M : 0
+  const feedCenter = useMemo(() => {
+    if (!feedLocation) return null
+    if (!nearbyOnly) return feedLocation
+    return userLocation ?? feedLocation
+  }, [feedLocation, nearbyOnly, userLocation])
   const canCreate = useMemo(() => !!token && !!(viewLocation || userLocation), [token, viewLocation, userLocation])
   const greeting = userName ? `Hi, ${userName}` : 'Events nearby'
   const mapCenter = viewLocation ?? userLocation
@@ -867,7 +895,7 @@ function App() {
   const detailEvent = selectedEvent && selectedEvent.event.id === selectedId ? selectedEvent : null
   const uploadedMediaRef = useRef<UploadedMedia[]>([])
   const createFiltersLimitReached = createFilters.length >= MAX_EVENT_FILTERS
-  const activeFilterCount = activeFilters.length
+  const activeFilterCount = activeFilters.length + (nearbyOnly ? 1 : 0)
   const activeFiltersLabel =
     activeFilterCount > 0 ? `${activeFilterCount} active` : `Up to ${MAX_EVENT_FILTERS}`
   const createErrorOrder: (keyof CreateErrors)[] = ['title', 'description', 'startsAt', 'contacts', 'location']
@@ -1004,9 +1032,16 @@ function App() {
   }
 
   const clearActiveFilters = () => {
-    if (activeFilters.length === 0) return
-    logInfo('feed_filters_clear', { count: activeFilters.length })
+    if (activeFilters.length === 0 && !nearbyOnly) return
+    logInfo('feed_filters_clear', { count: activeFilters.length, nearbyOnly })
     setActiveFilters([])
+    setNearbyOnly(false)
+  }
+
+  const getDistanceLabel = (lat: number, lng: number) => {
+    if (!userLocation) return null
+    const label = formatDistanceLabel(getDistanceKm(userLocation, { lat, lng }))
+    return label || null
   }
 
   const startEditFromDetail = (source?: EventDetail | null) => {
@@ -1373,7 +1408,7 @@ function App() {
   }, [viewLocation])
 
   useEffect(() => {
-    if (!token || !feedLocation) return
+    if (!token || !feedCenter) return
     let cancelled = false
 
     const load = () => {
@@ -1382,10 +1417,10 @@ function App() {
       if (showLoading) {
         setLoading(true)
       }
-      logDebug('feed_load_start', { lat: feedLocation.lat, lng: feedLocation.lng })
+      logDebug('feed_load_start', { lat: feedCenter.lat, lng: feedCenter.lng, radiusM: feedRadiusM })
       Promise.all([
-        getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
-        getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
+        getNearby(token, feedCenter.lat, feedCenter.lng, feedRadiusM, activeFilters, accessKeysList),
+        getFeed(token, feedCenter.lat, feedCenter.lng, feedRadiusM, activeFilters, accessKeysList),
       ])
         .then(([nearby, feedItems]) => {
           if (cancelled) return
@@ -1414,7 +1449,7 @@ function App() {
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [token, feedLocation, activeFilters, accessKeysList, sharedEvents])
+  }, [token, feedCenter, feedRadiusM, activeFilters, accessKeysList, sharedEvents])
 
   useEffect(() => {
     if (!markerLayer.current) return
@@ -1780,10 +1815,11 @@ function App() {
         await updateEventAdmin(token, editingEventId, updatePayload)
         const updated = await getEvent(token, editingEventId, eventAccessKeys[editingEventId])
         setSelectedEvent(updated)
-        if (feedLocation) {
+        const refreshCenter = nearbyOnly && userLocation ? userLocation : feedLocation
+        if (refreshCenter) {
           const [nearby, feedItems] = await Promise.all([
-            getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
-            getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
+            getNearby(token, refreshCenter.lat, refreshCenter.lng, feedRadiusM, activeFilters, accessKeysList),
+            getFeed(token, refreshCenter.lat, refreshCenter.lng, feedRadiusM, activeFilters, accessKeysList),
           ])
           setMarkers(mergeMarkersWithShared(nearby, sharedEvents))
           setFeed(mergeFeedWithShared(feedItems, sharedEvents))
@@ -1909,10 +1945,11 @@ function App() {
       }
       mapInstance.current?.setView([point.lat, point.lng], mapInstance.current?.getZoom() ?? 13)
       resetFormState(true)
-      if (feedLocation) {
+      const refreshCenter = nearbyOnly && userLocation ? userLocation : feedLocation
+      if (refreshCenter) {
         const [nearby, feedItems] = await Promise.all([
-          getNearby(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
-          getFeed(token, feedLocation.lat, feedLocation.lng, 0, activeFilters, accessKeysList),
+          getNearby(token, refreshCenter.lat, refreshCenter.lng, feedRadiusM, activeFilters, accessKeysList),
+          getFeed(token, refreshCenter.lat, refreshCenter.lng, feedRadiusM, activeFilters, accessKeysList),
         ])
         setMarkers(() => {
           const hasCreated = nearby.some((m) => m.id === newMarker.id)
@@ -2126,6 +2163,19 @@ function App() {
                 Clear
               </button>
             )}
+          </div>
+          <div className="filter-row">
+            <button
+              type="button"
+              className={`filter-pill${nearbyOnly ? ' filter-pill--active' : ''}`}
+              aria-pressed={nearbyOnly}
+              onClick={() => setNearbyOnly((prev) => !prev)}
+            >
+              <span className="filter-pill__icon" aria-hidden="true">
+                📍
+              </span>
+              <span className="filter-pill__label">Nearby 100 km</span>
+            </button>
           </div>
           <div className="filter-row">
             {EVENT_FILTERS.map((filter) => {
@@ -2442,6 +2492,7 @@ function App() {
           )}
           <div className="feed-grid">
             {feed.map((event) => {
+              const distanceLabel = getDistanceLabel(event.lat, event.lng)
               const accessKey = event.accessKey || eventAccessKeys[event.id]
               const proxyThumb = buildMediaProxyUrl(event.id, 0, accessKey)
               const allowFallback = !event.isPrivate || Boolean(accessKey)
@@ -2456,6 +2507,7 @@ function App() {
                       data-event-id={event.id}
                     >
                       <div className="card__media">
+                        {distanceLabel && <span className="card__distance">{distanceLabel}</span>}
                         {thumbnailSrc ? (
                           <MediaImage
                             src={thumbnailSrc}
@@ -2678,6 +2730,7 @@ function App() {
                   }}
                 >
                   <div className="card__media">
+                    {distanceLabel && <span className="card__distance">{distanceLabel}</span>}
                     {thumbnailSrc ? (
                       <MediaImage
                         src={thumbnailSrc}
