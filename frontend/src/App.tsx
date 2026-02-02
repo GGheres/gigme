@@ -14,15 +14,20 @@ import {
   getEventComments,
   getEvent,
   getFeed,
+  getMe,
+  getMyEvents,
   getNearby,
   joinEvent,
   likeEvent,
   leaveEvent,
   promoteEvent,
+  topupCard,
+  topupToken,
   presignMedia,
   unlikeEvent,
   updateEventAdmin,
   uploadMedia,
+  UserEvent,
   User,
   updateLocation,
 } from './api'
@@ -43,6 +48,7 @@ type FormDefaults = {
   contactSnapchat: string
   isPrivate: boolean
 }
+type AppPage = 'home' | 'profile'
 
 const EMPTY_FORM_DEFAULTS: FormDefaults = {
   title: '',
@@ -74,6 +80,11 @@ const parseAdminIds = (value: string) => {
 
 const ADMIN_TELEGRAM_IDS = parseAdminIds(String(import.meta.env.VITE_ADMIN_TELEGRAM_IDS || ''))
 const TELEGRAM_BOT_USERNAME = String(import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '').trim()
+const CARD_TOPUP_ENABLED = String(import.meta.env.VITE_CARD_TOPUP_ENABLED || '')
+  .toLowerCase()
+  .trim() === 'true'
+const PROFILE_PATH = '/profile'
+const MAX_TOPUP_TOKENS = 1_000_000
 
 const formatDateTimeLocal = (value?: string | null) => {
   if (!value) return ''
@@ -548,6 +559,23 @@ const ContactIcons = ({ source, unlocked = false, className }: ContactIconsProps
   )
 }
 
+type ProfileAvatarProps = {
+  user: User | null
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+  label?: string
+}
+
+const ProfileAvatar = ({ user, size = 'md', className, label = 'Profile' }: ProfileAvatarProps) => {
+  const seed = user?.firstName || user?.username || user?.lastName || 'U'
+  const initial = seed ? seed.trim().charAt(0).toUpperCase() : 'U'
+  return (
+    <div className={`avatar avatar--${size}${className ? ` ${className}` : ''}`}>
+      {user?.photoUrl ? <img src={user.photoUrl} alt={label} /> : <span>{initial}</span>}
+    </div>
+  )
+}
+
 const LogoAnimation = () => {
   const [useCanvas] = useState(() => isIOSDevice())
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -719,6 +747,12 @@ const getEventLinkFromTelegram = (): EventLink => {
   return { eventId, eventKey: '' }
 }
 
+const getPageFromLocation = (): AppPage => {
+  if (typeof window === 'undefined') return 'home'
+  const path = window.location.pathname || '/'
+  return path.startsWith(PROFILE_PATH) ? 'profile' : 'home'
+}
+
 const updateEventLinkInLocation = (eventId: number | null, eventKey?: string) => {
   if (typeof window === 'undefined') return
   try {
@@ -811,6 +845,17 @@ const saveStoredCenter = (center: LatLng) => {
 function App() {
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
+  const [activePage, setActivePage] = useState<AppPage>(() => getPageFromLocation())
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileNotice, setProfileNotice] = useState<string | null>(null)
+  const [myEvents, setMyEvents] = useState<UserEvent[]>([])
+  const [myEventsTotal, setMyEventsTotal] = useState(0)
+  const [myEventsLoading, setMyEventsLoading] = useState(false)
+  const [topupOpen, setTopupOpen] = useState(false)
+  const [topupAmount, setTopupAmount] = useState('')
+  const [topupBusy, setTopupBusy] = useState(false)
+  const [cardBusy, setCardBusy] = useState(false)
   const [userName, setUserName] = useState<string>('')
   const [userLocation, setUserLocation] = useState<LatLng | null>(null)
   const [viewLocation, setViewLocation] = useState<LatLng | null>(() => loadStoredCenter())
@@ -888,6 +933,20 @@ function App() {
   }, [feedLocation, nearbyOnly, userLocation])
   const canCreate = useMemo(() => !!token && !!(viewLocation || userLocation), [token, viewLocation, userLocation])
   const greeting = userName ? `Hi, ${userName}` : 'Events nearby'
+  const { profileDisplayName, profileHandle } = useMemo(() => {
+    if (!user) return { profileDisplayName: 'Профиль', profileHandle: '' }
+    const full = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+    if (full) {
+      return { profileDisplayName: full, profileHandle: user.username ? `@${user.username}` : '' }
+    }
+    if (user.username) {
+      return { profileDisplayName: `@${user.username}`, profileHandle: '' }
+    }
+    return { profileDisplayName: 'Пользователь', profileHandle: '' }
+  }, [user])
+  const ratingValue = typeof user?.rating === 'number' ? user.rating : 0
+  const ratingCount = typeof user?.ratingCount === 'number' ? user.ratingCount : 0
+  const balanceTokens = typeof user?.balanceTokens === 'number' ? user.balanceTokens : 0
   const mapCenter = viewLocation ?? userLocation
   const mapCenterLabel = mapCenter ? formatCoords(mapCenter.lat, mapCenter.lng) : 'Locating...'
   const pinLabel = createLatLng ? formatCoords(createLatLng.lat, createLatLng.lng) : null
@@ -1031,6 +1090,34 @@ function App() {
     }
   }
 
+  const navigateToPage = (page: AppPage) => {
+    setActivePage(page)
+    if (page !== 'profile') {
+      setTopupOpen(false)
+    }
+    if (typeof window === 'undefined') return
+    try {
+      const url = new URL(window.location.href)
+      url.pathname = page === 'profile' ? PROFILE_PATH : '/'
+      if (page === 'profile') {
+        url.searchParams.delete('eventId')
+        url.searchParams.delete('eventKey')
+      }
+      window.history.pushState({}, '', url.toString())
+    } catch {
+      // ignore invalid URL updates
+    }
+  }
+
+  const openProfile = () => {
+    if (!user) return
+    navigateToPage('profile')
+  }
+
+  const goHome = () => {
+    navigateToPage('home')
+  }
+
   const clearActiveFilters = () => {
     if (activeFilters.length === 0 && !nearbyOnly) return
     logInfo('feed_filters_clear', { count: activeFilters.length, nearbyOnly })
@@ -1096,6 +1183,66 @@ function App() {
     })
   }
 
+  const closeTopupModal = () => {
+    setTopupOpen(false)
+    setTopupAmount('')
+  }
+
+  const handleProfileEventClick = (eventId: number) => {
+    goHome()
+    setSelectedId(eventId)
+  }
+
+  const handleTokenTopup = async () => {
+    if (!token) return
+    setProfileError(null)
+    setProfileNotice(null)
+    const parsed = Number(topupAmount)
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+      setProfileError('Введите целое число токенов.')
+      return
+    }
+    if (parsed < 1 || parsed > MAX_TOPUP_TOKENS) {
+      setProfileError(`Сумма должна быть от 1 до ${MAX_TOPUP_TOKENS}.`)
+      return
+    }
+    setTopupBusy(true)
+    try {
+      const res = await topupToken(token, parsed)
+      setUser((prev) => (prev ? { ...prev, balanceTokens: res.balanceTokens } : prev))
+      setProfileNotice('Баланс обновлён.')
+      closeTopupModal()
+    } catch (err: any) {
+      setProfileError(err.message)
+    } finally {
+      setTopupBusy(false)
+    }
+  }
+
+  const handleCardTopup = async () => {
+    if (!token || !CARD_TOPUP_ENABLED) return
+    setProfileError(null)
+    setProfileNotice(null)
+    setCardBusy(true)
+    try {
+      const res = await topupCard(token)
+      const tg = (window as any).Telegram?.WebApp
+      if (res.invoiceId && tg?.openInvoice) {
+        tg.openInvoice(res.invoiceId)
+        return
+      }
+      if (res.paymentUrl) {
+        window.open(res.paymentUrl, '_blank', 'noopener,noreferrer')
+        return
+      }
+      setProfileNotice('Ссылка на оплату будет доступна позже.')
+    } catch (err: any) {
+      setProfileError(err.message)
+    } finally {
+      setCardBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (API_URL_ERROR) {
       const suffix = API_URL ? ` (current: ${API_URL})` : ''
@@ -1129,8 +1276,8 @@ function App() {
       .then((res) => {
         setToken(res.accessToken)
         setUser(res.user)
-        const name = [res.user.firstName, res.user.lastName].filter(Boolean).join(' ')
-        setUserName(name)
+        const name = [res.user.firstName, res.user.lastName].filter(Boolean).join(' ').trim()
+        setUserName(name || (res.user.username ? `@${res.user.username}` : ''))
         setError(null)
         setLogToken(res.accessToken)
         logInfo('auth_success', { userId: res.user.id, telegramId: res.user.telegramId })
@@ -1142,6 +1289,60 @@ function App() {
         setError(`Auth error: ${err.message}`)
       })
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handler = () => {
+      setActivePage(getPageFromLocation())
+    }
+    window.addEventListener('popstate', handler)
+    return () => window.removeEventListener('popstate', handler)
+  }, [])
+
+  useEffect(() => {
+    if (activePage !== 'profile') {
+      setTopupOpen(false)
+    }
+  }, [activePage])
+
+  useEffect(() => {
+    if (!token || activePage !== 'profile') return
+    let cancelled = false
+    setProfileLoading(true)
+    setProfileError(null)
+    setProfileNotice(null)
+    getMe(token)
+      .then((res) => {
+        if (cancelled) return
+        setUser(res)
+        const name = [res.firstName, res.lastName].filter(Boolean).join(' ').trim()
+        setUserName(name || (res.username ? `@${res.username}` : ''))
+      })
+      .catch((err) => {
+        if (!cancelled) setProfileError(err.message)
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false)
+      })
+
+    setMyEventsLoading(true)
+    getMyEvents(token, 20, 0)
+      .then((res) => {
+        if (cancelled) return
+        setMyEvents(res.items)
+        setMyEventsTotal(res.total)
+      })
+      .catch((err) => {
+        if (!cancelled) setProfileError(err.message)
+      })
+      .finally(() => {
+        if (!cancelled) setMyEventsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, activePage])
 
   useEffect(() => {
     const setViewportHeight = () => {
@@ -1219,8 +1420,9 @@ function App() {
   }, [isEditing, creating])
 
   useEffect(() => {
+    if (activePage !== 'home') return
     updateEventLinkInLocation(selectedId, selectedAccessKey)
-  }, [selectedId, selectedAccessKey])
+  }, [selectedId, selectedAccessKey, activePage])
 
   useEffect(() => {
     saveStoredEventKeys(eventAccessKeys)
@@ -2127,83 +2329,296 @@ function App() {
 
   return (
     <div className="app">
-      <header className="hero">
-        <div className="hero__main">
-          <div className="hero__copy">
-            <p className="eyebrow">Local energy</p>
-            <h1>Gigme</h1>
-            <p className="hero__subtitle">{greeting}</p>
-          </div>
-          <div className="hero__actions">
-            <button
-              className="button button--primary"
-              disabled={!canCreate}
-              onClick={toggleCreateForm}
-            >
-              {creating ? (isEditing ? 'Close edit' : 'Close') : 'Create event'}
-            </button>
-            <span className="chip chip--ghost">{mapCenterLabel}</span>
-          </div>
-        </div>
-        <div className="hero__brand" aria-hidden="true">
-          <LogoAnimation />
-        </div>
-        <div className="hero__filters">
-          <div className="hero__filters-head">
-            <div className="hero__filters-title">
-              <span className="hero__filters-label">Filters</span>
-              <span className="hero__filters-count">{activeFiltersLabel}</span>
-            </div>
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                className="button button--ghost button--compact"
-                onClick={clearActiveFilters}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <div className="filter-row">
+      {activePage === 'profile' ? (
+        <div className="profile">
+          <div className="profile__nav">
             <button
               type="button"
-              className={`filter-pill${nearbyOnly ? ' filter-pill--active' : ''}`}
-              aria-pressed={nearbyOnly}
-              onClick={() => setNearbyOnly((prev) => !prev)}
+              className="button button--ghost button--compact"
+              onClick={goHome}
             >
-              <span className="filter-pill__icon" aria-hidden="true">
-                📍
-              </span>
-              <span className="filter-pill__label">Nearby 100 km</span>
+              ← Назад
             </button>
+            <div className="profile__title">Профиль</div>
           </div>
-          <div className="filter-row">
-            {EVENT_FILTERS.map((filter) => {
-              const active = activeFilters.includes(filter.id)
-              return (
-                <button
-                  key={filter.id}
-                  type="button"
-                  className={`filter-pill filter-pill--icon${active ? ' filter-pill--active' : ''}`}
-                  aria-pressed={active}
-                  aria-label={filter.label}
-                  title={filter.label}
-                  onClick={() => toggleActiveFilter(filter.id)}
+
+          <div className="status-stack">
+            {profileError && <div className="status status--error">{profileError}</div>}
+            {profileNotice && <div className="status status--success">{profileNotice}</div>}
+            {profileLoading && <div className="status status--loading">Загрузка…</div>}
+          </div>
+
+          <section className="panel profile-card">
+            {profileLoading ? (
+              <div className="profile-header profile-header--skeleton">
+                <div className="avatar avatar--lg skeleton" />
+                <div className="profile-header__info">
+                  <div className="skeleton-line skeleton-line--title" />
+                  <div className="skeleton-line" />
+                  <div className="skeleton-line skeleton-line--short" />
+                </div>
+              </div>
+            ) : (
+              <div className="profile-header">
+                <ProfileAvatar user={user} size="lg" label="Profile" />
+                <div className="profile-header__info">
+                  <div className="profile-header__name">{profileDisplayName}</div>
+                  {profileHandle && <div className="profile-header__handle">{profileHandle}</div>}
+                  {user?.telegramId && (
+                    <div className="profile-header__meta">Telegram ID: {user.telegramId}</div>
+                  )}
+                </div>
+                <div className="profile-header__stats">
+                  <span className="chip chip--ghost">
+                    ★ {ratingValue.toFixed(1)} · {ratingCount} оценок
+                  </span>
+                  <span className="chip chip--accent">{balanceTokens.toLocaleString()} GT</span>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="panel profile-card">
+            <div className="panel__header">
+              <h2>Баланс</h2>
+              <span className="chip chip--accent">{balanceTokens.toLocaleString()} GT</span>
+            </div>
+            <p className="profile-balance__hint">GigTokens можно тратить на продвижение событий и бонусы.</p>
+            <div className="profile-actions">
+              <button
+                type="button"
+                className="button button--accent"
+                onClick={() => {
+                  setProfileError(null)
+                  setProfileNotice(null)
+                  setTopupOpen(true)
+                }}
+                disabled={!token || profileLoading}
+              >
+                Пополнить токенами
+              </button>
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={handleCardTopup}
+                disabled={!token || !CARD_TOPUP_ENABLED || cardBusy}
+              >
+                {CARD_TOPUP_ENABLED ? (cardBusy ? 'Обработка…' : 'Пополнить картой') : 'Скоро'}
+              </button>
+            </div>
+          </section>
+
+          {topupOpen && (
+            <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={closeTopupModal}>
+              <div className="modal" onClick={(event) => event.stopPropagation()}>
+                <div className="modal__header">
+                  <h3>Пополнить токенами</h3>
+                  <button
+                    type="button"
+                    className="button button--ghost button--compact"
+                    onClick={closeTopupModal}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                </div>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    handleTokenTopup()
+                  }}
                 >
-                  <span aria-hidden="true">{filter.icon}</span>
+                  <label className="field">
+                    Сумма
+                    <input
+                      type="number"
+                      min={1}
+                      max={MAX_TOPUP_TOKENS}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="500"
+                      value={topupAmount}
+                      onChange={(event) => setTopupAmount(event.target.value)}
+                    />
+                  </label>
+                  <p className="hint">Минимум 1, максимум {MAX_TOPUP_TOKENS}.</p>
+                  <div className="modal__actions">
+                    <button type="submit" className="button button--accent" disabled={topupBusy}>
+                      {topupBusy ? 'Создаём…' : 'Создать заявку'}
+                    </button>
+                    <button type="button" className="button button--ghost" onClick={closeTopupModal}>
+                      Отмена
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          <section className="panel profile-card">
+            <div className="panel__header">
+              <h2>Мои события</h2>
+              <span className="chip chip--ghost">{myEventsTotal} всего</span>
+            </div>
+            <div className="profile-tabs">
+              <button type="button" className="tab tab--active">
+                Созданные
+              </button>
+            </div>
+            {myEventsLoading ? (
+              <div className="profile-events">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div className="profile-event profile-event--skeleton" key={`skeleton-${index}`}>
+                    <div className="profile-event__thumb skeleton" />
+                    <div className="profile-event__body">
+                      <div className="skeleton-line skeleton-line--title" />
+                      <div className="skeleton-line skeleton-line--short" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : myEvents.length === 0 ? (
+              <div className="empty-state">
+                <div>
+                  <h3>Вы ещё не создали ни одного события</h3>
+                  <p>Создайте первое событие и пригласите людей рядом.</p>
+                </div>
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={!canCreate}
+                  onClick={() => {
+                    goHome()
+                    openCreateForm('profile_empty')
+                  }}
+                >
+                  Создать событие
                 </button>
-              )
-            })}
-          </div>
+              </div>
+            ) : (
+              <div className="profile-events">
+                {myEvents.map((event) => {
+                  const startsAt = new Date(event.startsAt)
+                  const isPast = startsAt.getTime() < Date.now()
+                  return (
+                    <button
+                      key={event.id}
+                      type="button"
+                      className="profile-event"
+                      onClick={() => handleProfileEventClick(event.id)}
+                    >
+                      <div className="profile-event__thumb">
+                        {event.thumbnailUrl ? (
+                          <img src={event.thumbnailUrl} alt={event.title} loading="lazy" />
+                        ) : (
+                          <div className="profile-event__placeholder">No photo</div>
+                        )}
+                      </div>
+                      <div className="profile-event__body">
+                        <div className="profile-event__title">{event.title}</div>
+                        <div className="profile-event__meta">
+                          <span>{startsAt.toLocaleString()}</span>
+                          <span className={`tag ${isPast ? 'tag--muted' : 'tag--accent'}`}>
+                            {isPast ? 'Прошло' : 'Скоро'}
+                          </span>
+                          <span>{event.participantsCount} участников</span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </section>
         </div>
-      </header>
+      ) : (
+        <>
+          <header className="hero">
+            <div className="hero__main">
+              <div className="hero__copy">
+                <p className="eyebrow">Local energy</p>
+                <h1>Gigme</h1>
+                <p className="hero__subtitle">{greeting}</p>
+              </div>
+              <div className="hero__actions">
+                <button
+                  className="button button--primary"
+                  disabled={!canCreate}
+                  onClick={toggleCreateForm}
+                >
+                  {creating ? (isEditing ? 'Close edit' : 'Close') : 'Create event'}
+                </button>
+                <span className="chip chip--ghost">{mapCenterLabel}</span>
+              </div>
+            </div>
+            <div className="hero__brand" aria-hidden="true">
+              <LogoAnimation />
+            </div>
+            <button
+              type="button"
+              className="hero__profile"
+              onClick={openProfile}
+              disabled={!user}
+              aria-label="Open profile"
+            >
+              <ProfileAvatar user={user} size="sm" label="Profile" />
+            </button>
+            <div className="hero__filters">
+              <div className="hero__filters-head">
+                <div className="hero__filters-title">
+                  <span className="hero__filters-label">Filters</span>
+                  <span className="hero__filters-count">{activeFiltersLabel}</span>
+                </div>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    className="button button--ghost button--compact"
+                    onClick={clearActiveFilters}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="filter-row">
+                <button
+                  type="button"
+                  className={`filter-pill${nearbyOnly ? ' filter-pill--active' : ''}`}
+                  aria-pressed={nearbyOnly}
+                  onClick={() => setNearbyOnly((prev) => !prev)}
+                >
+                  <span className="filter-pill__icon" aria-hidden="true">
+                    📍
+                  </span>
+                  <span className="filter-pill__label">Nearby 100 km</span>
+                </button>
+              </div>
+              <div className="filter-row">
+                {EVENT_FILTERS.map((filter) => {
+                  const active = activeFilters.includes(filter.id)
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      className={`filter-pill filter-pill--icon${active ? ' filter-pill--active' : ''}`}
+                      aria-pressed={active}
+                      aria-label={filter.label}
+                      title={filter.label}
+                      onClick={() => toggleActiveFilter(filter.id)}
+                    >
+                      <span aria-hidden="true">{filter.icon}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </header>
 
-      <div className="status-stack">
-        {error && !formError && <div className="status status--error">{error}</div>}
-        {loading && <div className="status status--loading">Loading...</div>}
-      </div>
+          <div className="status-stack">
+            {error && !formError && <div className="status status--error">{error}</div>}
+            {loading && <div className="status status--loading">Loading...</div>}
+          </div>
 
-      <div className="layout">
+          <div className="layout">
         <section
           className={`map-card${createErrors.location ? ' map-card--error' : ''}`}
           ref={mapCardRef}
@@ -2760,6 +3175,8 @@ function App() {
           </div>
         </section>
       </div>
+    </>
+  )}
     </div>
   )
 }

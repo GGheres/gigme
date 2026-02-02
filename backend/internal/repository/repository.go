@@ -31,14 +31,14 @@ ON CONFLICT (telegram_id) DO UPDATE SET
 	last_name = EXCLUDED.last_name,
 	photo_url = EXCLUDED.photo_url,
 	updated_at = now()
-RETURNING id, telegram_id, username, first_name, last_name, photo_url, created_at, updated_at;`
+RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at;`
 
 	row := r.pool.QueryRow(ctx, query, user.TelegramID, nullString(user.Username), user.FirstName, nullString(user.LastName), nullString(user.PhotoURL))
 	var out models.User
 	var username sql.NullString
 	var lastName sql.NullString
 	var photoURL sql.NullString
-	err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.CreatedAt, &out.UpdatedAt)
+	err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.Rating, &out.RatingCount, &out.BalanceTokens, &out.CreatedAt, &out.UpdatedAt)
 	if username.Valid {
 		out.Username = username.String
 	}
@@ -52,12 +52,12 @@ RETURNING id, telegram_id, username, first_name, last_name, photo_url, created_a
 }
 
 func (r *Repository) GetUserByID(ctx context.Context, id int64) (models.User, error) {
-	row := r.pool.QueryRow(ctx, `SELECT id, telegram_id, username, first_name, last_name, photo_url, created_at, updated_at FROM users WHERE id = $1`, id)
+	row := r.pool.QueryRow(ctx, `SELECT id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at FROM users WHERE id = $1`, id)
 	var out models.User
 	var username sql.NullString
 	var lastName sql.NullString
 	var photoURL sql.NullString
-	err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.CreatedAt, &out.UpdatedAt)
+	err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.Rating, &out.RatingCount, &out.BalanceTokens, &out.CreatedAt, &out.UpdatedAt)
 	if username.Valid {
 		out.Username = username.String
 	}
@@ -78,6 +78,20 @@ SET last_location = ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography,
 	updated_at = now()
 WHERE id = $1;`, userID, lng, lat)
 	return err
+}
+
+func (r *Repository) AddUserTokens(ctx context.Context, userID int64, amount int64) (int64, error) {
+	row := r.pool.QueryRow(ctx, `
+UPDATE users
+SET balance_tokens = balance_tokens + $2,
+	updated_at = now()
+WHERE id = $1
+RETURNING balance_tokens;`, userID, amount)
+	var balance int64
+	if err := row.Scan(&balance); err != nil {
+		return 0, err
+	}
+	return balance, nil
 }
 
 func (r *Repository) GetNearbyUserIDs(ctx context.Context, lat, lng float64, radiusMeters int, excludeUserID int64, seenAfter *time.Time, limit int) ([]int64, error) {
@@ -357,6 +371,42 @@ LIMIT $2 OFFSET $3;`
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func (r *Repository) ListUserEvents(ctx context.Context, userID int64, limit, offset int) ([]models.UserEvent, int, error) {
+	rows, err := r.pool.Query(ctx, `
+SELECT e.id, e.title, e.starts_at,
+	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
+	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
+	COUNT(*) OVER() AS total
+FROM events e
+WHERE e.creator_user_id = $1
+ORDER BY e.starts_at DESC
+LIMIT $2 OFFSET $3;`, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	out := make([]models.UserEvent, 0)
+	total := 0
+	for rows.Next() {
+		var item models.UserEvent
+		var thumb sql.NullString
+		var rowTotal int
+		if err := rows.Scan(&item.ID, &item.Title, &item.StartsAt, &item.ParticipantsCount, &thumb, &rowTotal); err != nil {
+			return nil, 0, err
+		}
+		if thumb.Valid {
+			item.ThumbnailURL = thumb.String
+		}
+		total = rowTotal
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
 }
 
 func (r *Repository) GetEventByID(ctx context.Context, eventID int64) (models.Event, error) {

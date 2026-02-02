@@ -70,6 +70,22 @@ export type User = {
   firstName: string
   lastName?: string
   photoUrl?: string
+  rating?: number
+  ratingCount?: number
+  balanceTokens?: number
+}
+
+export type UserEvent = {
+  id: number
+  title: string
+  startsAt: string
+  participantsCount: number
+  thumbnailUrl?: string
+}
+
+export type UserEventsResponse = {
+  items: UserEvent[]
+  total: number
 }
 
 export type EventMarker = {
@@ -240,6 +256,31 @@ export function updateLocation(token: string, lat: number, lng: number) {
   return apiFetch<{ ok: boolean }>(
     '/me/location',
     { method: 'POST', body: JSON.stringify({ lat, lng }) },
+    token
+  )
+}
+
+export function getMe(token: string) {
+  return apiFetch<User>('/me', {}, token)
+}
+
+export function getMyEvents(token: string, limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return apiFetch<UserEventsResponse>(`/events/mine?${params.toString()}`, {}, token)
+}
+
+export function topupToken(token: string, amount: number) {
+  return apiFetch<{ balanceTokens: number }>(
+    '/wallet/topup/token',
+    { method: 'POST', body: JSON.stringify({ amount }) },
+    token
+  )
+}
+
+export function topupCard(token: string) {
+  return apiFetch<{ paymentUrl?: string; invoiceId?: string }>(
+    '/wallet/topup/card',
+    { method: 'POST', body: JSON.stringify({}) },
     token
   )
 }

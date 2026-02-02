@@ -73,6 +73,7 @@ npm run dev
 - `VITE_API_URL` - API URL
 - `VITE_ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
 - `VITE_TELEGRAM_BOT_USERNAME` - Telegram bot username for share links
+- `VITE_CARD_TOPUP_ENABLED` - `true|false` (default: `false`). Enable card topups when payment integration is ready.
 - `VITE_LOG_LEVEL` - `debug|info|warn|error|off` (default: `info`). Overrides can be set at runtime with `localStorage.setItem('gigme:logLevel', 'debug')`.
 - `VITE_LOG_TO_SERVER` - `true|false` (default: `true` in dev, `false` in prod). Runtime override: `localStorage.setItem('gigme:logToServer', 'true')`.
 - `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).
@@ -114,6 +115,7 @@ GET /events/nearby?lat=52.37&lng=4.9&radiusM=5000
 - Notifications: worker scans `notification_jobs`.
 - Media: presigned uploads to S3/MinIO.
 - Nearby notifications depend on clients sending `POST /me/location`.
+- Profile: `/profile` shows Telegram profile data, rating, GigTokens balance, and created events.
 
 ## API summary
 Implemented endpoints:
@@ -122,6 +124,7 @@ Implemented endpoints:
 - `GET /me`
 - `POST /me/location`
 - `POST /events`
+- `GET /events/mine`
 - `GET /events/nearby`
 - `GET /events/feed`
 - `GET /events/{id}`
@@ -133,6 +136,8 @@ Implemented endpoints:
 - `POST /events/{id}/leave`
 - `POST /events/{id}/promote` (admin only)
 - `POST /media/presign`
+- `POST /wallet/topup/token`
+- `POST /wallet/topup/card`
 - `POST /admin/events/{id}/hide`
 - `PATCH /admin/events/{id}` (admin only)
 - `DELETE /admin/events/{id}` (admin only)

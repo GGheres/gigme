@@ -3,14 +3,17 @@ package models
 import "time"
 
 type User struct {
-	ID         int64     `json:"id"`
-	TelegramID int64     `json:"telegramId"`
-	Username   string    `json:"username,omitempty"`
-	FirstName  string    `json:"firstName"`
-	LastName   string    `json:"lastName,omitempty"`
-	PhotoURL   string    `json:"photoUrl,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	ID            int64     `json:"id"`
+	TelegramID    int64     `json:"telegramId"`
+	Username      string    `json:"username,omitempty"`
+	FirstName     string    `json:"firstName"`
+	LastName      string    `json:"lastName,omitempty"`
+	PhotoURL      string    `json:"photoUrl,omitempty"`
+	Rating        float64   `json:"rating"`
+	RatingCount   int       `json:"ratingCount"`
+	BalanceTokens int64     `json:"balanceTokens"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 type Event struct {
@@ -43,6 +46,14 @@ type Event struct {
 	IsLiked            bool       `json:"isLiked,omitempty"`
 	CreatedAt          time.Time  `json:"createdAt"`
 	UpdatedAt          time.Time  `json:"updatedAt"`
+}
+
+type UserEvent struct {
+	ID                int64     `json:"id"`
+	Title             string    `json:"title"`
+	StartsAt          time.Time `json:"startsAt"`
+	ParticipantsCount int       `json:"participantsCount"`
+	ThumbnailURL      string    `json:"thumbnailUrl,omitempty"`
 }
 
 type EventMarker struct {
