@@ -10,15 +10,17 @@ import (
 const accessTokenTTL = 15 * time.Minute
 
 type AccessClaims struct {
-	UserID    int64  `json:"uid"`
+	UserID     int64 `json:"uid"`
 	TelegramID int64 `json:"tgid"`
+	IsNew      bool  `json:"new,omitempty"`
 	jwt.RegisteredClaims
 }
 
-func SignAccessToken(secret string, userID int64, telegramID int64) (string, error) {
+func SignAccessToken(secret string, userID int64, telegramID int64, isNew bool) (string, error) {
 	claims := AccessClaims{
 		UserID:     userID,
 		TelegramID: telegramID,
+		IsNew:      isNew,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

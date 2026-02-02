@@ -13,6 +13,7 @@ type contextKey string
 const (
 	userIDKey     contextKey = "user_id"
 	telegramIDKey contextKey = "telegram_id"
+	isNewKey      contextKey = "is_new"
 )
 
 func UserIDFromContext(ctx context.Context) (int64, bool) {
@@ -22,6 +23,11 @@ func UserIDFromContext(ctx context.Context) (int64, bool) {
 
 func TelegramIDFromContext(ctx context.Context) (int64, bool) {
 	val, ok := ctx.Value(telegramIDKey).(int64)
+	return val, ok
+}
+
+func IsNewFromContext(ctx context.Context) (bool, bool) {
+	val, ok := ctx.Value(isNewKey).(bool)
 	return val, ok
 }
 
@@ -45,6 +51,7 @@ func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, telegramIDKey, claims.TelegramID)
+			ctx = context.WithValue(ctx, isNewKey, claims.IsNew)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -70,6 +77,7 @@ func OptionalAuthMiddleware(secret string) func(http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, telegramIDKey, claims.TelegramID)
+			ctx = context.WithValue(ctx, isNewKey, claims.IsNew)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

@@ -116,6 +116,7 @@ GET /events/nearby?lat=52.37&lng=4.9&radiusM=5000
 - Media: presigned uploads to S3/MinIO.
 - Nearby notifications depend on clients sending `POST /me/location`.
 - Profile: `/profile` shows Telegram profile data, rating, GigTokens balance, and created events.
+- Referrals: sharing an event link with a referral code awards +100 GigTokens to inviter + invitee on first signup.
 
 ## API summary
 Implemented endpoints:
@@ -123,6 +124,8 @@ Implemented endpoints:
 - `POST /logs/client`
 - `GET /me`
 - `POST /me/location`
+- `GET /referrals/my-code`
+- `POST /referrals/claim`
 - `POST /events`
 - `GET /events/mine`
 - `GET /events/nearby`

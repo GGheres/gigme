@@ -88,6 +88,17 @@ export type UserEventsResponse = {
   total: number
 }
 
+export type ReferralCodeResponse = {
+  code: string
+}
+
+export type ReferralClaimResponse = {
+  awarded: boolean
+  bonus?: number
+  inviterBalanceTokens?: number
+  inviteeBalanceTokens?: number
+}
+
 export type EventMarker = {
   id: number
   title: string
@@ -281,6 +292,18 @@ export function topupCard(token: string) {
   return apiFetch<{ paymentUrl?: string; invoiceId?: string }>(
     '/wallet/topup/card',
     { method: 'POST', body: JSON.stringify({}) },
+    token
+  )
+}
+
+export function getReferralCode(token: string) {
+  return apiFetch<ReferralCodeResponse>('/referrals/my-code', {}, token)
+}
+
+export function claimReferral(token: string, payload: { eventId: number; refCode: string }) {
+  return apiFetch<ReferralClaimResponse>(
+    '/referrals/claim',
+    { method: 'POST', body: JSON.stringify(payload) },
     token
   )
 }

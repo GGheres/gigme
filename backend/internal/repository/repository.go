@@ -21,7 +21,7 @@ func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-func (r *Repository) UpsertUser(ctx context.Context, user models.User) (models.User, error) {
+func (r *Repository) UpsertUser(ctx context.Context, user models.User) (models.User, bool, error) {
 	query := `
 INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
 VALUES ($1, $2, $3, $4, $5)
@@ -31,14 +31,15 @@ ON CONFLICT (telegram_id) DO UPDATE SET
 	last_name = EXCLUDED.last_name,
 	photo_url = EXCLUDED.photo_url,
 	updated_at = now()
-RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at;`
+RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at, (xmax = 0) AS is_new;`
 
 	row := r.pool.QueryRow(ctx, query, user.TelegramID, nullString(user.Username), user.FirstName, nullString(user.LastName), nullString(user.PhotoURL))
 	var out models.User
 	var username sql.NullString
 	var lastName sql.NullString
 	var photoURL sql.NullString
-	err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.Rating, &out.RatingCount, &out.BalanceTokens, &out.CreatedAt, &out.UpdatedAt)
+	var isNew bool
+	err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.Rating, &out.RatingCount, &out.BalanceTokens, &out.CreatedAt, &out.UpdatedAt, &isNew)
 	if username.Valid {
 		out.Username = username.String
 	}
@@ -48,7 +49,7 @@ RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, r
 	if photoURL.Valid {
 		out.PhotoURL = photoURL.String
 	}
-	return out, err
+	return out, isNew, err
 }
 
 func (r *Repository) GetUserByID(ctx context.Context, id int64) (models.User, error) {

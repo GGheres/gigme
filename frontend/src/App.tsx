@@ -17,10 +17,12 @@ import {
   getMe,
   getMyEvents,
   getNearby,
+  getReferralCode,
   joinEvent,
   likeEvent,
   leaveEvent,
   promoteEvent,
+  claimReferral,
   topupCard,
   topupToken,
   presignMedia,
@@ -85,6 +87,8 @@ const CARD_TOPUP_ENABLED = String(import.meta.env.VITE_CARD_TOPUP_ENABLED || '')
   .trim() === 'true'
 const PROFILE_PATH = '/profile'
 const MAX_TOPUP_TOKENS = 1_000_000
+const PENDING_REFERRAL_STORAGE = 'gigme:pendingReferral'
+const MAX_REF_CODE_LENGTH = 32
 
 const formatDateTimeLocal = (value?: string | null) => {
   if (!value) return ''
@@ -190,10 +194,16 @@ const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
 const buildCoordsUrl = (lat: number, lng: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
-const buildShareUrl = (eventId: number, accessKey?: string) => {
+const buildShareUrl = (eventId: number, accessKey?: string, refCode?: string) => {
   if (typeof window === 'undefined') return ''
   const botUsername = TELEGRAM_BOT_USERNAME.replace(/^@+/, '').trim()
-  const payload = accessKey ? `event_${eventId}_${accessKey}` : `event_${eventId}`
+  let payload = `e_${eventId}`
+  if (accessKey) {
+    payload = `${payload}_${accessKey}`
+  }
+  if (refCode) {
+    payload = `${payload}__r_${refCode}`
+  }
   if (botUsername) {
     try {
       const tgUrl = new URL(`https://t.me/${botUsername}`)
@@ -212,6 +222,11 @@ const buildShareUrl = (eventId: number, accessKey?: string) => {
       url.searchParams.set('eventKey', accessKey)
     } else {
       url.searchParams.delete('eventKey')
+    }
+    if (refCode) {
+      url.searchParams.set('refCode', refCode)
+    } else {
+      url.searchParams.delete('refCode')
     }
     return url.toString()
   } catch {
@@ -696,7 +711,8 @@ const getInitDataFromLocation = () => {
   return hashParams.get('tgWebAppData') || hashParams.get('initData') || ''
 }
 
-type EventLink = { eventId: number | null; eventKey: string }
+type EventLink = { eventId: number | null; eventKey: string; refCode: string }
+type PendingReferral = { eventId: number; refCode: string }
 
 const parseEventId = (value: string | null) => {
   if (!value) return null
@@ -712,39 +728,62 @@ const parseEventKey = (value: string | null) => {
   return trimmed
 }
 
+const parseRefCode = (value: string | null) => {
+  if (!value) return ''
+  const cleaned = value.trim().replace(/[^a-zA-Z0-9_-]/g, '')
+  if (!cleaned || cleaned.length > MAX_REF_CODE_LENGTH) return ''
+  return cleaned
+}
+
 const extractEventLinkFromParams = (params: URLSearchParams): EventLink => {
   const eventId = parseEventId(params.get('eventId') || params.get('event'))
-  if (!eventId) return { eventId: null, eventKey: '' }
+  if (!eventId) return { eventId: null, eventKey: '', refCode: '' }
   const eventKey = parseEventKey(params.get('eventKey') || params.get('key') || params.get('accessKey'))
-  return { eventId, eventKey }
+  const refCode = parseRefCode(params.get('refCode') || params.get('ref'))
+  return { eventId, eventKey, refCode }
 }
 
 const getEventLinkFromLocation = (): EventLink => {
-  if (typeof window === 'undefined') return { eventId: null, eventKey: '' }
+  if (typeof window === 'undefined') return { eventId: null, eventKey: '', refCode: '' }
   const searchParams = new URLSearchParams(window.location.search)
   const fromSearch = extractEventLinkFromParams(searchParams)
   if (fromSearch.eventId) return fromSearch
   const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
-  if (!hash) return { eventId: null, eventKey: '' }
+  if (!hash) return { eventId: null, eventKey: '', refCode: '' }
   const hashParams = new URLSearchParams(hash)
   return extractEventLinkFromParams(hashParams)
 }
 
+const parseStartParam = (raw: string): EventLink => {
+  if (!raw) return { eventId: null, eventKey: '', refCode: '' }
+  const trimmed = raw.trim()
+  const referralMatch = trimmed.match(/^e_(\d+)(?:_([a-zA-Z0-9_-]+))?(?:__r_([a-zA-Z0-9_-]+))?$/i)
+  if (referralMatch) {
+    const eventId = parseEventId(referralMatch[1])
+    if (!eventId) return { eventId: null, eventKey: '', refCode: '' }
+    return {
+      eventId,
+      eventKey: parseEventKey(referralMatch[2] || ''),
+      refCode: parseRefCode(referralMatch[3] || ''),
+    }
+  }
+  const legacyMatch = trimmed.match(/^event_(\d+)(?:_([a-zA-Z0-9_-]+))?/i)
+  if (legacyMatch) {
+    const eventId = parseEventId(legacyMatch[1])
+    if (!eventId) return { eventId: null, eventKey: '', refCode: '' }
+    return { eventId, eventKey: parseEventKey(legacyMatch[2] || ''), refCode: '' }
+  }
+  const fallbackMatch = trimmed.match(/\d+/)
+  const eventId = fallbackMatch ? parseEventId(fallbackMatch[0]) : null
+  return { eventId, eventKey: '', refCode: '' }
+}
+
 const getEventLinkFromTelegram = (): EventLink => {
-  if (typeof window === 'undefined') return { eventId: null, eventKey: '' }
+  if (typeof window === 'undefined') return { eventId: null, eventKey: '', refCode: '' }
   const tg = (window as any).Telegram?.WebApp
   const startParam = tg?.initDataUnsafe?.start_param || tg?.initDataUnsafe?.startParam
-  if (!startParam) return { eventId: null, eventKey: '' }
-  const raw = String(startParam)
-  const match = raw.match(/event_(\d+)(?:_([a-zA-Z0-9_-]+))?/i)
-  if (match) {
-    const eventId = parseEventId(match[1])
-    if (!eventId) return { eventId: null, eventKey: '' }
-    return { eventId, eventKey: parseEventKey(match[2] || '') }
-  }
-  const fallbackMatch = raw.match(/\d+/)
-  const eventId = fallbackMatch ? parseEventId(fallbackMatch[0]) : null
-  return { eventId, eventKey: '' }
+  if (!startParam) return { eventId: null, eventKey: '', refCode: '' }
+  return parseStartParam(String(startParam))
 }
 
 const getPageFromLocation = (): AppPage => {
@@ -767,6 +806,7 @@ const updateEventLinkInLocation = (eventId: number | null, eventKey?: string) =>
     } else {
       url.searchParams.delete('eventKey')
     }
+    url.searchParams.delete('refCode')
     window.history.replaceState({}, '', url.toString())
   } catch {
     // ignore invalid URL updates
@@ -837,6 +877,39 @@ const saveStoredEventKeys = (value: Record<number, string>) => {
   }
 }
 
+const loadPendingReferral = (): PendingReferral | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(PENDING_REFERRAL_STORAGE)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { eventId?: number; refCode?: string }
+    const eventId = typeof parsed.eventId === 'number' ? parsed.eventId : null
+    const refCode = typeof parsed.refCode === 'string' ? parseRefCode(parsed.refCode) : ''
+    if (!eventId || !refCode) return null
+    return { eventId, refCode }
+  } catch {
+    return null
+  }
+}
+
+const savePendingReferral = (value: PendingReferral) => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(PENDING_REFERRAL_STORAGE, JSON.stringify(value))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+const clearPendingReferral = () => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(PENDING_REFERRAL_STORAGE)
+  } catch {
+    // ignore storage errors
+  }
+}
+
 const saveStoredCenter = (center: LatLng) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(center))
@@ -849,6 +922,8 @@ function App() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileNotice, setProfileNotice] = useState<string | null>(null)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [myEvents, setMyEvents] = useState<UserEvent[]>([])
   const [myEventsTotal, setMyEventsTotal] = useState(0)
   const [myEventsLoading, setMyEventsLoading] = useState(false)
@@ -1118,6 +1193,11 @@ function App() {
     navigateToPage('home')
   }
 
+  const showToast = (message: string) => {
+    setToast(message)
+    window.setTimeout(() => setToast(null), 2500)
+  }
+
   const clearActiveFilters = () => {
     if (activeFilters.length === 0 && !nearbyOnly) return
     logInfo('feed_filters_clear', { count: activeFilters.length, nearbyOnly })
@@ -1252,6 +1332,10 @@ function App() {
     }
     logInfo('app_init', { apiUrl: API_URL, logLevel: getActiveLogLevel() })
     const tg = (window as any).Telegram?.WebApp
+    const locationLink = getEventLinkFromLocation()
+    if (locationLink.eventId && locationLink.refCode) {
+      savePendingReferral({ eventId: locationLink.eventId, refCode: locationLink.refCode })
+    }
     if (tg) {
       tg.ready()
       tg.expand()
@@ -1262,6 +1346,9 @@ function App() {
         if (startLink.eventKey) {
           setEventAccessKeys((prev) => ({ ...prev, [startLink.eventId]: startLink.eventKey }))
         }
+      }
+      if (startLink.eventId && startLink.refCode) {
+        savePendingReferral({ eventId: startLink.eventId, refCode: startLink.refCode })
       }
     }
     const initData = tg?.initData || getInitDataFromLocation()
@@ -1280,6 +1367,24 @@ function App() {
         setUserName(name || (res.user.username ? `@${res.user.username}` : ''))
         setError(null)
         setLogToken(res.accessToken)
+        const pending = loadPendingReferral()
+        if (pending) {
+          claimReferral(res.accessToken, pending)
+            .then((claim) => {
+              if (claim.awarded) {
+                if (typeof claim.inviteeBalanceTokens === 'number') {
+                  setUser((prev) =>
+                    prev ? { ...prev, balanceTokens: claim.inviteeBalanceTokens } : prev
+                  )
+                }
+                showToast('+100 токенов вам и другу')
+              }
+              clearPendingReferral()
+            })
+            .catch((err) => {
+              logWarn('referral_claim_error', { message: err.message })
+            })
+        }
         logInfo('auth_success', { userId: res.user.id, telegramId: res.user.telegramId })
       })
       .catch((err) => {
@@ -1870,9 +1975,24 @@ function App() {
 
   const handleShareEvent = async () => {
     if (!selectedEvent) return
+    if (!token) {
+      setError('Сначала войдите в приложение')
+      return
+    }
     const eventId = selectedEvent.event.id
     const accessKey = selectedEvent.event.accessKey || eventAccessKeys[eventId]
-    const url = buildShareUrl(eventId, accessKey)
+    let code = referralCode
+    if (!code) {
+      try {
+        const res = await getReferralCode(token)
+        code = res.code
+        setReferralCode(res.code)
+      } catch (err: any) {
+        setError(err.message || 'Не удалось получить реф-код')
+        return
+      }
+    }
+    const url = buildShareUrl(eventId, accessKey, code || undefined)
     if (!url) {
       setError('Не удалось создать ссылку для шаринга')
       return
@@ -1892,8 +2012,7 @@ function App() {
       }
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(url)
-        setError('Ссылка скопирована')
-        window.setTimeout(() => setError(null), 2000)
+        showToast('Ссылка скопирована')
         return
       }
     } catch (err: any) {
@@ -2345,6 +2464,7 @@ function App() {
           <div className="status-stack">
             {profileError && <div className="status status--error">{profileError}</div>}
             {profileNotice && <div className="status status--success">{profileNotice}</div>}
+            {toast && <div className="status status--success">{toast}</div>}
             {profileLoading && <div className="status status--loading">Загрузка…</div>}
           </div>
 
@@ -2615,6 +2735,7 @@ function App() {
 
           <div className="status-stack">
             {error && !formError && <div className="status status--error">{error}</div>}
+            {toast && <div className="status status--success">{toast}</div>}
             {loading && <div className="status status--loading">Loading...</div>}
           </div>
 
@@ -2990,7 +3111,7 @@ function App() {
                         </button>
                       )}
                       <button className="button button--ghost" type="button" onClick={handleShareEvent}>
-                        Share
+                        Поделиться
                       </button>
                     </div>
                     <div className="engagement">

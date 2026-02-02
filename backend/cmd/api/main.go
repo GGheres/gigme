@@ -87,6 +87,8 @@ func main() {
 		r.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		r.Get("/me", h.Me)
 		r.Post("/me/location", h.UpdateLocation)
+		r.Get("/referrals/my-code", h.ReferralCode)
+		r.Post("/referrals/claim", h.ClaimReferral)
 		r.Post("/events", h.CreateEvent)
 		r.Get("/events/mine", h.MyEvents)
 		r.Get("/events/nearby", h.NearbyEvents)

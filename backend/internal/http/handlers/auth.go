@@ -37,7 +37,7 @@ func (h *Handler) AuthTelegram(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
 
-	stored, err := h.repo.UpsertUser(ctx, models.User{
+	stored, isNew, err := h.repo.UpsertUser(ctx, models.User{
 		TelegramID: user.ID,
 		Username:   user.Username,
 		FirstName:  user.FirstName,
@@ -50,7 +50,7 @@ func (h *Handler) AuthTelegram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.SignAccessToken(h.cfg.JWTSecret, stored.ID, stored.TelegramID)
+	token, err := auth.SignAccessToken(h.cfg.JWTSecret, stored.ID, stored.TelegramID, isNew)
 	if err != nil {
 		logger.Error("action", "action", "auth_telegram", "status", "token_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "token error")
@@ -61,5 +61,6 @@ func (h *Handler) AuthTelegram(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"accessToken": token,
 		"user":        stored,
+		"isNew":       isNew,
 	})
 }
