@@ -4,7 +4,18 @@ import {
   API_URL,
   API_URL_ERROR,
   addEventComment,
+  adminBlockUser,
+  adminCreateBroadcast,
+  adminGetBroadcast,
+  adminGetUser,
+  adminListBroadcasts,
+  adminListUsers,
+  adminStartBroadcast,
+  adminUnblockUser,
   authTelegram,
+  AdminBroadcast,
+  AdminUser,
+  BroadcastButton,
   createEvent,
   deleteEventAdmin,
   EventCard,
@@ -50,7 +61,8 @@ type FormDefaults = {
   contactSnapchat: string
   isPrivate: boolean
 }
-type AppPage = 'home' | 'profile'
+type AppPage = 'home' | 'profile' | 'admin'
+type AdminSection = 'users' | 'user' | 'broadcasts'
 
 const EMPTY_FORM_DEFAULTS: FormDefaults = {
   title: '',
@@ -98,6 +110,13 @@ const formatDateTimeLocal = (value?: string | null) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
     date.getHours()
   )}:${pad(date.getMinutes())}`
+}
+
+const formatTimestamp = (value?: string | null) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString()
 }
 
 const sortFeedItems = (items: EventCard[]) => {
@@ -789,7 +808,30 @@ const getEventLinkFromTelegram = (): EventLink => {
 const getPageFromLocation = (): AppPage => {
   if (typeof window === 'undefined') return 'home'
   const path = window.location.pathname || '/'
+  if (path.startsWith('/admin')) return 'admin'
   return path.startsWith(PROFILE_PATH) ? 'profile' : 'home'
+}
+
+const getAdminRouteFromLocation = (): { section: AdminSection; userId: number | null } => {
+  if (typeof window === 'undefined') return { section: 'users', userId: null }
+  const path = window.location.pathname || '/'
+  if (!path.startsWith('/admin')) return { section: 'users', userId: null }
+  const trimmed = path.replace(/^\\/admin\\/?/, '')
+  if (!trimmed) return { section: 'users', userId: null }
+  const parts = trimmed.split('/').filter(Boolean)
+  if (parts[0] === 'users') {
+    if (parts[1]) {
+      const parsed = Number(parts[1])
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return { section: 'user', userId: parsed }
+      }
+    }
+    return { section: 'users', userId: null }
+  }
+  if (parts[0] === 'broadcasts') {
+    return { section: 'broadcasts', userId: null }
+  }
+  return { section: 'users', userId: null }
 }
 
 const updateEventLinkInLocation = (eventId: number | null, eventKey?: string) => {
@@ -919,6 +961,10 @@ function App() {
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [activePage, setActivePage] = useState<AppPage>(() => getPageFromLocation())
+  const [adminSection, setAdminSection] = useState<AdminSection>(() => getAdminRouteFromLocation().section)
+  const [adminUserId, setAdminUserId] = useState<number | null>(
+    () => getAdminRouteFromLocation().userId
+  )
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileNotice, setProfileNotice] = useState<string | null>(null)
@@ -965,6 +1011,31 @@ function App() {
   const [formDefaults, setFormDefaults] = useState<FormDefaults>(EMPTY_FORM_DEFAULTS)
   const [formKey, setFormKey] = useState(0)
   const [adminBusy, setAdminBusy] = useState(false)
+  const [adminAccessDenied, setAdminAccessDenied] = useState(false)
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
+  const [adminUsersTotal, setAdminUsersTotal] = useState(0)
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false)
+  const [adminUsersError, setAdminUsersError] = useState<string | null>(null)
+  const [adminSearch, setAdminSearch] = useState('')
+  const [adminBlockedFilter, setAdminBlockedFilter] = useState<'all' | 'active' | 'blocked'>('all')
+  const [adminUserDetail, setAdminUserDetail] = useState<AdminUser | null>(null)
+  const [adminUserEvents, setAdminUserEvents] = useState<UserEvent[]>([])
+  const [adminUserLoading, setAdminUserLoading] = useState(false)
+  const [adminUserError, setAdminUserError] = useState<string | null>(null)
+  const [adminBlockReason, setAdminBlockReason] = useState('')
+  const [adminBlockBusy, setAdminBlockBusy] = useState(false)
+  const [broadcasts, setBroadcasts] = useState<AdminBroadcast[]>([])
+  const [broadcastsTotal, setBroadcastsTotal] = useState(0)
+  const [broadcastsLoading, setBroadcastsLoading] = useState(false)
+  const [broadcastsError, setBroadcastsError] = useState<string | null>(null)
+  const [broadcastAudience, setBroadcastAudience] = useState<'all' | 'selected' | 'filter'>('all')
+  const [broadcastMessage, setBroadcastMessage] = useState('')
+  const [broadcastUserIds, setBroadcastUserIds] = useState('')
+  const [broadcastMinBalance, setBroadcastMinBalance] = useState('')
+  const [broadcastLastSeenAfter, setBroadcastLastSeenAfter] = useState('')
+  const [broadcastButtons, setBroadcastButtons] = useState<BroadcastButton[]>([{ text: '', url: '' }])
+  const [broadcastBusy, setBroadcastBusy] = useState(false)
+  const [broadcastStartBusyId, setBroadcastStartBusyId] = useState<number | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [createLatLng, setCreateLatLng] = useState<LatLng | null>(null)
@@ -1173,11 +1244,39 @@ function App() {
     if (typeof window === 'undefined') return
     try {
       const url = new URL(window.location.href)
-      url.pathname = page === 'profile' ? PROFILE_PATH : '/'
+      if (page === 'profile') {
+        url.pathname = PROFILE_PATH
+      } else if (page === 'admin') {
+        url.pathname = '/admin/users'
+      } else {
+        url.pathname = '/'
+      }
       if (page === 'profile') {
         url.searchParams.delete('eventId')
         url.searchParams.delete('eventKey')
       }
+      window.history.pushState({}, '', url.toString())
+    } catch {
+      // ignore invalid URL updates
+    }
+  }
+
+  const navigateToAdmin = (section: AdminSection, userId?: number | null) => {
+    setActivePage('admin')
+    setAdminSection(section)
+    setAdminUserId(userId ?? null)
+    if (typeof window === 'undefined') return
+    try {
+      const url = new URL(window.location.href)
+      if (section === 'broadcasts') {
+        url.pathname = '/admin/broadcasts'
+      } else if (section === 'user' && userId) {
+        url.pathname = `/admin/users/${userId}`
+      } else {
+        url.pathname = '/admin/users'
+      }
+      url.searchParams.delete('eventId')
+      url.searchParams.delete('eventKey')
       window.history.pushState({}, '', url.toString())
     } catch {
       // ignore invalid URL updates
@@ -1399,6 +1498,9 @@ function App() {
     if (typeof window === 'undefined') return
     const handler = () => {
       setActivePage(getPageFromLocation())
+      const route = getAdminRouteFromLocation()
+      setAdminSection(route.section)
+      setAdminUserId(route.userId)
     }
     window.addEventListener('popstate', handler)
     return () => window.removeEventListener('popstate', handler)
@@ -1448,6 +1550,23 @@ function App() {
       cancelled = true
     }
   }, [token, activePage])
+
+  useEffect(() => {
+    if (activePage !== 'admin') return
+    setAdminAccessDenied(false)
+    if (!token) return
+    if (adminSection === 'users') {
+      loadAdminUsers()
+      return
+    }
+    if (adminSection === 'user' && adminUserId) {
+      loadAdminUserDetail(adminUserId)
+      return
+    }
+    if (adminSection === 'broadcasts') {
+      loadBroadcasts()
+    }
+  }, [activePage, adminSection, adminUserId, token])
 
   useEffect(() => {
     const setViewportHeight = () => {
@@ -2446,9 +2565,591 @@ function App() {
     }
   }
 
+  const handleAdminApiError = (err: any, setter?: (value: string | null) => void) => {
+    const status = err?.status
+    if (status === 401 || status === 403) {
+      setAdminAccessDenied(true)
+      return
+    }
+    if (setter) setter(err?.message || 'Ошибка')
+  }
+
+  const loadAdminUsers = async () => {
+    if (!token) return
+    setAdminUsersLoading(true)
+    setAdminUsersError(null)
+    setAdminAccessDenied(false)
+    try {
+      const blocked =
+        adminBlockedFilter === 'all' ? undefined : adminBlockedFilter === 'blocked' ? 'true' : 'false'
+      const res = await adminListUsers(token, {
+        search: adminSearch.trim() || undefined,
+        blocked,
+        limit: 50,
+        offset: 0,
+      })
+      setAdminUsers(res.items)
+      setAdminUsersTotal(res.total)
+    } catch (err: any) {
+      handleAdminApiError(err, setAdminUsersError)
+    } finally {
+      setAdminUsersLoading(false)
+    }
+  }
+
+  const loadAdminUserDetail = async (id: number) => {
+    if (!token) return
+    setAdminUserLoading(true)
+    setAdminUserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminGetUser(token, id)
+      setAdminUserDetail(res.user)
+      setAdminUserEvents(res.createdEvents)
+      setAdminBlockReason('')
+    } catch (err: any) {
+      handleAdminApiError(err, setAdminUserError)
+    } finally {
+      setAdminUserLoading(false)
+    }
+  }
+
+  const handleAdminSearch = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (activePage !== 'admin') return
+    navigateToAdmin('users')
+    loadAdminUsers()
+  }
+
+  const handleAdminBlockToggle = async () => {
+    if (!token || !adminUserDetail) return
+    setAdminBlockBusy(true)
+    setAdminUserError(null)
+    setAdminAccessDenied(false)
+    try {
+      if (adminUserDetail.isBlocked) {
+        await adminUnblockUser(token, adminUserDetail.id)
+      } else {
+        await adminBlockUser(token, adminUserDetail.id, adminBlockReason.trim())
+      }
+      await loadAdminUserDetail(adminUserDetail.id)
+    } catch (err: any) {
+      handleAdminApiError(err, setAdminUserError)
+    } finally {
+      setAdminBlockBusy(false)
+    }
+  }
+
+  const loadBroadcasts = async () => {
+    if (!token) return
+    setBroadcastsLoading(true)
+    setBroadcastsError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminListBroadcasts(token, 50, 0)
+      setBroadcasts(res.items)
+      setBroadcastsTotal(res.total)
+    } catch (err: any) {
+      handleAdminApiError(err, setBroadcastsError)
+    } finally {
+      setBroadcastsLoading(false)
+    }
+  }
+
+  const updateBroadcastButton = (index: number, field: 'text' | 'url', value: string) => {
+    setBroadcastButtons((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    )
+  }
+
+  const addBroadcastButton = () => {
+    setBroadcastButtons((prev) => [...prev, { text: '', url: '' }])
+  }
+
+  const removeBroadcastButton = (index: number) => {
+    setBroadcastButtons((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleCreateBroadcast = async () => {
+    if (!token) return
+    const message = broadcastMessage.trim()
+    if (!message) {
+      setBroadcastsError('Введите сообщение')
+      return
+    }
+    if (message.length > 4096) {
+      setBroadcastsError('Сообщение слишком длинное')
+      return
+    }
+    setBroadcastBusy(true)
+    setBroadcastsError(null)
+    setAdminAccessDenied(false)
+    try {
+      const cleanedButtons = broadcastButtons
+        .map((btn) => ({ text: btn.text.trim(), url: btn.url.trim() }))
+        .filter((btn) => btn.text && btn.url)
+      const payload: {
+        audience: 'all' | 'selected' | 'filter'
+        userIds?: number[]
+        filters?: { blocked?: boolean; minBalance?: number; lastSeenAfter?: string }
+        message: string
+        buttons?: BroadcastButton[]
+      } = {
+        audience: broadcastAudience,
+        message,
+      }
+      if (cleanedButtons.length > 0) {
+        payload.buttons = cleanedButtons
+      }
+      if (broadcastAudience === 'selected') {
+        const ids = broadcastUserIds
+          .split(',')
+          .map((item) => Number(item.trim()))
+          .filter((val) => Number.isFinite(val) && val > 0)
+        if (ids.length === 0) {
+          setBroadcastsError('Укажите userIds через запятую')
+          setBroadcastBusy(false)
+          return
+        }
+        payload.userIds = ids
+      }
+      if (broadcastAudience === 'filter') {
+        const filters: { blocked?: boolean; minBalance?: number; lastSeenAfter?: string } = {
+          blocked: false,
+        }
+        if (broadcastMinBalance.trim()) {
+          const parsed = Number(broadcastMinBalance)
+          if (!Number.isFinite(parsed) || parsed < 0) {
+            setBroadcastsError('Некорректный минимальный баланс')
+            setBroadcastBusy(false)
+            return
+          }
+          filters.minBalance = parsed
+        }
+        if (broadcastLastSeenAfter.trim()) {
+          const date = new Date(broadcastLastSeenAfter)
+          if (Number.isNaN(date.getTime())) {
+            setBroadcastsError('Некорректная дата lastSeenAfter')
+            setBroadcastBusy(false)
+            return
+          }
+          filters.lastSeenAfter = date.toISOString()
+        }
+        payload.filters = filters
+      }
+      await adminCreateBroadcast(token, payload)
+      setBroadcastMessage('')
+      setBroadcastUserIds('')
+      setBroadcastMinBalance('')
+      setBroadcastLastSeenAfter('')
+      setBroadcastButtons([{ text: '', url: '' }])
+      await loadBroadcasts()
+    } catch (err: any) {
+      handleAdminApiError(err, setBroadcastsError)
+    } finally {
+      setBroadcastBusy(false)
+    }
+  }
+
+  const handleStartBroadcast = async (id: number) => {
+    if (!token) return
+    setBroadcastStartBusyId(id)
+    setBroadcastsError(null)
+    setAdminAccessDenied(false)
+    try {
+      await adminStartBroadcast(token, id)
+      await loadBroadcasts()
+    } catch (err: any) {
+      handleAdminApiError(err, setBroadcastsError)
+    } finally {
+      setBroadcastStartBusyId(null)
+    }
+  }
+
+  const openEventFromAdmin = (eventId: number) => {
+    setSelectedId(eventId)
+    navigateToPage('home')
+  }
+
+  const renderAdminUsers = () => (
+    <section className="panel admin-panel">
+      <div className="panel__header">
+        <h2>Пользователи</h2>
+        <span className="chip chip--ghost">Всего: {adminUsersTotal}</span>
+      </div>
+      <form className="admin-filters" onSubmit={handleAdminSearch}>
+        <input
+          type="text"
+          placeholder="Поиск по username, имени или Telegram ID"
+          value={adminSearch}
+          onChange={(event) => setAdminSearch(event.target.value)}
+        />
+        <select
+          value={adminBlockedFilter}
+          onChange={(event) => setAdminBlockedFilter(event.target.value as 'all' | 'active' | 'blocked')}
+        >
+          <option value="all">Все</option>
+          <option value="active">Активные</option>
+          <option value="blocked">Заблокированные</option>
+        </select>
+        <button type="submit" className="button button--accent" disabled={adminUsersLoading}>
+          {adminUsersLoading ? 'Поиск…' : 'Найти'}
+        </button>
+      </form>
+      {adminUsersError && <div className="status status--error">{adminUsersError}</div>}
+      {adminUsersLoading ? (
+        <div className="status status--loading">Загрузка…</div>
+      ) : (
+        <div className="admin-table">
+          <div className="admin-table__row admin-table__head">
+            <div>Пользователь</div>
+            <div>Баланс</div>
+            <div>Создан</div>
+            <div>Last seen</div>
+            <div>Статус</div>
+            <div />
+          </div>
+          {adminUsers.length === 0 ? (
+            <div className="admin-table__row admin-table__empty">Нет пользователей</div>
+          ) : (
+            adminUsers.map((item) => {
+              const name = [item.firstName, item.lastName].filter(Boolean).join(' ').trim()
+              return (
+                <div className="admin-table__row" key={item.id}>
+                  <div className="admin-user">
+                    {item.photoUrl ? (
+                      <img src={item.photoUrl} alt={name || item.username || 'User'} />
+                    ) : (
+                      <div className="admin-user__placeholder" />
+                    )}
+                    <div>
+                      <div className="admin-user__name">{name || item.username || `ID ${item.id}`}</div>
+                      <div className="admin-user__meta">
+                        {item.username ? `@${item.username}` : '—'} · TG {item.telegramId}
+                      </div>
+                    </div>
+                  </div>
+                  <div>{(item.balanceTokens || 0).toLocaleString()} GT</div>
+                  <div>{formatTimestamp(item.createdAt)}</div>
+                  <div>{formatTimestamp(item.lastSeenAt)}</div>
+                  <div>
+                    <span className={`badge ${item.isBlocked ? 'badge--danger' : 'badge--ok'}`}>
+                      {item.isBlocked ? 'Blocked' : 'Active'}
+                    </span>
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      className="button button--ghost button--compact"
+                      onClick={() => navigateToAdmin('user', item.id)}
+                    >
+                      Открыть
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </section>
+  )
+
+  const renderAdminUserDetail = () => {
+    if (adminUserLoading) {
+      return <div className="status status--loading">Загрузка…</div>
+    }
+    if (adminUserError) {
+      return <div className="status status--error">{adminUserError}</div>
+    }
+    if (!adminUserDetail) {
+      return <div className="status status--error">Пользователь не найден</div>
+    }
+    const name = [adminUserDetail.firstName, adminUserDetail.lastName].filter(Boolean).join(' ').trim()
+    return (
+      <div className="admin-detail">
+        <button
+          type="button"
+          className="button button--ghost button--compact"
+          onClick={() => navigateToAdmin('users')}
+        >
+          ← Назад к списку
+        </button>
+        <section className="panel admin-panel">
+          <div className="panel__header">
+            <h2>Пользователь</h2>
+            <span className="chip chip--ghost">ID {adminUserDetail.id}</span>
+          </div>
+          <div className="admin-user-card">
+            <div className="admin-user">
+              {adminUserDetail.photoUrl ? (
+                <img src={adminUserDetail.photoUrl} alt={name || adminUserDetail.username || 'User'} />
+              ) : (
+                <div className="admin-user__placeholder" />
+              )}
+              <div>
+                <div className="admin-user__name">{name || adminUserDetail.username || `ID ${adminUserDetail.id}`}</div>
+                <div className="admin-user__meta">
+                  {adminUserDetail.username ? `@${adminUserDetail.username}` : '—'} · TG {adminUserDetail.telegramId}
+                </div>
+              </div>
+            </div>
+            <div className="admin-user-card__stats">
+              <div>Баланс: {(adminUserDetail.balanceTokens || 0).toLocaleString()} GT</div>
+              <div>Создан: {formatTimestamp(adminUserDetail.createdAt)}</div>
+              <div>Last seen: {formatTimestamp(adminUserDetail.lastSeenAt)}</div>
+              <div>
+                Статус:{' '}
+                <span className={`badge ${adminUserDetail.isBlocked ? 'badge--danger' : 'badge--ok'}`}>
+                  {adminUserDetail.isBlocked ? 'Blocked' : 'Active'}
+                </span>
+              </div>
+            </div>
+            <div className="admin-block">
+              {!adminUserDetail.isBlocked && (
+                <input
+                  type="text"
+                  placeholder="Причина блокировки"
+                  value={adminBlockReason}
+                  onChange={(event) => setAdminBlockReason(event.target.value)}
+                />
+              )}
+              <button
+                type="button"
+                className={`button ${adminUserDetail.isBlocked ? 'button--ghost' : 'button--danger'}`}
+                onClick={handleAdminBlockToggle}
+                disabled={adminBlockBusy}
+              >
+                {adminBlockBusy ? 'Сохранение…' : adminUserDetail.isBlocked ? 'Разблокировать' : 'Заблокировать'}
+              </button>
+            </div>
+          </div>
+        </section>
+        <section className="panel admin-panel">
+          <div className="panel__header">
+            <h2>Созданные события</h2>
+            <span className="chip chip--ghost">{adminUserEvents.length}</span>
+          </div>
+          {adminUserEvents.length === 0 ? (
+            <div className="status status--neutral">Нет событий</div>
+          ) : (
+            <div className="admin-events">
+              {adminUserEvents.map((event) => (
+                <button
+                  type="button"
+                  className="admin-event"
+                  key={event.id}
+                  onClick={() => openEventFromAdmin(event.id)}
+                >
+                  <div className="admin-event__title">{event.title}</div>
+                  <div className="admin-event__meta">
+                    {formatTimestamp(event.startsAt)} · {event.participantsCount} участников
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    )
+  }
+
+  const renderAdminBroadcasts = () => (
+    <div className="admin-broadcasts">
+      <section className="panel admin-panel">
+        <div className="panel__header">
+          <h2>Новая рассылка</h2>
+        </div>
+        <div className="admin-form">
+          <label>
+            Аудитория
+            <select
+              value={broadcastAudience}
+              onChange={(event) => setBroadcastAudience(event.target.value as 'all' | 'selected' | 'filter')}
+            >
+              <option value="all">Все активные</option>
+              <option value="selected">Выбранные</option>
+              <option value="filter">Фильтр</option>
+            </select>
+          </label>
+          {broadcastAudience === 'selected' && (
+            <label>
+              User IDs
+              <input
+                type="text"
+                placeholder="1,2,3"
+                value={broadcastUserIds}
+                onChange={(event) => setBroadcastUserIds(event.target.value)}
+              />
+            </label>
+          )}
+          {broadcastAudience === 'filter' && (
+            <div className="admin-filter-grid">
+              <label>
+                Мин. баланс
+                <input
+                  type="number"
+                  min="0"
+                  value={broadcastMinBalance}
+                  onChange={(event) => setBroadcastMinBalance(event.target.value)}
+                />
+              </label>
+              <label>
+                Last seen после
+                <input
+                  type="datetime-local"
+                  value={broadcastLastSeenAfter}
+                  onChange={(event) => setBroadcastLastSeenAfter(event.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          <label>
+            Сообщение
+            <textarea
+              maxLength={4096}
+              value={broadcastMessage}
+              onChange={(event) => setBroadcastMessage(event.target.value)}
+            />
+          </label>
+          <div className="admin-buttons">
+            <div className="admin-buttons__header">
+              Кнопки
+              <button type="button" className="button button--ghost button--compact" onClick={addBroadcastButton}>
+                + Добавить
+              </button>
+            </div>
+            {broadcastButtons.map((btn, index) => (
+              <div className="admin-buttons__row" key={`btn-${index}`}>
+                <input
+                  type="text"
+                  placeholder="Текст"
+                  value={btn.text}
+                  onChange={(event) => updateBroadcastButton(index, 'text', event.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="URL"
+                  value={btn.url}
+                  onChange={(event) => updateBroadcastButton(index, 'url', event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="button button--ghost button--compact"
+                  onClick={() => removeBroadcastButton(index)}
+                  disabled={broadcastButtons.length === 1}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="button button--accent" onClick={handleCreateBroadcast} disabled={broadcastBusy}>
+            {broadcastBusy ? 'Создание…' : 'Создать'}
+          </button>
+          {broadcastsError && <div className="status status--error">{broadcastsError}</div>}
+        </div>
+      </section>
+      <section className="panel admin-panel">
+        <div className="panel__header">
+          <h2>История</h2>
+          <div className="admin-history-actions">
+            <span className="chip chip--ghost">Всего: {broadcastsTotal}</span>
+            <button type="button" className="button button--ghost button--compact" onClick={loadBroadcasts}>
+              Обновить
+            </button>
+          </div>
+        </div>
+        {broadcastsLoading ? (
+          <div className="status status--loading">Загрузка…</div>
+        ) : (
+          <div className="admin-table">
+            <div className="admin-table__row admin-table__head">
+              <div>ID</div>
+              <div>Создано</div>
+              <div>Аудитория</div>
+              <div>Статус</div>
+              <div>Прогресс</div>
+              <div />
+            </div>
+            {broadcasts.length === 0 ? (
+              <div className="admin-table__row admin-table__empty">Нет рассылок</div>
+            ) : (
+              broadcasts.map((item) => (
+                <div className="admin-table__row" key={item.id}>
+                  <div>#{item.id}</div>
+                  <div>{formatTimestamp(item.createdAt)}</div>
+                  <div>{item.audience}</div>
+                  <div>
+                    <span className="badge badge--ghost">{item.status}</span>
+                  </div>
+                  <div>
+                    {item.sent}/{item.failed}/{item.targeted}
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      className="button button--ghost button--compact"
+                      disabled={item.status !== 'pending' || broadcastStartBusyId === item.id}
+                      onClick={() => handleStartBroadcast(item.id)}
+                    >
+                      {broadcastStartBusyId === item.id ? 'Старт…' : 'Запустить'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+
+  const renderAdminPanel = () => {
+    if (!token) {
+      return <div className="status status--error">Требуется авторизация</div>
+    }
+    if (adminAccessDenied) {
+      return <div className="status status--error">Нет доступа</div>
+    }
+    return (
+      <div className="admin">
+        <div className="admin__nav">
+          <button type="button" className="button button--ghost button--compact" onClick={goHome}>
+            ← Назад
+          </button>
+          <div className="admin__title">Админ-панель</div>
+          <div className="admin__tabs">
+            <button
+              type="button"
+              className={`button button--compact ${adminSection === 'users' ? 'button--accent' : 'button--ghost'}`}
+              onClick={() => navigateToAdmin('users')}
+            >
+              Users
+            </button>
+            <button
+              type="button"
+              className={`button button--compact ${
+                adminSection === 'broadcasts' ? 'button--accent' : 'button--ghost'
+              }`}
+              onClick={() => navigateToAdmin('broadcasts')}
+            >
+              Broadcasts
+            </button>
+          </div>
+        </div>
+        {adminSection === 'users' && renderAdminUsers()}
+        {adminSection === 'user' && renderAdminUserDetail()}
+        {adminSection === 'broadcasts' && renderAdminBroadcasts()}
+      </div>
+    )
+  }
+
   return (
     <div className="app">
-      {activePage === 'profile' ? (
+      {activePage === 'admin' ? (
+        renderAdminPanel()
+      ) : activePage === 'profile' ? (
         <div className="profile">
           <div className="profile__nav">
             <button
@@ -2459,6 +3160,15 @@ function App() {
               ← Назад
             </button>
             <div className="profile__title">Профиль</div>
+            {isAdmin && (
+              <button
+                type="button"
+                className="button button--ghost button--compact"
+                onClick={() => navigateToAdmin('users')}
+              >
+                Админ
+              </button>
+            )}
           </div>
 
           <div className="status-stack">

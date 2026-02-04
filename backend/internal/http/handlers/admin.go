@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"gigme/backend/internal/http/middleware"
+	"gigme/backend/internal/models"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -38,6 +39,46 @@ type updateEventRequest struct {
 	ContactSnapchat    *string  `json:"contactSnapchat"`
 }
 
+type adminBlockRequest struct {
+	Reason string `json:"reason"`
+}
+
+type adminUsersResponse struct {
+	Items []models.AdminUser `json:"items"`
+	Total int                `json:"total"`
+}
+
+type adminUserDetailResponse struct {
+	User          models.AdminUser   `json:"user"`
+	CreatedEvents []models.UserEvent `json:"createdEvents"`
+}
+
+type broadcastButton struct {
+	Text string `json:"text"`
+	URL  string `json:"url"`
+}
+
+type broadcastFilters struct {
+	Blocked       *bool   `json:"blocked"`
+	MinBalance    *int64  `json:"minBalance"`
+	LastSeenAfter *string `json:"lastSeenAfter"`
+}
+
+type createBroadcastRequest struct {
+	Audience string            `json:"audience"`
+	UserIDs  []int64           `json:"userIds"`
+	Filters  *broadcastFilters `json:"filters"`
+	Message  string            `json:"message"`
+	Buttons  []broadcastButton `json:"buttons"`
+}
+
+type createBroadcastResponse struct {
+	BroadcastID int64 `json:"broadcastId"`
+	Targets     int64 `json:"targets"`
+}
+
+const maxBroadcastMessageLength = 4096
+
 func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *http.Request, action string) (int64, bool) {
 	telegramID, ok := middleware.TelegramIDFromContext(r.Context())
 	if !ok {
@@ -51,6 +92,308 @@ func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *ht
 		return 0, false
 	}
 	return telegramID, true
+}
+
+func (h *Handler) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_list_users"); !ok {
+		return
+	}
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	limit := 50
+	offset := 0
+	if val := r.URL.Query().Get("limit"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+	if val := r.URL.Query().Get("offset"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+	var blocked *bool
+	if val := strings.TrimSpace(r.URL.Query().Get("blocked")); val != "" {
+		parsed := strings.ToLower(val)
+		if parsed == "true" || parsed == "1" {
+			v := true
+			blocked = &v
+		} else if parsed == "false" || parsed == "0" {
+			v := false
+			blocked = &v
+		}
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	items, total, err := h.repo.ListAdminUsers(ctx, search, blocked, limit, offset)
+	if err != nil {
+		logger.Error("action", "action", "admin_list_users", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, adminUsersResponse{Items: items, Total: total})
+}
+
+func (h *Handler) GetAdminUser(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_get_user"); !ok {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "admin_get_user", "status", "invalid_user_id")
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	user, err := h.repo.GetAdminUser(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			logger.Warn("action", "action", "admin_get_user", "status", "not_found", "user_id", id)
+			writeError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		logger.Error("action", "action", "admin_get_user", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	events, _, err := h.repo.ListUserEvents(ctx, id, 100, 0)
+	if err != nil {
+		logger.Error("action", "action", "admin_get_user", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, adminUserDetailResponse{User: user, CreatedEvents: events})
+}
+
+func (h *Handler) BlockUser(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_block_user"); !ok {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "admin_block_user", "status", "invalid_user_id")
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	var req adminBlockRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("action", "action", "admin_block_user", "status", "invalid_json")
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	if err := h.repo.BlockUser(ctx, id, strings.TrimSpace(req.Reason)); err != nil {
+		logger.Error("action", "action", "admin_block_user", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (h *Handler) UnblockUser(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_unblock_user"); !ok {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "admin_unblock_user", "status", "invalid_user_id")
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	if err := h.repo.UnblockUser(ctx, id); err != nil {
+		logger.Error("action", "action", "admin_unblock_user", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (h *Handler) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_create_broadcast"); !ok {
+		return
+	}
+	adminUserID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		logger.Warn("action", "action", "admin_create_broadcast", "status", "unauthorized")
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var req createBroadcastRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("action", "action", "admin_create_broadcast", "status", "invalid_json")
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	req.Audience = strings.TrimSpace(req.Audience)
+	message := strings.TrimSpace(req.Message)
+	if message == "" || utf8.RuneCountInString(message) > maxBroadcastMessageLength {
+		logger.Warn("action", "action", "admin_create_broadcast", "status", "invalid_message")
+		writeError(w, http.StatusBadRequest, "message too long")
+		return
+	}
+
+	payload := map[string]interface{}{
+		"message": message,
+	}
+	if len(req.Buttons) > 0 {
+		payload["buttons"] = req.Buttons
+	}
+
+	var targets int64
+	var minBalance *int64
+	var lastSeenAfter *time.Time
+	switch req.Audience {
+	case "all":
+		// no extra validation
+	case "selected":
+		if len(req.UserIDs) == 0 {
+			writeError(w, http.StatusBadRequest, "userIds required")
+			return
+		}
+	case "filter":
+		if req.Filters != nil {
+			if req.Filters.Blocked != nil && *req.Filters.Blocked {
+				writeError(w, http.StatusBadRequest, "blocked recipients not allowed")
+				return
+			}
+			if req.Filters.MinBalance != nil {
+				minBalance = req.Filters.MinBalance
+			}
+			if req.Filters.LastSeenAfter != nil && *req.Filters.LastSeenAfter != "" {
+				parsed, err := time.Parse(time.RFC3339, *req.Filters.LastSeenAfter)
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "invalid lastSeenAfter")
+					return
+				}
+				lastSeenAfter = &parsed
+			}
+		}
+	default:
+		writeError(w, http.StatusBadRequest, "invalid audience")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	broadcastID, err := h.repo.CreateAdminBroadcast(ctx, adminUserID, req.Audience, payload)
+	if err != nil {
+		logger.Error("action", "action", "admin_create_broadcast", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	switch req.Audience {
+	case "all":
+		targets, err = h.repo.InsertAdminBroadcastJobsForAll(ctx, broadcastID)
+	case "selected":
+		targets, err = h.repo.InsertAdminBroadcastJobsForSelected(ctx, broadcastID, req.UserIDs)
+	case "filter":
+		targets, err = h.repo.InsertAdminBroadcastJobsForFilter(ctx, broadcastID, minBalance, lastSeenAfter)
+	}
+	if err != nil {
+		_ = h.repo.UpdateAdminBroadcastStatus(ctx, broadcastID, "failed")
+		logger.Error("action", "action", "admin_create_broadcast", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, createBroadcastResponse{BroadcastID: broadcastID, Targets: targets})
+}
+
+func (h *Handler) StartBroadcast(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_start_broadcast"); !ok {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "admin_start_broadcast", "status", "invalid_broadcast_id")
+		writeError(w, http.StatusBadRequest, "invalid broadcast id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	if _, err := h.repo.GetAdminBroadcast(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "broadcast not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if err := h.repo.UpdateAdminBroadcastStatus(ctx, id, "processing"); err != nil {
+		logger.Error("action", "action", "admin_start_broadcast", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	_, _ = h.repo.FinalizeAdminBroadcast(ctx, id)
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_list_broadcasts"); !ok {
+		return
+	}
+	limit := 50
+	offset := 0
+	if val := r.URL.Query().Get("limit"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+	if val := r.URL.Query().Get("offset"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	items, total, err := h.repo.ListAdminBroadcasts(ctx, limit, offset)
+	if err != nil {
+		logger.Error("action", "action", "admin_list_broadcasts", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"items": items,
+		"total": total,
+	})
+}
+
+func (h *Handler) GetBroadcast(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_get_broadcast"); !ok {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		logger.Warn("action", "action", "admin_get_broadcast", "status", "invalid_broadcast_id")
+		writeError(w, http.StatusBadRequest, "invalid broadcast id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	item, err := h.repo.GetAdminBroadcast(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "broadcast not found")
+			return
+		}
+		logger.Error("action", "action", "admin_get_broadcast", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (h *Handler) HideEvent(w http.ResponseWriter, r *http.Request) {

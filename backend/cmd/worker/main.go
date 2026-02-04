@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -49,7 +51,10 @@ func main() {
 	telegram := integrations.NewTelegramClient(cfg.TelegramToken)
 
 	logger.Info("worker_started")
+	rateLimiter := time.NewTicker(time.Second / 20)
+	defer rateLimiter.Stop()
 	for {
+		didWork := false
 		if err := repo.RequeueStaleProcessing(ctx, 10*time.Minute); err != nil {
 			logger.Warn("requeue_stale_jobs_error", "error", err)
 		}
@@ -59,20 +64,42 @@ func main() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		if len(jobs) == 0 {
-			time.Sleep(10 * time.Second)
-			continue
+		if len(jobs) > 0 {
+			didWork = true
+			for _, job := range jobs {
+				if err := handleJob(ctx, repo, telegram, cfg.BaseURL, cfg.APIPublicURL, job, logger); err != nil {
+					logger.Error("job_failed", "job_id", job.ID, "error", err)
+				}
+			}
 		}
 
-		for _, job := range jobs {
-			if err := handleJob(ctx, repo, telegram, cfg.BaseURL, cfg.APIPublicURL, job, logger); err != nil {
-				logger.Error("job_failed", "job_id", job.ID, "error", err)
+		if err := repo.RequeueStaleAdminBroadcastJobs(ctx, 10*time.Minute); err != nil {
+			logger.Warn("requeue_stale_broadcast_jobs_error", "error", err)
+		}
+		broadcastJobs, err := repo.FetchPendingAdminBroadcastJobs(ctx, 100)
+		if err != nil {
+			logger.Error("fetch_broadcast_jobs_error", "error", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		if len(broadcastJobs) > 0 {
+			didWork = true
+			if err := processBroadcastJobs(ctx, repo, telegram, broadcastJobs, rateLimiter, logger); err != nil {
+				logger.Error("broadcast_jobs_error", "error", err)
 			}
+		}
+		if !didWork {
+			time.Sleep(10 * time.Second)
 		}
 	}
 }
 
-func handleJob(ctx context.Context, repo *repository.Repository, telegram *integrations.TelegramClient, baseURL, apiBaseURL string, job models.NotificationJob, logger *slog.Logger) error {
+type TelegramSender interface {
+	SendMessageWithMarkup(chatID int64, text string, markup *integrations.ReplyMarkup) error
+	SendPhotoWithMarkup(chatID int64, photoURL, caption string, markup *integrations.ReplyMarkup) error
+}
+
+func handleJob(ctx context.Context, repo *repository.Repository, telegram TelegramSender, baseURL, apiBaseURL string, job models.NotificationJob, logger *slog.Logger) error {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -258,10 +285,10 @@ func buildCommentNotification(job models.NotificationJob, baseURL, apiBaseURL st
 	}
 	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
 	return notificationMessage{
-		Text:             strings.Join(lines, "\n"),
-		PhotoURL:         previewURL,
-		ButtonURL:        eventURL,
-		ButtonText:       buttonText(eventURL),
+		Text:       strings.Join(lines, "\n"),
+		PhotoURL:   previewURL,
+		ButtonURL:  eventURL,
+		ButtonText: buttonText(eventURL),
 	}
 }
 
@@ -411,4 +438,128 @@ func truncateRunes(value string, max int) string {
 		}
 	}
 	return string(out) + "…"
+}
+
+type broadcastPayload struct {
+	Message string            `json:"message"`
+	Buttons []broadcastButton `json:"buttons"`
+}
+
+type broadcastButton struct {
+	Text string `json:"text"`
+	URL  string `json:"url"`
+}
+
+func processBroadcastJobs(ctx context.Context, repo *repository.Repository, telegram TelegramSender, jobs []models.AdminBroadcastJob, limiter *time.Ticker, logger *slog.Logger) error {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	payloadCache := make(map[int64]broadcastPayload)
+	broadcastIDs := make(map[int64]struct{})
+
+	for _, job := range jobs {
+		payload, ok := payloadCache[job.BroadcastID]
+		if !ok {
+			loaded, err := loadBroadcastPayload(ctx, repo, job.BroadcastID)
+			if err != nil {
+				logger.Error("broadcast_payload_error", "broadcast_id", job.BroadcastID, "error", err)
+				_ = repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "failed", job.Attempts, err.Error())
+				continue
+			}
+			payload = loaded
+			payloadCache[job.BroadcastID] = payload
+		}
+		if err := handleBroadcastJob(ctx, repo, telegram, job, payload, limiter, logger); err != nil {
+			logger.Error("broadcast_job_failed", "job_id", job.ID, "broadcast_id", job.BroadcastID, "error", err)
+		}
+		broadcastIDs[job.BroadcastID] = struct{}{}
+	}
+
+	for id := range broadcastIDs {
+		if _, err := repo.FinalizeAdminBroadcast(ctx, id); err != nil {
+			logger.Warn("broadcast_finalize_error", "broadcast_id", id, "error", err)
+		}
+	}
+	return nil
+}
+
+func loadBroadcastPayload(ctx context.Context, repo *repository.Repository, broadcastID int64) (broadcastPayload, error) {
+	record, err := repo.GetAdminBroadcast(ctx, broadcastID)
+	if err != nil {
+		return broadcastPayload{}, err
+	}
+	if len(record.Payload) == 0 {
+		return broadcastPayload{}, errors.New("empty broadcast payload")
+	}
+	var payload broadcastPayload
+	encoded, err := json.Marshal(record.Payload)
+	if err != nil {
+		return broadcastPayload{}, err
+	}
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		return broadcastPayload{}, err
+	}
+	if strings.TrimSpace(payload.Message) == "" {
+		return broadcastPayload{}, errors.New("broadcast message missing")
+	}
+	return payload, nil
+}
+
+func handleBroadcastJob(ctx context.Context, repo *repository.Repository, telegram TelegramSender, job models.AdminBroadcastJob, payload broadcastPayload, limiter *time.Ticker, logger *slog.Logger) error {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	blocked, err := repo.IsUserBlocked(ctx, job.TargetUserID)
+	if err != nil {
+		return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "failed", job.Attempts, err.Error())
+	}
+	if blocked {
+		return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "failed", job.Attempts, "user blocked")
+	}
+
+	chatID, err := repo.GetUserTelegramID(ctx, job.TargetUserID)
+	if err != nil {
+		return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "failed", job.Attempts+1, err.Error())
+	}
+
+	markup := buildBroadcastMarkup(payload.Buttons)
+	attempts := job.Attempts
+	var lastErr error
+	for attempts < 3 {
+		attempts++
+		if limiter != nil {
+			<-limiter.C
+		}
+		sendErr := telegram.SendMessageWithMarkup(chatID, payload.Message, markup)
+		if sendErr == nil {
+			return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "sent", attempts, "")
+		}
+		lastErr = sendErr
+		if attempts < 3 {
+			time.Sleep(time.Second * time.Duration(1<<(attempts-1)))
+		}
+	}
+	if lastErr == nil {
+		lastErr = errors.New("broadcast send failed")
+	}
+	return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "failed", attempts, lastErr.Error())
+}
+
+func buildBroadcastMarkup(buttons []broadcastButton) *integrations.ReplyMarkup {
+	if len(buttons) == 0 {
+		return nil
+	}
+	rows := make([][]integrations.InlineKeyboardButton, 0, len(buttons))
+	for _, button := range buttons {
+		text := strings.TrimSpace(button.Text)
+		url := strings.TrimSpace(button.URL)
+		if text == "" || url == "" {
+			continue
+		}
+		rows = append(rows, []integrations.InlineKeyboardButton{{Text: text, URL: url}})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return &integrations.ReplyMarkup{InlineKeyboard: rows}
 }

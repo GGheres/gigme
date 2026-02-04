@@ -85,6 +85,7 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		r.Use(middleware.BlockedUserMiddleware(repo, cfg.AdminTGIDs))
 		r.Get("/me", h.Me)
 		r.Post("/me/location", h.UpdateLocation)
 		r.Get("/referrals/my-code", h.ReferralCode)
@@ -105,6 +106,14 @@ func main() {
 		r.Post("/media/upload", h.UploadMedia)
 		r.Post("/wallet/topup/token", h.TopupToken)
 		r.Post("/wallet/topup/card", h.TopupCard)
+		r.Get("/admin/users", h.ListAdminUsers)
+		r.Get("/admin/users/{id}", h.GetAdminUser)
+		r.Post("/admin/users/{id}/block", h.BlockUser)
+		r.Post("/admin/users/{id}/unblock", h.UnblockUser)
+		r.Post("/admin/broadcasts", h.CreateBroadcast)
+		r.Post("/admin/broadcasts/{id}/start", h.StartBroadcast)
+		r.Get("/admin/broadcasts", h.ListBroadcasts)
+		r.Get("/admin/broadcasts/{id}", h.GetBroadcast)
 		r.Post("/admin/events/{id}/hide", h.HideEvent)
 		r.Patch("/admin/events/{id}", h.UpdateEventAdmin)
 		r.Delete("/admin/events/{id}", h.DeleteEventAdmin)

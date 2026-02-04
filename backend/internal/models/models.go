@@ -92,3 +92,43 @@ type EventComment struct {
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+type AdminUser struct {
+	ID            int64      `json:"id"`
+	TelegramID    int64      `json:"telegramId"`
+	Username      string     `json:"username,omitempty"`
+	FirstName     string     `json:"firstName"`
+	LastName      string     `json:"lastName,omitempty"`
+	PhotoURL      string     `json:"photoUrl,omitempty"`
+	Rating        float64    `json:"rating"`
+	RatingCount   int        `json:"ratingCount"`
+	BalanceTokens int64      `json:"balanceTokens"`
+	IsBlocked     bool       `json:"isBlocked"`
+	BlockedReason string     `json:"blockedReason,omitempty"`
+	BlockedAt     *time.Time `json:"blockedAt,omitempty"`
+	LastSeenAt    *time.Time `json:"lastSeenAt,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
+}
+
+type AdminBroadcast struct {
+	ID          int64                  `json:"id"`
+	AdminUserID int64                  `json:"adminUserId"`
+	Audience    string                 `json:"audience"`
+	Payload     map[string]interface{} `json:"payload"`
+	Status      string                 `json:"status"`
+	CreatedAt   time.Time              `json:"createdAt"`
+	UpdatedAt   time.Time              `json:"updatedAt"`
+	Targeted    int                    `json:"targeted"`
+	Sent        int                    `json:"sent"`
+	Failed      int                    `json:"failed"`
+}
+
+type AdminBroadcastJob struct {
+	ID           int64  `json:"id"`
+	BroadcastID  int64  `json:"broadcastId"`
+	TargetUserID int64  `json:"targetUserId"`
+	Status       string `json:"status"`
+	Attempts     int    `json:"attempts"`
+	LastError    string `json:"lastError,omitempty"`
+}

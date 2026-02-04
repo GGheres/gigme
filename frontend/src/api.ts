@@ -158,6 +158,62 @@ export type EventComment = {
   createdAt: string
 }
 
+export type AdminUser = {
+  id: number
+  telegramId: number
+  username?: string
+  firstName: string
+  lastName?: string
+  photoUrl?: string
+  rating?: number
+  ratingCount?: number
+  balanceTokens?: number
+  isBlocked: boolean
+  blockedReason?: string
+  blockedAt?: string
+  lastSeenAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type AdminUsersResponse = {
+  items: AdminUser[]
+  total: number
+}
+
+export type AdminUserDetailResponse = {
+  user: AdminUser
+  createdEvents: UserEvent[]
+}
+
+export type BroadcastButton = {
+  text: string
+  url: string
+}
+
+export type BroadcastPayload = {
+  message: string
+  buttons?: BroadcastButton[]
+}
+
+export type AdminBroadcast = {
+  id: number
+  adminUserId: number
+  audience: string
+  payload: BroadcastPayload
+  status: string
+  createdAt: string
+  updatedAt: string
+  targeted: number
+  sent: number
+  failed: number
+}
+
+export type AdminBroadcastsResponse = {
+  items: AdminBroadcast[]
+  total: number
+}
+
 export type AdminEventUpdate = {
   title?: string
   description?: string
@@ -221,7 +277,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, token?: stri
         status: res.status,
         durationMs,
       })
-      throw new Error(message)
+      const error = new Error(message) as Error & { status?: number }
+      error.status = res.status
+      throw error
     }
     const durationMs = Math.round(performance.now() - start)
     logDebug('api_response', {
@@ -420,6 +478,65 @@ export function updateEventAdmin(token: string, id: number, payload: AdminEventU
 
 export function deleteEventAdmin(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'DELETE' }, token)
+}
+
+export function adminListUsers(
+  token: string,
+  params: { search?: string; blocked?: 'true' | 'false'; limit?: number; offset?: number } = {}
+) {
+  const qs = new URLSearchParams()
+  if (params.search) qs.set('search', params.search)
+  if (params.blocked) qs.set('blocked', params.blocked)
+  if (typeof params.limit === 'number') qs.set('limit', String(params.limit))
+  if (typeof params.offset === 'number') qs.set('offset', String(params.offset))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return apiFetch<AdminUsersResponse>(`/admin/users${suffix}`, {}, token)
+}
+
+export function adminGetUser(token: string, id: number) {
+  return apiFetch<AdminUserDetailResponse>(`/admin/users/${id}`, {}, token)
+}
+
+export function adminBlockUser(token: string, id: number, reason: string) {
+  return apiFetch<{ ok: boolean }>(
+    `/admin/users/${id}/block`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+    token
+  )
+}
+
+export function adminUnblockUser(token: string, id: number) {
+  return apiFetch<{ ok: boolean }>(`/admin/users/${id}/unblock`, { method: 'POST' }, token)
+}
+
+export function adminCreateBroadcast(
+  token: string,
+  payload: {
+    audience: 'all' | 'selected' | 'filter'
+    userIds?: number[]
+    filters?: { blocked?: boolean; minBalance?: number; lastSeenAfter?: string }
+    message: string
+    buttons?: BroadcastButton[]
+  }
+) {
+  return apiFetch<{ broadcastId: number; targets: number }>(
+    '/admin/broadcasts',
+    { method: 'POST', body: JSON.stringify(payload) },
+    token
+  )
+}
+
+export function adminStartBroadcast(token: string, id: number) {
+  return apiFetch<{ ok: boolean }>(`/admin/broadcasts/${id}/start`, { method: 'POST' }, token)
+}
+
+export function adminListBroadcasts(token: string, limit = 50, offset = 0) {
+  const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return apiFetch<AdminBroadcastsResponse>(`/admin/broadcasts?${qs.toString()}`, {}, token)
+}
+
+export function adminGetBroadcast(token: string, id: number) {
+  return apiFetch<AdminBroadcast>(`/admin/broadcasts/${id}`, {}, token)
 }
 
 export function likeEvent(token: string, id: number, accessKey?: string) {

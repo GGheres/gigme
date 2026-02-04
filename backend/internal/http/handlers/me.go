@@ -22,6 +22,11 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
+	if err := h.repo.TouchUserLastSeen(ctx, userID); err != nil {
+		logger.Error("action", "action", "me", "status", "last_seen_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
 	user, err := h.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		logger.Error("action", "action", "me", "status", "db_error", "error", err)

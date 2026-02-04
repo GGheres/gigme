@@ -23,13 +23,14 @@ func New(pool *pgxpool.Pool) *Repository {
 
 func (r *Repository) UpsertUser(ctx context.Context, user models.User) (models.User, bool, error) {
 	query := `
-INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, last_seen_at)
+VALUES ($1, $2, $3, $4, $5, now())
 ON CONFLICT (telegram_id) DO UPDATE SET
 	username = EXCLUDED.username,
 	first_name = EXCLUDED.first_name,
 	last_name = EXCLUDED.last_name,
 	photo_url = EXCLUDED.photo_url,
+	last_seen_at = now(),
 	updated_at = now()
 RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at, (xmax = 0) AS is_new;`
 
