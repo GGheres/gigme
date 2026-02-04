@@ -214,6 +214,12 @@ export type AdminBroadcastsResponse = {
   total: number
 }
 
+export type AdminLoginResponse = {
+  accessToken: string
+  user: User
+  isNew: boolean
+}
+
 export type AdminEventUpdate = {
   title?: string
   description?: string
@@ -537,6 +543,10 @@ export function adminListBroadcasts(token: string, limit = 50, offset = 0) {
 
 export function adminGetBroadcast(token: string, id: number) {
   return apiFetch<AdminBroadcast>(`/admin/broadcasts/${id}`, {}, token)
+}
+
+export function adminLogin(payload: { username: string; password: string; telegramId?: number }) {
+  return apiFetch<AdminLoginResponse>('/auth/admin', { method: 'POST', body: JSON.stringify(payload) })
 }
 
 export function likeEvent(token: string, id: number, accessKey?: string) {

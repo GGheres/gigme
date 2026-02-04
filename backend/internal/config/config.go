@@ -18,6 +18,9 @@ type Config struct {
 	BaseURL       string
 	APIPublicURL  string
 	AdminTGIDs    map[int64]struct{}
+	AdminLogin    string
+	AdminPassword string
+	AdminPassHash string
 	S3            S3Config
 	Logging       LoggingConfig
 }
@@ -49,6 +52,9 @@ func Load() (*Config, error) {
 		TelegramUser:  os.Getenv("TELEGRAM_BOT_USERNAME"),
 		BaseURL:       getenv("BASE_URL", ""),
 		APIPublicURL:  getenv("API_PUBLIC_URL", ""),
+		AdminLogin:    getenv("ADMIN_LOGIN", ""),
+		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		AdminPassHash: os.Getenv("ADMIN_PASSWORD_HASH"),
 		S3: S3Config{
 			Endpoint:       os.Getenv("S3_ENDPOINT"),
 			PublicEndpoint: os.Getenv("S3_PUBLIC_ENDPOINT"),

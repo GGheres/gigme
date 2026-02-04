@@ -8,6 +8,7 @@ import {
   adminCreateBroadcast,
   adminGetBroadcast,
   adminGetUser,
+  adminLogin,
   adminListBroadcasts,
   adminListUsers,
   adminStartBroadcast,
@@ -1036,6 +1037,11 @@ function App() {
   const [broadcastButtons, setBroadcastButtons] = useState<BroadcastButton[]>([{ text: '', url: '' }])
   const [broadcastBusy, setBroadcastBusy] = useState(false)
   const [broadcastStartBusyId, setBroadcastStartBusyId] = useState<number | null>(null)
+  const [adminLoginUsername, setAdminLoginUsername] = useState('')
+  const [adminLoginPassword, setAdminLoginPassword] = useState('')
+  const [adminLoginTelegramId, setAdminLoginTelegramId] = useState('')
+  const [adminLoginError, setAdminLoginError] = useState<string | null>(null)
+  const [adminLoginBusy, setAdminLoginBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [createLatLng, setCreateLatLng] = useState<LatLng | null>(null)
@@ -1452,6 +1458,10 @@ function App() {
     }
     const initData = tg?.initData || getInitDataFromLocation()
     if (!initData) {
+      if (getPageFromLocation() === 'admin') {
+        logWarn('auth_missing_init_data_admin')
+        return
+      }
       logWarn('auth_missing_init_data')
       setError('Open this app inside Telegram WebApp (or add ?initData=... for browser testing).')
       return
@@ -2771,6 +2781,36 @@ function App() {
     navigateToPage('home')
   }
 
+  const handleAdminLogin = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!adminLoginUsername.trim() || !adminLoginPassword) {
+      setAdminLoginError('Введите логин и пароль')
+      return
+    }
+    setAdminLoginBusy(true)
+    setAdminLoginError(null)
+    try {
+      const telegramId = Number(adminLoginTelegramId.trim())
+      const payload: { username: string; password: string; telegramId?: number } = {
+        username: adminLoginUsername.trim(),
+        password: adminLoginPassword,
+      }
+      if (Number.isFinite(telegramId) && telegramId > 0) {
+        payload.telegramId = telegramId
+      }
+      const res = await adminLogin(payload)
+      setToken(res.accessToken)
+      setUser(res.user)
+      setLogToken(res.accessToken)
+      setAdminAccessDenied(false)
+      loadAdminUsers()
+    } catch (err: any) {
+      setAdminLoginError(err?.message || 'Ошибка входа')
+    } finally {
+      setAdminLoginBusy(false)
+    }
+  }
+
   const renderAdminUsers = () => (
     <section className="panel admin-panel">
       <div className="panel__header">
@@ -3107,7 +3147,43 @@ function App() {
 
   const renderAdminPanel = () => {
     if (!token) {
-      return <div className="status status--error">Требуется авторизация</div>
+      return (
+        <section className="panel admin-panel">
+          <div className="panel__header">
+            <h2>Админ вход</h2>
+          </div>
+          <form className="admin-form" onSubmit={handleAdminLogin}>
+            <label>
+              Логин
+              <input
+                type="text"
+                value={adminLoginUsername}
+                onChange={(event) => setAdminLoginUsername(event.target.value)}
+              />
+            </label>
+            <label>
+              Пароль
+              <input
+                type="password"
+                value={adminLoginPassword}
+                onChange={(event) => setAdminLoginPassword(event.target.value)}
+              />
+            </label>
+            <label>
+              Telegram ID (если несколько админов)
+              <input
+                type="number"
+                value={adminLoginTelegramId}
+                onChange={(event) => setAdminLoginTelegramId(event.target.value)}
+              />
+            </label>
+            <button type="submit" className="button button--accent" disabled={adminLoginBusy}>
+              {adminLoginBusy ? 'Вход…' : 'Войти'}
+            </button>
+            {adminLoginError && <div className="status status--error">{adminLoginError}</div>}
+          </form>
+        </section>
+      )
     }
     if (adminAccessDenied) {
       return <div className="status status--error">Нет доступа</div>

@@ -4,16 +4,77 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"gigme/backend/internal/models"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func (r *Repository) TouchUserLastSeen(ctx context.Context, userID int64) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET last_seen_at = now(), updated_at = now() WHERE id = $1`, userID)
 	return err
+}
+
+func (r *Repository) GetUserByTelegramID(ctx context.Context, telegramID int64) (models.User, error) {
+	row := r.pool.QueryRow(ctx, `SELECT id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at FROM users WHERE telegram_id = $1`, telegramID)
+	var out models.User
+	var username sql.NullString
+	var lastName sql.NullString
+	var photoURL sql.NullString
+	if err := row.Scan(&out.ID, &out.TelegramID, &username, &out.FirstName, &lastName, &photoURL, &out.Rating, &out.RatingCount, &out.BalanceTokens, &out.CreatedAt, &out.UpdatedAt); err != nil {
+		return out, err
+	}
+	if username.Valid {
+		out.Username = username.String
+	}
+	if lastName.Valid {
+		out.LastName = lastName.String
+	}
+	if photoURL.Valid {
+		out.PhotoURL = photoURL.String
+	}
+	return out, nil
+}
+
+func (r *Repository) EnsureUserByTelegramID(ctx context.Context, telegramID int64, username, firstName, lastName string) (models.User, error) {
+	user, err := r.GetUserByTelegramID(ctx, telegramID)
+	if err == nil {
+		return user, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return user, err
+	}
+
+	row := r.pool.QueryRow(ctx, `
+INSERT INTO users (telegram_id, username, first_name, last_name, last_seen_at)
+VALUES ($1, $2, $3, $4, now())
+RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at;`,
+		telegramID,
+		nullString(username),
+		firstName,
+		nullString(lastName),
+	)
+	var out models.User
+	var usernameNull sql.NullString
+	var lastNameNull sql.NullString
+	var photoURL sql.NullString
+	if err := row.Scan(&out.ID, &out.TelegramID, &usernameNull, &out.FirstName, &lastNameNull, &photoURL, &out.Rating, &out.RatingCount, &out.BalanceTokens, &out.CreatedAt, &out.UpdatedAt); err != nil {
+		return out, err
+	}
+	if usernameNull.Valid {
+		out.Username = usernameNull.String
+	}
+	if lastNameNull.Valid {
+		out.LastName = lastNameNull.String
+	}
+	if photoURL.Valid {
+		out.PhotoURL = photoURL.String
+	}
+	return out, nil
 }
 
 func (r *Repository) IsUserBlocked(ctx context.Context, userID int64) (bool, error) {
