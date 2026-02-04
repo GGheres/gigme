@@ -817,7 +817,7 @@ const getAdminRouteFromLocation = (): { section: AdminSection; userId: number | 
   if (typeof window === 'undefined') return { section: 'users', userId: null }
   const path = window.location.pathname || '/'
   if (!path.startsWith('/admin')) return { section: 'users', userId: null }
-  const trimmed = path.replace(/^\\/admin\\/?/, '')
+  const trimmed = path.replace(/^\/admin\/?/, '')
   if (!trimmed) return { section: 'users', userId: null }
   const parts = trimmed.split('/').filter(Boolean)
   if (parts[0] === 'users') {
