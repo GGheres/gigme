@@ -223,14 +223,14 @@ p {
   gap: 10px;
 }
 
-.hero__brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(12px, 4vw, 28px);
-  padding: 6px 0 2px;
+.hero__map-card {
+  width: 100%;
   position: relative;
   z-index: 1;
+}
+
+.hero__map-card .map {
+  height: clamp(220px, 34vw, 340px);
 }
 
 .hero__profile {
@@ -296,99 +296,6 @@ p {
   width: 72px;
   height: 72px;
   font-size: 28px;
-}
-
-.logo-video-wrap {
-  width: clamp(200px, 52vw, 420px);
-  aspect-ratio: 1 / 1;
-  border-radius: 26px;
-  position: relative;
-  background: radial-gradient(circle at 30% 30%, rgba(59, 123, 255, 0.22), transparent 55%),
-    radial-gradient(circle at 70% 35%, rgba(102, 211, 100, 0.22), transparent 58%),
-    radial-gradient(circle at 65% 75%, rgba(255, 123, 31, 0.22), transparent 60%),
-    radial-gradient(circle at 35% 75%, rgba(106, 76, 255, 0.2), transparent 62%);
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-  animation: float 6.8s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.logo-video-wrap::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.28), transparent 65%);
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.logo-video-wrap::after {
-  content: '';
-  position: absolute;
-  inset: -6%;
-  background: radial-gradient(circle at 50% 50%, transparent 45%, rgba(255, 255, 255, 0.22) 74%, rgba(255, 255, 255, 0.55) 100%);
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.logo-video-wrap::before,
-.logo-video-wrap::after {
-  filter: blur(10px);
-}
-
-.logo-video-wrap::after {
-  mix-blend-mode: screen;
-}
-
-.logo-video-wrap::before {
-  mix-blend-mode: soft-light;
-}
-
-.logo-video-wrap::after {
-  transform: scale(1.04);
-}
-
-.logo-video {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-  filter: saturate(1.05) blur(0.35px);
-  position: relative;
-  z-index: 1;
-  -webkit-mask-image: radial-gradient(
-    circle at 50% 50%,
-    rgba(0, 0, 0, 1) 30%,
-    rgba(0, 0, 0, 0.55) 52%,
-    transparent 100%
-  );
-  mask-image: radial-gradient(
-    circle at 50% 50%,
-    rgba(0, 0, 0, 1) 30%,
-    rgba(0, 0, 0, 0.55) 52%,
-    transparent 100%
-  );
-}
-
-.logo-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  position: relative;
-  z-index: 1;
-  -webkit-mask-image: radial-gradient(
-    circle at 50% 50%,
-    rgba(0, 0, 0, 1) 30%,
-    rgba(0, 0, 0, 0.55) 52%,
-    transparent 100%
-  );
-  mask-image: radial-gradient(
-    circle at 50% 50%,
-    rgba(0, 0, 0, 1) 30%,
-    rgba(0, 0, 0, 0.55) 52%,
-    transparent 100%
-  );
 }
 
 .hero__filters {
@@ -466,11 +373,10 @@ p {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
   grid-template-areas:
-    'map map'
-    'create feed'
-    'detail detail';
+    'feed'
+    'detail';
+  grid-template-columns: 1fr;
   gap: 18px;
 }
 
@@ -478,8 +384,14 @@ p {
   min-width: 0;
 }
 
+.layout--with-create {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+  grid-template-areas:
+    'create feed'
+    'detail detail';
+}
+
 .map-card {
-  grid-area: map;
   position: relative;
   border-radius: 24px;
   overflow: hidden;
@@ -871,6 +783,12 @@ input[type='file']::file-selector-button {
 
 .feed-grid > .card:nth-child(6) {
   animation-delay: 0.24s;
+}
+
+.feed-grid > .card,
+.profile-event {
+  content-visibility: auto;
+  contain-intrinsic-size: 180px;
 }
 
 .card {
@@ -1704,16 +1622,6 @@ button {
   }
 }
 
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
 @keyframes rise {
   from {
     opacity: 0;
@@ -1737,10 +1645,9 @@ button {
 }
 
 @media (max-width: 980px) {
-  .layout {
+  .layout--with-create {
     grid-template-columns: 1fr;
     grid-template-areas:
-      'map'
       'create'
       'feed'
       'detail';
@@ -1754,17 +1661,6 @@ button {
     flex-direction: column;
     align-items: flex-start;
     width: 100%;
-  }
-
-  .hero__brand {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    row-gap: 12px;
-  }
-
-  .logo-video-wrap {
-    width: clamp(220px, 68vw, 380px);
   }
 
   .hero__actions {
@@ -1790,13 +1686,8 @@ button {
     height: 300px;
   }
 
-  .hero__brand {
-    gap: 10px;
-    justify-content: center;
-  }
-
-  .logo-video-wrap {
-    width: clamp(200px, 76vw, 320px);
+  .hero__map-card .map {
+    height: 260px;
   }
 
   .card {

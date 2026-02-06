@@ -193,11 +193,12 @@ const VIEW_STORAGE_KEY = 'gigme:lastCenter'
 const MAX_EVENT_FILTERS = 3
 const NEARBY_RADIUS_M = 100_000
 const FOCUS_ZOOM = 16
-const LOGO_FRAME_COUNT = 134
-const LOGO_FPS = 24
-const LOGO_FRAME_PREFIX = '/gigmov-frames/frame_'
 const EVENT_KEY_STORAGE = 'gigme:eventKeys'
 const MAX_EVENT_KEY_LENGTH = 64
+const MAX_UPLOAD_IMAGE_DIMENSION = 1920
+const MAX_UPLOAD_IMAGE_BYTES = 2_000_000
+const UPLOAD_IMAGE_QUALITY = 0.82
+const MIN_COMPRESS_GAIN_RATIO = 0.93
 
 const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
   { id: 'dating', label: 'Dating', icon: '💘' },
@@ -292,17 +293,99 @@ const isNgrokUrl = (value?: string) => {
   return NGROK_HOST_RE.test(value)
 }
 
-const isIOSDevice = () => {
-  if (typeof navigator === 'undefined') return false
-  const ua = navigator.userAgent || ''
-  const iOS = /iPad|iPhone|iPod/.test(ua)
-  const iPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
-  return iOS || iPadOS
-}
-
 const isAndroidDevice = () => {
   if (typeof navigator === 'undefined') return false
   return /Android/i.test(navigator.userAgent || '')
+}
+
+type DecodedImage = {
+  source: CanvasImageSource
+  width: number
+  height: number
+  release: () => void
+}
+
+const buildOptimizedFileName = (name: string, mimeType: string) => {
+  const ext = mimeType === 'image/webp' ? 'webp' : mimeType === 'image/png' ? 'png' : 'jpg'
+  const dotIndex = name.lastIndexOf('.')
+  const baseName = dotIndex > 0 ? name.slice(0, dotIndex) : name
+  return `${baseName || 'photo'}.${ext}`
+}
+
+const decodeImageForCanvas = async (file: File): Promise<DecodedImage | null> => {
+  if (typeof window === 'undefined') return null
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file)
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close(),
+      }
+    } catch {
+      // fall back to Image() decode
+    }
+  }
+  return new Promise((resolve) => {
+    const blobUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl)
+      resolve({
+        source: img,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+        release: () => {
+          img.src = ''
+        },
+      })
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl)
+      resolve(null)
+    }
+    img.src = blobUrl
+  })
+}
+
+const optimizeImageForUpload = async (file: File): Promise<File> => {
+  if (!file.type.startsWith('image/')) return file
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file
+  const decoded = await decodeImageForCanvas(file)
+  if (!decoded || !decoded.width || !decoded.height) return file
+  try {
+    const longestSide = Math.max(decoded.width, decoded.height)
+    const scale = longestSide > MAX_UPLOAD_IMAGE_DIMENSION ? MAX_UPLOAD_IMAGE_DIMENSION / longestSide : 1
+    const targetWidth = Math.max(1, Math.round(decoded.width * scale))
+    const targetHeight = Math.max(1, Math.round(decoded.height * scale))
+    const needsResize = scale < 1
+    const needsCompression = file.size > MAX_UPLOAD_IMAGE_BYTES || file.type === 'image/png'
+    if (!needsResize && !needsCompression) return file
+
+    const canvas = document.createElement('canvas')
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(decoded.source, 0, 0, targetWidth, targetHeight)
+
+    const preferredType = file.type === 'image/webp' || file.type === 'image/png' ? 'image/webp' : 'image/jpeg'
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, preferredType, UPLOAD_IMAGE_QUALITY)
+    )
+    if (!blob || !blob.size) return file
+    if (!needsResize && file.size > 0 && blob.size / file.size >= MIN_COMPRESS_GAIN_RATIO) return file
+
+    const nextType = blob.type || preferredType
+    return new File([blob], buildOptimizedFileName(file.name, nextType), {
+      type: nextType,
+      lastModified: file.lastModified,
+    })
+  } finally {
+    decoded.release()
+  }
 }
 
 const parseCoordsFromLine = (line: string): LatLng | null => {
@@ -447,7 +530,7 @@ type MediaImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & 
   fallbackSrc?: string
 }
 
-const MediaImage = ({ src, fallbackSrc, alt, onError, ...rest }: MediaImageProps) => {
+const MediaImage = ({ src, fallbackSrc, alt, onError, loading, decoding, ...rest }: MediaImageProps) => {
   const [candidateSrc, setCandidateSrc] = useState<string>(src || fallbackSrc || '')
   const [resolvedSrc, setResolvedSrc] = useState<string>(src || fallbackSrc || '')
   const objectUrlRef = useRef<string | null>(null)
@@ -519,6 +602,8 @@ const MediaImage = ({ src, fallbackSrc, alt, onError, ...rest }: MediaImageProps
     <img
       src={resolvedSrc}
       alt={alt}
+      loading={loading ?? 'lazy'}
+      decoding={decoding ?? 'async'}
       onError={(event) => {
         if (fallbackSrc && !triedFallbackRef.current && fallbackSrc !== candidateSrc) {
           triedFallbackRef.current = true
@@ -562,7 +647,7 @@ const ContactIcons = ({ source, unlocked = false, className }: ContactIconsProps
               onClick={(event) => event.stopPropagation()}
             >
               {iconSrc ? (
-                <img className="contact-icon__img" src={iconSrc} alt="" loading="lazy" />
+                <img className="contact-icon__img" src={iconSrc} alt="" loading="lazy" decoding="async" />
               ) : (
                 <span className="contact-icon__fallback" aria-hidden="true">
                   {item.shortLabel}
@@ -581,7 +666,7 @@ const ContactIcons = ({ source, unlocked = false, className }: ContactIconsProps
             onClick={(event) => event.stopPropagation()}
           >
             {iconSrc ? (
-              <img className="contact-icon__img" src={iconSrc} alt="" loading="lazy" />
+              <img className="contact-icon__img" src={iconSrc} alt="" loading="lazy" decoding="async" />
             ) : (
               <span className="contact-icon__fallback" aria-hidden="true">
                 {item.shortLabel}
@@ -606,110 +691,7 @@ const ProfileAvatar = ({ user, size = 'md', className, label = 'Profile' }: Prof
   const initial = seed ? seed.trim().charAt(0).toUpperCase() : 'U'
   return (
     <div className={`avatar avatar--${size}${className ? ` ${className}` : ''}`}>
-      {user?.photoUrl ? <img src={user.photoUrl} alt={label} /> : <span>{initial}</span>}
-    </div>
-  )
-}
-
-const LogoAnimation = () => {
-  const [useCanvas] = useState(() => isIOSDevice())
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const frameRef = useRef(1)
-  const sizeRef = useRef({ width: 0, height: 0 })
-  const imagesRef = useRef<(HTMLImageElement | null)[]>([])
-
-  useEffect(() => {
-    if (!useCanvas) return
-    const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const images = new Array(LOGO_FRAME_COUNT).fill(null) as (HTMLImageElement | null)[]
-    imagesRef.current = images
-
-    for (let i = 1; i <= LOGO_FRAME_COUNT; i += 1) {
-      const img = new Image()
-      img.src = `${LOGO_FRAME_PREFIX}${String(i).padStart(4, '0')}.png`
-      img.onload = () => {
-        images[i - 1] = img
-      }
-    }
-
-    const resize = () => {
-      const rect = container.getBoundingClientRect()
-      if (!rect.width || !rect.height) return
-      const ratio = window.devicePixelRatio || 1
-      canvas.width = Math.max(1, Math.round(rect.width * ratio))
-      canvas.height = Math.max(1, Math.round(rect.height * ratio))
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-      ctx.imageSmoothingEnabled = true
-      sizeRef.current = { width: rect.width, height: rect.height }
-    }
-
-    resize()
-
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null
-    observer?.observe(container)
-    window.addEventListener('orientationchange', resize)
-    window.addEventListener('resize', resize)
-
-    let raf = 0
-    let lastTime = performance.now()
-    const frameDuration = 1000 / LOGO_FPS
-
-    const render = (time: number) => {
-      const elapsed = time - lastTime
-      if (elapsed >= frameDuration) {
-        const advance = Math.floor(elapsed / frameDuration)
-        frameRef.current = ((frameRef.current - 1 + advance) % LOGO_FRAME_COUNT) + 1
-        lastTime = time - (elapsed % frameDuration)
-      }
-
-      const img = imagesRef.current[frameRef.current - 1]
-      const { width, height } = sizeRef.current
-      if (img && width && height) {
-        ctx.clearRect(0, 0, width, height)
-        const scale = Math.min(width / img.width, height / img.height)
-        const drawW = img.width * scale
-        const drawH = img.height * scale
-        const dx = (width - drawW) / 2
-        const dy = (height - drawH) / 2
-        ctx.drawImage(img, dx, dy, drawW, drawH)
-      }
-
-      raf = requestAnimationFrame(render)
-    }
-
-    raf = requestAnimationFrame(render)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      observer?.disconnect()
-      window.removeEventListener('orientationchange', resize)
-      window.removeEventListener('resize', resize)
-      images.forEach((img, idx) => {
-        if (!img) return
-        img.onload = null
-        img.src = ''
-        images[idx] = null
-      })
-      imagesRef.current = []
-    }
-  }, [useCanvas])
-
-  return (
-    <div className="logo-video-wrap" ref={containerRef}>
-      {useCanvas ? (
-        <canvas className="logo-canvas" ref={canvasRef} />
-      ) : (
-        <video className="logo-video" autoPlay loop muted playsInline preload="auto">
-          <source src="/gigmov.webm" type="video/webm" />
-          <source src="/gigmov.mp4" type="video/mp4" />
-        </video>
-      )}
+      {user?.photoUrl ? <img src={user.photoUrl} alt={label} loading="lazy" decoding="async" /> : <span>{initial}</span>}
     </div>
   )
 }
@@ -2441,7 +2423,15 @@ function App() {
     const presignEnabled = isPresignEnabled()
     try {
       logInfo('media_upload_start', { count: fileArray.length })
-      for (const file of fileArray) {
+      for (const originalFile of fileArray) {
+        const file = await optimizeImageForUpload(originalFile)
+        if (file !== originalFile) {
+          logDebug('media_upload_optimized', {
+            fileName: originalFile.name,
+            originalBytes: originalFile.size,
+            optimizedBytes: file.size,
+          })
+        }
         const previewUrl = URL.createObjectURL(file)
         try {
           let fileUrl = ''
@@ -2858,7 +2848,7 @@ function App() {
                 <div className="admin-table__row" key={item.id}>
                   <div className="admin-user">
                     {item.photoUrl ? (
-                      <img src={item.photoUrl} alt={name || item.username || 'User'} />
+                      <img src={item.photoUrl} alt={name || item.username || 'User'} loading="lazy" decoding="async" />
                     ) : (
                       <div className="admin-user__placeholder" />
                     )}
@@ -2923,7 +2913,12 @@ function App() {
           <div className="admin-user-card">
             <div className="admin-user">
               {adminUserDetail.photoUrl ? (
-                <img src={adminUserDetail.photoUrl} alt={name || adminUserDetail.username || 'User'} />
+                <img
+                  src={adminUserDetail.photoUrl}
+                  alt={name || adminUserDetail.username || 'User'}
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="admin-user__placeholder" />
               )}
@@ -3415,7 +3410,7 @@ function App() {
                     >
                       <div className="profile-event__thumb">
                         {event.thumbnailUrl ? (
-                          <img src={event.thumbnailUrl} alt={event.title} loading="lazy" />
+                          <img src={event.thumbnailUrl} alt={event.title} loading="lazy" decoding="async" />
                         ) : (
                           <div className="profile-event__placeholder">No photo</div>
                         )}
@@ -3457,9 +3452,19 @@ function App() {
                 <span className="chip chip--ghost">{mapCenterLabel}</span>
               </div>
             </div>
-            <div className="hero__brand" aria-hidden="true">
-              <LogoAnimation />
-            </div>
+            <section
+              className={`map-card hero__map-card${createErrors.location ? ' map-card--error' : ''}`}
+              ref={mapCardRef}
+            >
+              <div className="map" ref={mapRef} />
+              <div className="map-overlay">
+                {pinLabel && <span className="chip chip--accent">Pin: {pinLabel}</span>}
+                <span className="chip chip--ghost">Tap map to pin</span>
+                {createErrors.location && creating && (
+                  <span className="chip chip--danger">{createErrors.location}</span>
+                )}
+              </div>
+            </section>
             <button
               type="button"
               className="hero__profile"
@@ -3525,19 +3530,7 @@ function App() {
             {loading && <div className="status status--loading">Loading...</div>}
           </div>
 
-          <div className="layout">
-        <section
-          className={`map-card${createErrors.location ? ' map-card--error' : ''}`}
-          ref={mapCardRef}
-        >
-          <div className="map" ref={mapRef} />
-          <div className="map-overlay">
-            {pinLabel && <span className="chip chip--accent">Pin: {pinLabel}</span>}
-            <span className="chip chip--ghost">Tap map to pin</span>
-            {createErrors.location && creating && <span className="chip chip--danger">{createErrors.location}</span>}
-          </div>
-        </section>
-
+          <div className={`layout${creating ? ' layout--with-create' : ''}`}>
         {creating && (
           <section className="panel form-panel" ref={createPanelRef}>
             <div className="panel__header">
