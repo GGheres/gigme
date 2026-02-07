@@ -2056,6 +2056,73 @@ button {
   font-weight: 600;
 }
 
+.admin-parser-import__full {
+  grid-column: 1 / -1;
+}
+
+.admin-parser-import textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.admin-parser-import__media-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-parser-import__media-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.admin-parser-import__media-empty {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-parser-import__media-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-parser-import__media-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-parser-import__media-thumb {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.admin-parser-import__media-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.admin-parser-import__media-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 select {
   border: 1px solid var(--line);
   border-radius: 14px;

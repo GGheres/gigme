@@ -276,3 +276,46 @@ func TestTelegramParserSinglePostURLParsesOnlyTargetMessage(t *testing.T) {
 		t.Fatalf("expected ticket link in parsed links, got %v", event.Links)
 	}
 }
+
+func TestTelegramParserMediaOrderFollowsMessageAndSkipsAvatar(t *testing.T) {
+	now := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
+	html := fmt.Sprintf(`
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message" data-post="order/55">
+    <div class="tgme_widget_message_user_photo"><img src="https://cdn.example.com/avatar.jpg"/></div>
+    <a class="tgme_widget_message_date"><time datetime="%s">recent</time></a>
+    <a class="tgme_widget_message_photo_wrap" style="background-image:url('https://cdn.example.com/1.jpg')"></a>
+    <a class="tgme_widget_message_photo_wrap" style="background-image:url('https://cdn.example.com/2.jpg')"></a>
+    <div class="tgme_widget_message_text">Line one<br/>Line two</div>
+  </div>
+</div>`, now)
+
+	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
+		"https://t.me/s/order": {status: 200, body: []byte(html)},
+	}}
+	d := newTestDispatcher(fetcher)
+	events, err := d.ParseEventsWithSource(context.Background(), "https://t.me/order", "telegram")
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	images := make([]string, 0)
+	for _, link := range events[0].Links {
+		if strings.HasSuffix(strings.ToLower(link), ".jpg") {
+			images = append(images, link)
+		}
+	}
+	if len(images) < 2 {
+		t.Fatalf("expected ordered photo links, got %v", events[0].Links)
+	}
+	if images[0] != "https://cdn.example.com/1.jpg" || images[1] != "https://cdn.example.com/2.jpg" {
+		t.Fatalf("expected media order [1,2], got %v", images)
+	}
+	for _, image := range images {
+		if image == "https://cdn.example.com/avatar.jpg" {
+			t.Fatalf("avatar must not be treated as event media: %v", images)
+		}
+	}
+}

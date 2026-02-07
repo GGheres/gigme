@@ -341,29 +341,44 @@ func collectHrefs(sel *goquery.Selection, pageURL string) []string {
 func collectTelegramMediaLinks(sel *goquery.Selection, pageURL string) []string {
 	base, _ := url.Parse(pageURL)
 	media := make([]string, 0)
-	sel.Find("a.tgme_widget_message_photo_wrap").Each(func(_ int, a *goquery.Selection) {
-		if href, ok := a.Attr("href"); ok {
-			if resolved := resolveHTTPURL(base, href); resolved != "" {
-				media = append(media, resolved)
-			}
-		}
-		style := strings.TrimSpace(a.AttrOr("style", ""))
+	sel.Find("a.tgme_widget_message_photo_wrap, a.tgme_widget_message_video_player i.tgme_widget_message_video_thumb, a.tgme_widget_message_photo_wrap img[src], a.tgme_widget_message_video_player img[src]").Each(func(_ int, node *goquery.Selection) {
+		style := strings.TrimSpace(node.AttrOr("style", ""))
 		if style != "" {
 			match := tgPhotoStyleURLRE.FindStringSubmatch(style)
 			if len(match) == 2 {
 				if resolved := resolveHTTPURL(base, match[1]); resolved != "" {
 					media = append(media, resolved)
+					return
 				}
 			}
 		}
-	})
-	sel.Find("img[src]").Each(func(_ int, img *goquery.Selection) {
-		src := strings.TrimSpace(img.AttrOr("src", ""))
-		if resolved := resolveHTTPURL(base, src); resolved != "" {
-			media = append(media, resolved)
+		src := strings.TrimSpace(node.AttrOr("src", ""))
+		if src != "" {
+			if resolved := resolveHTTPURL(base, src); resolved != "" {
+				media = append(media, resolved)
+				return
+			}
+		}
+		if href, ok := node.Attr("href"); ok {
+			if resolved := resolveHTTPURL(base, href); isLikelyImageURL(resolved) {
+				media = append(media, resolved)
+			}
 		}
 	})
 	return extract.MergeLinks(media)
+}
+
+func isLikelyImageURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u == nil {
+		return false
+	}
+	path := strings.ToLower(strings.TrimSpace(u.Path))
+	return strings.HasSuffix(path, ".jpg") ||
+		strings.HasSuffix(path, ".jpeg") ||
+		strings.HasSuffix(path, ".png") ||
+		strings.HasSuffix(path, ".webp") ||
+		strings.HasSuffix(path, ".gif")
 }
 
 func resolveHTTPURL(base *url.URL, raw string) string {

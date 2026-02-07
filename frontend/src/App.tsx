@@ -77,10 +77,14 @@ type FormDefaults = {
 type AppPage = 'home' | 'profile' | 'admin'
 type AdminSection = 'users' | 'user' | 'broadcasts' | 'parser'
 type ParserImportDraft = {
+  title: string
+  description: string
   startsAt: string
   lat: string
   lng: string
   addressLabel: string
+  linksText: string
+  media: string[]
 }
 
 const EMPTY_FORM_DEFAULTS: FormDefaults = {
@@ -155,6 +159,27 @@ const isImageLink = (value: string) => {
     return IMAGE_EXT_RE.test(raw.toLowerCase())
   }
 }
+
+const dedupeTrimmed = (values: string[], limit = 0) => {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of values) {
+    const value = raw.trim()
+    if (!value) continue
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(value)
+    if (limit > 0 && out.length >= limit) break
+  }
+  return out
+}
+
+const parserImageLinks = (links: string[]) => dedupeTrimmed(links.filter(isImageLink), 5)
+
+const parserEventLinks = (links: string[]) => dedupeTrimmed(links.filter((link) => !isImageLink(link)), 20)
+
+const parseLinksText = (text: string) => dedupeTrimmed(text.split(/\r?\n/), 20)
 
 const sortFeedItems = (items: EventCard[]) => {
   const now = Date.now()
@@ -2733,11 +2758,16 @@ function App() {
   const buildParserImportDraft = (item: AdminParsedEvent): ParserImportDraft => {
     const fallbackLat = mapCenter?.lat ?? DEFAULT_CENTER.lat
     const fallbackLng = mapCenter?.lng ?? DEFAULT_CENTER.lng
+    const links = item.links || []
     return {
+      title: item.name || '',
+      description: item.description || '',
       startsAt: item.dateTime ? formatDateTimeLocal(item.dateTime) : '',
       lat: String(fallbackLat),
       lng: String(fallbackLng),
       addressLabel: item.location || '',
+      linksText: parserEventLinks(links).join('\n'),
+      media: parserImageLinks(links),
     }
   }
 
@@ -2876,10 +2906,36 @@ function App() {
     setParserImportDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
   }
 
+  const moveParserDraftMedia = (id: number, index: number, direction: -1 | 1) => {
+    setParserImportDrafts((prev) => {
+      const current = prev[id]
+      if (!current) return prev
+      const target = index + direction
+      if (target < 0 || target >= current.media.length) return prev
+      const media = [...current.media]
+      const [item] = media.splice(index, 1)
+      media.splice(target, 0, item)
+      return { ...prev, [id]: { ...current, media } }
+    })
+  }
+
+  const removeParserDraftMedia = (id: number, index: number) => {
+    setParserImportDrafts((prev) => {
+      const current = prev[id]
+      if (!current) return prev
+      const media = current.media.filter((_, i) => i !== index)
+      return { ...prev, [id]: { ...current, media } }
+    })
+  }
+
+  const resetParserDraftMedia = (item: AdminParsedEvent) => {
+    updateParserDraft(item.id, { media: parserImageLinks(item.links || []) })
+  }
+
   const handleParserGeocode = async (item: AdminParsedEvent) => {
     if (!token) return
     const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
-    const query = (draft.addressLabel || item.location || item.name || '').trim()
+    const query = (draft.addressLabel || draft.title || item.location || item.name || '').trim()
     if (!query) {
       setParserError('Для геокодинга нужен адрес или название')
       return
@@ -2910,6 +2966,10 @@ function App() {
   const handleImportParsedEvent = async (item: AdminParsedEvent) => {
     if (!token) return
     const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
+    const title = draft.title.trim()
+    const description = draft.description.trim()
+    const links = parseLinksText(draft.linksText)
+    const media = parserImageLinks(draft.media)
     const lat = Number(draft.lat)
     const lng = Number(draft.lng)
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -2930,11 +2990,14 @@ function App() {
     setAdminAccessDenied(false)
     try {
       const res = await adminImportParsedEvent(token, item.id, {
+        title: title || undefined,
+        description: description || undefined,
         startsAt,
         lat,
         lng,
         addressLabel: draft.addressLabel.trim() || undefined,
-        links: (item.links || []).filter((link) => !isImageLink(link)).slice(0, 20),
+        links,
+        media,
       })
       showToast('Событие добавлено')
       await loadParsedEvents()
@@ -3625,23 +3688,28 @@ function App() {
           <div className="admin-parser-events">
             {parserEvents.map((item) => {
               const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
-              const imageLinks = (item.links || []).filter(isImageLink)
+              const draftLinks = parseLinksText(draft.linksText)
+              const imageLinks = item.status === 'pending' ? draft.media : parserImageLinks(item.links || [])
+              const viewLinks = item.status === 'pending' ? draftLinks : item.links || []
+              const viewTitle = item.status === 'pending' ? draft.title.trim() || item.name || 'Без названия' : item.name || 'Без названия'
+              const viewLocation = item.status === 'pending' ? draft.addressLabel.trim() || item.location : item.location
+              const viewDescription = item.status === 'pending' ? draft.description || item.description : item.description
               return (
                 <div className="admin-parser-event" key={item.id}>
                   <div className="admin-parser-event__header">
                     <div>
-                      <div className="admin-event__title">{item.name || 'Без названия'}</div>
+                      <div className="admin-event__title">{viewTitle}</div>
                       <div className="admin-event__meta">
                         {item.sourceType} · {formatTimestamp(item.dateTime)} · {formatTimestamp(item.parsedAt)}
                       </div>
                     </div>
                     <span className="badge badge--ghost">{item.status}</span>
                   </div>
-                  {item.location && <div className="admin-parser-event__location">{item.location}</div>}
-                  {item.description && <div className="admin-parser-event__description">{item.description}</div>}
+                  {viewLocation && <div className="admin-parser-event__location">{viewLocation}</div>}
+                  {viewDescription && <div className="admin-parser-event__description">{viewDescription}</div>}
                   {imageLinks.length > 0 && (
                     <div className="admin-parser-event__media">
-                      {imageLinks.slice(0, 5).map((link, index) => (
+                      {imageLinks.map((link, index) => (
                         <a
                           key={`${item.id}-img-${index}`}
                           className="admin-parser-event__media-item"
@@ -3655,9 +3723,9 @@ function App() {
                       ))}
                     </div>
                   )}
-                  {item.links?.length > 0 && (
+                  {viewLinks.length > 0 && (
                     <div className="admin-parser-event__links">
-                      {item.links.map((link) => (
+                      {viewLinks.map((link) => (
                         <a key={`${item.id}-${link}`} href={link} target="_blank" rel="noreferrer">
                           {link}
                         </a>
@@ -3667,6 +3735,22 @@ function App() {
                   {item.parserError && <div className="status status--error">{item.parserError}</div>}
                   {item.status === 'pending' && (
                     <div className="admin-parser-import">
+                      <label className="admin-parser-import__full">
+                        Название
+                        <input
+                          type="text"
+                          value={draft.title}
+                          onChange={(event) => updateParserDraft(item.id, { title: event.target.value })}
+                        />
+                      </label>
+                      <label className="admin-parser-import__full">
+                        Описание
+                        <textarea
+                          rows={8}
+                          value={draft.description}
+                          onChange={(event) => updateParserDraft(item.id, { description: event.target.value })}
+                        />
+                      </label>
                       <label>
                         StartsAt
                         <input
@@ -3709,6 +3793,65 @@ function App() {
                           {parserGeocodeBusyId === item.id ? 'Поиск…' : 'Автокоординаты'}
                         </button>
                       </label>
+                      <label className="admin-parser-import__full">
+                        Ссылки (по одной на строку)
+                        <textarea
+                          rows={5}
+                          value={draft.linksText}
+                          onChange={(event) => updateParserDraft(item.id, { linksText: event.target.value })}
+                        />
+                      </label>
+                      <div className="admin-parser-import__full admin-parser-import__media-editor">
+                        <div className="admin-parser-import__media-header">
+                          <span>Фото для импорта (порядок сохраняется)</span>
+                          <button
+                            type="button"
+                            className="button button--ghost button--compact"
+                            onClick={() => resetParserDraftMedia(item)}
+                          >
+                            Сбросить из парсера
+                          </button>
+                        </div>
+                        {draft.media.length === 0 ? (
+                          <div className="admin-parser-import__media-empty">Нет фото для импорта</div>
+                        ) : (
+                          <div className="admin-parser-import__media-list">
+                            {draft.media.map((link, index) => (
+                              <div className="admin-parser-import__media-row" key={`${item.id}-draft-media-${link}-${index}`}>
+                                <a href={link} target="_blank" rel="noreferrer" className="admin-parser-import__media-thumb">
+                                  <img src={link} alt={`draft-media-${index + 1}`} loading="lazy" decoding="async" />
+                                </a>
+                                <div className="admin-parser-import__media-controls">
+                                  <span className="chip chip--ghost">#{index + 1}</span>
+                                  <button
+                                    type="button"
+                                    className="button button--ghost button--compact"
+                                    disabled={index === 0}
+                                    onClick={() => moveParserDraftMedia(item.id, index, -1)}
+                                  >
+                                    Влево
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="button button--ghost button--compact"
+                                    disabled={index === draft.media.length - 1}
+                                    onClick={() => moveParserDraftMedia(item.id, index, 1)}
+                                  >
+                                    Вправо
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="button button--danger button--compact"
+                                    onClick={() => removeParserDraftMedia(item.id, index)}
+                                  >
+                                    Убрать
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <div className="admin-parser-actions">
                         <button
                           type="button"
