@@ -7,6 +7,7 @@ import {
   adminBlockUser,
   adminCreateBroadcast,
   adminCreateParserSource,
+  adminDeleteParsedEvent,
   adminGeocodeLocation,
   adminGetBroadcast,
   adminGetUser,
@@ -135,6 +136,24 @@ const formatTimestamp = (value?: string | null) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
   return date.toLocaleString()
+}
+
+const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i
+
+const isImageLink = (value: string) => {
+  const raw = value.trim()
+  if (!raw) return false
+  try {
+    const parsed = new URL(raw)
+    const path = parsed.pathname.toLowerCase()
+    if (IMAGE_EXT_RE.test(path)) return true
+    if (path.includes('/photo') || path.includes('/image') || path.includes('/img')) return true
+    const query = parsed.search.toLowerCase()
+    if (query.includes('format=jpg') || query.includes('format=jpeg') || query.includes('format=png')) return true
+    return false
+  } catch {
+    return IMAGE_EXT_RE.test(raw.toLowerCase())
+  }
 }
 
 const sortFeedItems = (items: EventCard[]) => {
@@ -1059,6 +1078,7 @@ function App() {
   const [parserSourceParseBusyId, setParserSourceParseBusyId] = useState<number | null>(null)
   const [parserImportBusyId, setParserImportBusyId] = useState<number | null>(null)
   const [parserRejectBusyId, setParserRejectBusyId] = useState<number | null>(null)
+  const [parserDeleteBusyId, setParserDeleteBusyId] = useState<number | null>(null)
   const [parserGeocodeBusyId, setParserGeocodeBusyId] = useState<number | null>(null)
   const [parserImportDrafts, setParserImportDrafts] = useState<Record<number, ParserImportDraft>>({})
   const [adminLoginUsername, setAdminLoginUsername] = useState('')
@@ -2914,6 +2934,7 @@ function App() {
         lat,
         lng,
         addressLabel: draft.addressLabel.trim() || undefined,
+        links: (item.links || []).filter((link) => !isImageLink(link)).slice(0, 20),
       })
       showToast('Событие добавлено')
       await loadParsedEvents()
@@ -2938,6 +2959,21 @@ function App() {
       handleAdminApiError(err, setParserError)
     } finally {
       setParserRejectBusyId(null)
+    }
+  }
+
+  const handleDeleteParsed = async (id: number) => {
+    if (!token) return
+    setParserDeleteBusyId(id)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      await adminDeleteParsedEvent(token, id)
+      await loadParsedEvents()
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserDeleteBusyId(null)
     }
   }
 
@@ -3589,6 +3625,7 @@ function App() {
           <div className="admin-parser-events">
             {parserEvents.map((item) => {
               const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
+              const imageLinks = (item.links || []).filter(isImageLink)
               return (
                 <div className="admin-parser-event" key={item.id}>
                   <div className="admin-parser-event__header">
@@ -3602,6 +3639,22 @@ function App() {
                   </div>
                   {item.location && <div className="admin-parser-event__location">{item.location}</div>}
                   {item.description && <div className="admin-parser-event__description">{item.description}</div>}
+                  {imageLinks.length > 0 && (
+                    <div className="admin-parser-event__media">
+                      {imageLinks.slice(0, 5).map((link, index) => (
+                        <a
+                          key={`${item.id}-img-${index}`}
+                          className="admin-parser-event__media-item"
+                          href={link}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={link}
+                        >
+                          <img src={link} alt={`preview-${index + 1}`} loading="lazy" decoding="async" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {item.links?.length > 0 && (
                     <div className="admin-parser-event__links">
                       {item.links.map((link) => (
@@ -3673,17 +3726,47 @@ function App() {
                         >
                           {parserRejectBusyId === item.id ? '...' : 'Отклонить'}
                         </button>
+                        <button
+                          type="button"
+                          className="button button--danger button--compact"
+                          onClick={() => handleDeleteParsed(item.id)}
+                          disabled={parserDeleteBusyId === item.id}
+                        >
+                          {parserDeleteBusyId === item.id ? 'Удаление…' : 'Удалить из базы'}
+                        </button>
                       </div>
                     </div>
                   )}
                   {item.status === 'imported' && item.importedEventId && (
-                    <button
-                      type="button"
-                      className="button button--ghost button--compact"
-                      onClick={() => openEventFromAdmin(item.importedEventId!)}
-                    >
-                      Открыть событие #{item.importedEventId}
-                    </button>
+                    <div className="admin-parser-actions">
+                      <button
+                        type="button"
+                        className="button button--ghost button--compact"
+                        onClick={() => openEventFromAdmin(item.importedEventId!)}
+                      >
+                        Открыть событие #{item.importedEventId}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--danger button--compact"
+                        onClick={() => handleDeleteParsed(item.id)}
+                        disabled={parserDeleteBusyId === item.id}
+                      >
+                        {parserDeleteBusyId === item.id ? 'Удаление…' : 'Удалить из базы'}
+                      </button>
+                    </div>
+                  )}
+                  {item.status !== 'pending' && item.status !== 'imported' && (
+                    <div className="admin-parser-actions">
+                      <button
+                        type="button"
+                        className="button button--danger button--compact"
+                        onClick={() => handleDeleteParsed(item.id)}
+                        disabled={parserDeleteBusyId === item.id}
+                      >
+                        {parserDeleteBusyId === item.id ? 'Удаление…' : 'Удалить из базы'}
+                      </button>
+                    </div>
                   )}
                 </div>
               )
@@ -4431,6 +4514,15 @@ function App() {
                       </div>
                     )}
                     <p className="detail-description">{renderDescription(detailEvent.event.description)}</p>
+                    {detailEvent.event.links && detailEvent.event.links.length > 0 && (
+                      <div className="detail-links">
+                        {detailEvent.event.links.map((link) => (
+                          <a key={`${detailEvent.event.id}-${link}`} href={link} target="_blank" rel="noreferrer">
+                            {link}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     <div className="media-list">
                       {detailEvent.media.slice(1).map((url, index) => (
                         <MediaImage

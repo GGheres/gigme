@@ -113,6 +113,7 @@ export type EventCard = {
   id: number
   title: string
   description: string
+  links?: string[]
   startsAt: string
   endsAt?: string
   lat: number
@@ -263,7 +264,9 @@ export type AdminParsedEventsResponse = {
 }
 
 export type AdminParserParseResponse = {
-  item: AdminParsedEvent
+  item?: AdminParsedEvent
+  items?: AdminParsedEvent[]
+  count?: number
   error?: string
 }
 
@@ -658,6 +661,7 @@ export function adminImportParsedEvent(
     lng: number
     addressLabel?: string
     media?: string[]
+    links?: string[]
     filters?: string[]
   }
 ) {
@@ -670,6 +674,10 @@ export function adminImportParsedEvent(
 
 export function adminRejectParsedEvent(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/parser/events/${id}/reject`, { method: 'POST' }, token)
+}
+
+export function adminDeleteParsedEvent(token: string, id: number) {
+  return apiFetch<{ ok: boolean }>(`/admin/parser/events/${id}`, { method: 'DELETE' }, token)
 }
 
 export function adminLogin(payload: { username: string; password: string; telegramId?: number }) {

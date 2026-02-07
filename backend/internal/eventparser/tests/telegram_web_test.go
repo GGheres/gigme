@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -100,5 +101,66 @@ func TestWebParserJSONLDAndFallbackFixtures(t *testing.T) {
 	}
 	if fallbackEvent.Location == "" {
 		t.Fatalf("expected fallback location")
+	}
+}
+
+func TestTelegramParserParsesAllMessagesForLast24HoursWithImage(t *testing.T) {
+	now := time.Now().UTC()
+	recent := now.Add(-3 * time.Hour).Format(time.RFC3339)
+	withinDay := now.Add(-12 * time.Hour).Format(time.RFC3339)
+	older := now.Add(-30 * time.Hour).Format(time.RFC3339)
+
+	html := fmt.Sprintf(`
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message">
+    <a class="tgme_widget_message_date"><time datetime="%s">old</time></a>
+    <div class="tgme_widget_message_text">Old event should be skipped</div>
+  </div>
+</div>
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message">
+    <a class="tgme_widget_message_date"><time datetime="%s">recent</time></a>
+    <a class="tgme_widget_message_photo_wrap" style="background-image:url('https://cdn.example.com/pic.jpg')"></a>
+    <div class="tgme_widget_message_text">Morning Meetup
+Place: River Park</div>
+  </div>
+</div>
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message">
+    <a class="tgme_widget_message_date"><time datetime="%s">recent2</time></a>
+    <div class="tgme_widget_message_text">Evening Meetup
+Место: Loft Hall</div>
+  </div>
+</div>`, older, withinDay, recent)
+
+	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
+		"https://t.me/s/multi": {status: 200, body: []byte(html)},
+	}}
+	d := newTestDispatcher(fetcher)
+	events, err := d.ParseEventsWithSource(context.Background(), "https://t.me/s/multi", "telegram")
+	if err != nil {
+		t.Fatalf("parse many failed: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events from last 24 hours, got %d", len(events))
+	}
+	if events[0].DateTime == nil || events[1].DateTime == nil {
+		t.Fatalf("expected message timestamps in parsed events")
+	}
+	if !events[0].DateTime.After(*events[1].DateTime) {
+		t.Fatalf("expected events sorted by recency: %v >= %v", events[0].DateTime, events[1].DateTime)
+	}
+	if len(events[1].Links) == 0 {
+		t.Fatalf("expected image link merged into links, got %v", events[1].Links)
+	}
+	foundImage := false
+	for _, link := range events[1].Links {
+		if link == "https://cdn.example.com/pic.jpg" {
+			foundImage = true
+			break
+		}
+	}
+	if !foundImage {
+		t.Fatalf("expected telegram photo link in event links, got %v", events[1].Links)
 	}
 }

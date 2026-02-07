@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
@@ -27,6 +28,17 @@ func (d *Dispatcher) ParseEvent(ctx context.Context, input string) (*EventData, 
 }
 
 func (d *Dispatcher) ParseEventWithSource(ctx context.Context, input string, explicit SourceType) (*EventData, error) {
+	events, err := d.ParseEventsWithSource(ctx, input, explicit)
+	if err != nil {
+		return nil, err
+	}
+	if len(events) == 0 {
+		return nil, fmt.Errorf("no events parsed")
+	}
+	return events[0], nil
+}
+
+func (d *Dispatcher) ParseEventsWithSource(ctx context.Context, input string, explicit SourceType) ([]*EventData, error) {
 	if d == nil {
 		return nil, errors.New("dispatcher is nil")
 	}
@@ -75,7 +87,18 @@ func (d *Dispatcher) ParseEventWithSource(ctx context.Context, input string, exp
 	if parser == nil {
 		return nil, fmt.Errorf("parser not configured for source: %s", source)
 	}
-	return parser.Parse(ctx, normalizedInput)
+	if batchParser, ok := parser.(BatchParser); ok {
+		items, err := batchParser.ParseMany(ctx, normalizedInput)
+		if err != nil {
+			return nil, err
+		}
+		return normalizeEvents(items), nil
+	}
+	item, err := parser.Parse(ctx, normalizedInput)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeEvents([]*EventData{item}), nil
 }
 
 func SourceFromURL(u *url.URL) SourceType {
@@ -135,4 +158,29 @@ func normalizeTelegramChannel(input string) (string, bool) {
 		return "", false
 	}
 	return raw, true
+}
+
+func normalizeEvents(items []*EventData) []*EventData {
+	out := make([]*EventData, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		out = append(out, item)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		li := out[i].DateTime
+		lj := out[j].DateTime
+		switch {
+		case li == nil && lj == nil:
+			return false
+		case li == nil:
+			return false
+		case lj == nil:
+			return true
+		default:
+			return li.After(*lj)
+		}
+	})
+	return out
 }

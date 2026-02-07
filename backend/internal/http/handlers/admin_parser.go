@@ -46,8 +46,10 @@ type parseInputRequest struct {
 }
 
 type parseInputResponse struct {
-	Item  models.AdminParsedEvent `json:"item"`
-	Error string                  `json:"error,omitempty"`
+	Item  *models.AdminParsedEvent  `json:"item,omitempty"`
+	Items []models.AdminParsedEvent `json:"items,omitempty"`
+	Count int                       `json:"count"`
+	Error string                    `json:"error,omitempty"`
 }
 
 type geocodeLocationRequest struct {
@@ -67,6 +69,7 @@ type importParsedEventRequest struct {
 	Lng         *float64 `json:"lng"`
 	Address     *string  `json:"addressLabel"`
 	Media       []string `json:"media"`
+	Links       []string `json:"links"`
 	Filters     []string `json:"filters"`
 }
 
@@ -198,13 +201,21 @@ func (h *Handler) ParseParserSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, parseErr := h.parseAndStore(ctx, &id, parsercore.SourceType(source.SourceType), source.Input)
+	items, parseErr := h.parseAndStore(ctx, &id, parsercore.SourceType(source.SourceType), source.Input)
 	_ = h.repo.TouchAdminParserSourceParsed(ctx, id)
 	if parseErr != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, parseInputResponse{Item: item, Error: parseErr.Error()})
+		resp := parseInputResponse{Items: items, Count: len(items), Error: parseErr.Error()}
+		if len(items) > 0 {
+			resp.Item = &items[0]
+		}
+		writeJSON(w, http.StatusUnprocessableEntity, resp)
 		return
 	}
-	writeJSON(w, http.StatusOK, parseInputResponse{Item: item})
+	resp := parseInputResponse{Items: items, Count: len(items)}
+	if len(items) > 0 {
+		resp.Item = &items[0]
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
@@ -230,12 +241,20 @@ func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	item, parseErr := h.parseAndStore(ctx, nil, sourceType, input)
+	items, parseErr := h.parseAndStore(ctx, nil, sourceType, input)
 	if parseErr != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, parseInputResponse{Item: item, Error: parseErr.Error()})
+		resp := parseInputResponse{Items: items, Count: len(items), Error: parseErr.Error()}
+		if len(items) > 0 {
+			resp.Item = &items[0]
+		}
+		writeJSON(w, http.StatusUnprocessableEntity, resp)
 		return
 	}
-	writeJSON(w, http.StatusOK, parseInputResponse{Item: item})
+	resp := parseInputResponse{Items: items, Count: len(items)}
+	if len(items) > 0 {
+		resp.Item = &items[0]
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) GeocodeParserLocation(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +353,30 @@ func (h *Handler) RejectParsedEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+func (h *Handler) DeleteParsedEvent(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_delete_event"); !ok {
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid parsed event id")
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	if err := h.repo.DeleteAdminParsedEvent(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "parsed event not found")
+			return
+		}
+		logger.Error("action", "action", "admin_parser_delete_event", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_import_event"); !ok {
@@ -377,10 +420,6 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	if *req.Lat < -90 || *req.Lat > 90 || *req.Lng < -180 || *req.Lng > 180 {
 		writeError(w, http.StatusBadRequest, "invalid coordinates")
-		return
-	}
-	if len(req.Media) > 5 {
-		writeError(w, http.StatusBadRequest, "media limit exceeded")
 		return
 	}
 
@@ -431,8 +470,10 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 		Lng:           *req.Lng,
 		AddressLabel:  address,
 		Filters:       filters,
+		Links:         normalizeImportLinks(req.Links, parsedEvent.Links, 20),
 	}
-	eventID, err := h.repo.ImportAdminParsedEvent(ctx, id, adminUserID, event, req.Media)
+	media := normalizeImportMedia(req.Media, parsedEvent.Links, 5)
+	eventID, err := h.repo.ImportAdminParsedEvent(ctx, id, adminUserID, event, media)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "parsed event not found")
@@ -445,11 +486,11 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "eventId": eventID})
 }
 
-func (h *Handler) parseAndStore(ctx context.Context, sourceID *int64, sourceType parsercore.SourceType, input string) (models.AdminParsedEvent, error) {
+func (h *Handler) parseAndStore(ctx context.Context, sourceID *int64, sourceType parsercore.SourceType, input string) ([]models.AdminParsedEvent, error) {
 	if sourceType == "" {
 		sourceType = parsercore.SourceAuto
 	}
-	eventData, err := h.eventParser.ParseEventWithSource(ctx, input, sourceType)
+	events, err := h.eventParser.ParseEventsWithSource(ctx, input, sourceType)
 	if err != nil {
 		item, saveErr := h.repo.CreateAdminParsedEvent(
 			ctx,
@@ -465,27 +506,56 @@ func (h *Handler) parseAndStore(ctx context.Context, sourceID *int64, sourceType
 			err.Error(),
 		)
 		if saveErr != nil {
-			return models.AdminParsedEvent{}, fmt.Errorf("parse error: %w; save error: %v", err, saveErr)
+			return nil, fmt.Errorf("parse error: %w; save error: %v", err, saveErr)
 		}
-		return item, err
+		return []models.AdminParsedEvent{item}, err
 	}
-	item, saveErr := h.repo.CreateAdminParsedEvent(
-		ctx,
-		sourceID,
-		string(sourceType),
-		input,
-		eventData.Name,
-		eventData.DateTime,
-		eventData.Location,
-		eventData.Description,
-		eventData.Links,
-		"pending",
-		"",
-	)
-	if saveErr != nil {
-		return models.AdminParsedEvent{}, saveErr
+	if len(events) == 0 {
+		item, saveErr := h.repo.CreateAdminParsedEvent(
+			ctx,
+			sourceID,
+			string(sourceType),
+			input,
+			"",
+			nil,
+			"",
+			"",
+			nil,
+			"error",
+			"no events parsed",
+		)
+		if saveErr != nil {
+			return nil, saveErr
+		}
+		return []models.AdminParsedEvent{item}, fmt.Errorf("no events parsed")
 	}
-	return item, nil
+	out := make([]models.AdminParsedEvent, 0, len(events))
+	for _, eventData := range events {
+		if eventData == nil {
+			continue
+		}
+		item, saveErr := h.repo.CreateAdminParsedEvent(
+			ctx,
+			sourceID,
+			string(sourceType),
+			input,
+			eventData.Name,
+			eventData.DateTime,
+			eventData.Location,
+			eventData.Description,
+			eventData.Links,
+			"pending",
+			"",
+		)
+		if saveErr != nil {
+			return out, saveErr
+		}
+		out = append(out, item)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no events parsed")
+	}
+	return out, nil
 }
 
 func normalizeParserSourceType(raw string) (parsercore.SourceType, error) {
@@ -518,4 +588,79 @@ func parseEventTime(raw string) (time.Time, error) {
 		return ts, nil
 	}
 	return time.Time{}, fmt.Errorf("invalid time")
+}
+
+func normalizeImportMedia(explicit []string, links []string, limit int) []string {
+	candidates := explicit
+	if len(candidates) == 0 {
+		candidates = extractImageLinks(links)
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	out := make([]string, 0, len(candidates))
+	for _, raw := range candidates {
+		link := strings.TrimSpace(raw)
+		if link == "" {
+			continue
+		}
+		if _, exists := seen[link]; exists {
+			continue
+		}
+		seen[link] = struct{}{}
+		out = append(out, link)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func extractImageLinks(links []string) []string {
+	out := make([]string, 0, len(links))
+	for _, link := range links {
+		l := strings.ToLower(strings.TrimSpace(link))
+		if l == "" {
+			continue
+		}
+		if strings.Contains(l, "image") ||
+			strings.HasSuffix(l, ".jpg") ||
+			strings.HasSuffix(l, ".jpeg") ||
+			strings.HasSuffix(l, ".png") ||
+			strings.HasSuffix(l, ".webp") ||
+			strings.HasSuffix(l, ".gif") {
+			out = append(out, link)
+		}
+	}
+	return out
+}
+
+func normalizeImportLinks(explicit []string, parsed []string, limit int) []string {
+	candidates := explicit
+	if len(candidates) == 0 {
+		candidates = parsed
+	}
+	images := make(map[string]struct{})
+	for _, img := range extractImageLinks(candidates) {
+		images[strings.ToLower(strings.TrimSpace(img))] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	out := make([]string, 0, len(candidates))
+	for _, raw := range candidates {
+		link := strings.TrimSpace(raw)
+		if link == "" {
+			continue
+		}
+		key := strings.ToLower(link)
+		if _, isImage := images[key]; isImage {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, link)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out
 }

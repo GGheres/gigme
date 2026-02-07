@@ -145,15 +145,19 @@ func (r *Repository) CreateEvent(ctx context.Context, event models.Event) (int64
 	if filters == nil {
 		filters = []string{}
 	}
+	links := event.Links
+	if links == nil {
+		links = []string{}
+	}
 	query := `
 INSERT INTO events (
 	creator_user_id, title, description, starts_at, ends_at, location, address_label,
 	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
-	capacity, is_hidden, is_private, access_key, promoted_until, filters
+	capacity, is_hidden, is_private, access_key, promoted_until, filters, links
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
 ) RETURNING id;`
 
 	row := r.pool.QueryRow(ctx, query,
@@ -176,6 +180,7 @@ INSERT INTO events (
 		nullString(event.AccessKey),
 		event.PromotedUntil,
 		filters,
+		links,
 	)
 
 	var id int64
@@ -267,7 +272,7 @@ func (r *Repository) GetFeed(ctx context.Context, userID int64, limit, offset in
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
-	e.capacity, e.promoted_until, e.filters, e.is_private,
+	e.capacity, e.promoted_until, e.filters, e.links, e.is_private,
 	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
@@ -336,6 +341,7 @@ LIMIT $2 OFFSET $3;`
 			&e.Capacity,
 			&e.PromotedUntil,
 			&e.Filters,
+			&e.Links,
 			&e.IsPrivate,
 			&contactTelegram,
 			&contactWhatsapp,
@@ -416,6 +422,7 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID int64) (models.Ev
 SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
+	e.links,
 	e.address_label,
 	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
 	e.capacity, e.is_hidden, e.is_private, e.access_key, e.promoted_until, e.filters,
@@ -446,6 +453,7 @@ WHERE e.id = $1;`
 		&e.EndsAt,
 		&e.Lat,
 		&e.Lng,
+		&e.Links,
 		&address,
 		&contactTelegram,
 		&contactWhatsapp,
@@ -782,16 +790,20 @@ func (r *Repository) CreateEventWithMedia(ctx context.Context, event models.Even
 	if filters == nil {
 		filters = []string{}
 	}
+	links := event.Links
+	if links == nil {
+		links = []string{}
+	}
 	return eventID, r.WithTx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx, `
 INSERT INTO events (
 	creator_user_id, title, description, starts_at, ends_at, location, address_label,
 	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
-	capacity, is_hidden, is_private, access_key, promoted_until, filters
+	capacity, is_hidden, is_private, access_key, promoted_until, filters, links
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
 ) RETURNING id;`,
 			event.CreatorUserID,
 			event.Title,
@@ -812,6 +824,7 @@ INSERT INTO events (
 			nullString(event.AccessKey),
 			event.PromotedUntil,
 			filters,
+			links,
 		)
 		if err := row.Scan(&eventID); err != nil {
 			return err

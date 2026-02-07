@@ -176,6 +176,8 @@ Promoted events are marked as featured and sorted to the top while `promoted_unt
 - Instagram and VK often block unauthenticated scraping:
   - parser returns typed errors (`AuthRequiredError` / `DynamicContentError`) with hints.
 - Browser rendering is not enabled by default; only `BrowserFetcher` interface stub is provided for future Playwright/Selenium integration.
+- Telegram parser now extracts all channel messages for the last 24 hours from `/s/` view and includes photo URLs from message media blocks.
+- During import from parser, if media is not set manually, image links are auto-selected from parsed links.
 - Admin geocoding uses Nominatim (OpenStreetMap) via `/admin/parser/geocode`; lat/lng can be auto-filled from location text.
 
 ### CLI usage

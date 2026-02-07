@@ -124,6 +124,7 @@ func main() {
 		r.Get("/admin/parser/events", h.ListParsedEvents)
 		r.Post("/admin/parser/events/{id}/import", h.ImportParsedEvent)
 		r.Post("/admin/parser/events/{id}/reject", h.RejectParsedEvent)
+		r.Delete("/admin/parser/events/{id}", h.DeleteParsedEvent)
 		r.Post("/admin/events/{id}/hide", h.HideEvent)
 		r.Patch("/admin/events/{id}", h.UpdateEventAdmin)
 		r.Delete("/admin/events/{id}", h.DeleteEventAdmin)

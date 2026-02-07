@@ -38,6 +38,12 @@ type Parser interface {
 	Parse(ctx context.Context, input string) (*EventData, error)
 }
 
+// BatchParser is optional. Parsers may implement it when one input can
+// naturally contain multiple events (e.g. Telegram channel stream).
+type BatchParser interface {
+	ParseMany(ctx context.Context, input string) ([]*EventData, error)
+}
+
 type Fetcher interface {
 	Get(ctx context.Context, url string, headers map[string]string) ([]byte, int, error)
 }

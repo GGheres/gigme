@@ -23,6 +23,10 @@ func ParseEventWithSource(ctx context.Context, input string, source core.SourceT
 	return DefaultDispatcher().ParseEventWithSource(ctx, input, source)
 }
 
+func ParseEventsWithSource(ctx context.Context, input string, source core.SourceType) ([]*core.EventData, error) {
+	return DefaultDispatcher().ParseEventsWithSource(ctx, input, source)
+}
+
 func DefaultDispatcher() *core.Dispatcher {
 	defaultOnce.Do(func() {
 		defaultDispatcher = NewDispatcher(nil, nil, nil)

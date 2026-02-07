@@ -21,6 +21,7 @@ type Event struct {
 	CreatorUserID      int64      `json:"creatorUserId"`
 	Title              string     `json:"title"`
 	Description        string     `json:"description"`
+	Links              []string   `json:"links,omitempty"`
 	StartsAt           time.Time  `json:"startsAt"`
 	EndsAt             *time.Time `json:"endsAt,omitempty"`
 	Lat                float64    `json:"lat"`

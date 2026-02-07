@@ -219,11 +219,26 @@ WHERE id = $1 AND status <> 'imported';`, id)
 	return nil
 }
 
+func (r *Repository) DeleteAdminParsedEvent(ctx context.Context, id int64) error {
+	cmd, err := r.pool.Exec(ctx, `DELETE FROM admin_event_parser_events WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 func (r *Repository) ImportAdminParsedEvent(ctx context.Context, parsedEventID, importedBy int64, event models.Event, media []string) (int64, error) {
 	var eventID int64
 	filters := event.Filters
 	if filters == nil {
 		filters = []string{}
+	}
+	links := event.Links
+	if links == nil {
+		links = []string{}
 	}
 	err := r.WithTx(ctx, func(tx pgx.Tx) error {
 		var status string
@@ -238,11 +253,11 @@ func (r *Repository) ImportAdminParsedEvent(ctx context.Context, parsedEventID, 
 INSERT INTO events (
 	creator_user_id, title, description, starts_at, ends_at, location, address_label,
 	contact_telegram, contact_whatsapp, contact_wechat, contact_fb_messenger, contact_snapchat,
-	capacity, is_hidden, is_private, access_key, promoted_until, filters
+	capacity, is_hidden, is_private, access_key, promoted_until, filters, links
 ) VALUES (
 	$1, $2, $3, $4, $5,
 	ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+	$8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
 ) RETURNING id;`,
 			event.CreatorUserID,
 			event.Title,
@@ -263,6 +278,7 @@ INSERT INTO events (
 			nullString(event.AccessKey),
 			event.PromotedUntil,
 			filters,
+			links,
 		)
 		if err := row.Scan(&eventID); err != nil {
 			return err
