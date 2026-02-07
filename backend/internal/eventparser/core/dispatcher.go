@@ -129,18 +129,35 @@ func SourceFromURL(u *url.URL) SourceType {
 }
 
 func parseHTTPURL(raw string) (*url.URL, bool) {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || u == nil {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return nil, false
 	}
-	if u.Scheme == "" || u.Host == "" {
-		return nil, false
+	candidates := []string{trimmed}
+	lower := strings.ToLower(trimmed)
+	if !strings.Contains(lower, "://") {
+		if strings.HasPrefix(lower, "t.me/") ||
+			strings.HasPrefix(lower, "www.t.me/") ||
+			strings.HasPrefix(lower, "telegram.me/") ||
+			strings.HasPrefix(lower, "www.telegram.me/") {
+			candidates = append([]string{"https://" + trimmed}, candidates...)
+		}
 	}
-	scheme := strings.ToLower(u.Scheme)
-	if scheme != "http" && scheme != "https" {
-		return nil, false
+	for _, candidate := range candidates {
+		u, err := url.Parse(candidate)
+		if err != nil || u == nil {
+			continue
+		}
+		if u.Scheme == "" || u.Host == "" {
+			continue
+		}
+		scheme := strings.ToLower(u.Scheme)
+		if scheme != "http" && scheme != "https" {
+			continue
+		}
+		return u, true
 	}
-	return u, true
+	return nil, false
 }
 
 func normalizeTelegramChannel(input string) (string, bool) {

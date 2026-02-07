@@ -40,6 +40,14 @@ Place: Amsterdam</div>`),
 		t.Fatalf("unexpected telegram result: %+v", telegramEvent)
 	}
 
+	telegramURLNoScheme, err := d.ParseEvent(ctx, "t.me/s/gigmechannel")
+	if err != nil {
+		t.Fatalf("telegram no-scheme parse: %v", err)
+	}
+	if telegramURLNoScheme.Name == "" {
+		t.Fatalf("expected telegram event name for no-scheme URL")
+	}
+
 	instagramEvent, err := d.ParseEvent(ctx, "https://instagram.com/p/test")
 	if err != nil {
 		t.Fatalf("instagram parse: %v", err)

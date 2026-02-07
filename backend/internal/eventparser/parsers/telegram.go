@@ -61,13 +61,40 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 	for pageIdx := 0; pageIdx < maxPages; pageIdx++ {
 		body, status, err := p.fetcher.Get(ctx, currentURL, nil)
 		if err != nil {
+			if len(items) > 0 {
+				p.logger.Warn("telegram pagination fetch failed; returning partial result",
+					"url", currentURL,
+					"page", pageIdx,
+					"error", err,
+					"parsed_events", len(items),
+				)
+				break
+			}
 			return nil, err
 		}
 		if status >= http.StatusBadRequest {
+			if len(items) > 0 {
+				p.logger.Warn("telegram pagination returned bad status; returning partial result",
+					"url", currentURL,
+					"page", pageIdx,
+					"status", status,
+					"parsed_events", len(items),
+				)
+				break
+			}
 			return nil, fmt.Errorf("telegram fetch failed: status %d", status)
 		}
 		doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		if err != nil {
+			if len(items) > 0 {
+				p.logger.Warn("telegram pagination html parse failed; returning partial result",
+					"url", currentURL,
+					"page", pageIdx,
+					"error", err,
+					"parsed_events", len(items),
+				)
+				break
+			}
 			return nil, err
 		}
 
@@ -168,7 +195,8 @@ func normalizeTelegramInput(input string) (string, error) {
 		if err != nil || u.Hostname() == "" {
 			return "", &core.UnsupportedInputError{Input: input, Hint: "invalid telegram URL"}
 		}
-		if u.Hostname() != "t.me" {
+		host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+		if host != "t.me" && host != "telegram.me" && !strings.HasSuffix(host, ".t.me") && !strings.HasSuffix(host, ".telegram.me") {
 			return "", &core.UnsupportedInputError{Input: input, Hint: "expected t.me URL"}
 		}
 		if !strings.HasPrefix(u.Path, "/s/") {

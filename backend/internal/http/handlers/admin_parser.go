@@ -188,7 +188,7 @@ func (h *Handler) ParseParserSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	source, err := h.repo.GetAdminParserSource(ctx, id)
 	if err != nil {
@@ -239,7 +239,7 @@ func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	items, parseErr := h.parseAndStore(ctx, nil, sourceType, input)
 	if parseErr != nil {

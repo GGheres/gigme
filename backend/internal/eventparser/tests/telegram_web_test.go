@@ -164,3 +164,31 @@ Place: River Park</div>
 		t.Fatalf("expected telegram photo link in event links, got %v", events[1].Links)
 	}
 }
+
+func TestTelegramParserReturnsPartialResultsWhenNextPageFails(t *testing.T) {
+	recent := time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)
+	firstPage := fmt.Sprintf(`
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message" data-post="sample/10">
+    <a class="tgme_widget_message_date"><time datetime="%s">recent</time></a>
+    <div class="tgme_widget_message_text">Single Event
+Place: Main Hall</div>
+  </div>
+</div>`, recent)
+
+	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
+		"https://t.me/s/sample":           {status: 200, body: []byte(firstPage)},
+		"https://t.me/s/sample?before=10": {status: 500, body: []byte("upstream failed")},
+	}}
+	d := newTestDispatcher(fetcher)
+	events, err := d.ParseEventsWithSource(context.Background(), "https://t.me/s/sample", "telegram")
+	if err != nil {
+		t.Fatalf("expected partial success, got error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one event from first page, got %d", len(events))
+	}
+	if events[0].Name == "" {
+		t.Fatalf("expected parsed event name")
+	}
+}
