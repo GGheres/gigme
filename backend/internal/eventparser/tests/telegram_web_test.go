@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -190,5 +191,88 @@ Place: Main Hall</div>
 	}
 	if events[0].Name == "" {
 		t.Fatalf("expected parsed event name")
+	}
+}
+
+func TestTelegramParserFallsBackWhenNoMessagesInLast24Hours(t *testing.T) {
+	old := time.Now().UTC().Add(-48 * time.Hour).Format(time.RFC3339)
+	html := fmt.Sprintf(`
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message" data-post="fallback/20">
+    <a class="tgme_widget_message_date"><time datetime="%s">old</time></a>
+    <div class="tgme_widget_message_text">Большой ивент
+20 February 2026 21:00
+Место: Club Nova</div>
+  </div>
+</div>`, old)
+
+	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
+		"https://t.me/s/fallback": {status: 200, body: []byte(html)},
+	}}
+	d := newTestDispatcher(fetcher)
+	events, err := d.ParseEventsWithSource(context.Background(), "https://t.me/fallback", "telegram")
+	if err != nil {
+		t.Fatalf("expected fallback success, got error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one fallback event, got %d", len(events))
+	}
+	if events[0].Name == "" {
+		t.Fatalf("expected event name in fallback mode")
+	}
+	if events[0].DateTime == nil {
+		t.Fatalf("expected parsed date in fallback mode")
+	}
+}
+
+func TestTelegramParserSinglePostURLParsesOnlyTargetMessage(t *testing.T) {
+	old := time.Now().UTC().Add(-72 * time.Hour).Format(time.RFC3339)
+	html := fmt.Sprintf(`
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message" data-post="sample/41">
+    <a class="tgme_widget_message_date"><time datetime="%s">old</time></a>
+    <div class="tgme_widget_message_text">Другой пост</div>
+  </div>
+</div>
+<div class="tgme_widget_message_wrap">
+  <div class="tgme_widget_message" data-post="sample/42">
+    <a class="tgme_widget_message_date"><time datetime="%s">old2</time></a>
+    <a class="tgme_widget_message_photo_wrap" href="https://t.me/sample/43?single"></a>
+    <div class="tgme_widget_message_text"><b>Суббота, 7 февраля</b><br/>Ритмы: HARD LINE x TMF<br/><br/>Место: Club X<br/><a href="https://tickets.example/x">tickets</a></div>
+  </div>
+</div>`, old, old)
+
+	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
+		"https://t.me/s/sample/42": {status: 200, body: []byte(html)},
+	}}
+	d := newTestDispatcher(fetcher)
+	events, err := d.ParseEventsWithSource(context.Background(), "https://t.me/sample/42", "telegram")
+	if err != nil {
+		t.Fatalf("single post parse failed: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected exactly one parsed event, got %d", len(events))
+	}
+	event := events[0]
+	if strings.Contains(event.Description, "Другой пост") {
+		t.Fatalf("unexpected text from another post in description: %q", event.Description)
+	}
+	if !strings.Contains(event.Description, "\n") {
+		t.Fatalf("expected multiline description with line breaks, got %q", event.Description)
+	}
+	if event.Location != "Club X" {
+		t.Fatalf("unexpected location: %q", event.Location)
+	}
+	foundTicket := false
+	for _, link := range event.Links {
+		if link == "https://tickets.example/x" {
+			foundTicket = true
+		}
+		if strings.Contains(link, "/sample/43") {
+			t.Fatalf("expected filtered out adjacent telegram post links, got %v", event.Links)
+		}
+	}
+	if !foundTicket {
+		t.Fatalf("expected ticket link in parsed links, got %v", event.Links)
 	}
 }

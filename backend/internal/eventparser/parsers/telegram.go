@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -16,9 +17,13 @@ import (
 	"gigme/backend/internal/eventparser/extract"
 
 	"github.com/PuerkitoBio/goquery"
+	htmlnode "golang.org/x/net/html"
 )
 
-var tgPhotoStyleURLRE = regexp.MustCompile(`url\(['"]?([^'")]+)['"]?\)`)
+var (
+	tgPhotoStyleURLRE = regexp.MustCompile(`url\(['"]?([^'")]+)['"]?\)`)
+	tgMultiSpaceRE    = regexp.MustCompile(`\s+`)
+)
 
 type TelegramParser struct {
 	fetcher core.Fetcher
@@ -47,7 +52,7 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 	if p == nil || p.fetcher == nil {
 		return nil, fmt.Errorf("telegram parser is not configured")
 	}
-	pageURL, err := normalizeTelegramInput(input)
+	spec, err := normalizeTelegramInput(input)
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +60,14 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 	now := time.Now().UTC()
 	from := now.Add(-24 * time.Hour)
 	items := make([]*core.EventData, 0)
+	staleFallback := make([]*core.EventData, 0)
 	seenPosts := make(map[int64]struct{})
-	currentURL := pageURL
-	const maxPages = 8
+	currentURL := spec.PageURL
+	maxPages := 8
+	if spec.IsSinglePost {
+		maxPages = 1
+	}
+	targetFound := false
 	for pageIdx := 0; pageIdx < maxPages; pageIdx++ {
 		body, status, err := p.fetcher.Get(ctx, currentURL, nil)
 		if err != nil {
@@ -109,10 +119,16 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 			}
 			postID := parseTelegramPostID(message.AttrOr("data-post", ""))
 			if postID > 0 {
+				if spec.IsSinglePost && postID != spec.TargetPostID {
+					return
+				}
 				if _, exists := seenPosts[postID]; exists {
 					return
 				}
 				seenPosts[postID] = struct{}{}
+				if spec.IsSinglePost {
+					targetFound = true
+				}
 				if !hasPostID || postID < minPostID {
 					minPostID = postID
 					hasPostID = true
@@ -120,26 +136,30 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 			}
 
 			publishedAt := parseTelegramMessageDate(message)
-			if publishedAt != nil {
+			isOlderThanWindow := false
+			if publishedAt != nil && !spec.IsSinglePost {
 				pubUTC := publishedAt.UTC()
 				if pubUTC.Before(from) {
 					hasOlder = true
-					return
+					isOlderThanWindow = true
 				}
 				if pubUTC.After(now.Add(15 * time.Minute)) {
 					return
 				}
 			}
 
-			text := extract.NormalizeText(message.Find("div.tgme_widget_message_text").First().Text())
+			text := extractTelegramMessageText(message.Find("div.tgme_widget_message_text").First())
 			if text == "" {
 				return
 			}
 
-			hrefs := collectHrefs(message, pageURL)
-			media := collectTelegramMediaLinks(message, pageURL)
+			hrefs := collectHrefs(message, currentURL)
+			media := collectTelegramMediaLinks(message, currentURL)
 			candidate := buildEventFromText(text, hrefs, media)
 			candidate.Links = extract.MergeLinks(candidate.Links, media)
+			if spec.IsSinglePost {
+				candidate.Links = filterTelegramSinglePostLinks(candidate.Links, spec.Channel, spec.TargetPostID)
+			}
 			if eventScore(candidate) == 0 {
 				return
 			}
@@ -148,18 +168,25 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 				t := publishedAt.UTC()
 				candidate.DateTime = &t
 			}
+			if isOlderThanWindow && !spec.IsSinglePost {
+				// Keep a fallback list from the first page when the last-24h window is empty.
+				if pageIdx == 0 {
+					staleFallback = append(staleFallback, candidate)
+				}
+				return
+			}
 			pageItems = append(pageItems, candidate)
 		})
 		items = append(items, pageItems...)
 
-		if len(items) == 0 && pageIdx == 0 {
+		if len(items) == 0 && pageIdx == 0 && !spec.IsSinglePost {
 			// Fallback for older/minimal Telegram layouts without wrappers.
 			doc.Find("div.tgme_widget_message_text").Each(func(_ int, sel *goquery.Selection) {
-				text := extract.NormalizeText(sel.Text())
+				text := extractTelegramMessageText(sel)
 				if text == "" {
 					return
 				}
-				items = append(items, buildEventFromText(text, collectHrefs(sel, pageURL)))
+				items = append(items, buildEventFromText(text, collectHrefs(sel, spec.PageURL)))
 			})
 			if len(items) == 0 {
 				fallbackText := extract.NormalizeText(doc.Text())
@@ -169,48 +196,123 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 			}
 		}
 
+		if spec.IsSinglePost {
+			break
+		}
 		if hasOlder {
 			break
 		}
 		if !hasPostID || minPostID <= 1 {
 			break
 		}
-		nextURL := telegramBeforeURL(pageURL, minPostID)
+		nextURL := telegramBeforeURL(spec.PageURL, minPostID)
 		if nextURL == currentURL {
 			break
 		}
 		currentURL = nextURL
 	}
-
+	if spec.IsSinglePost {
+		if len(items) > 0 {
+			return items, nil
+		}
+		fallback, err := p.parseDirectPostFallback(ctx, spec.DirectPostURL)
+		if err != nil {
+			return nil, err
+		}
+		if fallback != nil {
+			return []*core.EventData{fallback}, nil
+		}
+		if targetFound {
+			return nil, fmt.Errorf("telegram parser: target post has no parseable content")
+		}
+		return nil, fmt.Errorf("telegram parser: post %d not found in channel %s", spec.TargetPostID, spec.Channel)
+	}
+	if len(items) == 0 && len(staleFallback) > 0 {
+		const maxFallback = 20
+		if len(staleFallback) > maxFallback {
+			staleFallback = staleFallback[:maxFallback]
+		}
+		p.logger.Info("telegram parser window fallback applied",
+			"url", spec.PageURL,
+			"fallback_events", len(staleFallback),
+		)
+		return staleFallback, nil
+	}
 	return items, nil
 }
 
-func normalizeTelegramInput(input string) (string, error) {
+type telegramInputSpec struct {
+	Channel       string
+	PageURL       string
+	DirectPostURL string
+	TargetPostID  int64
+	IsSinglePost  bool
+}
+
+func normalizeTelegramInput(input string) (telegramInputSpec, error) {
 	trimmed := strings.TrimSpace(strings.TrimPrefix(input, "@"))
 	if trimmed == "" {
-		return "", &core.UnsupportedInputError{Input: input, Hint: "telegram channel is empty"}
+		return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "telegram channel is empty"}
+	}
+	buildSpec := func(channel string, postID int64) (telegramInputSpec, error) {
+		channel = strings.TrimSpace(channel)
+		if !isValidTelegramChannel(channel) {
+			return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "telegram channel name is invalid"}
+		}
+		spec := telegramInputSpec{
+			Channel: channel,
+			PageURL: "https://t.me/s/" + channel,
+		}
+		if postID > 0 {
+			spec.IsSinglePost = true
+			spec.TargetPostID = postID
+			spec.PageURL = fmt.Sprintf("https://t.me/s/%s/%d", channel, postID)
+			spec.DirectPostURL = fmt.Sprintf("https://t.me/%s/%d", channel, postID)
+		}
+		return spec, nil
 	}
 	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
 		u, err := url.Parse(trimmed)
 		if err != nil || u.Hostname() == "" {
-			return "", &core.UnsupportedInputError{Input: input, Hint: "invalid telegram URL"}
+			return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "invalid telegram URL"}
 		}
 		host := strings.ToLower(strings.TrimSpace(u.Hostname()))
 		if host != "t.me" && host != "telegram.me" && !strings.HasSuffix(host, ".t.me") && !strings.HasSuffix(host, ".telegram.me") {
-			return "", &core.UnsupportedInputError{Input: input, Hint: "expected t.me URL"}
+			return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "expected t.me URL"}
 		}
-		if !strings.HasPrefix(u.Path, "/s/") {
-			u.Path = "/s" + strings.TrimPrefix(u.Path, "/")
-			if !strings.HasPrefix(u.Path, "/s/") {
-				u.Path = "/s/" + strings.TrimPrefix(strings.TrimPrefix(u.Path, "/s"), "/")
+		path := strings.Trim(u.Path, "/")
+		if path == "" {
+			return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "telegram URL path is empty"}
+		}
+		parts := strings.Split(path, "/")
+		switch {
+		case parts[0] == "s":
+			if len(parts) < 2 {
+				return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "telegram channel is missing"}
 			}
+			channel := parts[1]
+			if len(parts) >= 3 {
+				postID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+				if err == nil && postID > 0 {
+					return buildSpec(channel, postID)
+				}
+			}
+			return buildSpec(channel, 0)
+		default:
+			channel := parts[0]
+			if len(parts) >= 2 {
+				postID, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+				if err == nil && postID > 0 {
+					return buildSpec(channel, postID)
+				}
+			}
+			return buildSpec(channel, 0)
 		}
-		return u.String(), nil
 	}
 	if strings.Contains(trimmed, "/") || strings.Contains(trimmed, " ") {
-		return "", &core.UnsupportedInputError{Input: input, Hint: "telegram channel name is invalid"}
+		return telegramInputSpec{}, &core.UnsupportedInputError{Input: input, Hint: "telegram channel name is invalid"}
 	}
-	return "https://t.me/s/" + trimmed, nil
+	return buildSpec(trimmed, 0)
 }
 
 func collectHrefs(sel *goquery.Selection, pageURL string) []string {
@@ -307,6 +409,179 @@ func parseTelegramMessageDate(message *goquery.Selection) *time.Time {
 		return ts
 	}
 	return nil
+}
+
+func (p *TelegramParser) parseDirectPostFallback(ctx context.Context, directURL string) (*core.EventData, error) {
+	directURL = strings.TrimSpace(directURL)
+	if directURL == "" {
+		return nil, nil
+	}
+	body, status, err := p.fetcher.Get(ctx, directURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status >= http.StatusBadRequest {
+		return nil, fmt.Errorf("telegram direct post fetch failed: status %d", status)
+	}
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	description := extract.NormalizeText(doc.Find(`meta[property="og:description"]`).AttrOr("content", ""))
+	title := extract.NormalizeText(doc.Find(`meta[property="og:title"]`).AttrOr("content", ""))
+	if description == "" && title == "" {
+		return nil, nil
+	}
+	text := description
+	if text == "" {
+		text = title
+	}
+	event := buildEventFromText(text)
+	if strings.TrimSpace(event.Name) == "" && title != "" {
+		event.Name = title
+	}
+	if strings.TrimSpace(event.Description) == "" {
+		event.Description = text
+	}
+	image := strings.TrimSpace(doc.Find(`meta[property="og:image"]`).AttrOr("content", ""))
+	event.Links = extract.MergeLinks(event.Links, []string{directURL, image})
+	return event, nil
+}
+
+func filterTelegramSinglePostLinks(links []string, channel string, targetPostID int64) []string {
+	if len(links) == 0 || channel == "" || targetPostID <= 0 {
+		return links
+	}
+	out := make([]string, 0, len(links))
+	for _, raw := range links {
+		link := strings.TrimSpace(raw)
+		if link == "" {
+			continue
+		}
+		u, err := url.Parse(link)
+		if err != nil || u == nil {
+			out = append(out, link)
+			continue
+		}
+		host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+		isTelegramHost := host == "t.me" || host == "telegram.me" || strings.HasSuffix(host, ".t.me") || strings.HasSuffix(host, ".telegram.me")
+		if !isTelegramHost {
+			out = append(out, link)
+			continue
+		}
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+		if len(parts) >= 2 && strings.EqualFold(parts[0], channel) {
+			if postID, err := strconv.ParseInt(parts[1], 10, 64); err == nil && postID > 0 && postID != targetPostID {
+				continue
+			}
+		}
+		out = append(out, link)
+	}
+	return extract.MergeLinks(out)
+}
+
+func isValidTelegramChannel(channel string) bool {
+	if channel == "" {
+		return false
+	}
+	for _, ch := range channel {
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func extractTelegramMessageText(sel *goquery.Selection) string {
+	if sel == nil || sel.Length() == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, node := range sel.Nodes {
+		appendTelegramTextNode(&b, node)
+	}
+	return normalizeTelegramMultilineText(b.String())
+}
+
+func appendTelegramTextNode(b *strings.Builder, node *htmlnode.Node) {
+	if b == nil || node == nil {
+		return
+	}
+	switch node.Type {
+	case htmlnode.TextNode:
+		b.WriteString(node.Data)
+		return
+	case htmlnode.ElementNode:
+		tag := strings.ToLower(strings.TrimSpace(node.Data))
+		if tag == "br" {
+			appendLineBreak(b, true)
+			return
+		}
+		isBlock := isBlockTag(tag)
+		if isBlock {
+			appendLineBreak(b, false)
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			appendTelegramTextNode(b, child)
+		}
+		if isBlock {
+			appendLineBreak(b, false)
+		}
+		return
+	default:
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			appendTelegramTextNode(b, child)
+		}
+	}
+}
+
+func isBlockTag(tag string) bool {
+	switch tag {
+	case "p", "div", "li", "ul", "ol", "blockquote":
+		return true
+	default:
+		return false
+	}
+}
+
+func appendLineBreak(b *strings.Builder, allowDouble bool) {
+	if b == nil || b.Len() == 0 {
+		return
+	}
+	current := b.String()
+	if strings.HasSuffix(current, "\n\n") {
+		return
+	}
+	if strings.HasSuffix(current, "\n") {
+		if allowDouble {
+			b.WriteByte('\n')
+		}
+		return
+	}
+	b.WriteByte('\n')
+}
+
+func normalizeTelegramMultilineText(raw string) string {
+	raw = html.UnescapeString(raw)
+	raw = strings.ReplaceAll(raw, "\r\n", "\n")
+	raw = strings.ReplaceAll(raw, "\r", "\n")
+	lines := strings.Split(raw, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.ReplaceAll(line, "\u00a0", " ")
+		clean := strings.TrimSpace(tgMultiSpaceRE.ReplaceAllString(line, " "))
+		if clean == "" {
+			if len(out) == 0 || out[len(out)-1] == "" {
+				continue
+			}
+			out = append(out, "")
+			continue
+		}
+		out = append(out, clean)
+	}
+	result := strings.TrimSpace(strings.Join(out, "\n"))
+	return extract.NormalizeText(result)
 }
 
 func parseTelegramPostID(dataPost string) int64 {
