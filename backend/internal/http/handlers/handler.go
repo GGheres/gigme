@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"gigme/backend/internal/config"
+	"gigme/backend/internal/eventparser"
+	parsercore "gigme/backend/internal/eventparser/core"
+	"gigme/backend/internal/geocode"
 	authmw "gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/integrations"
 	"gigme/backend/internal/rate"
@@ -20,6 +23,8 @@ type Handler struct {
 	repo             *repository.Repository
 	s3               *integrations.S3Client
 	telegram         *integrations.TelegramClient
+	eventParser      *parsercore.Dispatcher
+	geocoder         *geocode.Client
 	cfg              *config.Config
 	logger           *slog.Logger
 	validator        *validator.Validate
@@ -34,6 +39,8 @@ func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integ
 		repo:             repo,
 		s3:               s3,
 		telegram:         telegram,
+		eventParser:      eventparser.NewDispatcher(nil, logger, nil),
+		geocoder:         geocode.NewClient(geocode.Config{}),
 		cfg:              cfg,
 		logger:           logger,
 		validator:        validator.New(),

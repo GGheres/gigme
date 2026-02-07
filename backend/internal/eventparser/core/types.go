@@ -1,0 +1,96 @@
+package core
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// EventData is the normalized parser output for all sources.
+type EventData struct {
+	Name        string     `json:"name"`
+	DateTime    *time.Time `json:"date_time,omitempty"`
+	Location    string     `json:"location"`
+	Description string     `json:"description"`
+	Links       []string   `json:"links"`
+}
+
+type SourceType string
+
+const (
+	SourceAuto      SourceType = "auto"
+	SourceTelegram  SourceType = "telegram"
+	SourceWeb       SourceType = "web"
+	SourceInstagram SourceType = "instagram"
+	SourceVK        SourceType = "vk"
+)
+
+func (s SourceType) Valid() bool {
+	switch s {
+	case SourceAuto, SourceTelegram, SourceWeb, SourceInstagram, SourceVK:
+		return true
+	default:
+		return false
+	}
+}
+
+type Parser interface {
+	Parse(ctx context.Context, input string) (*EventData, error)
+}
+
+type Fetcher interface {
+	Get(ctx context.Context, url string, headers map[string]string) ([]byte, int, error)
+}
+
+// BrowserFetcher is intentionally optional and unused by default.
+// It is a future extension point for Playwright/Selenium rendering.
+type BrowserFetcher interface {
+	Render(ctx context.Context, url string) ([]byte, error)
+}
+
+type AuthRequiredError struct {
+	Source SourceType
+	URL    string
+	Hint   string
+}
+
+func (e *AuthRequiredError) Error() string {
+	if e == nil {
+		return "auth required"
+	}
+	if e.Hint != "" {
+		return fmt.Sprintf("auth required for %s (%s): %s", e.Source, e.URL, e.Hint)
+	}
+	return fmt.Sprintf("auth required for %s (%s)", e.Source, e.URL)
+}
+
+type DynamicContentError struct {
+	Source SourceType
+	URL    string
+	Hint   string
+}
+
+func (e *DynamicContentError) Error() string {
+	if e == nil {
+		return "dynamic content"
+	}
+	if e.Hint != "" {
+		return fmt.Sprintf("dynamic content for %s (%s): %s", e.Source, e.URL, e.Hint)
+	}
+	return fmt.Sprintf("dynamic content for %s (%s)", e.Source, e.URL)
+}
+
+type UnsupportedInputError struct {
+	Input string
+	Hint  string
+}
+
+func (e *UnsupportedInputError) Error() string {
+	if e == nil {
+		return "unsupported input"
+	}
+	if e.Hint != "" {
+		return fmt.Sprintf("unsupported input %q: %s", e.Input, e.Hint)
+	}
+	return fmt.Sprintf("unsupported input %q", e.Input)
+}

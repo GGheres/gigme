@@ -132,3 +132,35 @@ type AdminBroadcastJob struct {
 	Attempts     int    `json:"attempts"`
 	LastError    string `json:"lastError,omitempty"`
 }
+
+type AdminParserSource struct {
+	ID           int64      `json:"id"`
+	SourceType   string     `json:"sourceType"`
+	Input        string     `json:"input"`
+	Title        string     `json:"title,omitempty"`
+	IsActive     bool       `json:"isActive"`
+	LastParsedAt *time.Time `json:"lastParsedAt,omitempty"`
+	CreatedBy    int64      `json:"createdBy"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+}
+
+type AdminParsedEvent struct {
+	ID              int64      `json:"id"`
+	SourceID        *int64     `json:"sourceId,omitempty"`
+	SourceType      string     `json:"sourceType"`
+	Input           string     `json:"input"`
+	Name            string     `json:"name"`
+	DateTime        *time.Time `json:"dateTime,omitempty"`
+	Location        string     `json:"location"`
+	Description     string     `json:"description"`
+	Links           []string   `json:"links"`
+	Status          string     `json:"status"`
+	ParserError     string     `json:"parserError,omitempty"`
+	ParsedAt        time.Time  `json:"parsedAt"`
+	ImportedEventID *int64     `json:"importedEventId,omitempty"`
+	ImportedBy      *int64     `json:"importedBy,omitempty"`
+	ImportedAt      *time.Time `json:"importedAt,omitempty"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
+}

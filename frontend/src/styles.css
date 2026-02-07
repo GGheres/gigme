@@ -1913,6 +1913,11 @@ button {
   font-weight: 600;
 }
 
+.admin-form--inline {
+  grid-template-columns: 1.8fr 160px auto;
+  align-items: end;
+}
+
 .admin-filter-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1944,6 +1949,78 @@ button {
   gap: 8px;
 }
 
+.admin-parser {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-parser__input {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-parser-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-parser-events {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-parser-event {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.admin-parser-event__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.admin-parser-event__location {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admin-parser-event__description {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.admin-parser-event__links {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-parser-event__links a {
+  color: #2d60d8;
+  word-break: break-word;
+}
+
+.admin-parser-import {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-parser-import label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
 select {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -1972,6 +2049,14 @@ select {
   }
 
   .admin-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-form--inline {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-parser-import {
     grid-template-columns: 1fr;
   }
 

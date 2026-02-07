@@ -220,6 +220,59 @@ export type AdminLoginResponse = {
   isNew: boolean
 }
 
+export type AdminParserSource = {
+  id: number
+  sourceType: string
+  input: string
+  title?: string
+  isActive: boolean
+  lastParsedAt?: string
+  createdBy: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type AdminParserSourcesResponse = {
+  items: AdminParserSource[]
+  total: number
+}
+
+export type AdminParsedEvent = {
+  id: number
+  sourceId?: number
+  sourceType: string
+  input: string
+  name: string
+  dateTime?: string
+  location: string
+  description: string
+  links: string[]
+  status: 'pending' | 'imported' | 'rejected' | 'error'
+  parserError?: string
+  parsedAt: string
+  importedEventId?: number
+  importedBy?: number
+  importedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type AdminParsedEventsResponse = {
+  items: AdminParsedEvent[]
+  total: number
+}
+
+export type AdminParserParseResponse = {
+  item: AdminParsedEvent
+  error?: string
+}
+
+export type GeocodeResult = {
+  displayName: string
+  lat: number
+  lng: number
+}
+
 export type AdminEventUpdate = {
   title?: string
   description?: string
@@ -543,6 +596,80 @@ export function adminListBroadcasts(token: string, limit = 50, offset = 0) {
 
 export function adminGetBroadcast(token: string, id: number) {
   return apiFetch<AdminBroadcast>(`/admin/broadcasts/${id}`, {}, token)
+}
+
+export function adminListParserSources(token: string, limit = 50, offset = 0) {
+  const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return apiFetch<AdminParserSourcesResponse>(`/admin/parser/sources?${qs.toString()}`, {}, token)
+}
+
+export function adminCreateParserSource(
+  token: string,
+  payload: { sourceType?: string; input: string; title?: string; isActive?: boolean }
+) {
+  return apiFetch<AdminParserSource>('/admin/parser/sources', { method: 'POST', body: JSON.stringify(payload) }, token)
+}
+
+export function adminUpdateParserSource(token: string, id: number, payload: { isActive: boolean }) {
+  return apiFetch<{ ok: boolean }>(
+    `/admin/parser/sources/${id}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    token
+  )
+}
+
+export function adminParseSource(token: string, id: number) {
+  return apiFetch<AdminParserParseResponse>(`/admin/parser/sources/${id}/parse`, { method: 'POST' }, token)
+}
+
+export function adminParseInput(token: string, payload: { sourceType?: string; input: string }) {
+  return apiFetch<AdminParserParseResponse>('/admin/parser/parse', { method: 'POST', body: JSON.stringify(payload) }, token)
+}
+
+export function adminGeocodeLocation(token: string, payload: { query: string; limit?: number }) {
+  return apiFetch<{ items: GeocodeResult[] }>(
+    '/admin/parser/geocode',
+    { method: 'POST', body: JSON.stringify(payload) },
+    token
+  )
+}
+
+export function adminListParsedEvents(
+  token: string,
+  params: { status?: string; sourceId?: number; limit?: number; offset?: number } = {}
+) {
+  const qs = new URLSearchParams()
+  if (params.status) qs.set('status', params.status)
+  if (typeof params.sourceId === 'number') qs.set('sourceId', String(params.sourceId))
+  if (typeof params.limit === 'number') qs.set('limit', String(params.limit))
+  if (typeof params.offset === 'number') qs.set('offset', String(params.offset))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return apiFetch<AdminParsedEventsResponse>(`/admin/parser/events${suffix}`, {}, token)
+}
+
+export function adminImportParsedEvent(
+  token: string,
+  id: number,
+  payload: {
+    title?: string
+    description?: string
+    startsAt?: string
+    lat: number
+    lng: number
+    addressLabel?: string
+    media?: string[]
+    filters?: string[]
+  }
+) {
+  return apiFetch<{ ok: boolean; eventId: number }>(
+    `/admin/parser/events/${id}/import`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    token
+  )
+}
+
+export function adminRejectParsedEvent(token: string, id: number) {
+  return apiFetch<{ ok: boolean }>(`/admin/parser/events/${id}/reject`, { method: 'POST' }, token)
 }
 
 export function adminLogin(payload: { username: string; password: string; telegramId?: number }) {

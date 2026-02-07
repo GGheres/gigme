@@ -144,5 +144,50 @@ Implemented endpoints:
 - `POST /admin/events/{id}/hide`
 - `PATCH /admin/events/{id}` (admin only)
 - `DELETE /admin/events/{id}` (admin only)
+- `GET /admin/parser/sources` (admin only)
+- `POST /admin/parser/sources` (admin only)
+- `PATCH /admin/parser/sources/{id}` (admin only)
+- `POST /admin/parser/sources/{id}/parse` (admin only)
+- `POST /admin/parser/parse` (admin only)
+- `POST /admin/parser/geocode` (admin only)
+- `GET /admin/parser/events` (admin only)
+- `POST /admin/parser/events/{id}/import` (admin only)
+- `POST /admin/parser/events/{id}/reject` (admin only)
 
 Promoted events are marked as featured and sorted to the top while `promoted_until` is in the future.
+
+## Universal Event Parser
+
+### How dispatch works
+- Entry point: `backend/internal/eventparser/parser.go`.
+- Public API:
+  - Go: `eventparser.ParseEvent(ctx, input)`
+  - Go with explicit source: `eventparser.ParseEventWithSource(ctx, input, sourceType)`
+  - CLI: `backend/cmd/gigme-event-parse/main.go`
+- Source routing:
+  - `instagram.com` -> Instagram parser
+  - `t.me` (or plain channel name) -> Telegram parser
+  - `vk.com` -> VK parser
+  - everything else -> generic Web parser
+- Non-URL input supports Telegram channel shortcut (`channelName` => `https://t.me/s/channelName`).
+
+### Platform limitations
+- Parser is intentionally **no-login first** (HTTP + HTML parsing).
+- Instagram and VK often block unauthenticated scraping:
+  - parser returns typed errors (`AuthRequiredError` / `DynamicContentError`) with hints.
+- Browser rendering is not enabled by default; only `BrowserFetcher` interface stub is provided for future Playwright/Selenium integration.
+- Admin geocoding uses Nominatim (OpenStreetMap) via `/admin/parser/geocode`; lat/lng can be auto-filled from location text.
+
+### CLI usage
+From `backend/`:
+```bash
+go run ./cmd/gigme-event-parse -source auto "https://t.me/s/some_channel"
+go run ./cmd/gigme-event-parse -source telegram "some_channel"
+```
+
+### Extending with new parser modules
+1. Add a parser in `backend/internal/eventparser/parsers/` implementing:
+   - `Parse(ctx context.Context, input string) (*core.EventData, error)`
+2. Register it in `backend/internal/eventparser/parser.go`.
+3. Update source detection in `backend/internal/eventparser/core/dispatcher.go` if domain-based dispatch is needed.
+4. Add fixtures/tests under `backend/internal/eventparser/tests/`.

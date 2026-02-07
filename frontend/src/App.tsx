@@ -6,15 +6,26 @@ import {
   addEventComment,
   adminBlockUser,
   adminCreateBroadcast,
+  adminCreateParserSource,
+  adminGeocodeLocation,
   adminGetBroadcast,
   adminGetUser,
+  adminImportParsedEvent,
   adminLogin,
   adminListBroadcasts,
+  adminListParsedEvents,
+  adminListParserSources,
   adminListUsers,
+  adminParseInput,
+  adminParseSource,
+  adminRejectParsedEvent,
   adminStartBroadcast,
   adminUnblockUser,
+  adminUpdateParserSource,
   authTelegram,
   AdminBroadcast,
+  AdminParsedEvent,
+  AdminParserSource,
   AdminUser,
   BroadcastButton,
   createEvent,
@@ -63,7 +74,13 @@ type FormDefaults = {
   isPrivate: boolean
 }
 type AppPage = 'home' | 'profile' | 'admin'
-type AdminSection = 'users' | 'user' | 'broadcasts'
+type AdminSection = 'users' | 'user' | 'broadcasts' | 'parser'
+type ParserImportDraft = {
+  startsAt: string
+  lat: string
+  lng: string
+  addressLabel: string
+}
 
 const EMPTY_FORM_DEFAULTS: FormDefaults = {
   title: '',
@@ -814,6 +831,9 @@ const getAdminRouteFromLocation = (): { section: AdminSection; userId: number | 
   if (parts[0] === 'broadcasts') {
     return { section: 'broadcasts', userId: null }
   }
+  if (parts[0] === 'parser') {
+    return { section: 'parser', userId: null }
+  }
   return { section: 'users', userId: null }
 }
 
@@ -1019,6 +1039,28 @@ function App() {
   const [broadcastButtons, setBroadcastButtons] = useState<BroadcastButton[]>([{ text: '', url: '' }])
   const [broadcastBusy, setBroadcastBusy] = useState(false)
   const [broadcastStartBusyId, setBroadcastStartBusyId] = useState<number | null>(null)
+  const [parserSources, setParserSources] = useState<AdminParserSource[]>([])
+  const [parserSourcesTotal, setParserSourcesTotal] = useState(0)
+  const [parserSourcesLoading, setParserSourcesLoading] = useState(false)
+  const [parserEvents, setParserEvents] = useState<AdminParsedEvent[]>([])
+  const [parserEventsTotal, setParserEventsTotal] = useState(0)
+  const [parserEventsLoading, setParserEventsLoading] = useState(false)
+  const [parserStatusFilter, setParserStatusFilter] = useState<'all' | 'pending' | 'imported' | 'error' | 'rejected'>(
+    'all'
+  )
+  const [parserError, setParserError] = useState<string | null>(null)
+  const [parserSourceInput, setParserSourceInput] = useState('')
+  const [parserSourceTitle, setParserSourceTitle] = useState('')
+  const [parserSourceType, setParserSourceType] = useState<'auto' | 'telegram' | 'web' | 'instagram' | 'vk'>('auto')
+  const [parserSourceBusy, setParserSourceBusy] = useState(false)
+  const [parserParseInput, setParserParseInput] = useState('')
+  const [parserParseType, setParserParseType] = useState<'auto' | 'telegram' | 'web' | 'instagram' | 'vk'>('auto')
+  const [parserParseBusy, setParserParseBusy] = useState(false)
+  const [parserSourceParseBusyId, setParserSourceParseBusyId] = useState<number | null>(null)
+  const [parserImportBusyId, setParserImportBusyId] = useState<number | null>(null)
+  const [parserRejectBusyId, setParserRejectBusyId] = useState<number | null>(null)
+  const [parserGeocodeBusyId, setParserGeocodeBusyId] = useState<number | null>(null)
+  const [parserImportDrafts, setParserImportDrafts] = useState<Record<number, ParserImportDraft>>({})
   const [adminLoginUsername, setAdminLoginUsername] = useState('')
   const [adminLoginPassword, setAdminLoginPassword] = useState('')
   const [adminLoginTelegramId, setAdminLoginTelegramId] = useState('')
@@ -1258,6 +1300,8 @@ function App() {
       const url = new URL(window.location.href)
       if (section === 'broadcasts') {
         url.pathname = '/admin/broadcasts'
+      } else if (section === 'parser') {
+        url.pathname = '/admin/parser'
       } else if (section === 'user' && userId) {
         url.pathname = `/admin/users/${userId}`
       } else {
@@ -1557,8 +1601,18 @@ function App() {
     }
     if (adminSection === 'broadcasts') {
       loadBroadcasts()
+      return
+    }
+    if (adminSection === 'parser') {
+      loadParserSources()
+      loadParsedEvents()
     }
   }, [activePage, adminSection, adminUserId, token])
+
+  useEffect(() => {
+    if (activePage !== 'admin' || adminSection !== 'parser' || !token) return
+    loadParsedEvents()
+  }, [activePage, adminSection, parserStatusFilter, token])
 
   useEffect(() => {
     const setViewportHeight = () => {
@@ -2656,6 +2710,237 @@ function App() {
     }
   }
 
+  const buildParserImportDraft = (item: AdminParsedEvent): ParserImportDraft => {
+    const fallbackLat = mapCenter?.lat ?? DEFAULT_CENTER.lat
+    const fallbackLng = mapCenter?.lng ?? DEFAULT_CENTER.lng
+    return {
+      startsAt: item.dateTime ? formatDateTimeLocal(item.dateTime) : '',
+      lat: String(fallbackLat),
+      lng: String(fallbackLng),
+      addressLabel: item.location || '',
+    }
+  }
+
+  const loadParserSources = async () => {
+    if (!token) return
+    setParserSourcesLoading(true)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminListParserSources(token, 100, 0)
+      setParserSources(res.items)
+      setParserSourcesTotal(res.total)
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserSourcesLoading(false)
+    }
+  }
+
+  const loadParsedEvents = async () => {
+    if (!token) return
+    setParserEventsLoading(true)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const status = parserStatusFilter === 'all' ? undefined : parserStatusFilter
+      const res = await adminListParsedEvents(token, { status, limit: 100, offset: 0 })
+      setParserEvents(res.items)
+      setParserEventsTotal(res.total)
+      setParserImportDrafts((prev) => {
+        const next = { ...prev }
+        res.items.forEach((item) => {
+          if (!next[item.id]) {
+            next[item.id] = buildParserImportDraft(item)
+          }
+        })
+        return next
+      })
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserEventsLoading(false)
+    }
+  }
+
+  const handleCreateParserSource = async () => {
+    if (!token) return
+    const input = parserSourceInput.trim()
+    if (!input) {
+      setParserError('Укажите URL или канал для источника')
+      return
+    }
+    setParserSourceBusy(true)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      await adminCreateParserSource(token, {
+        sourceType: parserSourceType,
+        input,
+        title: parserSourceTitle.trim() || undefined,
+        isActive: true,
+      })
+      setParserSourceInput('')
+      setParserSourceTitle('')
+      await loadParserSources()
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserSourceBusy(false)
+    }
+  }
+
+  const handleToggleParserSource = async (source: AdminParserSource) => {
+    if (!token) return
+    setParserSourceParseBusyId(source.id)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      await adminUpdateParserSource(token, source.id, { isActive: !source.isActive })
+      await loadParserSources()
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserSourceParseBusyId(null)
+    }
+  }
+
+  const handleParseSource = async (sourceId: number) => {
+    if (!token) return
+    setParserSourceParseBusyId(sourceId)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminParseSource(token, sourceId)
+      if (res.error) {
+        setParserError(res.error)
+      }
+      await loadParserSources()
+      await loadParsedEvents()
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+      await loadParserSources()
+      await loadParsedEvents()
+    } finally {
+      setParserSourceParseBusyId(null)
+    }
+  }
+
+  const handleParseInputQuick = async () => {
+    if (!token) return
+    const input = parserParseInput.trim()
+    if (!input) {
+      setParserError('Введите URL или Telegram канал')
+      return
+    }
+    setParserParseBusy(true)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminParseInput(token, { sourceType: parserParseType, input })
+      if (res.error) {
+        setParserError(res.error)
+      } else {
+        setParserParseInput('')
+      }
+      await loadParsedEvents()
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+      await loadParsedEvents()
+    } finally {
+      setParserParseBusy(false)
+    }
+  }
+
+  const updateParserDraft = (id: number, patch: Partial<ParserImportDraft>) => {
+    setParserImportDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
+  }
+
+  const handleParserGeocode = async (item: AdminParsedEvent) => {
+    if (!token) return
+    const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
+    const query = (draft.addressLabel || item.location || item.name || '').trim()
+    if (!query) {
+      setParserError('Для геокодинга нужен адрес или название')
+      return
+    }
+    setParserGeocodeBusyId(item.id)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminGeocodeLocation(token, { query, limit: 1 })
+      const first = res.items[0]
+      if (!first) {
+        setParserError('Координаты не найдены')
+        return
+      }
+      updateParserDraft(item.id, {
+        lat: String(first.lat),
+        lng: String(first.lng),
+        addressLabel: first.displayName || draft.addressLabel,
+      })
+      showToast('Координаты заполнены')
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserGeocodeBusyId(null)
+    }
+  }
+
+  const handleImportParsedEvent = async (item: AdminParsedEvent) => {
+    if (!token) return
+    const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
+    const lat = Number(draft.lat)
+    const lng = Number(draft.lng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setParserError('Проверьте координаты (lat/lng)')
+      return
+    }
+    let startsAt: string | undefined
+    if (draft.startsAt.trim()) {
+      const parsed = new Date(draft.startsAt)
+      if (Number.isNaN(parsed.getTime())) {
+        setParserError('Некорректный startsAt')
+        return
+      }
+      startsAt = parsed.toISOString()
+    }
+    setParserImportBusyId(item.id)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      const res = await adminImportParsedEvent(token, item.id, {
+        startsAt,
+        lat,
+        lng,
+        addressLabel: draft.addressLabel.trim() || undefined,
+      })
+      showToast('Событие добавлено')
+      await loadParsedEvents()
+      setSelectedId(res.eventId)
+      navigateToPage('home')
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserImportBusyId(null)
+    }
+  }
+
+  const handleRejectParsed = async (id: number) => {
+    if (!token) return
+    setParserRejectBusyId(id)
+    setParserError(null)
+    setAdminAccessDenied(false)
+    try {
+      await adminRejectParsedEvent(token, id)
+      await loadParsedEvents()
+    } catch (err: any) {
+      handleAdminApiError(err, setParserError)
+    } finally {
+      setParserRejectBusyId(null)
+    }
+  }
+
   const updateBroadcastButton = (index: number, field: 'text' | 'url', value: string) => {
     setBroadcastButtons((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
@@ -3140,6 +3425,275 @@ function App() {
     </div>
   )
 
+  const renderAdminParser = () => (
+    <div className="admin-parser">
+      <section className="panel admin-panel">
+        <div className="panel__header">
+          <h2>Источники парсинга</h2>
+          <div className="admin-history-actions">
+            <span className="chip chip--ghost">Всего: {parserSourcesTotal}</span>
+            <button type="button" className="button button--ghost button--compact" onClick={loadParserSources}>
+              Обновить
+            </button>
+          </div>
+        </div>
+        <div className="admin-form">
+          <label>
+            Название
+            <input
+              type="text"
+              value={parserSourceTitle}
+              onChange={(event) => setParserSourceTitle(event.target.value)}
+              placeholder="Например: Amsterdam Telegram"
+            />
+          </label>
+          <label>
+            Источник (URL или канал)
+            <input
+              type="text"
+              value={parserSourceInput}
+              onChange={(event) => setParserSourceInput(event.target.value)}
+              placeholder="https://t.me/s/channel или channelName"
+            />
+          </label>
+          <label>
+            Тип
+            <select
+              value={parserSourceType}
+              onChange={(event) =>
+                setParserSourceType(event.target.value as 'auto' | 'telegram' | 'web' | 'instagram' | 'vk')
+              }
+            >
+              <option value="auto">auto</option>
+              <option value="telegram">telegram</option>
+              <option value="web">web</option>
+              <option value="instagram">instagram</option>
+              <option value="vk">vk</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="button button--accent"
+            onClick={handleCreateParserSource}
+            disabled={parserSourceBusy}
+          >
+            {parserSourceBusy ? 'Сохранение…' : 'Добавить источник'}
+          </button>
+        </div>
+        {parserSourcesLoading ? (
+          <div className="status status--loading">Загрузка…</div>
+        ) : (
+          <div className="admin-table">
+            <div className="admin-table__row admin-table__head">
+              <div>Название</div>
+              <div>Input</div>
+              <div>Тип</div>
+              <div>Статус</div>
+              <div>Last parsed</div>
+              <div />
+            </div>
+            {parserSources.length === 0 ? (
+              <div className="admin-table__row admin-table__empty">Нет источников</div>
+            ) : (
+              parserSources.map((source) => (
+                <div className="admin-table__row" key={source.id}>
+                  <div>{source.title || `#${source.id}`}</div>
+                  <div className="admin-parser__input">{source.input}</div>
+                  <div>{source.sourceType}</div>
+                  <div>
+                    <span className={`badge ${source.isActive ? 'badge--ok' : 'badge--danger'}`}>
+                      {source.isActive ? 'active' : 'disabled'}
+                    </span>
+                  </div>
+                  <div>{formatTimestamp(source.lastParsedAt)}</div>
+                  <div className="admin-parser-actions">
+                    <button
+                      type="button"
+                      className="button button--ghost button--compact"
+                      onClick={() => handleParseSource(source.id)}
+                      disabled={parserSourceParseBusyId === source.id}
+                    >
+                      {parserSourceParseBusyId === source.id ? 'Парсинг…' : 'Парсить'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--ghost button--compact"
+                      onClick={() => handleToggleParserSource(source)}
+                      disabled={parserSourceParseBusyId === source.id}
+                    >
+                      {source.isActive ? 'Выключить' : 'Включить'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="panel admin-panel">
+        <div className="panel__header">
+          <h2>Быстрый парсинг</h2>
+        </div>
+        <div className="admin-form admin-form--inline">
+          <input
+            type="text"
+            value={parserParseInput}
+            onChange={(event) => setParserParseInput(event.target.value)}
+            placeholder="URL или Telegram канал"
+          />
+          <select
+            value={parserParseType}
+            onChange={(event) => setParserParseType(event.target.value as 'auto' | 'telegram' | 'web' | 'instagram' | 'vk')}
+          >
+            <option value="auto">auto</option>
+            <option value="telegram">telegram</option>
+            <option value="web">web</option>
+            <option value="instagram">instagram</option>
+            <option value="vk">vk</option>
+          </select>
+          <button type="button" className="button button--accent" onClick={handleParseInputQuick} disabled={parserParseBusy}>
+            {parserParseBusy ? 'Парсинг…' : 'Запустить'}
+          </button>
+        </div>
+        {parserError && <div className="status status--error">{parserError}</div>}
+      </section>
+
+      <section className="panel admin-panel">
+        <div className="panel__header">
+          <h2>Спарсенные события</h2>
+          <div className="admin-history-actions">
+            <span className="chip chip--ghost">Всего: {parserEventsTotal}</span>
+            <select
+              value={parserStatusFilter}
+              onChange={(event) =>
+                setParserStatusFilter(event.target.value as 'all' | 'pending' | 'imported' | 'error' | 'rejected')
+              }
+            >
+              <option value="all">Все</option>
+              <option value="pending">pending</option>
+              <option value="imported">imported</option>
+              <option value="error">error</option>
+              <option value="rejected">rejected</option>
+            </select>
+            <button type="button" className="button button--ghost button--compact" onClick={loadParsedEvents}>
+              Обновить
+            </button>
+          </div>
+        </div>
+        {parserEventsLoading ? (
+          <div className="status status--loading">Загрузка…</div>
+        ) : parserEvents.length === 0 ? (
+          <div className="status status--neutral">Нет спарсенных событий</div>
+        ) : (
+          <div className="admin-parser-events">
+            {parserEvents.map((item) => {
+              const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
+              return (
+                <div className="admin-parser-event" key={item.id}>
+                  <div className="admin-parser-event__header">
+                    <div>
+                      <div className="admin-event__title">{item.name || 'Без названия'}</div>
+                      <div className="admin-event__meta">
+                        {item.sourceType} · {formatTimestamp(item.dateTime)} · {formatTimestamp(item.parsedAt)}
+                      </div>
+                    </div>
+                    <span className="badge badge--ghost">{item.status}</span>
+                  </div>
+                  {item.location && <div className="admin-parser-event__location">{item.location}</div>}
+                  {item.description && <div className="admin-parser-event__description">{item.description}</div>}
+                  {item.links?.length > 0 && (
+                    <div className="admin-parser-event__links">
+                      {item.links.map((link) => (
+                        <a key={`${item.id}-${link}`} href={link} target="_blank" rel="noreferrer">
+                          {link}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {item.parserError && <div className="status status--error">{item.parserError}</div>}
+                  {item.status === 'pending' && (
+                    <div className="admin-parser-import">
+                      <label>
+                        StartsAt
+                        <input
+                          type="datetime-local"
+                          value={draft.startsAt}
+                          onChange={(event) => updateParserDraft(item.id, { startsAt: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Lat
+                        <input
+                          type="number"
+                          step="any"
+                          value={draft.lat}
+                          onChange={(event) => updateParserDraft(item.id, { lat: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Lng
+                        <input
+                          type="number"
+                          step="any"
+                          value={draft.lng}
+                          onChange={(event) => updateParserDraft(item.id, { lng: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Address
+                        <input
+                          type="text"
+                          value={draft.addressLabel}
+                          onChange={(event) => updateParserDraft(item.id, { addressLabel: event.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="button button--ghost button--compact"
+                          onClick={() => handleParserGeocode(item)}
+                          disabled={parserGeocodeBusyId === item.id}
+                        >
+                          {parserGeocodeBusyId === item.id ? 'Поиск…' : 'Автокоординаты'}
+                        </button>
+                      </label>
+                      <div className="admin-parser-actions">
+                        <button
+                          type="button"
+                          className="button button--accent button--compact"
+                          onClick={() => handleImportParsedEvent(item)}
+                          disabled={parserImportBusyId === item.id}
+                        >
+                          {parserImportBusyId === item.id ? 'Импорт…' : 'Добавить в приложение'}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--ghost button--compact"
+                          onClick={() => handleRejectParsed(item.id)}
+                          disabled={parserRejectBusyId === item.id}
+                        >
+                          {parserRejectBusyId === item.id ? '...' : 'Отклонить'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {item.status === 'imported' && item.importedEventId && (
+                    <button
+                      type="button"
+                      className="button button--ghost button--compact"
+                      onClick={() => openEventFromAdmin(item.importedEventId!)}
+                    >
+                      Открыть событие #{item.importedEventId}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+
   const renderAdminPanel = () => {
     if (!token) {
       return (
@@ -3207,11 +3761,19 @@ function App() {
             >
               Broadcasts
             </button>
+            <button
+              type="button"
+              className={`button button--compact ${adminSection === 'parser' ? 'button--accent' : 'button--ghost'}`}
+              onClick={() => navigateToAdmin('parser')}
+            >
+              Parser
+            </button>
           </div>
         </div>
         {adminSection === 'users' && renderAdminUsers()}
         {adminSection === 'user' && renderAdminUserDetail()}
         {adminSection === 'broadcasts' && renderAdminBroadcasts()}
+        {adminSection === 'parser' && renderAdminParser()}
       </div>
     )
   }
