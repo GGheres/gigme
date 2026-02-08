@@ -1,4 +1,4 @@
-FROM ghcr.io/cirruslabs/flutter:3.27.4 AS build
+FROM ghcr.io/cirruslabs/flutter:3.27.3 AS build
 
 WORKDIR /app
 COPY pubspec.yaml ./
