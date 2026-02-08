@@ -19,6 +19,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const (
+	parserImportFallbackLead = time.Hour
+	parserImportMinStartLead = 5 * time.Minute
+)
+
 type adminParserSourcesResponse struct {
 	Items []models.AdminParserSource `json:"items"`
 	Total int                        `json:"total"`
@@ -433,7 +438,10 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var startsAt time.Time
+	var startsAtExplicit bool
+	nowUTC := time.Now().UTC()
 	if req.StartsAt != nil && strings.TrimSpace(*req.StartsAt) != "" {
+		startsAtExplicit = true
 		startsAt, err = parseEventTime(*req.StartsAt)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid startsAt")
@@ -442,8 +450,20 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	} else if parsedEvent.DateTime != nil {
 		startsAt = *parsedEvent.DateTime
 	} else {
-		writeError(w, http.StatusBadRequest, "startsAt is required when parsed date is missing")
-		return
+		startsAt = nowUTC.Add(parserImportFallbackLead)
+	}
+	if !startsAtExplicit {
+		normalized, adjusted := normalizeImportedStartsAt(startsAt, nowUTC)
+		if adjusted {
+			logger.Info(
+				"action", "action", "admin_parser_import_event",
+				"status", "starts_at_adjusted",
+				"parsed_event_id", id,
+				"from", startsAt.UTC().Format(time.RFC3339),
+				"to", normalized.Format(time.RFC3339),
+			)
+		}
+		startsAt = normalized
 	}
 
 	address := strings.TrimSpace(firstString(req.Address, parsedEvent.Location))
@@ -483,7 +503,11 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "eventId": eventID})
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"ok":       true,
+		"eventId":  eventID,
+		"startsAt": event.StartsAt,
+	})
 }
 
 func (h *Handler) parseAndStore(ctx context.Context, sourceID *int64, sourceType parsercore.SourceType, input string) ([]models.AdminParsedEvent, error) {
@@ -588,6 +612,18 @@ func parseEventTime(raw string) (time.Time, error) {
 		return ts, nil
 	}
 	return time.Time{}, fmt.Errorf("invalid time")
+}
+
+func normalizeImportedStartsAt(startsAt time.Time, now time.Time) (time.Time, bool) {
+	base := startsAt.UTC()
+	if base.IsZero() {
+		return now.UTC().Add(parserImportFallbackLead), true
+	}
+	minAllowed := now.UTC().Add(parserImportMinStartLead)
+	if base.Before(minAllowed) {
+		return now.UTC().Add(parserImportFallbackLead), true
+	}
+	return base, false
 }
 
 func normalizeImportMedia(explicit []string, links []string, limit int) []string {

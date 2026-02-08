@@ -665,7 +665,7 @@ export function adminImportParsedEvent(
     filters?: string[]
   }
 ) {
-  return apiFetch<{ ok: boolean; eventId: number }>(
+  return apiFetch<{ ok: boolean; eventId: number; startsAt?: string }>(
     `/admin/parser/events/${id}/import`,
     { method: 'POST', body: JSON.stringify(payload) },
     token

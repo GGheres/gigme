@@ -260,6 +260,7 @@ const MAX_UPLOAD_IMAGE_DIMENSION = 1920
 const MAX_UPLOAD_IMAGE_BYTES = 2_000_000
 const UPLOAD_IMAGE_QUALITY = 0.82
 const MIN_COMPRESS_GAIN_RATIO = 0.93
+const PARSER_MIN_START_LEAD_MS = 5 * 60 * 1000
 
 const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
   { id: 'dating', label: 'Dating', icon: '💘' },
@@ -2983,7 +2984,14 @@ function App() {
         setParserError('Некорректный startsAt')
         return
       }
-      startsAt = parsed.toISOString()
+      const originalStartsAt = item.dateTime ? formatDateTimeLocal(item.dateTime) : ''
+      const isOriginalParsedDate = originalStartsAt !== '' && draft.startsAt.trim() === originalStartsAt
+      const isTooCloseOrPast = parsed.getTime() < Date.now() + PARSER_MIN_START_LEAD_MS
+      if (isOriginalParsedDate && isTooCloseOrPast) {
+        startsAt = undefined
+      } else {
+        startsAt = parsed.toISOString()
+      }
     }
     setParserImportBusyId(item.id)
     setParserError(null)
@@ -3001,6 +3009,24 @@ function App() {
       })
       showToast('Событие добавлено')
       await loadParsedEvents()
+      try {
+        const detail = await getEvent(token, res.eventId)
+        const detailAccessKey = detail.event.accessKey || ''
+        if (detailAccessKey) {
+          setEventAccessKeys((prev) => {
+            if (prev[detail.event.id] === detailAccessKey) return prev
+            return { ...prev, [detail.event.id]: detailAccessKey }
+          })
+        }
+        const card = buildEventCardFromDetail(detail, detailAccessKey || undefined)
+        setSharedEvents((prev) => ({ ...prev, [card.id]: card }))
+        setFeed((prev) => mergeFeedWithShared(prev, { [card.id]: card }))
+        setMarkers((prev) => mergeMarkersWithShared(prev, { [card.id]: card }))
+        setSelectedEvent(detail)
+        setViewLocation({ lat: detail.event.lat, lng: detail.event.lng })
+      } catch (detailErr) {
+        logWarn('parser_import_event_prefetch_failed', { eventId: res.eventId, error: String(detailErr) })
+      }
       setSelectedId(res.eventId)
       navigateToPage('home')
     } catch (err: any) {
