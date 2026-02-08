@@ -107,10 +107,25 @@ services:
     depends_on:
       - api
 
+  flutter_frontend:
+    build:
+      context: ../flutter_app
+      args:
+        FLUTTER_API_URL: ${FLUTTER_API_URL}
+        FLUTTER_BOT_USERNAME: ${FLUTTER_BOT_USERNAME}
+        FLUTTER_AUTH_MODE: ${FLUTTER_AUTH_MODE}
+        FLUTTER_STANDALONE_AUTH_URL: ${FLUTTER_STANDALONE_AUTH_URL}
+        FLUTTER_STANDALONE_REDIRECT_URI: ${FLUTTER_STANDALONE_REDIRECT_URI}
+        FLUTTER_ENABLE_PUSH: ${FLUTTER_ENABLE_PUSH}
+        FLUTTER_ADMIN_TELEGRAM_IDS: ${FLUTTER_ADMIN_TELEGRAM_IDS}
+    depends_on:
+      - api
+
   caddy:
     image: caddy:2.8-alpine
     depends_on:
       - frontend
+      - flutter_frontend
       - api
     environment:
       CADDY_EMAIL: ${CADDY_EMAIL}

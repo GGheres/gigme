@@ -1,0 +1,29 @@
+# Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Generated
+**/generated_plugin_registrant.dart
+**/flutter_export_environment.sh
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# Android/iOS ephemeral
+android/.gradle/
+android/local.properties
+ios/Flutter/.last_build_id
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/

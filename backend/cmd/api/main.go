@@ -77,6 +77,8 @@ func main() {
 
 	r.Post("/auth/telegram", h.AuthTelegram)
 	r.Post("/auth/admin", h.AuthAdmin)
+	r.Get("/auth/standalone", h.StandaloneAuthPage)
+	r.Post("/auth/standalone/exchange", h.StandaloneAuthExchange)
 	r.Post("/telegram/webhook", h.TelegramWebhook)
 
 	r.Group(func(r chi.Router) {
@@ -89,6 +91,7 @@ func main() {
 		r.Use(middleware.BlockedUserMiddleware(repo, cfg.AdminTGIDs))
 		r.Get("/me", h.Me)
 		r.Post("/me/location", h.UpdateLocation)
+		r.Post("/me/push-token", h.UpsertPushToken)
 		r.Get("/referrals/my-code", h.ReferralCode)
 		r.Post("/referrals/claim", h.ClaimReferral)
 		r.Post("/events", h.CreateEvent)

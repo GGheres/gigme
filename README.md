@@ -2,7 +2,8 @@
 
 ## Structure
 - `backend/` - Go API + notification worker
-- `frontend/` - React + Leaflet WebApp
+- `frontend/` - React + Leaflet WebApp (legacy client)
+- `flutter_app/` - Flutter client (Mode A Telegram Web MVP, Mode B standalone scaffold)
 - `infra/` - docker-compose and Postgres/PostGIS migrations
 
 ## Quick start (dev)
@@ -47,6 +48,17 @@ npm install
 npm run dev
 ```
 
+6. Run the Flutter client locally (optional, Mode A):
+```
+cd ../flutter_app
+flutter create . --platforms=android,ios,web
+flutter pub get
+flutter run -d chrome \
+  --dart-define=API_URL=http://localhost:8080 \
+  --dart-define=BOT_USERNAME=YOUR_BOT_USERNAME \
+  --dart-define=AUTH_MODE=telegram_web
+```
+
 ## Environment variables
 
 ### Backend / Worker
@@ -79,6 +91,16 @@ npm run dev
 - `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).
 - `VITE_PRESIGN_ENABLED` - `true|false` (default: `true`). Set `false` to always upload via API instead of presigned S3.
 
+### Flutter frontend
+- `API_URL` - backend API URL (passed via `--dart-define` or Docker build arg `FLUTTER_API_URL`)
+- `BOT_USERNAME` - Telegram bot username used in shared referral links
+- `AUTH_MODE` - `telegram_web` (Mode A) or `standalone` (Mode B scaffold)
+- `STANDALONE_AUTH_URL` - optional helper URL for Mode B login (returns `initData` via deep link/query)
+- `STANDALONE_REDIRECT_URI` - deep-link URL for Mode B callback (default `gigme://auth`)
+- `ENABLE_PUSH` - `true|false` toggle for FCM scaffold initialization in standalone mode
+- `ADMIN_TELEGRAM_IDS` - optional comma-separated allowlist for showing admin UI entrypoint
+- Production build args are read from `infra/.env.prod` as `FLUTTER_*` variables.
+
 ## Deployment (prod, Docker Compose)
 1. Copy and fill the production env file:
 
@@ -96,9 +118,12 @@ docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d
 
 Notes:
 - `VITE_*` variables are baked into the frontend build. Rebuild the `frontend` image after changing them.
+- `FLUTTER_*` variables are baked into the Flutter web build. Rebuild the `flutter_frontend` image after changing them.
+- For standalone mobile auth helper use `FLUTTER_STANDALONE_AUTH_URL` (for this stack: `https://<domain>/api/auth/standalone`) and set deep link with `FLUTTER_STANDALONE_REDIRECT_URI`.
 - Set `BASE_URL` to the public WebApp URL so Telegram buttons point to the correct host.
 - If you use managed Postgres/S3, update `DATABASE_URL` / `S3_*` in `infra/.env.prod`.
 - DNS: point `spacefestival.fun` (and optionally `www.spacefestival.fun`) to your server IP; API is served from `/api` on the same domain. Ensure ports 80/443 are open (Caddy handles TLS).
+- In production both clients are available in parallel: legacy React at `/`, Flutter Web at `/app_flutter`.
 - If `VITE_PRESIGN_ENABLED=false`, uploads go through the API and `S3_PUBLIC_ENDPOINT` can stay internal (e.g. `http://minio:9000`).
 - MinIO ports are not exposed in the prod compose; access is internal-only.
 
@@ -121,9 +146,12 @@ GET /events/nearby?lat=52.37&lng=4.9&radiusM=5000
 ## API summary
 Implemented endpoints:
 - `POST /auth/telegram`
+- `GET /auth/standalone` (Telegram Login Widget helper for Mode B)
+- `POST /auth/standalone/exchange` (helper payload -> signed `initData`)
 - `POST /logs/client`
 - `GET /me`
 - `POST /me/location`
+- `POST /me/push-token`
 - `GET /referrals/my-code`
 - `POST /referrals/claim`
 - `POST /events`

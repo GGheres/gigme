@@ -4,6 +4,9 @@
 
 spacefestival.fun {
   encode zstd gzip
+  handle /app_flutter* {
+    reverse_proxy flutter_frontend:80
+  }
   handle /telegram/webhook {
     reverse_proxy api:8080
   }

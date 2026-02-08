@@ -16,6 +16,19 @@ type User struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
+type UserPushToken struct {
+	UserID     int64     `json:"userId"`
+	Platform   string    `json:"platform"`
+	Token      string    `json:"token"`
+	DeviceID   string    `json:"deviceId,omitempty"`
+	AppVersion string    `json:"appVersion,omitempty"`
+	Locale     string    `json:"locale,omitempty"`
+	IsActive   bool      `json:"isActive"`
+	LastSeenAt time.Time `json:"lastSeenAt"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
 type Event struct {
 	ID                 int64      `json:"id"`
 	CreatorUserID      int64      `json:"creatorUserId"`
