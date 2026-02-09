@@ -34,10 +34,10 @@ services:
       - ./migrations:/migrations
     entrypoint: ["/bin/sh", "-ec"]
     command: |
-      output="$(migrate -path /migrations -database "${DATABASE_URL}" up 2>&1)" || status=$?
-      printf '%s\n' "$output"
-      if [ "${status:-0}" -ne 0 ] && ! printf '%s' "$output" | grep -qi "no change"; then
-        exit "${status:-1}"
+      output="$$(migrate -path /migrations -database "${DATABASE_URL}" up 2>&1)" || status=$$?
+      printf '%s\n' "$$output"
+      if [ "$${status:-0}" -ne 0 ] && ! printf '%s' "$$output" | grep -qi "no change"; then
+        exit "$${status:-1}"
       fi
 
   api:
