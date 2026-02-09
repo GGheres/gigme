@@ -101,7 +101,9 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
     (() => {
       const params = new URLSearchParams(window.location.search);
       const redirectUriParam = params.get('redirect_uri') || params.get('redirectUri') || '';
-      const redirectUri = redirectUriParam || 'gigme://auth';
+      const nativeRedirectUri = 'gigme://auth';
+      const webFallbackRedirectUri = window.location.origin + '/app_flutter/#/auth';
+      let fallbackTimerId = null;
 
       function setStatus(message, isError) {
         const status = document.getElementById('status');
@@ -132,6 +134,32 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         setStatus(message, false);
       }
 
+      function clearFallbackTimer() {
+        if (fallbackTimerId == null) return;
+        window.clearTimeout(fallbackTimerId);
+        fallbackTimerId = null;
+      }
+
+      function openWithoutRedirectParam(initData) {
+        const nativeUrl = buildRedirectUrl(nativeRedirectUri, initData);
+        const webFallbackUrl = buildRedirectUrl(webFallbackRedirectUri, initData);
+
+        setStatus('Opening app…', false);
+        window.location.href = nativeUrl;
+
+        fallbackTimerId = window.setTimeout(() => {
+          fallbackTimerId = null;
+          if (document.visibilityState === 'hidden') return;
+          setStatus('App did not open. Redirecting to web app…', false);
+          window.location.href = webFallbackUrl;
+        }, 900);
+
+        window.setTimeout(() => {
+          if (document.visibilityState === 'hidden') return;
+          revealInitData(initData, 'If redirect failed, copy initData manually.');
+        }, 2500);
+      }
+
       async function exchange(user) {
         const response = await fetch(buildExchangeUrl(), {
           method: 'POST',
@@ -159,24 +187,24 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         try {
           setStatus('Authorizing…', false);
           const initData = await exchange(user);
-          if (redirectUri) {
-            if (!redirectUriParam) {
-              setStatus('No redirect_uri provided, using default gigme://auth…', false);
-            } else {
-              setStatus('Redirecting back to app…', false);
-            }
-            window.location.href = buildRedirectUrl(redirectUri, initData);
-            window.setTimeout(() => {
-              revealInitData(initData, 'If app did not open, copy initData manually.');
-            }, 1400);
+          if (redirectUriParam) {
+            setStatus('Redirecting back to app…', false);
+            window.location.href = buildRedirectUrl(redirectUriParam, initData);
             return;
           }
 
-          revealInitData(initData, 'No redirect_uri provided. Copy initData manually.');
+          openWithoutRedirectParam(initData);
         } catch (error) {
           setStatus(error?.message || 'Authorization failed', true);
         }
       };
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          clearFallbackTimer();
+        }
+      });
+      window.addEventListener('pagehide', clearFallbackTimer);
 
       window.copyInitData = async function() {
         const output = document.getElementById('initData');
