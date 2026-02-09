@@ -102,7 +102,6 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
       const params = new URLSearchParams(window.location.search);
       const redirectUriParam = params.get('redirect_uri') || params.get('redirectUri') || '';
       const nativeRedirectUri = 'gigme://auth';
-      const webFallbackRedirectUri = window.location.origin + '/app_flutter/#/auth';
       let fallbackTimerId = null;
 
       function setStatus(message, isError) {
@@ -142,7 +141,6 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
 
       function openWithoutRedirectParam(initData) {
         const nativeUrl = buildRedirectUrl(nativeRedirectUri, initData);
-        const webFallbackUrl = buildRedirectUrl(webFallbackRedirectUri, initData);
 
         setStatus('Opening app…', false);
         window.location.href = nativeUrl;
@@ -150,14 +148,13 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         fallbackTimerId = window.setTimeout(() => {
           fallbackTimerId = null;
           if (document.visibilityState === 'hidden') return;
-          setStatus('App did not open. Redirecting to web app…', false);
-          window.location.href = webFallbackUrl;
-        }, 900);
+          revealInitData(initData, 'App did not open. Copy initData manually.');
+        }, 1600);
 
         window.setTimeout(() => {
           if (document.visibilityState === 'hidden') return;
           revealInitData(initData, 'If redirect failed, copy initData manually.');
-        }, 2500);
+        }, 2600);
       }
 
       async function exchange(user) {

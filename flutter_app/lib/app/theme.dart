@@ -10,7 +10,7 @@ ThemeData buildGigMeTheme() {
   return base.copyWith(
     scaffoldBackgroundColor: const Color(0xFFF4F8FB),
     appBarTheme: const AppBarTheme(centerTitle: false),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0.5,

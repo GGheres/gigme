@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -16,6 +17,7 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   final TextEditingController _initDataController = TextEditingController();
+  bool _standaloneHelperLaunchAttempted = false;
 
   @override
   void dispose() {
@@ -29,6 +31,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final state = authController.state;
     final config = ref.watch(appConfigProvider);
     final standaloneHelperUri = _standaloneHelperUri(config);
+    _scheduleStandaloneHelperAutoLaunch(
+      state: state,
+      config: config,
+      standaloneHelperUri: standaloneHelperUri,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('GigMe Login')),
@@ -67,13 +74,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                       child: Text(
                         state.error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer),
                       ),
                     ),
                   FilledButton(
-                    onPressed: () => ref.read(authControllerProvider).retryAuth(),
+                    onPressed: () =>
+                        ref.read(authControllerProvider).retryAuth(),
                     child: Text(
-                      config.authMode == AuthMode.telegramWeb ? 'Retry Telegram Login' : 'Retry from URL initData',
+                      config.authMode == AuthMode.telegramWeb
+                          ? 'Retry Telegram Login'
+                          : 'Retry from URL initData',
                     ),
                   ),
                   if (config.authMode == AuthMode.standalone) ...[
@@ -84,7 +96,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       maxLines: 8,
                       decoration: const InputDecoration(
                         labelText: 'Telegram initData',
-                        hintText: 'Paste initData here if auth helper returns it',
+                        hintText:
+                            'Paste initData here if auth helper returns it',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -92,7 +105,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       onPressed: () {
                         final initData = _initDataController.text.trim();
                         if (initData.isEmpty) return;
-                        ref.read(authControllerProvider).loginWithTelegram(initData);
+                        ref
+                            .read(authControllerProvider)
+                            .loginWithTelegram(initData);
                       },
                       child: const Text('Login with initData'),
                     ),
@@ -100,7 +115,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       const SizedBox(height: 10),
                       OutlinedButton(
                         onPressed: () async {
-                          await launchUrl(standaloneHelperUri, mode: LaunchMode.externalApplication);
+                          await launchUrl(standaloneHelperUri,
+                              mode: LaunchMode.externalApplication);
                         },
                         child: const Text('Open standalone auth helper'),
                       ),
@@ -143,5 +159,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       'redirect_uri': redirectUri,
     };
     return base.replace(queryParameters: query);
+  }
+
+  void _scheduleStandaloneHelperAutoLaunch({
+    required AuthState state,
+    required AppConfig config,
+    required Uri? standaloneHelperUri,
+  }) {
+    if (_standaloneHelperLaunchAttempted) return;
+    if (kIsWeb) return;
+    if (config.authMode != AuthMode.standalone) return;
+    if (standaloneHelperUri == null) return;
+    if (state.status != AuthStatus.unauthenticated) return;
+
+    _standaloneHelperLaunchAttempted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await launchUrl(standaloneHelperUri,
+          mode: LaunchMode.externalApplication);
+    });
   }
 }

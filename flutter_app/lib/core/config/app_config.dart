@@ -27,25 +27,81 @@ class AppConfig {
   bool get isTelegramWebMode => authMode == AuthMode.telegramWeb;
 
   static AppConfig fromEnvironment() {
-    const rawApiUrl = String.fromEnvironment('API_URL', defaultValue: '/api');
-    const rawBotUsername = String.fromEnvironment('BOT_USERNAME', defaultValue: '');
-    const rawAuthMode = String.fromEnvironment('AUTH_MODE', defaultValue: 'telegram_web');
-    const rawStandaloneAuthUrl = String.fromEnvironment('STANDALONE_AUTH_URL', defaultValue: '');
-    const rawStandaloneRedirectUri = String.fromEnvironment('STANDALONE_REDIRECT_URI', defaultValue: 'gigme://auth');
-    const rawEnablePush = String.fromEnvironment('ENABLE_PUSH', defaultValue: 'false');
-    const rawAdminTelegramIds = String.fromEnvironment('ADMIN_TELEGRAM_IDS', defaultValue: '');
+    const envApiUrl = String.fromEnvironment('API_URL', defaultValue: '');
+    const rawBotUsername =
+        String.fromEnvironment('BOT_USERNAME', defaultValue: '');
+    const rawAuthMode = String.fromEnvironment('AUTH_MODE', defaultValue: '');
+    const rawStandaloneAuthUrl =
+        String.fromEnvironment('STANDALONE_AUTH_URL', defaultValue: '');
+    const rawStandaloneRedirectUri = String.fromEnvironment(
+        'STANDALONE_REDIRECT_URI',
+        defaultValue: 'gigme://auth');
+    const rawEnablePush =
+        String.fromEnvironment('ENABLE_PUSH', defaultValue: 'false');
+    const rawAdminTelegramIds =
+        String.fromEnvironment('ADMIN_TELEGRAM_IDS', defaultValue: '');
+    const defaultApiUrl = kIsWeb ? '/api' : 'https://spacefestival.fun/api';
+    final rawApiUrl = envApiUrl.trim().isEmpty ? defaultApiUrl : envApiUrl;
+    final apiUrl = _normalizeApiUrl(rawApiUrl);
+    final standaloneRedirectUri = rawStandaloneRedirectUri.trim().isEmpty
+        ? 'gigme://auth'
+        : rawStandaloneRedirectUri.trim();
 
     return AppConfig(
-      apiUrl: _normalizeApiUrl(rawApiUrl),
+      apiUrl: apiUrl,
       botUsername: rawBotUsername.trim(),
-      authMode: rawAuthMode.toLowerCase().trim() == 'standalone'
-          ? AuthMode.standalone
-          : AuthMode.telegramWeb,
-      standaloneAuthUrl: rawStandaloneAuthUrl.trim(),
-      standaloneRedirectUri: rawStandaloneRedirectUri.trim(),
+      authMode: _resolveAuthMode(rawAuthMode),
+      standaloneAuthUrl: _resolveStandaloneAuthUrl(
+        rawStandaloneAuthUrl: rawStandaloneAuthUrl,
+        normalizedApiUrl: apiUrl,
+      ),
+      standaloneRedirectUri: standaloneRedirectUri,
       enablePush: rawEnablePush.toLowerCase().trim() == 'true',
       adminTelegramIds: _parseAdminIds(rawAdminTelegramIds),
     );
+  }
+
+  static AuthMode _resolveAuthMode(String rawAuthMode) {
+    final mode = rawAuthMode.toLowerCase().trim();
+    if (mode == 'standalone') return AuthMode.standalone;
+    if (mode == 'telegram_web') {
+      // Telegram Web initData does not exist on native mobile.
+      return kIsWeb ? AuthMode.telegramWeb : AuthMode.standalone;
+    }
+    return kIsWeb ? AuthMode.telegramWeb : AuthMode.standalone;
+  }
+
+  static String _resolveStandaloneAuthUrl({
+    required String rawStandaloneAuthUrl,
+    required String normalizedApiUrl,
+  }) {
+    final explicit = rawStandaloneAuthUrl.trim();
+    if (explicit.isNotEmpty) {
+      return _normalizeApiUrl(explicit);
+    }
+
+    final apiUri = Uri.tryParse(normalizedApiUrl);
+    if (apiUri == null || apiUri.scheme.isEmpty || apiUri.host.isEmpty) {
+      return '';
+    }
+
+    final pathSegments = <String>[
+      for (final segment in apiUri.pathSegments)
+        if (segment.isNotEmpty) segment,
+    ];
+    if (pathSegments.isNotEmpty && pathSegments.last.toLowerCase() == 'api') {
+      pathSegments.addAll(const ['auth', 'standalone']);
+    } else {
+      pathSegments.addAll(const ['api', 'auth', 'standalone']);
+    }
+
+    return apiUri
+        .replace(
+          pathSegments: pathSegments,
+          queryParameters: const <String, String>{},
+          fragment: '',
+        )
+        .toString();
   }
 
   static String _normalizeApiUrl(String value) {
