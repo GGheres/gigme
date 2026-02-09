@@ -34,12 +34,14 @@ class AuthController extends ChangeNotifier {
   bool _startupLinkConsumed = false;
   StreamSubscription<Uri>? _standaloneLinkSub;
   bool _standaloneListenerStarted = false;
+  Uri? _launchUri;
 
   bool _initialized = false;
 
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
+    _launchUri = Uri.base;
 
     _startupLink = StartupLinkParser.parse();
 
@@ -179,19 +181,35 @@ class AuthController extends ChangeNotifier {
     final fromBridge = TelegramWebAppBridge.getInitData();
     if (fromBridge != null && fromBridge.isNotEmpty) return fromBridge;
 
-    final uri = Uri.base;
+    final fromLaunchUri = _extractInitDataFromUri(_launchUri);
+    if (fromLaunchUri != null && fromLaunchUri.isNotEmpty) return fromLaunchUri;
+
+    return _extractInitDataFromUri(Uri.base);
+  }
+
+  String? _extractInitDataFromUri(Uri? uri) {
+    if (uri == null) return null;
+
     final fromQuery = uri.queryParameters['initData'] ?? uri.queryParameters['tgWebAppData'];
     if ((fromQuery ?? '').trim().isNotEmpty) return fromQuery!.trim();
 
-    final fragment = uri.fragment;
+    final fragment = uri.fragment.trim();
     if (fragment.isEmpty) return null;
 
-    try {
-      final fragmentParams = Uri.splitQueryString(fragment);
-      final fromHash = fragmentParams['initData'] ?? fragmentParams['tgWebAppData'];
-      if ((fromHash ?? '').trim().isNotEmpty) return fromHash!.trim();
-    } catch (_) {
-      return null;
+    final candidates = <String>{fragment};
+    final questionMarkIndex = fragment.indexOf('?');
+    if (questionMarkIndex >= 0 && questionMarkIndex < fragment.length - 1) {
+      candidates.add(fragment.substring(questionMarkIndex + 1));
+    }
+
+    for (final candidate in candidates) {
+      try {
+        final params = Uri.splitQueryString(candidate);
+        final fromHash = params['initData'] ?? params['tgWebAppData'];
+        if ((fromHash ?? '').trim().isNotEmpty) return fromHash!.trim();
+      } catch (_) {
+        // Ignore invalid hash formats and continue fallback attempts.
+      }
     }
 
     return null;
@@ -216,17 +234,9 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> _handleStandaloneUri(Uri uri) async {
-    var initData = uri.queryParameters['initData'] ?? uri.queryParameters['tgWebAppData'];
-    if ((initData ?? '').trim().isEmpty && uri.fragment.trim().isNotEmpty) {
-      try {
-        final params = Uri.splitQueryString(uri.fragment.trim());
-        initData = params['initData'] ?? params['tgWebAppData'];
-      } catch (_) {
-        initData = null;
-      }
-    }
-    if ((initData ?? '').trim().isEmpty) return;
-    await loginWithTelegram(initData!.trim());
+    final initData = _extractInitDataFromUri(uri);
+    if (initData == null || initData.isEmpty) return;
+    await loginWithTelegram(initData);
   }
 
   @override

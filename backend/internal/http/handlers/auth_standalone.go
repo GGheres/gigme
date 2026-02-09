@@ -100,7 +100,8 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
-      const redirectUri = params.get('redirect_uri') || '';
+      const redirectUriParam = params.get('redirect_uri') || params.get('redirectUri') || '';
+      const redirectUri = redirectUriParam || 'gigme://auth';
 
       function setStatus(message, isError) {
         const status = document.getElementById('status');
@@ -121,6 +122,14 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
           const sep = base.includes('?') ? '&' : '?';
           return base + sep + 'initData=' + encodeURIComponent(initData);
         }
+      }
+
+      function revealInitData(initData, message) {
+        const output = document.getElementById('initData');
+        output.value = initData;
+        output.hidden = false;
+        document.getElementById('copyBtn').hidden = false;
+        setStatus(message, false);
       }
 
       async function exchange(user) {
@@ -151,15 +160,19 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
           setStatus('Authorizing…', false);
           const initData = await exchange(user);
           if (redirectUri) {
+            if (!redirectUriParam) {
+              setStatus('No redirect_uri provided, using default gigme://auth…', false);
+            } else {
+              setStatus('Redirecting back to app…', false);
+            }
             window.location.href = buildRedirectUrl(redirectUri, initData);
+            window.setTimeout(() => {
+              revealInitData(initData, 'If app did not open, copy initData manually.');
+            }, 1400);
             return;
           }
 
-          const output = document.getElementById('initData');
-          output.value = initData;
-          output.hidden = false;
-          document.getElementById('copyBtn').hidden = false;
-          setStatus('No redirect_uri provided. Copy initData manually.', false);
+          revealInitData(initData, 'No redirect_uri provided. Copy initData manually.');
         } catch (error) {
           setStatus(error?.message || 'Authorization failed', true);
         }
