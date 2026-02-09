@@ -32,7 +32,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           if ((startup.refCode ?? '').isNotEmpty) 'ref': startup.refCode!,
         },
       );
-      context.go(uri.toString());
+      context.push(uri.toString());
     });
   }
 

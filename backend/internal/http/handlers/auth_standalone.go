@@ -101,8 +101,11 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
     (() => {
       const params = new URLSearchParams(window.location.search);
       const redirectUriParam = params.get('redirect_uri') || params.get('redirectUri') || '';
+      const webFallbackUriParam = params.get('web_fallback_uri') || params.get('webFallbackUri') || '';
       const nativeRedirectUri = 'gigme://auth';
-      let fallbackTimerId = null;
+      const webFallbackUri = webFallbackUriParam || 'https://spacefestival.fun/#/auth';
+      let appFallbackTimerId = null;
+      let manualFallbackTimerId = null;
 
       function setStatus(message, isError) {
         const status = document.getElementById('status');
@@ -134,27 +137,35 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
       }
 
       function clearFallbackTimer() {
-        if (fallbackTimerId == null) return;
-        window.clearTimeout(fallbackTimerId);
-        fallbackTimerId = null;
+        if (appFallbackTimerId != null) {
+          window.clearTimeout(appFallbackTimerId);
+          appFallbackTimerId = null;
+        }
+        if (manualFallbackTimerId != null) {
+          window.clearTimeout(manualFallbackTimerId);
+          manualFallbackTimerId = null;
+        }
       }
 
       function openWithoutRedirectParam(initData) {
         const nativeUrl = buildRedirectUrl(nativeRedirectUri, initData);
+        const webUrl = buildRedirectUrl(webFallbackUri, initData);
 
         setStatus('Opening app…', false);
         window.location.href = nativeUrl;
 
-        fallbackTimerId = window.setTimeout(() => {
-          fallbackTimerId = null;
+        appFallbackTimerId = window.setTimeout(() => {
+          appFallbackTimerId = null;
           if (document.visibilityState === 'hidden') return;
-          revealInitData(initData, 'App did not open. Copy initData manually.');
-        }, 1600);
+          setStatus('Opening web app on spacefestival.fun…', false);
+          window.location.replace(webUrl);
+        }, 1500);
 
-        window.setTimeout(() => {
+        manualFallbackTimerId = window.setTimeout(() => {
+          manualFallbackTimerId = null;
           if (document.visibilityState === 'hidden') return;
           revealInitData(initData, 'If redirect failed, copy initData manually.');
-        }, 2600);
+        }, 3200);
       }
 
       async function exchange(user) {

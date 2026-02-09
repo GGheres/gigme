@@ -103,12 +103,14 @@ class ApiClient {
     try {
       await _dio.putUri<void>(
         Uri.parse(url),
-        data: Stream.fromIterable([bytes]),
+        data: bytes,
         options: Options(
           headers: {
             'Content-Type': contentType,
+            'Content-Length': bytes.lengthInBytes,
           },
           responseType: ResponseType.plain,
+          validateStatus: (status) => status != null && status >= 200 && status < 300,
         ),
       );
     } on DioException catch (error) {

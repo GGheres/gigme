@@ -145,7 +145,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> with TickerProviderSt
         title: const Text('Admin panel'),
         leading: IconButton(
           onPressed: () => context.go('/profile'),
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
         actions: [
           IconButton(

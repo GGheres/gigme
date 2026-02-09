@@ -83,9 +83,7 @@ class AuthController extends ChangeNotifier {
       return;
     }
 
-    _state = AuthState.unauthenticated(
-      error: 'Use standalone auth helper or paste initData to continue.',
-    );
+    _state = AuthState.unauthenticated();
     notifyListeners();
   }
 
@@ -142,7 +140,7 @@ class AuthController extends ChangeNotifier {
       _state = AuthState.unauthenticated(
         error: config.isTelegramWebMode
             ? 'Telegram initData not found. Open via Telegram WebApp.'
-            : 'Standalone initData is missing. Open helper login URL or paste initData.',
+            : 'Telegram callback data not found. Continue login in the app window.',
       );
       notifyListeners();
       return;
