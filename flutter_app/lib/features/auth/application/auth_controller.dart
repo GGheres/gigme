@@ -203,7 +203,7 @@ class AuthController extends ChangeNotifier {
 
     try {
       final appLinks = AppLinks();
-      final initial = await appLinks.getInitialAppLink();
+      final initial = await appLinks.getInitialLink();
       if (initial != null) {
         unawaited(_handleStandaloneUri(initial));
       }

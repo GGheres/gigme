@@ -49,7 +49,7 @@ class AppConfig {
   }
 
   static String _normalizeApiUrl(String value) {
-    final trimmed = value.trim().replaceAll(RegExp(r"^['\"]|['\"]$"), '');
+    final trimmed = value.trim().replaceAll(RegExp(r'''^['"]|['"]$'''), '');
     final origin = _webOrigin();
 
     if (trimmed.isEmpty) {

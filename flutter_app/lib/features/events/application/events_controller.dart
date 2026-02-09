@@ -11,6 +11,7 @@ import '../../../core/models/event_card.dart';
 import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
 import '../../../core/models/event_marker.dart';
+import '../../../core/network/providers.dart';
 import '../../../core/storage/event_access_key_store.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/events_repository.dart';

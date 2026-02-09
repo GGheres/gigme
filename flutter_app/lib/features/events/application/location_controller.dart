@@ -85,7 +85,7 @@ class LocationController extends ChangeNotifier {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        desiredAccuracy: LocationAccuracy.high,
       );
       final point = LatLng(position.latitude, position.longitude);
       _state = _state.copyWith(
