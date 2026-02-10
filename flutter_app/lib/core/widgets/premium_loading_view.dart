@@ -487,9 +487,9 @@ class _PremiumFramePainter extends CustomPainter {
     if (cached != null) return cached;
 
     final intensity = clampedBin / _intensitySteps;
-    final base = glowPass ? const Color(0xFF3ACF9E) : const Color(0xFF2EB282);
+    final base = glowPass ? const Color(0xFFBFC8D6) : const Color(0xFFCDD5E2);
     final highlight =
-        glowPass ? const Color(0xFFEEFFF9) : const Color(0xFFD6FFF1);
+        glowPass ? const Color(0xFFFFFFFF) : const Color(0xFFF5F8FF);
     final alpha = glowPass
         ? (0.08 + (0.70 * intensity)).clamp(0.0, 1.0)
         : (0.26 + (0.68 * intensity)).clamp(0.0, 1.0);
