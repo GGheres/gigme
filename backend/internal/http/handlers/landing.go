@@ -69,12 +69,12 @@ const (
 	landingDefaultHeroEyebrow         = "SPACEFESTIVAL"
 	landingDefaultHeroTitle           = "Spacefestival 2026"
 	landingDefaultHeroDescription     = "Три экрана музыки, перформансов и нетворкинга. Лови билет, открывай Space App и следи за обновлениями в реальном времени."
-	landingDefaultHeroPrimaryCTALabel = "Открыть Space App"
+	landingDefaultHeroPrimaryCTALabel = "Купить Билет"
 	landingDefaultAboutTitle          = "О мероприятии"
 	landingDefaultAboutDescription    = "О мероприятии: сеты артистов, иммерсивные зоны, локальные бренды и серия партнерских активностей. Вся программа обновляется на лендинге."
 	landingDefaultPartnersTitle       = "Партнеры и контакты"
 	landingDefaultPartnersDescription = "Партнерская сетка формируется. Следите за новыми анонсами."
-	landingDefaultFooterText          = "GigMe"
+	landingDefaultFooterText          = "SPACE"
 )
 
 func (h *Handler) LandingEvents(w http.ResponseWriter, r *http.Request) {

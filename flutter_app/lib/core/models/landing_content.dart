@@ -34,7 +34,7 @@ class LandingContent {
       heroTitle: 'Spacefestival 2026',
       heroDescription:
           'Три экрана музыки, перформансов и нетворкинга. Лови билет, открывай Space App и следи за обновлениями в реальном времени.',
-      heroPrimaryCtaLabel: 'Открыть Space App',
+      heroPrimaryCtaLabel: 'Купить Билет',
       aboutTitle: 'О мероприятии',
       aboutDescription:
           'О мероприятии: сеты артистов, иммерсивные зоны, локальные бренды и серия партнерских активностей. Вся программа обновляется на лендинге.',
