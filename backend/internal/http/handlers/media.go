@@ -43,8 +43,6 @@ func (h *Handler) PresignMedia(w http.ResponseWriter, r *http.Request) {
 		"image/jpeg": {},
 		"image/png":  {},
 		"image/webp": {},
-		"image/heic": {},
-		"image/heif": {},
 	}
 	if _, ok := allowed[strings.ToLower(req.ContentType)]; !ok {
 		logger.Warn("action", "action", "presign_media", "status", "invalid_content_type", "content_type", req.ContentType)
@@ -110,8 +108,6 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		"image/jpeg": {},
 		"image/png":  {},
 		"image/webp": {},
-		"image/heic": {},
-		"image/heif": {},
 	}
 	if _, ok := allowed[strings.ToLower(contentType)]; !ok {
 		logger.Warn("action", "action", "upload_media", "status", "invalid_content_type", "content_type", contentType)

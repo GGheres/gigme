@@ -160,7 +160,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         title: const Text('Admin panel'),
         leading: IconButton(
           onPressed: () => context.go(AppRoutes.profile),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: const Icon(Icons.arrow_back_rounded),
         ),
         actions: [
           IconButton(

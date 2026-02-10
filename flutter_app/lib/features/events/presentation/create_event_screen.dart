@@ -293,21 +293,23 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         }
 
         final ext = p.extension(file.name).toLowerCase();
-        final contentType = (lookupMimeType(file.name, headerBytes: bytes) ??
-                _fallbackContentTypeForExtension(ext))
-            .toLowerCase();
+        final contentType = lookupMimeType(file.name, headerBytes: bytes) ??
+            (ext == '.png'
+                ? 'image/png'
+                : ext == '.webp'
+                    ? 'image/webp'
+                    : 'image/jpeg');
 
-        if (!_isSupportedUploadContentType(contentType)) {
+        if (!(contentType == 'image/jpeg' ||
+            contentType == 'image/png' ||
+            contentType == 'image/webp')) {
           _showError(
-              'Unsupported file type for ${file.name}. Use jpeg/png/webp/heic.');
+              'Unsupported file type for ${file.name}. Use jpeg/png/webp.');
           continue;
         }
 
-        final uploadFileName =
-            _normalizedUploadFileName(file.name, contentType);
-
         final uploadedUrl = await events.uploadImage(
-          fileName: uploadFileName,
+          fileName: file.name,
           contentType: contentType,
           bytes: bytes,
         );
@@ -416,49 +418,6 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
-  }
-
-  bool _isSupportedUploadContentType(String contentType) {
-    switch (contentType) {
-      case 'image/jpeg':
-      case 'image/png':
-      case 'image/webp':
-      case 'image/heic':
-      case 'image/heif':
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  String _fallbackContentTypeForExtension(String extension) {
-    switch (extension) {
-      case '.png':
-        return 'image/png';
-      case '.webp':
-        return 'image/webp';
-      case '.heic':
-        return 'image/heic';
-      case '.heif':
-        return 'image/heif';
-      default:
-        return 'image/jpeg';
-    }
-  }
-
-  String _normalizedUploadFileName(String sourceName, String contentType) {
-    final trimmed = sourceName.trim();
-    final baseName =
-        trimmed.isEmpty ? 'photo' : p.basenameWithoutExtension(trimmed);
-    final safeBase = baseName.isEmpty ? 'photo' : baseName;
-    final ext = switch (contentType) {
-      'image/png' => '.png',
-      'image/webp' => '.webp',
-      'image/heic' => '.heic',
-      'image/heif' => '.heif',
-      _ => '.jpg',
-    };
-    return '$safeBase$ext';
   }
 }
 
