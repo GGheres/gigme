@@ -47,22 +47,75 @@ class StartupLinkParser {
   }
 
   static StartupLink _fromUri(Uri uri) {
-    final eventId = _parseEventId(uri.queryParameters['eventId'] ?? uri.queryParameters['event']);
+    final params = _mergeLocationParams(uri);
+    final eventId = _parseEventId(params['eventId'] ?? params['event']);
     if (eventId == null) return const StartupLink();
 
     return StartupLink(
       eventId: eventId,
-      eventKey: _sanitizeKey(uri.queryParameters['eventKey'] ?? uri.queryParameters['key']),
-      refCode: _sanitizeRef(uri.queryParameters['refCode'] ?? uri.queryParameters['ref']),
+      eventKey: _sanitizeKey(params['eventKey'] ?? params['key']),
+      refCode: _sanitizeRef(params['refCode'] ?? params['ref']),
     );
+  }
+
+  static Map<String, String> _mergeLocationParams(Uri uri) {
+    final merged = <String, String>{
+      ..._parseFragmentParams(uri.fragment),
+      ...uri.queryParameters,
+    };
+    return merged;
+  }
+
+  static Map<String, String> _parseFragmentParams(String fragment) {
+    final raw = fragment.trim();
+    if (raw.isEmpty) {
+      return const <String, String>{};
+    }
+
+    final out = <String, String>{};
+    void merge(String value) {
+      final parsed = _parseQueryLikeString(value);
+      if (parsed.isNotEmpty) {
+        out.addAll(parsed);
+      }
+    }
+
+    merge(raw);
+    final qIndex = raw.indexOf('?');
+    if (qIndex >= 0 && qIndex < raw.length - 1) {
+      merge(raw.substring(qIndex + 1));
+    }
+
+    return out;
+  }
+
+  static Map<String, String> _parseQueryLikeString(String raw) {
+    var value = raw.trim();
+    if (value.isEmpty) {
+      return const <String, String>{};
+    }
+    if (value.startsWith('?')) {
+      value = value.substring(1);
+    }
+    if (value.isEmpty || !value.contains('=')) {
+      return const <String, String>{};
+    }
+
+    try {
+      return Uri.splitQueryString(value);
+    } catch (_) {
+      return const <String, String>{};
+    }
   }
 
   static StartupLink _fromStartParam(String? value) {
     final raw = value?.trim() ?? '';
     if (raw.isEmpty) return const StartupLink();
 
-    final referralMatch =
-        RegExp(r'^e_(\d+)(?:_([a-zA-Z0-9_-]+))?(?:__r_([a-zA-Z0-9_-]+))?$', caseSensitive: false).firstMatch(raw);
+    final referralMatch = RegExp(
+            r'^e_(\d+)(?:_([a-zA-Z0-9_-]+))?(?:__r_([a-zA-Z0-9_-]+))?$',
+            caseSensitive: false)
+        .firstMatch(raw);
     if (referralMatch != null) {
       final eventId = _parseEventId(referralMatch.group(1));
       if (eventId == null) return const StartupLink();
@@ -73,11 +126,14 @@ class StartupLinkParser {
       );
     }
 
-    final legacy = RegExp(r'^event_(\d+)(?:_([a-zA-Z0-9_-]+))?$', caseSensitive: false).firstMatch(raw);
+    final legacy =
+        RegExp(r'^event_(\d+)(?:_([a-zA-Z0-9_-]+))?$', caseSensitive: false)
+            .firstMatch(raw);
     if (legacy != null) {
       final eventId = _parseEventId(legacy.group(1));
       if (eventId == null) return const StartupLink();
-      return StartupLink(eventId: eventId, eventKey: _sanitizeKey(legacy.group(2)));
+      return StartupLink(
+          eventId: eventId, eventKey: _sanitizeKey(legacy.group(2)));
     }
 
     final fallback = RegExp(r'\d+').firstMatch(raw);
