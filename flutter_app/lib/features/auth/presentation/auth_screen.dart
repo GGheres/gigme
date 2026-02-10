@@ -39,6 +39,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       standaloneHelperUri: standaloneHelperUri,
     );
 
+    if (config.authMode == AuthMode.telegramWeb) {
+      return _buildTelegramWebScreen(state);
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('SPACE Login')),
       body: Center(
@@ -136,6 +140,52 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ],
                 ],
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTelegramWebScreen(AuthState state) {
+    final error = (state.error ?? '').trim();
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    height: 240,
+                    child: PremiumLoadingView(
+                      compact: true,
+                      text: 'SPACE • LOADING • ',
+                      subtitle: 'Загружаем SPACE…',
+                    ),
+                  ),
+                  if (state.status != AuthStatus.loading &&
+                      error.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      error,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () =>
+                          ref.read(authControllerProvider).retryAuth(),
+                      child: const Text('Retry Telegram Login'),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

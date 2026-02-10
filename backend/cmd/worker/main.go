@@ -360,6 +360,7 @@ func buttonText(url string) string {
 }
 
 func buildEventURL(baseURL string, eventID int64) string {
+	baseURL = normalizeWebAppBaseURL(baseURL)
 	if baseURL == "" || eventID <= 0 {
 		return ""
 	}
@@ -375,6 +376,35 @@ func buildEventURL(baseURL string, eventID int64) string {
 	query.Set("eventId", strconv.FormatInt(eventID, 10))
 	parsed.RawQuery = query.Encode()
 	parsed.Fragment = mergeEventIDIntoFragment(parsed.Fragment, eventID)
+	return parsed.String()
+}
+
+func normalizeWebAppBaseURL(raw string) string {
+	base := strings.TrimSpace(raw)
+	if base == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(base)
+	if err != nil {
+		return base
+	}
+
+	// Notification WebApp buttons should open the app entrypoint directly.
+	if parsed.Scheme == "" || parsed.Host == "" {
+		trimmedPath := strings.TrimSpace(parsed.Path)
+		if strings.HasPrefix(trimmedPath, "/space_app") {
+			return trimmedPath
+		}
+		if strings.HasPrefix(trimmedPath, "/") {
+			return "/space_app"
+		}
+		return base
+	}
+
+	parsed.Path = "/space_app"
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
 	return parsed.String()
 }
 

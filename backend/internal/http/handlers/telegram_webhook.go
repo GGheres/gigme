@@ -76,7 +76,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webAppURL := strings.TrimSpace(h.cfg.BaseURL)
+	webAppURL := normalizeWebAppBaseURL(h.cfg.BaseURL)
 	startPayload := strings.TrimSpace(strings.TrimPrefix(text, "/start"))
 	eventID, accessKey := parseStartPayload(startPayload)
 
@@ -252,4 +252,33 @@ func mergeEventIDIntoFragment(fragment string, eventID int64) string {
 		return fragment + "&eventId=" + strconv.FormatInt(eventID, 10)
 	}
 	return fragment
+}
+
+func normalizeWebAppBaseURL(raw string) string {
+	base := strings.TrimSpace(raw)
+	if base == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(base)
+	if err != nil {
+		return base
+	}
+
+	// Telegram WebApp should open the app entrypoint directly to keep initData.
+	if parsed.Scheme == "" || parsed.Host == "" {
+		trimmedPath := strings.TrimSpace(parsed.Path)
+		if strings.HasPrefix(trimmedPath, "/space_app") {
+			return trimmedPath
+		}
+		if strings.HasPrefix(trimmedPath, "/") {
+			return "/space_app"
+		}
+		return base
+	}
+
+	parsed.Path = "/space_app"
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
 }

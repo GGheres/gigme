@@ -21,8 +21,6 @@ import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
-import '../../auth/application/auth_controller.dart';
-import '../../auth/application/auth_state.dart';
 import '../data/landing_repository.dart';
 
 class LandingScreen extends ConsumerStatefulWidget {
@@ -239,8 +237,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
 
     final localPath = _localAppPath(uri);
-    final authStatus = ref.read(authControllerProvider).state.status;
-    if (localPath != null && authStatus == AuthStatus.authenticated) {
+    if (localPath != null) {
       context.go(localPath);
       return;
     }
