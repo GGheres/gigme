@@ -1,3 +1,5 @@
+bool isAvailable() => false;
+
 String? getInitData() => null;
 
 String? startParam() => null;

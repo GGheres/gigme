@@ -2,6 +2,8 @@ import 'telegram_web_app_bridge_stub.dart'
     if (dart.library.html) 'telegram_web_app_bridge_web.dart' as bridge;
 
 class TelegramWebAppBridge {
+  static bool isAvailable() => bridge.isAvailable();
+
   static String? getInitData() => bridge.getInitData();
 
   static String? startParam() => bridge.startParam();

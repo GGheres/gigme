@@ -12,6 +12,7 @@ import '../../../app/routes.dart';
 import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
 import '../data/landing_repository.dart';
@@ -24,8 +25,10 @@ class LandingScreen extends ConsumerStatefulWidget {
 }
 
 class _LandingScreenState extends ConsumerState<LandingScreen> {
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController =
+      ScrollController(keepScrollOffset: false);
   final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
+  bool _didForceInitialTop = false;
 
   bool _loading = false;
   String? _error;
@@ -36,7 +39,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      TelegramWebAppBridge.readyAndExpand();
+    }
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _forceScrollTop();
+    });
     unawaited(_load());
   }
 
@@ -67,9 +76,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
             onRefresh: _load,
             child: SingleChildScrollView(
               controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
-              ),
+              physics: _scrollPhysicsForContext(context),
               child: SizedBox(
                 height: canvasHeight,
                 child: Stack(
@@ -122,6 +129,30 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
     final next = _scrollController.offset;
     if ((_scrollOffset.value - next).abs() < 0.5) return;
     _scrollOffset.value = next;
+  }
+
+  ScrollPhysics _scrollPhysicsForContext(BuildContext context) {
+    final isTelegramWeb = kIsWeb && TelegramWebAppBridge.isAvailable();
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    if (isTelegramWeb && isIOS) {
+      return const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(parent: ClampingScrollPhysics()),
+      );
+    }
+    return const AlwaysScrollableScrollPhysics(
+      parent: ClampingScrollPhysics(),
+    );
+  }
+
+  void _forceScrollTop() {
+    if (!mounted) return;
+    if (_didForceInitialTop) return;
+    _didForceInitialTop = true;
+
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    _scrollOffset.value = 0;
   }
 
   Future<void> _load() async {
@@ -277,7 +308,7 @@ class LandingLayoutConfig {
   static const double glassBlurSigma = 14;
   static const double parallaxOverflowViewportFactor = 0.72;
   static const String backgroundAssetPath =
-      'assets/images/landing/landing_bg_whales.png';
+      'assets/images/landing/landing_bg_forest_fairies.png';
 
   static bool isDesktop(double width) => width >= desktopBreakpoint;
   static bool isTablet(double width) =>

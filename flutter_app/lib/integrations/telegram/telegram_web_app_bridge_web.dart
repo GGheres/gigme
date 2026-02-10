@@ -7,10 +7,13 @@ Object? _webApp() {
   return js_util.getProperty<Object?>(telegram, 'WebApp');
 }
 
+bool isAvailable() => _webApp() != null;
+
 String? getInitData() {
   final app = _webApp();
   if (app == null) return null;
-  final value = js_util.getProperty<Object?>(app, 'initData')?.toString().trim() ?? '';
+  final value =
+      js_util.getProperty<Object?>(app, 'initData')?.toString().trim() ?? '';
   if (value.isEmpty) return null;
   return value;
 }
@@ -21,10 +24,14 @@ String? startParam() {
   final unsafe = js_util.getProperty<Object?>(app, 'initDataUnsafe');
   if (unsafe == null) return null;
 
-  final first = js_util.getProperty<Object?>(unsafe, 'start_param')?.toString().trim() ?? '';
+  final first =
+      js_util.getProperty<Object?>(unsafe, 'start_param')?.toString().trim() ??
+          '';
   if (first.isNotEmpty) return first;
 
-  final second = js_util.getProperty<Object?>(unsafe, 'startParam')?.toString().trim() ?? '';
+  final second =
+      js_util.getProperty<Object?>(unsafe, 'startParam')?.toString().trim() ??
+          '';
   if (second.isNotEmpty) return second;
 
   return null;
@@ -72,4 +79,8 @@ void readyAndExpand() {
   if (js_util.getProperty<Object?>(app, 'expand') != null) {
     js_util.callMethod<void>(app, 'expand', const []);
   }
+  if (js_util.getProperty<Object?>(app, 'disableVerticalSwipes') != null) {
+    js_util.callMethod<void>(app, 'disableVerticalSwipes', const []);
+  }
+  html.window.scrollTo(0, 0);
 }
