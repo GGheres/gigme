@@ -105,7 +105,9 @@ class AppDropdownField<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
-      initialValue: value,
+      // Keep `value` for compatibility with older Flutter SDKs used in CI/Docker.
+      // ignore: deprecated_member_use
+      value: value,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
