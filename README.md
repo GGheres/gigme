@@ -2,7 +2,7 @@
 
 ## Structure
 - `backend/` - Go API + notification worker
-- `frontend/` - React + Leaflet WebApp (legacy client)
+- `frontend/` - React + Leaflet WebApp (legacy client, disabled in prod by default)
 - `flutter_app/` - Flutter client (Mode A Telegram Web MVP, Mode B standalone scaffold)
 - `infra/` - docker-compose and Postgres/PostGIS migrations
 
@@ -19,7 +19,7 @@ ADMIN_TELEGRAM_IDS=123456789
 S3_PUBLIC_ENDPOINT=http://localhost:9000
 ```
 
-2. Create `frontend/.env` (used by Vite dev/build):
+2. Optional: create `frontend/.env` if you need to run legacy React UI locally:
 ```
 VITE_API_URL=http://localhost:8080
 VITE_ADMIN_TELEGRAM_IDS=123456789
@@ -41,7 +41,7 @@ docker compose up --build
 # create bucket: gigme
 ```
 
-5. Run the frontend locally:
+5. Optional: run legacy frontend locally:
 ```
 cd ../frontend
 npm install
@@ -81,7 +81,7 @@ flutter run -d chrome \
 - `LOG_FORMAT` - `text|json` (default: `text`)
 - `LOG_FILE` - optional path to also write logs to a file
 
-### Frontend
+### Frontend (legacy, optional)
 - `VITE_API_URL` - API URL
 - `VITE_ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
 - `VITE_TELEGRAM_BOT_USERNAME` - Telegram bot username for share links
@@ -90,6 +90,7 @@ flutter run -d chrome \
 - `VITE_LOG_TO_SERVER` - `true|false` (default: `true` in dev, `false` in prod). Runtime override: `localStorage.setItem('gigme:logToServer', 'true')`.
 - `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).
 - `VITE_PRESIGN_ENABLED` - `true|false` (default: `true`). Set `false` to always upload via API instead of presigned S3.
+- In production this client is disabled by default (`frontend` service is behind compose profile `legacy`).
 
 ### Flutter frontend
 - `API_URL` - backend API URL (passed via `--dart-define` or Docker build arg `FLUTTER_API_URL`)
@@ -117,14 +118,14 @@ docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d
 3. Create the S3/MinIO bucket (once), for example `gigme`.
 
 Notes:
-- `VITE_*` variables are baked into the frontend build. Rebuild the `frontend` image after changing them.
+- `VITE_*` variables are only for legacy React frontend. It is not started in default prod stack.
 - `FLUTTER_*` variables are baked into the Flutter web build. Rebuild the `flutter_frontend` image after changing them.
 - For standalone mobile auth helper use `FLUTTER_STANDALONE_AUTH_URL` (for this stack: `https://<domain>/api/auth/standalone`) and set deep link with `FLUTTER_STANDALONE_REDIRECT_URI`.
 - Set `BASE_URL` to the public WebApp URL so Telegram buttons point to the correct host.
 - If you use managed Postgres/S3, update `DATABASE_URL` / `S3_*` in `infra/.env.prod`.
 - DNS: point `spacefestival.fun` (and optionally `www.spacefestival.fun`) to your server IP; API is served from `/api` on the same domain. Ensure ports 80/443 are open (Caddy handles TLS).
 - In production Flutter Web serves both surfaces: landing at `/` and app at `/space_app`.
-- If `VITE_PRESIGN_ENABLED=false`, uploads go through the API and `S3_PUBLIC_ENDPOINT` can stay internal (e.g. `http://minio:9000`).
+- Legacy React frontend can be started manually with `--profile legacy`, but Caddy routes public traffic to Flutter (`/` and `/space_app`).
 - MinIO ports are not exposed in the prod compose; access is internal-only.
 
 ## Test calls

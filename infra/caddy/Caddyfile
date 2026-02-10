@@ -10,7 +10,14 @@ spacefestival.fun {
   handle_path /api/* {
     reverse_proxy api:8080
   }
-  reverse_proxy flutter_frontend:80
+  # Flutter web app lives on /space_app.
+  handle /space_app* {
+    reverse_proxy flutter_frontend:80
+  }
+  # Landing is served on root, and remaining static assets are also from Flutter build.
+  handle {
+    reverse_proxy flutter_frontend:80
+  }
 }
 
 www.spacefestival.fun {

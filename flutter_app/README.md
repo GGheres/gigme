@@ -80,6 +80,7 @@ The repo keeps legacy React `frontend/` untouched.
 Production compose serves Flutter web:
 - landing at `/`
 - app at `/space_app`
+- legacy React frontend remains in repo and can be started only via compose profile `legacy`
 
 For Flutter build-time env in `infra/.env.prod`:
 - `FLUTTER_API_URL`
