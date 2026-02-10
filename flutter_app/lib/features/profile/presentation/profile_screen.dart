@@ -8,9 +8,13 @@ import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
+import '../../../ui/components/app_button.dart';
+import '../../../ui/components/app_modal.dart';
+import '../../../ui/components/app_text_field.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
 
+// TODO(ui-migration): finish profile page shell/list tiles using AppScaffold/AppCard/AppButton tokens.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -145,26 +149,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<int?> _askTopupAmount(BuildContext context) async {
     final ctrl = TextEditingController(text: '100');
-    final result = await showDialog<int>(
+    final formKey = GlobalKey<FormState>();
+    final result = await showAppDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Topup GigTokens'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Amount (1..1,000,000)'),
+      builder: (context) => AppModal(
+        title: 'Topup GigTokens',
+        subtitle: 'Enter an amount between 1 and 1,000,000.',
+        onClose: () => Navigator.pop(context),
+        body: Form(
+          key: formKey,
+          child: AppTextField(
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            label: 'Amount',
+            hint: '100',
+            validator: (value) {
+              final parsed = int.tryParse((value ?? '').trim());
+              if (parsed == null || parsed < 1 || parsed > 1000000) {
+                return 'Enter a value from 1 to 1,000,000';
+              }
+              return null;
+            },
+          ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
+          AppButton(
+            label: 'Cancel',
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.pop(context),
+          ),
+          AppButton(
+            label: 'Apply',
+            variant: AppButtonVariant.secondary,
             onPressed: () {
-              final value = int.tryParse(ctrl.text.trim());
-              if (value == null || value < 1 || value > 1000000) return;
-              Navigator.pop(context, value);
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              Navigator.pop(context, int.parse(ctrl.text.trim()));
             },
-            child: const Text('Apply'),
           ),
         ],
       ),

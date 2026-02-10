@@ -16,6 +16,7 @@ import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 import '../data/events_repository.dart';
 
+// TODO(ui-migration): replace remaining form fields/chips/map controls with AppTextField/AppButton/AppCard.
 class CreateEventScreen extends ConsumerStatefulWidget {
   const CreateEventScreen({super.key});
 

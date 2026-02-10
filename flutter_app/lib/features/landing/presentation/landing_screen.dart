@@ -13,6 +13,13 @@ import '../../../app/routes.dart';
 import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../ui/components/app_badge.dart';
+import '../../../ui/components/app_button.dart';
+import '../../../ui/components/app_modal.dart';
+import '../../../ui/components/app_section_header.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
@@ -71,8 +78,11 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   Widget build(BuildContext context) {
     final reduceMotion = LandingLayoutConfig.shouldReduceMotion(context);
 
-    return Scaffold(
-      body: LayoutBuilder(
+    return AppScaffold(
+      fullBleed: true,
+      safeArea: false,
+      showBackgroundDecor: false,
+      child: LayoutBuilder(
         builder: (context, constraints) {
           final viewport = Size(constraints.maxWidth, constraints.maxHeight);
           final canvasHeight =
@@ -240,9 +250,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 
   Future<void> _showEventSheet(LandingEvent event) async {
-    await showModalBottomSheet<void>(
+    await showAppModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -257,14 +266,16 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                 const SizedBox(height: 6),
                 Text(event.addressLabel.trim()),
               ],
-              const SizedBox(height: 12),
-              FilledButton.icon(
+              const SizedBox(height: AppSpacing.md),
+              AppButton(
+                label: 'Купить билет',
+                variant: AppButtonVariant.primary,
+                icon: const Icon(Icons.confirmation_number_outlined),
+                expand: true,
                 onPressed: () {
                   Navigator.of(context).pop();
                   unawaited(_openTicket(event));
                 },
-                icon: const Icon(Icons.confirmation_number_outlined),
-                label: const Text('Купить билет'),
               ),
             ],
           ),
@@ -571,46 +582,32 @@ class _HeroSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            content.heroEyebrow.trim(),
-            style: const TextStyle(
-              color: Color(0xFFB6ECFF),
-              letterSpacing: 2.0,
-              fontWeight: FontWeight.w800,
-            ),
+          AppBadge(
+            label: content.heroEyebrow.trim(),
+            variant: AppBadgeVariant.info,
+            textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  letterSpacing: 1.4,
+                ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 44,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-            ),
+          const SizedBox(height: AppSpacing.sm),
+          AppSectionHeader(
+            title: title,
+            subtitle: meta,
+            titleColor: Colors.white,
+            subtitleColor: Colors.white.withValues(alpha: 0.82),
+            padding: EdgeInsets.zero,
           ),
-          const SizedBox(height: 8),
-          Text(
-            meta,
-            style: const TextStyle(
-              color: Color(0xFFE6F2FF),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             description,
             maxLines: isWide ? 4 : 5,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFD8E7FF),
-              fontSize: 15,
-              height: 1.45,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           if (isWide)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -625,13 +622,13 @@ class _HeroSection extends StatelessWidget {
                     onBuyFeatured: onBuyFeatured,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.md),
                 _HeroPoster(event: featuredEvent),
               ],
             )
           else ...[
             _HeroPoster(event: featuredEvent),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             _HeroActions(
               total: total,
               totalParticipants: totalParticipants,
@@ -642,22 +639,26 @@ class _HeroSection extends StatelessWidget {
             ),
           ],
           if (loading) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             const LinearProgressIndicator(minHeight: 3),
           ],
           if ((error ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF7A1F2B).withValues(alpha: 0.62),
+                color: AppColors.danger.withValues(alpha: 0.42),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x55FFD1D8)),
+                border:
+                    Border.all(color: AppColors.danger.withValues(alpha: 0.55)),
               ),
               child: Text(
                 error!,
-                style: const TextStyle(color: Colors.white),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Colors.white),
               ),
             ),
           ],
@@ -690,50 +691,48 @@ class _HeroActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
           children: [
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF2DD4BF),
-                foregroundColor: const Color(0xFF022222),
-              ),
-              onPressed: onOpenApp,
+            AppButton(
+              label: openAppLabel,
+              variant: AppButtonVariant.secondary,
               icon: const Icon(Icons.open_in_new_rounded),
-              label: Text(openAppLabel),
+              onPressed: onOpenApp,
             ),
             if (onBuyFeatured != null)
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x99FFFFFF)),
-                ),
-                onPressed: onBuyFeatured,
+              AppButton(
+                label: 'Купить билет',
+                variant: AppButtonVariant.outline,
                 icon: const Icon(Icons.confirmation_number_outlined),
-                label: const Text('Купить билет'),
+                onPressed: onBuyFeatured,
               ),
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFC2E8FF),
-              ),
+            AppButton(
+              label: 'Обновить',
+              variant: AppButtonVariant.ghost,
+              icon: const Icon(Icons.refresh_rounded),
               onPressed: onRefresh == null
                   ? null
                   : () {
                       unawaited(onRefresh!.call());
                     },
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Обновить'),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.sm),
         Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
           children: [
-            _Badge(label: 'Событий', value: '$total'),
-            _Badge(label: 'Участников', value: '$totalParticipants'),
-            const _Badge(label: 'Формат', value: 'Live + Digital'),
+            AppBadge(label: '$total Событий', variant: AppBadgeVariant.neutral),
+            AppBadge(
+              label: '$totalParticipants Участников',
+              variant: AppBadgeVariant.neutral,
+            ),
+            const AppBadge(
+              label: 'Формат: Live + Digital',
+              variant: AppBadgeVariant.ghost,
+            ),
           ],
         ),
       ],
@@ -849,30 +848,17 @@ class _AboutSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            content.aboutTitle.trim(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-            ),
+          AppSectionHeader(
+            title: content.aboutTitle.trim(),
+            subtitle: description,
+            titleColor: Colors.white,
+            subtitleColor: Colors.white.withValues(alpha: 0.85),
+            padding: EdgeInsets.zero,
           ),
-          const SizedBox(height: 10),
-          Text(
-            description,
-            maxLines: 7,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFD9E9FF),
-              fontSize: 15,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.sm),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
               _HighlightTile(
                 icon: Icons.event_available_rounded,
@@ -891,23 +877,23 @@ class _AboutSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.sm),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x44C8E9FF)),
-              color: const Color(0x22030A18),
+              border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
+              color: AppColors.backgroundDeep.withValues(alpha: 0.32),
             ),
             child: Text(
               earliest == null
                   ? 'Расписание скоро появится'
                   : 'Ближайший старт: ${formatDateTime(earliest)}',
-              style: const TextStyle(
-                color: Color(0xFFF1F8FF),
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -934,31 +920,30 @@ class _HighlightTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x44C3E8FF)),
-          color: const Color(0x22040A17),
+          border: Border.all(color: AppColors.info.withValues(alpha: 0.30)),
+          color: AppColors.backgroundDeep.withValues(alpha: 0.32),
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: const Color(0xFF93E8FF)),
+              Icon(icon, color: AppColors.info.withValues(alpha: 0.9)),
               const SizedBox(height: 8),
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                ),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Color(0xFFCFE5FF),
-                  fontSize: 12,
-                ),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.white.withValues(alpha: 0.86)),
               ),
             ],
           ),
@@ -1000,86 +985,76 @@ class _PartnersContactsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            content.partnersTitle.trim(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-            ),
+          AppSectionHeader(
+            title: content.partnersTitle.trim(),
+            subtitle: content.partnersDescription.trim(),
+            titleColor: Colors.white,
+            subtitleColor: Colors.white.withValues(alpha: 0.84),
+            padding: EdgeInsets.zero,
           ),
-          const SizedBox(height: 12),
-          Text(
-            content.partnersDescription.trim(),
-            style: const TextStyle(color: Color(0xFFD3E7FF), height: 1.4),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.xs),
           if (creators.isEmpty)
             const SizedBox.shrink()
           else
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: creators
                   .take(10)
                   .map(
-                    (creator) => Chip(
-                      label: Text(creator),
-                      backgroundColor: const Color(0x220B172C),
-                      side: const BorderSide(color: Color(0x55AADFFF)),
-                      labelStyle: const TextStyle(color: Colors.white),
+                    (creator) => AppBadge(
+                      label: creator,
+                      variant: AppBadgeVariant.info,
+                      textStyle: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: Colors.white),
                     ),
                   )
                   .toList(),
             ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.sm),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x88C7E7FF)),
-                ),
-                onPressed: onOpenTelegram,
+              AppButton(
+                label: 'Telegram',
+                variant: AppButtonVariant.outline,
                 icon: const Icon(Icons.telegram_rounded),
-                label: const Text('Telegram'),
+                onPressed: onOpenTelegram,
               ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x88C7E7FF)),
-                ),
-                onPressed: onOpenEmail,
+              AppButton(
+                label: 'Email',
+                variant: AppButtonVariant.outline,
                 icon: const Icon(Icons.mail_outline_rounded),
-                label: const Text('Email'),
+                onPressed: onOpenEmail,
               ),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF60A5FA),
-                  foregroundColor: const Color(0xFF0D1A36),
-                ),
-                onPressed: onOpenWebsite,
+              AppButton(
+                label: 'Сайт',
+                variant: AppButtonVariant.secondary,
                 icon: const Icon(Icons.public_rounded),
-                label: const Text('Сайт'),
+                onPressed: onOpenWebsite,
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           if (events.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x44CAE8FF)),
-                color: const Color(0x22030A16),
+                border:
+                    Border.all(color: AppColors.info.withValues(alpha: 0.35)),
+                color: AppColors.backgroundDeep.withValues(alpha: 0.30),
               ),
-              child: const Text(
+              child: Text(
                 'События скоро появятся в этом блоке.',
-                style: TextStyle(color: Color(0xFFE1EEFF)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
               ),
             )
           else
@@ -1091,13 +1066,16 @@ class _PartnersContactsSection extends StatelessWidget {
                 onShowDetails: () => onShowEventDetails(event),
               ),
             ),
-          const SizedBox(height: 14),
-          const Divider(color: Color(0x44C7E6FF)),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
+          Divider(color: AppColors.info.withValues(alpha: 0.35)),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             '© ${DateTime.now().year} ${content.footerText.trim()}. '
             'Опубликовано событий: $total.',
-            style: const TextStyle(color: Color(0xC6D5E9FF)),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
           ),
         ],
       ),
@@ -1121,14 +1099,14 @@ class _LandingEventCompactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x44CAE9FF)),
-        color: const Color(0x22030A16),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
+        color: AppColors.backgroundDeep.withValues(alpha: 0.36),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1136,62 +1114,65 @@ class _LandingEventCompactCard extends StatelessWidget {
               event.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               formatDateTime(event.startsAt),
-              style: const TextStyle(
-                color: Color(0xD3D6EAFF),
-                fontSize: 12,
-              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
             ),
             if (event.addressLabel.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Text(
                 event.addressLabel.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xBFD6EAFF), fontSize: 12),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.white.withValues(alpha: 0.74)),
               ),
             ],
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               event.description.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFFDAE8FF)),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.xs),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: [
-                FilledButton.tonalIcon(
-                  onPressed: onShowDetails,
+                AppButton(
+                  label: 'Подробнее',
+                  variant: AppButtonVariant.ghost,
+                  size: AppButtonSize.sm,
                   icon: const Icon(Icons.info_outline_rounded),
-                  label: const Text('Подробнее'),
+                  onPressed: onShowDetails,
                 ),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF2DD4BF),
-                    foregroundColor: const Color(0xFF042523),
-                  ),
-                  onPressed: onBuy,
+                AppButton(
+                  label: 'Билет',
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
                   icon: const Icon(Icons.confirmation_number_outlined),
-                  label: const Text('Билет'),
+                  onPressed: onBuy,
                 ),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0x88C7E7FF)),
-                  ),
+                AppButton(
+                  label: 'Открыть в app',
+                  variant: AppButtonVariant.outline,
+                  size: AppButtonSize.sm,
                   onPressed: onOpenEvent,
-                  child: const Text('Открыть в app'),
                 ),
               ],
             ),
@@ -2154,14 +2135,14 @@ class _GlassPanel extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: borderRadius,
-            color: const Color(0xFF070E1E)
+            color: AppColors.backgroundDeep
                 .withValues(alpha: LandingLayoutConfig.overlayOpacity),
-            border: Border.all(color: const Color(0x55B8E4FF)),
-            boxShadow: const [
+            border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
+            boxShadow: [
               BoxShadow(
-                color: Color(0x66020A19),
+                color: AppColors.textPrimary.withValues(alpha: 0.42),
                 blurRadius: 24,
-                offset: Offset(0, 12),
+                offset: const Offset(0, 12),
               ),
             ],
           ),
@@ -2169,46 +2150,6 @@ class _GlassPanel extends StatelessWidget {
             padding: padding,
             child: child,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x66C1E7FF)),
-        color: const Color(0x22050A17),
-      ),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(fontSize: 13),
-          children: [
-            TextSpan(
-              text: '$value ',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            TextSpan(
-              text: label,
-              style: const TextStyle(color: Color(0xC8D8EDFF)),
-            ),
-          ],
         ),
       ),
     );

@@ -15,6 +15,7 @@ import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../application/events_controller.dart';
 
+// TODO(ui-migration): migrate details/comments/participants blocks to AppScaffold and App* components.
 class EventDetailsScreen extends ConsumerStatefulWidget {
   const EventDetailsScreen({
     required this.eventId,

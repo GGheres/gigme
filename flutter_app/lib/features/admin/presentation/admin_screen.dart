@@ -14,6 +14,7 @@ import '../../../core/widgets/premium_loading_view.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/admin_repository.dart';
 
+// TODO(ui-migration): convert admin tabs/tables/forms to AppScaffold + tokenized App* components.
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
 

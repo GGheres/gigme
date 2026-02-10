@@ -47,45 +47,24 @@ class _PremiumLoadingViewState extends State<PremiumLoadingView>
     final media = MediaQuery.maybeOf(context);
     final reduceMotion = (media?.disableAnimations ?? false) ||
         (media?.accessibleNavigation ?? false);
-    final borderRadius = widget.compact
-        ? BorderRadius.circular(_PremiumLoadingTuning.compactRadius)
-        : BorderRadius.zero;
+    final shortest = math.min(
+      media?.size.width ?? 320,
+      media?.size.height ?? 320,
+    );
+    final orbitSize = (shortest * (widget.compact ? 0.46 : 0.38)).clamp(
+      widget.compact ? 82.0 : 140.0,
+      widget.compact ? 160.0 : 260.0,
+    );
 
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              Color(0xFF020611),
-              Color(0xFF030915),
-              Color(0xFF050F1D),
-            ],
-          ),
-        ),
-        child: _PremiumFrameEffect(
-          text: widget.text,
-          timeline: _timeline,
-          reduceMotion: reduceMotion,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  (widget.subtitle ?? 'Загрузка...')
-                      .trim()
-                      .replaceAll(RegExp(r'\s+'), ' '),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xE5D9FFF3),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ],
-            ),
+    return SizedBox.expand(
+      child: Center(
+        child: SizedBox.square(
+          dimension: orbitSize,
+          child: _PremiumFrameEffect(
+            text: widget.text,
+            timeline: _timeline,
+            reduceMotion: reduceMotion,
+            child: const SizedBox.shrink(),
           ),
         ),
       ),
@@ -104,9 +83,8 @@ class _PremiumLoadingTuning {
   static const double waveSigma = 150;
   static const double waveGlowBoost = 0.68;
   static const double waveOpacityBoost = 0.18;
-  static const double grainOpacity = 0.05;
+  static const double grainOpacity = 0.0;
   static const double grainFps = 6;
-  static const double compactRadius = 20;
 }
 
 class _PremiumFrameEffect extends StatelessWidget {
@@ -346,91 +324,7 @@ class _PremiumFramePainter extends CustomPainter {
     if (size.isEmpty) return;
     final frame = _resolveFramePath(size);
     final breath = _breathValue(timeSec);
-    _drawCornerAccents(canvas: canvas, frame: frame, breath: breath);
-    _drawFrameStroke(canvas: canvas, frame: frame, breath: breath);
-    if (!reduceMotion) {
-      _drawShimmerStroke(canvas: canvas, frame: frame, timeSec: timeSec);
-    }
     _drawTickerText(canvas: canvas, frame: frame, breath: breath);
-  }
-
-  void _drawCornerAccents({
-    required Canvas canvas,
-    required _FramePathData frame,
-    required double breath,
-  }) {
-    final corners = <Offset>[
-      frame.rect.topLeft,
-      frame.rect.topRight,
-      frame.rect.bottomRight,
-      frame.rect.bottomLeft,
-    ];
-    final radius = (math.min(frame.rect.width, frame.rect.height) * 0.09)
-        .clamp(24.0, 56.0);
-    final alpha = (0.015 + (0.05 * breath)).clamp(0.0, 0.09);
-    for (final corner in corners) {
-      final rect = Rect.fromCircle(center: corner, radius: radius);
-      final paint = Paint()
-        ..shader = ui.Gradient.radial(
-          corner,
-          radius,
-          <Color>[
-            const Color(0xFF9BFFE3).withValues(alpha: alpha),
-            const Color(0x00000000),
-          ],
-        );
-      canvas.drawRect(rect, paint);
-    }
-  }
-
-  void _drawFrameStroke({
-    required Canvas canvas,
-    required _FramePathData frame,
-    required double breath,
-  }) {
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.6)
-      ..color = const Color(0xFF6FDEC0).withValues(
-        alpha: (0.10 + (0.18 * breath)).clamp(0.0, 0.38),
-      );
-    canvas.drawPath(frame.path, glowPaint);
-
-    final linePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.15
-      ..color = const Color(0xFFC8FFEE).withValues(
-        alpha: (0.28 + (0.26 * breath)).clamp(0.0, 0.82),
-      );
-    canvas.drawPath(frame.path, linePaint);
-  }
-
-  void _drawShimmerStroke({
-    required Canvas canvas,
-    required _FramePathData frame,
-    required double timeSec,
-  }) {
-    final shimmerProgress =
-        ((timeSec * _PremiumLoadingTuning.shimmerSpeedPxPerSec) %
-                frame.length) /
-            frame.length;
-    final shimmerPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.3
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.3)
-      ..shader = SweepGradient(
-        transform: GradientRotation(shimmerProgress * math.pi * 2),
-        colors: const <Color>[
-          Color(0x001FE5A3),
-          Color(0x4228E8AE),
-          Color(0x9DE8FFF7),
-          Color(0x4228E8AE),
-          Color(0x001FE5A3),
-        ],
-        stops: const <double>[0.0, 0.14, 0.22, 0.30, 1.0],
-      ).createShader(frame.rect);
-    canvas.drawPath(frame.path, shimmerPaint);
   }
 
   void _drawTickerText({
@@ -442,8 +336,7 @@ class _PremiumFramePainter extends CustomPainter {
     final glyphs = sourceText.split('');
     if (glyphs.isEmpty) return;
 
-    final fontSize = (math.min(frame.rect.width, frame.rect.height) * 0.019)
-        .clamp(10.0, 14.5);
+    final fontSize = (frame.radius * 0.16).clamp(10.0, 15.0);
     final spacing = (fontSize * 0.34).clamp(3.0, 6.0);
 
     var patternLength = 0.0;
@@ -534,29 +427,24 @@ class _PremiumFramePainter extends CustomPainter {
   }
 
   _FramePathData _resolveFramePath(Size size) {
-    final inset = (size.shortestSide * 0.026).clamp(14.0, 30.0);
-    final radius = (size.shortestSide * 0.035).clamp(18.0, 36.0);
+    final radius = ((size.shortestSide * 0.5) - 6).clamp(18.0, 180.0);
     final key = [
       size.width.toStringAsFixed(1),
       size.height.toStringAsFixed(1),
-      inset.toStringAsFixed(1),
       radius.toStringAsFixed(1),
     ].join(':');
 
     final cached = _framePathCache[key];
     if (cached != null) return cached;
 
-    final rect = Rect.fromLTWH(
-      inset,
-      inset,
-      size.width - (inset * 2),
-      size.height - (inset * 2),
-    );
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final path = Path()..addOval(rect);
     final metric = path.computeMetrics(forceClosed: true).first;
     final out = _FramePathData(
       rect: rect,
+      center: center,
+      radius: radius,
       path: path,
       metric: metric,
       length: metric.length,
@@ -684,12 +572,16 @@ class _PremiumFramePainter extends CustomPainter {
 class _FramePathData {
   const _FramePathData({
     required this.rect,
+    required this.center,
+    required this.radius,
     required this.path,
     required this.metric,
     required this.length,
   });
 
   final Rect rect;
+  final Offset center;
+  final double radius;
   final Path path;
   final ui.PathMetric metric;
   final double length;

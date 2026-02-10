@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/models/user.dart';
+import '../../../../ui/components/app_badge.dart';
+import '../../../../ui/components/app_button.dart';
+import '../../../../ui/components/app_card.dart';
+import '../../../../ui/theme/app_spacing.dart';
 
 class ProfileSummaryCard extends StatelessWidget {
   const ProfileSummaryCard({
@@ -16,36 +20,43 @@ class ProfileSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              user?.displayName ?? 'Unknown user',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            if ((user?.handle ?? '').isNotEmpty) Text(user!.handle),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Chip(label: Text('Rating ${user?.rating.toStringAsFixed(1) ?? '0.0'}')),
-                Chip(label: Text('Votes ${user?.ratingCount ?? 0}')),
-                Chip(label: Text('${user?.balanceTokens ?? 0} GT')),
-              ],
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: loading ? null : onTopup,
-              icon: const Icon(Icons.account_balance_wallet_outlined),
-              label: const Text('Topup tokens'),
-            ),
-          ],
-        ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            user?.displayName ?? 'Unknown user',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          if ((user?.handle ?? '').isNotEmpty) Text(user!.handle),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppBadge(
+                label: 'Rating ${user?.rating.toStringAsFixed(1) ?? '0.0'}',
+                variant: AppBadgeVariant.ghost,
+              ),
+              AppBadge(
+                label: 'Votes ${user?.ratingCount ?? 0}',
+                variant: AppBadgeVariant.ghost,
+              ),
+              AppBadge(
+                label: '${user?.balanceTokens ?? 0} GT',
+                variant: AppBadgeVariant.accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            onPressed: loading ? null : onTopup,
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            label: 'Topup tokens',
+            variant: AppButtonVariant.secondary,
+          ),
+        ],
       ),
     );
   }

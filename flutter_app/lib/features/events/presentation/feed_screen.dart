@@ -7,6 +7,11 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
 import '../../../core/widgets/premium_loading_view.dart';
+import '../../../ui/components/app_badge.dart';
+import '../../../ui/components/app_button.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 import 'widgets/feed_list.dart';
@@ -39,25 +44,38 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final state = events.state;
     final showLoader = state.loading && state.feed.isEmpty;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nearby feed'),
-        actions: [
-          IconButton(
-            onPressed: () => ref.read(locationControllerProvider).refresh(),
-            tooltip: 'Refresh location',
+    return AppScaffold(
+      title: 'Nearby feed',
+      subtitle: 'Discover events around your current location',
+      trailing: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          AppButton(
+            label: 'Location',
+            size: AppButtonSize.sm,
+            variant: AppButtonVariant.ghost,
             icon: const Icon(Icons.my_location_outlined),
+            tooltip: 'Refresh location',
+            onPressed: () => ref.read(locationControllerProvider).refresh(),
           ),
-          IconButton(
-            onPressed: () => ref
-                .read(eventsControllerProvider)
-                .refresh(center: location.state.center),
-            tooltip: 'Refresh feed',
+          AppButton(
+            label: 'Refresh',
+            size: AppButtonSize.sm,
+            variant: AppButtonVariant.secondary,
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh feed',
+            onPressed: () {
+              unawaited(
+                ref.read(eventsControllerProvider).refresh(
+                      center: location.state.center,
+                    ),
+              );
+            },
           ),
         ],
       ),
-      body: Column(
+      child: Column(
         children: [
           _FilterBar(
             activeFilters: state.activeFilters,
@@ -83,43 +101,65 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   .refresh(center: location.state.center));
             },
           ),
-          if (location.state.permissionDenied)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Text('Location denied. Using default center.'),
-            ),
-          if ((state.error ?? '').isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                state.error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+          if (location.state.permissionDenied) ...[
+            const SizedBox(height: AppSpacing.sm),
+            const AppCard(
+              variant: AppCardVariant.panel,
+              child: Row(
+                children: [
+                  Icon(Icons.gps_off_rounded),
+                  SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text('Location denied. Using a default map center.'),
+                  ),
+                ],
               ),
             ),
+          ],
+          if ((state.error ?? '').isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppCard(
+              variant: AppCardVariant.panel,
+              child: Row(
+                children: [
+                  const AppBadge(
+                    label: 'Error',
+                    variant: AppBadgeVariant.danger,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(child: Text(state.error!)),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: showLoader
                 ? const PremiumLoadingView(
                     text: 'NEARBY FEED • LOADING • ',
                     subtitle: 'Загружаем события рядом',
                   )
-                : RefreshIndicator(
-                    onRefresh: () => ref
-                        .read(eventsControllerProvider)
-                        .refresh(center: location.state.center),
-                    child: FeedList(
-                      items: state.feed,
-                      referencePoint: location.state.userLocation,
-                      onTap: (event) {
-                        final key = events.accessKeyFor(event.id,
-                            fallback: event.accessKey);
-                        final uri = Uri(
-                          path: AppRoutes.event(event.id),
-                          queryParameters: {
-                            if (key.isNotEmpty) 'key': key,
-                          },
-                        );
-                        context.push(uri.toString());
-                      },
+                : AppCard(
+                    padding: EdgeInsets.zero,
+                    child: RefreshIndicator(
+                      onRefresh: () => ref
+                          .read(eventsControllerProvider)
+                          .refresh(center: location.state.center),
+                      child: FeedList(
+                        items: state.feed,
+                        referencePoint: location.state.userLocation,
+                        onTap: (event) {
+                          final key = events.accessKeyFor(event.id,
+                              fallback: event.accessKey);
+                          final uri = Uri(
+                            path: AppRoutes.event(event.id),
+                            queryParameters: {
+                              if (key.isNotEmpty) 'key': key,
+                            },
+                          );
+                          context.push(uri.toString());
+                        },
+                      ),
                     ),
                   ),
           ),
@@ -146,42 +186,55 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              FilterChip(
-                selected: nearbyOnly,
-                label: const Text('Nearby 100 km'),
-                onSelected: (_) => onToggleNearby(),
+              AppBadge(
+                label: nearbyOnly ? 'Nearby only' : 'All regions',
+                variant:
+                    nearbyOnly ? AppBadgeVariant.accent : AppBadgeVariant.ghost,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              AppBadge(
+                label: '${activeFilters.length}/$kMaxEventFilters active',
+                variant: AppBadgeVariant.neutral,
               ),
               const Spacer(),
-              if (activeFilters.isNotEmpty)
-                TextButton(
+              if (activeFilters.isNotEmpty || nearbyOnly)
+                AppButton(
+                  label: 'Clear',
+                  variant: AppButtonVariant.ghost,
+                  size: AppButtonSize.sm,
                   onPressed: onClearFilters,
-                  child: const Text('Clear'),
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: kEventFilters
-                  .map(
-                    (filter) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        selected: activeFilters.contains(filter.id),
-                        label: Text('${filter.icon} ${filter.label}'),
-                        onSelected: (_) => onToggleFilter(filter.id),
-                      ),
+              children: [
+                FilterChip(
+                  selected: nearbyOnly,
+                  label: const Text('Nearby 100 km'),
+                  onSelected: (_) => onToggleNearby(),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                ...kEventFilters.map(
+                  (filter) => Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.xs),
+                    child: FilterChip(
+                      selected: activeFilters.contains(filter.id),
+                      label: Text('${filter.icon} ${filter.label}'),
+                      onSelected: (_) => onToggleFilter(filter.id),
                     ),
-                  )
-                  .toList(),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

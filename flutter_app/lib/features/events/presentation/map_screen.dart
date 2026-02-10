@@ -12,6 +12,7 @@ import '../../../core/widgets/premium_loading_view.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 
+// TODO(ui-migration): move remaining map controls/messages to AppCard/AppButton/AppModal tokens.
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 

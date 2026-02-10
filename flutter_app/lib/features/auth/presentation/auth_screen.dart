@@ -9,6 +9,7 @@ import '../../../core/widgets/premium_loading_view.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 
+// TODO(ui-migration): migrate auth layout/actions fully to AppScaffold/AppButton/AppTextField tokens.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 

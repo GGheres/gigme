@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/application/auth_controller.dart';
+import '../ui/layout/app_navbar.dart';
+import '../ui/theme/app_breakpoints.dart';
 import 'routes.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -18,6 +20,13 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  static const List<AppNavbarItem> _desktopItems = <AppNavbarItem>[
+    AppNavbarItem(label: 'Feed', icon: Icons.view_list_rounded),
+    AppNavbarItem(label: 'Map', icon: Icons.map_rounded),
+    AppNavbarItem(label: 'Create', icon: Icons.add_circle_outline_rounded),
+    AppNavbarItem(label: 'Profile', icon: Icons.person_outline_rounded),
+  ];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -42,42 +51,61 @@ class _AppShellState extends ConsumerState<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = _indexFromLocation(location);
     final isAdminRoute = location.startsWith(AppRoutes.admin);
+    final isDesktop = MediaQuery.sizeOf(context).width >= AppBreakpoints.smMax;
 
     return Scaffold(
-      body: widget.child,
+      body: Column(
+        children: [
+          if (!isAdminRoute && isDesktop)
+            SafeArea(
+              bottom: false,
+              child: AppTopNavbar(
+                items: _desktopItems,
+                selectedIndex: currentIndex,
+                onSelected: _onDestinationSelected,
+              ),
+            ),
+          Expanded(child: widget.child),
+        ],
+      ),
       bottomNavigationBar: isAdminRoute
           ? null
-          : NavigationBar(
-              selectedIndex: currentIndex,
-              destinations: const [
-                NavigationDestination(
-                    icon: Icon(Icons.view_list_rounded), label: 'Feed'),
-                NavigationDestination(
-                    icon: Icon(Icons.map_rounded), label: 'Map'),
-                NavigationDestination(
-                    icon: Icon(Icons.add_circle_outline_rounded),
-                    label: 'Create'),
-                NavigationDestination(
-                    icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
-              ],
-              onDestinationSelected: (index) {
-                switch (index) {
-                  case 0:
-                    context.go(AppRoutes.feed);
-                    return;
-                  case 1:
-                    context.go(AppRoutes.map);
-                    return;
-                  case 2:
-                    context.go(AppRoutes.create);
-                    return;
-                  case 3:
-                    context.go(AppRoutes.profile);
-                    return;
-                }
-              },
-            ),
+          : isDesktop
+              ? null
+              : NavigationBar(
+                  selectedIndex: currentIndex,
+                  destinations: const [
+                    NavigationDestination(
+                        icon: Icon(Icons.view_list_rounded), label: 'Feed'),
+                    NavigationDestination(
+                        icon: Icon(Icons.map_rounded), label: 'Map'),
+                    NavigationDestination(
+                        icon: Icon(Icons.add_circle_outline_rounded),
+                        label: 'Create'),
+                    NavigationDestination(
+                        icon: Icon(Icons.person_outline_rounded),
+                        label: 'Profile'),
+                  ],
+                  onDestinationSelected: _onDestinationSelected,
+                ),
     );
+  }
+
+  void _onDestinationSelected(int index) {
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.feed);
+        return;
+      case 1:
+        context.go(AppRoutes.map);
+        return;
+      case 2:
+        context.go(AppRoutes.create);
+        return;
+      case 3:
+        context.go(AppRoutes.profile);
+        return;
+    }
   }
 
   int _indexFromLocation(String location) {
