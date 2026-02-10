@@ -40,6 +40,7 @@ void main() {
         home: Scaffold(
           body: EventCardTile(
             event: event,
+            apiUrl: 'https://example.test/api',
             referencePoint: const LatLng(52.37, 4.90),
             onTap: () {},
           ),

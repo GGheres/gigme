@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../../core/models/event_card.dart';
 import '../../../../core/utils/date_time_utils.dart';
+import '../../../../core/utils/event_media_url_utils.dart';
 import '../../../../ui/components/app_badge.dart';
 import '../../../../ui/components/app_card.dart';
 import '../../../../ui/theme/app_colors.dart';
@@ -13,13 +14,17 @@ class EventCardTile extends StatelessWidget {
   const EventCardTile({
     required this.event,
     required this.onTap,
+    required this.apiUrl,
     this.referencePoint,
+    this.accessKey = '',
     super.key,
   });
 
   final EventCard event;
   final VoidCallback onTap;
+  final String apiUrl;
   final LatLng? referencePoint;
+  final String accessKey;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +39,8 @@ class EventCardTile extends StatelessWidget {
         children: [
           _CardMedia(
             event: event,
+            apiUrl: apiUrl,
+            accessKey: accessKey,
             distanceText: distanceText,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -128,15 +135,29 @@ class EventCardTile extends StatelessWidget {
 class _CardMedia extends StatelessWidget {
   const _CardMedia({
     required this.event,
+    required this.apiUrl,
+    required this.accessKey,
     required this.distanceText,
   });
 
   final EventCard event;
+  final String apiUrl;
+  final String accessKey;
   final String? distanceText;
 
   @override
   Widget build(BuildContext context) {
-    final hasThumbnail = event.thumbnailUrl.trim().isNotEmpty;
+    final fallbackThumbnail = event.thumbnailUrl.trim();
+    final proxyThumbnail = buildEventMediaProxyUrl(
+      apiUrl: apiUrl,
+      eventId: event.id,
+      index: 0,
+      accessKey: accessKey,
+    );
+    final mediaUrl =
+        proxyThumbnail.isNotEmpty ? proxyThumbnail : fallbackThumbnail;
+    final fallbackUrl = proxyThumbnail.isNotEmpty ? fallbackThumbnail : '';
+    final hasThumbnail = mediaUrl.isNotEmpty;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -148,9 +169,19 @@ class _CardMedia extends StatelessWidget {
           children: [
             if (hasThumbnail)
               Image.network(
-                event.thumbnailUrl,
+                mediaUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, _, __) => const _PlaceholderImage(),
+                errorBuilder: (context, _, __) {
+                  if (fallbackUrl.isNotEmpty && fallbackUrl != mediaUrl) {
+                    return Image.network(
+                      fallbackUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, _, __) =>
+                          const _PlaceholderImage(),
+                    );
+                  }
+                  return const _PlaceholderImage();
+                },
               )
             else
               const _PlaceholderImage(),

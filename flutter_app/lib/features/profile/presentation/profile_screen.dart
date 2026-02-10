@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
 import '../../../ui/components/app_text_field.dart';
+import '../../events/application/events_controller.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
 
@@ -28,6 +30,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(profileControllerProvider);
+    final events = ref.watch(eventsControllerProvider);
     final state = controller.state;
     final config = ref.watch(appConfigProvider);
     final isAdmin = state.user != null &&
@@ -108,38 +111,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     )
                   else
                     ...state.events.map(
-                      (event) => Card(
-                        child: ListTile(
-                          onTap: () => context.push(AppRoutes.event(event.id)),
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: SizedBox(
-                              width: 52,
-                              height: 52,
-                              child: event.thumbnailUrl.trim().isEmpty
-                                  ? const ColoredBox(
-                                      color: Color(0xFFE8F0F4),
-                                      child: Icon(
-                                          Icons.image_not_supported_outlined),
-                                    )
-                                  : Image.network(
-                                      event.thumbnailUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, _, __) =>
-                                          const ColoredBox(
+                      (event) {
+                        final accessKey = events.accessKeyFor(event.id);
+                        final fallbackThumbnail = event.thumbnailUrl.trim();
+                        final proxyThumbnail = buildEventMediaProxyUrl(
+                          apiUrl: config.apiUrl,
+                          eventId: event.id,
+                          index: 0,
+                          accessKey: accessKey,
+                        );
+                        final imageUrl = proxyThumbnail.isNotEmpty
+                            ? proxyThumbnail
+                            : fallbackThumbnail;
+                        final fallbackImageUrl =
+                            proxyThumbnail.isNotEmpty ? fallbackThumbnail : '';
+
+                        return Card(
+                          child: ListTile(
+                            onTap: () =>
+                                context.push(AppRoutes.event(event.id)),
+                            leading: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: SizedBox(
+                                width: 52,
+                                height: 52,
+                                child: imageUrl.isEmpty
+                                    ? const ColoredBox(
                                         color: Color(0xFFE8F0F4),
-                                        child:
-                                            Icon(Icons.broken_image_outlined),
+                                        child: Icon(
+                                            Icons.image_not_supported_outlined),
+                                      )
+                                    : Image.network(
+                                        imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, _, __) {
+                                          if (fallbackImageUrl.isNotEmpty &&
+                                              fallbackImageUrl != imageUrl) {
+                                            return Image.network(
+                                              fallbackImageUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, _, __) =>
+                                                  const ColoredBox(
+                                                color: Color(0xFFE8F0F4),
+                                                child: Icon(Icons
+                                                    .broken_image_outlined),
+                                              ),
+                                            );
+                                          }
+                                          return const ColoredBox(
+                                            color: Color(0xFFE8F0F4),
+                                            child: Icon(
+                                                Icons.broken_image_outlined),
+                                          );
+                                        },
                                       ),
-                                    ),
+                              ),
                             ),
+                            title: Text(event.title),
+                            subtitle: Text(
+                                '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
                           ),
-                          title: Text(event.title),
-                          subtitle: Text(
-                              '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                 ],
               ),

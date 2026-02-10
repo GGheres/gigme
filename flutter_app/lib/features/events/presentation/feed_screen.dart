@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
+import '../../../core/network/providers.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
@@ -30,6 +31,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   Widget build(BuildContext context) {
     final events = ref.watch(eventsControllerProvider);
     final location = ref.watch(locationControllerProvider);
+    final config = ref.watch(appConfigProvider);
 
     if (!_loadedOnce && !location.state.loading) {
       _loadedOnce = true;
@@ -47,6 +49,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     return AppScaffold(
       title: 'Nearby feed',
       subtitle: 'Discover events around your current location',
+      showBackgroundDecor: false,
+      backgroundColor: Colors.black,
+      titleColor: Colors.white,
+      subtitleColor: Colors.white70,
       trailing: Wrap(
         spacing: AppSpacing.xs,
         runSpacing: AppSpacing.xs,
@@ -54,7 +60,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           AppButton(
             label: 'Location',
             size: AppButtonSize.sm,
-            variant: AppButtonVariant.ghost,
+            variant: AppButtonVariant.outline,
             icon: const Icon(Icons.my_location_outlined),
             tooltip: 'Refresh location',
             onPressed: () => ref.read(locationControllerProvider).refresh(),
@@ -148,6 +154,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       child: FeedList(
                         items: state.feed,
                         referencePoint: location.state.userLocation,
+                        apiUrl: config.apiUrl,
+                        eventAccessKeys: events.eventAccessKeys,
                         onTap: (event) {
                           final key = events.accessKeyFor(event.id,
                               fallback: event.accessKey);

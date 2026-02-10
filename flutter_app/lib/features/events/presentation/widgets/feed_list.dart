@@ -13,12 +13,16 @@ class FeedList extends StatelessWidget {
     required this.items,
     required this.referencePoint,
     required this.onTap,
+    required this.apiUrl,
+    required this.eventAccessKeys,
     super.key,
   });
 
   final List<EventCard> items;
   final LatLng? referencePoint;
   final ValueChanged<EventCard> onTap;
+  final String apiUrl;
+  final Map<int, String> eventAccessKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +56,13 @@ class FeedList extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final event = items[index];
+        final accessKey = eventAccessKeys[event.id] ?? event.accessKey;
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.sm),
           child: EventCardTile(
             event: event,
+            apiUrl: apiUrl,
+            accessKey: accessKey,
             referencePoint: referencePoint,
             onTap: () => onTap(event),
           ),

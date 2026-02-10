@@ -12,7 +12,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/routes.dart';
 import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
+import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
@@ -75,6 +77,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   @override
   Widget build(BuildContext context) {
     final reduceMotion = LandingLayoutConfig.shouldReduceMotion(context);
+    final apiUrl = ref.watch(appConfigProvider).apiUrl;
 
     return AppScaffold(
       fullBleed: true,
@@ -122,6 +125,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       canvasHeight: canvasHeight,
                       quietZoneLeft: quietZoneLeft,
                       quietZoneWidth: quietZoneWidth,
+                      apiUrl: apiUrl,
                       loading: _loading,
                       error: _error,
                       events: _events,
@@ -427,6 +431,7 @@ class _LandingForeground extends StatelessWidget {
     required this.canvasHeight,
     required this.quietZoneLeft,
     required this.quietZoneWidth,
+    required this.apiUrl,
     required this.loading,
     required this.error,
     required this.events,
@@ -446,6 +451,7 @@ class _LandingForeground extends StatelessWidget {
   final double canvasHeight;
   final double quietZoneLeft;
   final double quietZoneWidth;
+  final String apiUrl;
   final bool loading;
   final String? error;
   final List<LandingEvent> events;
@@ -493,6 +499,7 @@ class _LandingForeground extends StatelessWidget {
             child: RepaintBoundary(
               child: _HeroSection(
                 featuredEvent: featuredEvent,
+                apiUrl: apiUrl,
                 total: total,
                 loading: loading,
                 error: error,
@@ -546,6 +553,7 @@ class _LandingForeground extends StatelessWidget {
 class _HeroSection extends StatelessWidget {
   const _HeroSection({
     required this.featuredEvent,
+    required this.apiUrl,
     required this.content,
     required this.total,
     required this.loading,
@@ -557,6 +565,7 @@ class _HeroSection extends StatelessWidget {
   });
 
   final LandingEvent? featuredEvent;
+  final String apiUrl;
   final LandingContent content;
   final int total;
   final bool loading;
@@ -620,11 +629,11 @@ class _HeroSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
-                _HeroPoster(event: featuredEvent),
+                _HeroPoster(event: featuredEvent, apiUrl: apiUrl),
               ],
             )
           else ...[
-            _HeroPoster(event: featuredEvent),
+            _HeroPoster(event: featuredEvent, apiUrl: apiUrl),
             const SizedBox(height: AppSpacing.sm),
             _HeroActions(
               total: total,
@@ -738,16 +747,25 @@ class _HeroActions extends StatelessWidget {
 }
 
 class _HeroPoster extends StatelessWidget {
-  const _HeroPoster({required this.event});
+  const _HeroPoster({required this.event, required this.apiUrl});
 
   final LandingEvent? event;
+  final String apiUrl;
 
   @override
   Widget build(BuildContext context) {
     final isNarrow = MediaQuery.of(context).size.width < 1200;
     final width = isNarrow ? double.infinity : 230.0;
     final height = isNarrow ? 210.0 : 286.0;
-    final hasImage = (event?.thumbnailUrl ?? '').trim().isNotEmpty;
+    final fallbackImage = (event?.thumbnailUrl ?? '').trim();
+    final proxyImage = buildEventMediaProxyUrl(
+      apiUrl: apiUrl,
+      eventId: event?.id ?? 0,
+      index: 0,
+    );
+    final imageUrl = proxyImage.isNotEmpty ? proxyImage : fallbackImage;
+    final fallbackUrl = proxyImage.isNotEmpty ? fallbackImage : '';
+    final hasImage = imageUrl.isNotEmpty;
 
     return SizedBox(
       width: width,
@@ -759,9 +777,18 @@ class _HeroPoster extends StatelessWidget {
           children: [
             if (hasImage)
               Image.network(
-                event!.thumbnailUrl,
+                imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, _, __) => const _PosterFallback(),
+                errorBuilder: (context, _, __) {
+                  if (fallbackUrl.isNotEmpty && fallbackUrl != imageUrl) {
+                    return Image.network(
+                      fallbackUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, _, __) => const _PosterFallback(),
+                    );
+                  }
+                  return const _PosterFallback();
+                },
               )
             else
               const _PosterFallback(),

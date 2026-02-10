@@ -18,6 +18,8 @@ void main() {
           body: FeedList(
             items: items,
             referencePoint: const LatLng(52.37, 4.90),
+            apiUrl: 'https://example.test/api',
+            eventAccessKeys: const <int, String>{},
             onTap: (_) {},
           ),
         ),

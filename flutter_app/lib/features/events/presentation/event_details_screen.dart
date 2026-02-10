@@ -10,6 +10,7 @@ import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
@@ -82,6 +83,14 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
+    final apiUrl = ref.watch(appConfigProvider).apiUrl;
+    final detailAccessKey = detail == null
+        ? (widget.eventKey ?? '').trim()
+        : (detail.event.accessKey.trim().isNotEmpty
+            ? detail.event.accessKey.trim()
+            : (widget.eventKey ?? '').trim());
+    final sanitizedDescription =
+        detail == null ? '' : _stripCoordinatesText(detail.event.description);
 
     return Scaffold(
       appBar: AppBar(
@@ -120,28 +129,63 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             child: PageView.builder(
                               itemCount: detail.media.length,
                               itemBuilder: (context, index) {
-                                final url = detail.media[index];
+                                final fallbackUrl = detail.media[index].trim();
+                                final proxyUrl = buildEventMediaProxyUrl(
+                                  apiUrl: apiUrl,
+                                  eventId: detail.event.id,
+                                  index: index,
+                                  accessKey: detailAccessKey,
+                                );
+                                final imageUrl = proxyUrl.isNotEmpty
+                                    ? proxyUrl
+                                    : fallbackUrl;
+                                final fallbackImageUrl =
+                                    proxyUrl.isNotEmpty ? fallbackUrl : '';
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(14),
-                                    child: Image.network(
-                                      url,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, _, __) =>
-                                          Container(
-                                        color: const Color(0xFFE8F0F4),
-                                        child: const Icon(
-                                            Icons.broken_image_outlined),
-                                      ),
-                                    ),
+                                    child: imageUrl.isEmpty
+                                        ? Container(
+                                            color: const Color(0xFFE8F0F4),
+                                            child: const Icon(
+                                                Icons.broken_image_outlined),
+                                          )
+                                        : Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, _, __) {
+                                              if (fallbackImageUrl.isNotEmpty &&
+                                                  fallbackImageUrl !=
+                                                      imageUrl) {
+                                                return Image.network(
+                                                  fallbackImageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (context, _, __) =>
+                                                          Container(
+                                                    color:
+                                                        const Color(0xFFE8F0F4),
+                                                    child: const Icon(Icons
+                                                        .broken_image_outlined),
+                                                  ),
+                                                );
+                                              }
+                                              return Container(
+                                                color: const Color(0xFFE8F0F4),
+                                                child: const Icon(Icons
+                                                    .broken_image_outlined),
+                                              );
+                                            },
+                                          ),
                                   ),
                                 );
                               },
                             ),
                           ),
                         const SizedBox(height: 12),
-                        Text(detail.event.description),
+                        if (sanitizedDescription.isNotEmpty)
+                          Text(sanitizedDescription),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
@@ -149,17 +193,15 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           children: [
                             Chip(
                                 label: Text(
-                                    '${detail.event.participantsCount} going')),
+                                    '👥 ${detail.event.participantsCount}')),
+                            Chip(label: Text('❤️ ${detail.event.likesCount}')),
                             Chip(
                                 label:
-                                    Text('${detail.event.likesCount} likes')),
-                            Chip(
-                                label: Text(
-                                    '${detail.event.commentsCount} comments')),
+                                    Text('💬 ${detail.event.commentsCount}')),
                             if (detail.event.capacity != null)
                               Chip(
                                 label: Text(
-                                  '${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)} spots left',
+                                  '🎟️ ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
                                 ),
                               ),
                           ],
@@ -176,17 +218,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                         try {
                                           final events = ref
                                               .read(eventsControllerProvider);
-                                          if (detail.isJoined) {
-                                            await events.leaveEvent(
-                                              eventId: detail.event.id,
-                                              accessKey: widget.eventKey,
-                                            );
-                                          } else {
-                                            await events.joinEvent(
-                                              eventId: detail.event.id,
-                                              accessKey: widget.eventKey,
-                                            );
-                                          }
+                                          await events.joinEvent(
+                                            eventId: detail.event.id,
+                                            accessKey: widget.eventKey,
+                                          );
                                           await _load();
                                         } catch (error) {
                                           _showMessage('$error');
@@ -196,9 +231,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                           }
                                         }
                                       },
-                                child: Text(detail.isJoined
-                                    ? 'Leave event'
-                                    : 'Join event'),
+                                child: Text(
+                                    _joining ? 'Обработка…' : 'КУПИТЬ билет'),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -283,6 +317,32 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           child: Text(
                               _sendingComment ? 'Sending…' : 'Send comment'),
                         ),
+                        if (detail.isJoined) ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton(
+                            onPressed: _joining
+                                ? null
+                                : () async {
+                                    setState(() => _joining = true);
+                                    try {
+                                      await ref
+                                          .read(eventsControllerProvider)
+                                          .leaveEvent(
+                                            eventId: detail.event.id,
+                                            accessKey: widget.eventKey,
+                                          );
+                                      await _load();
+                                    } catch (error) {
+                                      _showMessage('$error');
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _joining = false);
+                                      }
+                                    }
+                                  },
+                            child: Text(_joining ? 'Leaving…' : 'Leave event'),
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         Text(
                           'Participants',
@@ -337,6 +397,26 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         setState(() => _sharing = false);
       }
     }
+  }
+
+  String _stripCoordinatesText(String description) {
+    final coordinateLine =
+        RegExp(r'^\s*-?\d{1,2}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?\s*$');
+    final cleaned = description
+        .split('\n')
+        .where((line) {
+          final normalized = line.trim();
+          if (normalized.isEmpty) return false;
+          final lower = normalized.toLowerCase();
+          if (lower.startsWith('coordinates:')) return false;
+          if (lower.startsWith('координаты:')) return false;
+          if (lower.contains('openstreetmap.org/?mlat=')) return false;
+          if (coordinateLine.hasMatch(normalized)) return false;
+          return true;
+        })
+        .join('\n')
+        .trim();
+    return cleaned;
   }
 
   void _showMessage(String message) {

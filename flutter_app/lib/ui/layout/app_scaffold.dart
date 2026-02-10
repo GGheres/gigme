@@ -21,6 +21,8 @@ class AppScaffold extends StatelessWidget {
     this.fullBleed = false,
     this.safeArea = true,
     this.backgroundColor,
+    this.titleColor,
+    this.subtitleColor,
     super.key,
   });
 
@@ -38,6 +40,8 @@ class AppScaffold extends StatelessWidget {
   final bool fullBleed;
   final bool safeArea;
   final Color? backgroundColor;
+  final Color? titleColor;
+  final Color? subtitleColor;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +59,8 @@ class AppScaffold extends StatelessWidget {
             title: title!,
             subtitle: subtitle,
             trailing: trailing,
+            titleColor: titleColor,
+            subtitleColor: subtitleColor,
           ),
         if ((title ?? '').trim().isNotEmpty)
           const SizedBox(height: AppSpacing.xs),
@@ -71,6 +77,8 @@ class AppScaffold extends StatelessWidget {
               title: title!,
               subtitle: subtitle,
               trailing: trailing,
+              titleColor: titleColor,
+              subtitleColor: subtitleColor,
             ),
           if ((title ?? '').trim().isNotEmpty)
             const SizedBox(height: AppSpacing.sm),
