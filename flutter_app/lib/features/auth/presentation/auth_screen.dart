@@ -166,7 +166,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     child: PremiumLoadingView(
                       compact: true,
                       text: 'SPACE • LOADING • ',
-                      subtitle: 'Загружаем SPACE…',
+                      subtitle: '',
                     ),
                   ),
                   if (state.status != AuthStatus.loading &&
