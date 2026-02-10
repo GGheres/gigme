@@ -75,6 +75,7 @@ func main() {
 
 	r.Get("/media/events/{id}/{index}", h.EventMedia)
 	r.Get("/landing/events", h.LandingEvents)
+	r.Get("/landing/content", h.LandingContent)
 
 	r.Post("/auth/telegram", h.AuthTelegram)
 	r.Post("/auth/admin", h.AuthAdmin)
@@ -131,6 +132,7 @@ func main() {
 		r.Delete("/admin/parser/events/{id}", h.DeleteParsedEvent)
 		r.Post("/admin/events/{id}/hide", h.HideEvent)
 		r.Post("/admin/events/{id}/landing", h.SetEventLandingPublished)
+		r.Post("/admin/landing/content", h.UpsertLandingContent)
 		r.Patch("/admin/events/{id}", h.UpdateEventAdmin)
 		r.Delete("/admin/events/{id}", h.DeleteEventAdmin)
 	})

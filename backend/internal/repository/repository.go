@@ -454,6 +454,76 @@ LIMIT $1 OFFSET $2;`, limit, offset)
 	return out, total, nil
 }
 
+func (r *Repository) GetLandingContent(ctx context.Context) (models.LandingContent, error) {
+	row := r.pool.QueryRow(ctx, `
+SELECT hero_eyebrow, hero_title, hero_description, hero_primary_cta_label,
+	about_title, about_description, partners_title, partners_description,
+	footer_text, updated_by, created_at, updated_at
+FROM landing_content
+WHERE id = 1;`)
+
+	var out models.LandingContent
+	var updatedBy sql.NullInt64
+	if err := row.Scan(
+		&out.HeroEyebrow,
+		&out.HeroTitle,
+		&out.HeroDescription,
+		&out.HeroPrimaryCTALabel,
+		&out.AboutTitle,
+		&out.AboutDescription,
+		&out.PartnersTitle,
+		&out.PartnersDescription,
+		&out.FooterText,
+		&updatedBy,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	); err != nil {
+		if err == pgx.ErrNoRows {
+			return models.LandingContent{}, nil
+		}
+		return models.LandingContent{}, err
+	}
+	if updatedBy.Valid {
+		out.UpdatedBy = &updatedBy.Int64
+	}
+	return out, nil
+}
+
+func (r *Repository) UpsertLandingContent(ctx context.Context, content models.LandingContent) error {
+	_, err := r.pool.Exec(ctx, `
+INSERT INTO landing_content (
+	id, hero_eyebrow, hero_title, hero_description, hero_primary_cta_label,
+	about_title, about_description, partners_title, partners_description,
+	footer_text, updated_by
+) VALUES (
+	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+ON CONFLICT (id) DO UPDATE SET
+	hero_eyebrow = EXCLUDED.hero_eyebrow,
+	hero_title = EXCLUDED.hero_title,
+	hero_description = EXCLUDED.hero_description,
+	hero_primary_cta_label = EXCLUDED.hero_primary_cta_label,
+	about_title = EXCLUDED.about_title,
+	about_description = EXCLUDED.about_description,
+	partners_title = EXCLUDED.partners_title,
+	partners_description = EXCLUDED.partners_description,
+	footer_text = EXCLUDED.footer_text,
+	updated_by = EXCLUDED.updated_by,
+	updated_at = now();`,
+		content.HeroEyebrow,
+		content.HeroTitle,
+		content.HeroDescription,
+		content.HeroPrimaryCTALabel,
+		content.AboutTitle,
+		content.AboutDescription,
+		content.PartnersTitle,
+		content.PartnersDescription,
+		content.FooterText,
+		nullInt64Ptr(content.UpdatedBy),
+	)
+	return err
+}
+
 func (r *Repository) ListUserEvents(ctx context.Context, userID int64, limit, offset int) ([]models.UserEvent, int, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT e.id, e.title, e.starts_at,
@@ -808,6 +878,13 @@ func nullString(val string) interface{} {
 		return nil
 	}
 	return val
+}
+
+func nullInt64Ptr(val *int64) interface{} {
+	if val == nil || *val <= 0 {
+		return nil
+	}
+	return *val
 }
 
 func (r *Repository) GetEventTitle(ctx context.Context, eventID int64) (string, error) {

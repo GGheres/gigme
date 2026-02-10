@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/models/admin_models.dart';
+import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../auth/application/auth_controller.dart';
@@ -84,9 +85,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   final Map<int, _ParserDraft> _parserDrafts = <int, _ParserDraft>{};
 
   final TextEditingController _landingEventIdCtrl = TextEditingController();
+  final TextEditingController _landingHeroEyebrowCtrl = TextEditingController();
+  final TextEditingController _landingHeroTitleCtrl = TextEditingController();
+  final TextEditingController _landingHeroDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _landingHeroCtaCtrl = TextEditingController();
+  final TextEditingController _landingAboutTitleCtrl = TextEditingController();
+  final TextEditingController _landingAboutDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _landingPartnersTitleCtrl =
+      TextEditingController();
+  final TextEditingController _landingPartnersDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _landingFooterCtrl = TextEditingController();
   bool _landingPublishedValue = true;
   bool _landingLoading = false;
   bool _landingBusy = false;
+  bool _landingContentBusy = false;
   int? _landingActionEventId;
   String? _landingError;
   List<LandingEvent> _landingEvents = <LandingEvent>[];
@@ -123,6 +138,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     _parserSourceInputCtrl.dispose();
     _parserQuickInputCtrl.dispose();
     _landingEventIdCtrl.dispose();
+    _landingHeroEyebrowCtrl.dispose();
+    _landingHeroTitleCtrl.dispose();
+    _landingHeroDescriptionCtrl.dispose();
+    _landingHeroCtaCtrl.dispose();
+    _landingAboutTitleCtrl.dispose();
+    _landingAboutDescriptionCtrl.dispose();
+    _landingPartnersTitleCtrl.dispose();
+    _landingPartnersDescriptionCtrl.dispose();
+    _landingFooterCtrl.dispose();
     for (final item in _broadcastButtons) {
       item.dispose();
     }
@@ -675,6 +699,88 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Landing texts',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _landingHeroEyebrowCtrl,
+                  decoration: const InputDecoration(labelText: 'Hero eyebrow'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingHeroTitleCtrl,
+                  decoration: const InputDecoration(labelText: 'Hero title'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingHeroDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration:
+                      const InputDecoration(labelText: 'Hero description'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingHeroCtaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Hero primary CTA label',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingAboutTitleCtrl,
+                  decoration: const InputDecoration(labelText: 'About title'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingAboutDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 6,
+                  decoration:
+                      const InputDecoration(labelText: 'About description'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingPartnersTitleCtrl,
+                  decoration:
+                      const InputDecoration(labelText: 'Partners title'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingPartnersDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'Partners description',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingFooterCtrl,
+                  decoration: const InputDecoration(labelText: 'Footer text'),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: _landingContentBusy ? null : _saveLandingContent,
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(_landingContentBusy ? 'Saving…' : 'Save texts'),
+                ),
+                if ((_landingError ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(_landingError!,
+                      style: const TextStyle(color: Colors.red)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -1685,20 +1791,78 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     });
 
     try {
-      final response = await ref
-          .read(adminRepositoryProvider)
-          .listLandingEvents(limit: 100, offset: 0);
+      final repository = ref.read(adminRepositoryProvider);
+      final responses = await Future.wait<dynamic>([
+        repository.listLandingEvents(limit: 100, offset: 0),
+        repository.getLandingContent(),
+      ]);
+      final eventsResponse = responses[0] as LandingEventsResponse;
+      final content = responses[1] as LandingContent;
       if (!mounted) return;
       setState(() {
-        _landingEvents = response.items;
-        _landingTotal = response.total;
+        _landingEvents = eventsResponse.items;
+        _landingTotal = eventsResponse.total;
       });
+      _applyLandingContentToControllers(content);
     } catch (error) {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
         setState(() {
           _landingLoading = false;
+        });
+      }
+    }
+  }
+
+  void _applyLandingContentToControllers(LandingContent content) {
+    _landingHeroEyebrowCtrl.text = content.heroEyebrow;
+    _landingHeroTitleCtrl.text = content.heroTitle;
+    _landingHeroDescriptionCtrl.text = content.heroDescription;
+    _landingHeroCtaCtrl.text = content.heroPrimaryCtaLabel;
+    _landingAboutTitleCtrl.text = content.aboutTitle;
+    _landingAboutDescriptionCtrl.text = content.aboutDescription;
+    _landingPartnersTitleCtrl.text = content.partnersTitle;
+    _landingPartnersDescriptionCtrl.text = content.partnersDescription;
+    _landingFooterCtrl.text = content.footerText;
+  }
+
+  LandingContent _landingContentFromInputs() {
+    return LandingContent(
+      heroEyebrow: _landingHeroEyebrowCtrl.text.trim(),
+      heroTitle: _landingHeroTitleCtrl.text.trim(),
+      heroDescription: _landingHeroDescriptionCtrl.text.trim(),
+      heroPrimaryCtaLabel: _landingHeroCtaCtrl.text.trim(),
+      aboutTitle: _landingAboutTitleCtrl.text.trim(),
+      aboutDescription: _landingAboutDescriptionCtrl.text.trim(),
+      partnersTitle: _landingPartnersTitleCtrl.text.trim(),
+      partnersDescription: _landingPartnersDescriptionCtrl.text.trim(),
+      footerText: _landingFooterCtrl.text.trim(),
+    );
+  }
+
+  Future<void> _saveLandingContent() async {
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+
+    setState(() {
+      _landingContentBusy = true;
+      _landingError = null;
+    });
+
+    try {
+      await ref.read(adminRepositoryProvider).updateLandingContent(
+            token: token,
+            content: _landingContentFromInputs(),
+          );
+      if (!mounted) return;
+      await _loadLanding();
+    } catch (error) {
+      _handleAdminError(error, setter: (value) => _landingError = value);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _landingContentBusy = false;
         });
       }
     }

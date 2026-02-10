@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../auth/application/auth_controller.dart';
@@ -30,6 +31,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
   String? _error;
   List<LandingEvent> _events = <LandingEvent>[];
   int _total = 0;
+  LandingContent _content = LandingContent.defaults();
 
   @override
   void initState() {
@@ -88,6 +90,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                       loading: _loading,
                       error: _error,
                       events: _events,
+                      content: _content,
                       total: _total,
                       onOpenApp: () => context.go(AppRoutes.appRoot),
                       onRefresh: _loading ? null : _load,
@@ -128,13 +131,14 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
     });
 
     try {
-      final response = await ref
-          .read(landingRepositoryProvider)
-          .listEvents(limit: 100, offset: 0);
+      final repository = ref.read(landingRepositoryProvider);
+      final response = await repository.listEvents(limit: 100, offset: 0);
+      final content = await repository.getContent();
       if (!mounted) return;
       setState(() {
         _events = response.items;
         _total = response.total;
+        _content = content;
       });
     } catch (error) {
       if (!mounted) return;
@@ -272,6 +276,8 @@ class LandingLayoutConfig {
   static const double mobileCanvasScreens = 3;
   static const double glassBlurSigma = 14;
   static const double parallaxOverflowViewportFactor = 0.72;
+  static const String backgroundAssetPath =
+      'assets/images/landing/landing_bg_whales.png';
 
   static bool isDesktop(double width) => width >= desktopBreakpoint;
   static bool isTablet(double width) =>
@@ -332,6 +338,7 @@ class _LandingForeground extends StatelessWidget {
     required this.loading,
     required this.error,
     required this.events,
+    required this.content,
     required this.total,
     required this.onOpenApp,
     required this.onRefresh,
@@ -350,6 +357,7 @@ class _LandingForeground extends StatelessWidget {
   final bool loading;
   final String? error;
   final List<LandingEvent> events;
+  final LandingContent content;
   final int total;
   final VoidCallback onOpenApp;
   final Future<void> Function()? onRefresh;
@@ -397,6 +405,7 @@ class _LandingForeground extends StatelessWidget {
                 loading: loading,
                 error: error,
                 totalParticipants: totalParticipants,
+                content: content,
                 onOpenApp: onOpenApp,
                 onRefresh: onRefresh,
                 onBuyFeatured:
@@ -410,8 +419,8 @@ class _LandingForeground extends StatelessWidget {
             width: quietZoneWidth,
             child: RepaintBoundary(
               child: _AboutSection(
-                featuredEvent: featuredEvent,
                 events: events,
+                content: content,
                 total: total,
                 totalParticipants: totalParticipants,
               ),
@@ -425,6 +434,7 @@ class _LandingForeground extends StatelessWidget {
               child: _PartnersContactsSection(
                 events: events.take(3).toList(),
                 creators: creators,
+                content: content,
                 total: total,
                 onOpenEvent: onOpenEvent,
                 onBuy: onBuy,
@@ -444,6 +454,7 @@ class _LandingForeground extends StatelessWidget {
 class _HeroSection extends StatelessWidget {
   const _HeroSection({
     required this.featuredEvent,
+    required this.content,
     required this.total,
     required this.loading,
     required this.error,
@@ -454,6 +465,7 @@ class _HeroSection extends StatelessWidget {
   });
 
   final LandingEvent? featuredEvent;
+  final LandingContent content;
   final int total;
   final bool loading;
   final String? error;
@@ -466,13 +478,8 @@ class _HeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isWide = width >= 1200;
-    final title = (featuredEvent?.title ?? '').trim().isNotEmpty
-        ? featuredEvent!.title.trim()
-        : 'Spacefestival 2026';
-    final description = (featuredEvent?.description ?? '').trim().isNotEmpty
-        ? featuredEvent!.description.trim()
-        : 'Три экрана музыки, перформансов и нетворкинга. Лови билет, '
-            'открывай Space App и следи за обновлениями в реальном времени.';
+    final title = content.heroTitle.trim();
+    final description = content.heroDescription.trim();
     final meta = _eventMeta(featuredEvent);
 
     return _GlassPanel(
@@ -480,9 +487,9 @@ class _HeroSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'SPACEFESTIVAL',
-            style: TextStyle(
+          Text(
+            content.heroEyebrow.trim(),
+            style: const TextStyle(
               color: Color(0xFFB6ECFF),
               letterSpacing: 2.0,
               fontWeight: FontWeight.w800,
@@ -528,6 +535,7 @@ class _HeroSection extends StatelessWidget {
                   child: _HeroActions(
                     total: total,
                     totalParticipants: totalParticipants,
+                    openAppLabel: content.heroPrimaryCtaLabel.trim(),
                     onOpenApp: onOpenApp,
                     onRefresh: onRefresh,
                     onBuyFeatured: onBuyFeatured,
@@ -543,6 +551,7 @@ class _HeroSection extends StatelessWidget {
             _HeroActions(
               total: total,
               totalParticipants: totalParticipants,
+              openAppLabel: content.heroPrimaryCtaLabel.trim(),
               onOpenApp: onOpenApp,
               onRefresh: onRefresh,
               onBuyFeatured: onBuyFeatured,
@@ -578,6 +587,7 @@ class _HeroActions extends StatelessWidget {
   const _HeroActions({
     required this.total,
     required this.totalParticipants,
+    required this.openAppLabel,
     required this.onOpenApp,
     required this.onRefresh,
     required this.onBuyFeatured,
@@ -585,6 +595,7 @@ class _HeroActions extends StatelessWidget {
 
   final int total;
   final int totalParticipants;
+  final String openAppLabel;
   final VoidCallback onOpenApp;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onBuyFeatured;
@@ -605,7 +616,7 @@ class _HeroActions extends StatelessWidget {
               ),
               onPressed: onOpenApp,
               icon: const Icon(Icons.open_in_new_rounded),
-              label: const Text('Открыть Space App'),
+              label: Text(openAppLabel),
             ),
             if (onBuyFeatured != null)
               OutlinedButton.icon(
@@ -732,23 +743,20 @@ class _PosterFallback extends StatelessWidget {
 
 class _AboutSection extends StatelessWidget {
   const _AboutSection({
-    required this.featuredEvent,
     required this.events,
+    required this.content,
     required this.total,
     required this.totalParticipants,
   });
 
-  final LandingEvent? featuredEvent;
   final List<LandingEvent> events;
+  final LandingContent content;
   final int total;
   final int totalParticipants;
 
   @override
   Widget build(BuildContext context) {
-    final description = (featuredEvent?.description ?? '').trim().isNotEmpty
-        ? featuredEvent!.description.trim()
-        : 'О мероприятии: сеты артистов, иммерсивные зоны, локальные бренды '
-            'и серия партнерских активностей. Вся программа обновляется на лендинге.';
+    final description = content.aboutDescription.trim();
     final earliest = _earliestDate(events);
     final uniqueLocations = _uniqueLocations(events);
 
@@ -757,9 +765,9 @@ class _AboutSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'О мероприятии',
-            style: TextStyle(
+          Text(
+            content.aboutTitle.trim(),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 30,
               fontWeight: FontWeight.w800,
@@ -880,6 +888,7 @@ class _PartnersContactsSection extends StatelessWidget {
   const _PartnersContactsSection({
     required this.events,
     required this.creators,
+    required this.content,
     required this.total,
     required this.onOpenEvent,
     required this.onBuy,
@@ -891,6 +900,7 @@ class _PartnersContactsSection extends StatelessWidget {
 
   final List<LandingEvent> events;
   final List<String> creators;
+  final LandingContent content;
   final int total;
   final ValueChanged<LandingEvent> onOpenEvent;
   final ValueChanged<LandingEvent> onBuy;
@@ -906,9 +916,9 @@ class _PartnersContactsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Партнеры и контакты',
-            style: TextStyle(
+          Text(
+            content.partnersTitle.trim(),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 30,
               fontWeight: FontWeight.w800,
@@ -916,11 +926,13 @@ class _PartnersContactsSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          Text(
+            content.partnersDescription.trim(),
+            style: const TextStyle(color: Color(0xFFD3E7FF), height: 1.4),
+          ),
+          const SizedBox(height: 10),
           if (creators.isEmpty)
-            const Text(
-              'Партнерская сетка формируется. Следите за новыми анонсами.',
-              style: TextStyle(color: Color(0xFFD3E7FF)),
-            )
+            const SizedBox.shrink()
           else
             Wrap(
               spacing: 8,
@@ -999,7 +1011,8 @@ class _PartnersContactsSection extends StatelessWidget {
           const Divider(color: Color(0x44C7E6FF)),
           const SizedBox(height: 8),
           Text(
-            '© ${DateTime.now().year} GigMe. Опубликовано событий: $total.',
+            '© ${DateTime.now().year} ${content.footerText.trim()}. '
+            'Опубликовано событий: $total.',
             style: const TextStyle(color: Color(0xC6D5E9FF)),
           ),
         ],
@@ -1146,7 +1159,12 @@ class _LandingParallaxCanvas extends StatelessWidget {
           scrollOffset: scrollOffset,
           factor: LandingLayoutConfig.parallaxFactors['farStars']!,
           overflow: overflow,
-          child: const CustomPaint(painter: _StarfieldPainter()),
+          child: Image.asset(
+            LandingLayoutConfig.backgroundAssetPath,
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            filterQuality: FilterQuality.medium,
+          ),
         ),
         _ParallaxLayer(
           scrollOffset: scrollOffset,
@@ -1280,37 +1298,6 @@ class _EdgeVignette extends StatelessWidget {
       ],
     );
   }
-}
-
-class _StarfieldPainter extends CustomPainter {
-  const _StarfieldPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    final edgeBand = math.min(220.0, math.max(96.0, size.width * 0.16));
-    final leftEnd = edgeBand;
-    final rightStart = size.width - edgeBand;
-
-    for (var i = 0; i < 220; i++) {
-      final t = ((i * 47) % 997) / 997;
-      final y = t * size.height;
-      final edgeRatio = ((i * 31) % 1000) / 1000;
-      final leftSide = i.isEven;
-      final x = leftSide
-          ? 10 + (leftEnd - 20) * edgeRatio
-          : rightStart + 10 + (leftEnd - 20) * edgeRatio;
-      final alpha = 0.22 + (i % 5) * 0.11;
-      final radius = 0.65 + (i % 4) * 0.4;
-      paint.color = const Color(0xFFE8F6FF).withValues(
-        alpha: alpha.clamp(0.0, 0.9).toDouble(),
-      );
-      canvas.drawCircle(Offset(x, y), radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _AuroraPainter extends CustomPainter {

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/admin_models.dart';
+import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
@@ -333,6 +334,25 @@ class AdminRepository {
           ApiPaths.adminLandingPublish(eventId),
           token: token,
           body: <String, dynamic>{'published': published},
+          decoder: (_) => null,
+        );
+  }
+
+  Future<LandingContent> getLandingContent() {
+    return _ref.read(apiClientProvider).get<LandingContent>(
+          ApiPaths.landingContent,
+          decoder: LandingContent.fromJson,
+        );
+  }
+
+  Future<void> updateLandingContent({
+    required String token,
+    required LandingContent content,
+  }) {
+    return _ref.read(apiClientProvider).post<void>(
+          ApiPaths.adminLandingContent,
+          token: token,
+          body: content.toJson(),
           decoder: (_) => null,
         );
   }

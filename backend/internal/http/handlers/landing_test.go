@@ -1,6 +1,11 @@
 package handlers
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"gigme/backend/internal/models"
+)
 
 func TestBuildLandingAppURL(t *testing.T) {
 	url := buildLandingAppURL("https://spacefestival.fun", 42, "abc_123")
@@ -30,5 +35,45 @@ func TestSanitizeLandingKey(t *testing.T) {
 	got := sanitizeLandingKey("abC-12_?*#")
 	if got != "abC-12_" {
 		t.Fatalf("expected sanitized key abC-12_, got %q", got)
+	}
+}
+
+func TestLandingContentToResponseUsesDefaults(t *testing.T) {
+	content := landingContentToResponse(models.LandingContent{})
+	if content.HeroEyebrow != landingDefaultHeroEyebrow {
+		t.Fatalf("expected default hero eyebrow, got %q", content.HeroEyebrow)
+	}
+	if content.AboutTitle != landingDefaultAboutTitle {
+		t.Fatalf("expected default about title, got %q", content.AboutTitle)
+	}
+	if content.FooterText != landingDefaultFooterText {
+		t.Fatalf("expected default footer, got %q", content.FooterText)
+	}
+}
+
+func TestMergeLandingContent(t *testing.T) {
+	base := models.LandingContent{
+		HeroTitle:  "Old title",
+		FooterText: "Old footer",
+	}
+	newTitle := "  New title  "
+	req := upsertLandingContentRequest{
+		HeroTitle: &newTitle,
+	}
+	merged := mergeLandingContent(base, req)
+	if merged.HeroTitle != "New title" {
+		t.Fatalf("expected trimmed title, got %q", merged.HeroTitle)
+	}
+	if merged.FooterText != "Old footer" {
+		t.Fatalf("expected untouched footer, got %q", merged.FooterText)
+	}
+}
+
+func TestValidateLandingContentRejectsTooLongValues(t *testing.T) {
+	content := models.LandingContent{
+		HeroTitle: strings.Repeat("a", 141),
+	}
+	if err := validateLandingContent(content); err == nil {
+		t.Fatalf("expected validation error for too long heroTitle")
 	}
 }

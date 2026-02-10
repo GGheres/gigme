@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
@@ -20,6 +21,13 @@ class LandingRepository {
             'offset': offset,
           },
           decoder: LandingEventsResponse.fromJson,
+        );
+  }
+
+  Future<LandingContent> getContent() {
+    return _ref.read(apiClientProvider).get<LandingContent>(
+          ApiPaths.landingContent,
+          decoder: LandingContent.fromJson,
         );
   }
 }

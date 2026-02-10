@@ -71,6 +71,21 @@ type UserEvent struct {
 	ThumbnailURL      string    `json:"thumbnailUrl,omitempty"`
 }
 
+type LandingContent struct {
+	HeroEyebrow         string    `json:"heroEyebrow"`
+	HeroTitle           string    `json:"heroTitle"`
+	HeroDescription     string    `json:"heroDescription"`
+	HeroPrimaryCTALabel string    `json:"heroPrimaryCtaLabel"`
+	AboutTitle          string    `json:"aboutTitle"`
+	AboutDescription    string    `json:"aboutDescription"`
+	PartnersTitle       string    `json:"partnersTitle"`
+	PartnersDescription string    `json:"partnersDescription"`
+	FooterText          string    `json:"footerText"`
+	UpdatedBy           *int64    `json:"updatedBy,omitempty"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}
+
 type EventMarker struct {
 	ID         int64     `json:"id"`
 	Title      string    `json:"title"`

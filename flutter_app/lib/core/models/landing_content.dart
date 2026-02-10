@@ -1,0 +1,118 @@
+import '../utils/json_utils.dart';
+
+class LandingContent {
+  const LandingContent({
+    required this.heroEyebrow,
+    required this.heroTitle,
+    required this.heroDescription,
+    required this.heroPrimaryCtaLabel,
+    required this.aboutTitle,
+    required this.aboutDescription,
+    required this.partnersTitle,
+    required this.partnersDescription,
+    required this.footerText,
+  });
+
+  factory LandingContent.fromJson(dynamic json) {
+    final map = asMap(json);
+    return LandingContent(
+      heroEyebrow: asString(map['heroEyebrow']),
+      heroTitle: asString(map['heroTitle']),
+      heroDescription: asString(map['heroDescription']),
+      heroPrimaryCtaLabel: asString(map['heroPrimaryCtaLabel']),
+      aboutTitle: asString(map['aboutTitle']),
+      aboutDescription: asString(map['aboutDescription']),
+      partnersTitle: asString(map['partnersTitle']),
+      partnersDescription: asString(map['partnersDescription']),
+      footerText: asString(map['footerText']),
+    ).withFallbackDefaults();
+  }
+
+  factory LandingContent.defaults() {
+    return const LandingContent(
+      heroEyebrow: 'SPACEFESTIVAL',
+      heroTitle: 'Spacefestival 2026',
+      heroDescription:
+          'Три экрана музыки, перформансов и нетворкинга. Лови билет, открывай Space App и следи за обновлениями в реальном времени.',
+      heroPrimaryCtaLabel: 'Открыть Space App',
+      aboutTitle: 'О мероприятии',
+      aboutDescription:
+          'О мероприятии: сеты артистов, иммерсивные зоны, локальные бренды и серия партнерских активностей. Вся программа обновляется на лендинге.',
+      partnersTitle: 'Партнеры и контакты',
+      partnersDescription:
+          'Партнерская сетка формируется. Следите за новыми анонсами.',
+      footerText: 'GigMe',
+    );
+  }
+
+  final String heroEyebrow;
+  final String heroTitle;
+  final String heroDescription;
+  final String heroPrimaryCtaLabel;
+  final String aboutTitle;
+  final String aboutDescription;
+  final String partnersTitle;
+  final String partnersDescription;
+  final String footerText;
+
+  LandingContent copyWith({
+    String? heroEyebrow,
+    String? heroTitle,
+    String? heroDescription,
+    String? heroPrimaryCtaLabel,
+    String? aboutTitle,
+    String? aboutDescription,
+    String? partnersTitle,
+    String? partnersDescription,
+    String? footerText,
+  }) {
+    return LandingContent(
+      heroEyebrow: heroEyebrow ?? this.heroEyebrow,
+      heroTitle: heroTitle ?? this.heroTitle,
+      heroDescription: heroDescription ?? this.heroDescription,
+      heroPrimaryCtaLabel: heroPrimaryCtaLabel ?? this.heroPrimaryCtaLabel,
+      aboutTitle: aboutTitle ?? this.aboutTitle,
+      aboutDescription: aboutDescription ?? this.aboutDescription,
+      partnersTitle: partnersTitle ?? this.partnersTitle,
+      partnersDescription: partnersDescription ?? this.partnersDescription,
+      footerText: footerText ?? this.footerText,
+    );
+  }
+
+  LandingContent withFallbackDefaults() {
+    final defaults = LandingContent.defaults();
+    return LandingContent(
+      heroEyebrow: _pick(heroEyebrow, defaults.heroEyebrow),
+      heroTitle: _pick(heroTitle, defaults.heroTitle),
+      heroDescription: _pick(heroDescription, defaults.heroDescription),
+      heroPrimaryCtaLabel:
+          _pick(heroPrimaryCtaLabel, defaults.heroPrimaryCtaLabel),
+      aboutTitle: _pick(aboutTitle, defaults.aboutTitle),
+      aboutDescription: _pick(aboutDescription, defaults.aboutDescription),
+      partnersTitle: _pick(partnersTitle, defaults.partnersTitle),
+      partnersDescription:
+          _pick(partnersDescription, defaults.partnersDescription),
+      footerText: _pick(footerText, defaults.footerText),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'heroEyebrow': heroEyebrow.trim(),
+      'heroTitle': heroTitle.trim(),
+      'heroDescription': heroDescription.trim(),
+      'heroPrimaryCtaLabel': heroPrimaryCtaLabel.trim(),
+      'aboutTitle': aboutTitle.trim(),
+      'aboutDescription': aboutDescription.trim(),
+      'partnersTitle': partnersTitle.trim(),
+      'partnersDescription': partnersDescription.trim(),
+      'footerText': footerText.trim(),
+    };
+  }
+}
+
+String _pick(String raw, String fallback) {
+  final value = raw.trim();
+  if (value.isEmpty) return fallback;
+  return value;
+}
