@@ -41,7 +41,7 @@ class LandingContent {
       partnersTitle: 'Партнеры и контакты',
       partnersDescription:
           'Партнерская сетка формируется. Следите за новыми анонсами.',
-      footerText: 'GigMe',
+      footerText: 'SPACE',
     );
   }
 

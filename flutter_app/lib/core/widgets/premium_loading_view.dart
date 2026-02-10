@@ -438,7 +438,7 @@ class _PremiumFramePainter extends CustomPainter {
     required _FramePathData frame,
     required double breath,
   }) {
-    final sourceText = text.trim().isEmpty ? 'GIGME • LOADING • ' : text;
+    final sourceText = text.trim().isEmpty ? 'SPACE • LOADING • ' : text;
     final glyphs = sourceText.split('');
     if (glyphs.isEmpty) return;
 

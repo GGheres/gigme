@@ -39,7 +39,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('GigMe Login')),
+      appBar: AppBar(title: const Text('SPACE Login')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
@@ -49,7 +49,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               shrinkWrap: true,
               children: [
                 const Text(
-                  'GigMe',
+                  'SPACE',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700),
                 ),
@@ -65,7 +65,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     height: 220,
                     child: PremiumLoadingView(
                       compact: true,
-                      text: 'SIGN IN • GIGME • ',
+                      text: 'SIGN IN • SPACE • ',
                       subtitle: 'Signing in...',
                     ),
                   ),

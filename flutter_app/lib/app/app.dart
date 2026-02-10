@@ -14,7 +14,7 @@ class GigMeApp extends ConsumerWidget {
 
     return PushBootstrap(
       child: MaterialApp.router(
-        title: 'GigMe Flutter',
+        title: 'SPACE',
         theme: buildGigMeTheme(),
         routerConfig: router,
         debugShowCheckedModeBanner: false,

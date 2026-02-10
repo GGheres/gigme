@@ -2208,7 +2208,7 @@ function App() {
       setError('Не удалось создать ссылку для шаринга')
       return
     }
-    const title = selectedEvent.event.title || 'Gigme event'
+    const title = selectedEvent.event.title || 'SPACE event'
     const text = `Event: ${title}`
     const tg = (window as any).Telegram?.WebApp
     const tgShareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`
@@ -4252,7 +4252,7 @@ function App() {
             <div className="hero__main">
               <div className="hero__copy">
                 <p className="eyebrow">Local energy</p>
-                <h1>Gigme</h1>
+                <h1>SPACE</h1>
                 <p className="hero__subtitle">{greeting}</p>
               </div>
               <div className="hero__actions">
