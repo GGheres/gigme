@@ -1215,6 +1215,11 @@ class _LandingParallaxCanvas extends StatelessWidget {
           ),
         ),
         const Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(painter: _EdgeMatrixPainter()),
+          ),
+        ),
+        const Positioned.fill(
           child: IgnorePointer(child: _EdgeVignette()),
         ),
         Positioned(
@@ -1443,35 +1448,17 @@ class _EdgeCircuitPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final edgeBand = math.min(220.0, math.max(100.0, size.width * 0.16));
-    final circuitPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.15
-      ..color = const Color(0x66A5E0FF);
-    final nodePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = const Color(0xBDE3F7FF);
-    final railPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = const Color(0x44BCE8FF);
-
     _paintSide(
       canvas: canvas,
       size: size,
       edgeBand: edgeBand,
       left: true,
-      circuitPaint: circuitPaint,
-      nodePaint: nodePaint,
-      railPaint: railPaint,
     );
     _paintSide(
       canvas: canvas,
       size: size,
       edgeBand: edgeBand,
       left: false,
-      circuitPaint: circuitPaint,
-      nodePaint: nodePaint,
-      railPaint: railPaint,
     );
   }
 
@@ -1480,32 +1467,320 @@ class _EdgeCircuitPainter extends CustomPainter {
     required Size size,
     required double edgeBand,
     required bool left,
-    required Paint circuitPaint,
-    required Paint nodePaint,
-    required Paint railPaint,
   }) {
-    final step = size.height / 18;
-    final railX = left ? edgeBand * 0.1 : size.width - (edgeBand * 0.1);
-    canvas.drawLine(Offset(railX, 0), Offset(railX, size.height), railPaint);
+    final edgeRect = left
+        ? Rect.fromLTWH(0, 0, edgeBand, size.height)
+        : Rect.fromLTWH(size.width - edgeBand, 0, edgeBand, size.height);
+    canvas.save();
+    canvas.clipRect(edgeRect);
 
-    for (var i = 0; i <= 18; i++) {
-      final y = step * i;
-      final lane = i % 4;
-      final innerShift = edgeBand * (0.28 + lane * 0.08);
-      final outerShift = edgeBand * (0.76 - lane * 0.05);
-      final xInner = left ? innerShift : size.width - innerShift;
-      final xOuter = left ? outerShift : size.width - outerShift;
-      final branchY = y + (step * 0.4);
-      final endY = y + (step * 0.82);
+    final railPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0x4AAEEBFF);
+    final branchPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.15
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0x6AB5E9FF);
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.9)
+      ..color = const Color(0x2B88E7FF);
+    final nodePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = const Color(0xC7DFF8FF);
 
-      final branch = Path()
-        ..moveTo(xInner, y)
-        ..lineTo(xInner, branchY)
-        ..lineTo(xOuter, branchY)
-        ..lineTo(xOuter, endY);
-      canvas.drawPath(branch, circuitPaint);
-      canvas.drawCircle(Offset(xOuter, branchY), 2.1, nodePaint);
+    const trunkCount = 8;
+    for (var i = 0; i < trunkCount; i++) {
+      final laneT = i / (trunkCount - 1);
+      final fromEdge = edgeBand * (0.08 + laneT * 0.76);
+      final trunkX = left ? fromEdge : size.width - fromEdge;
+      final trunkPath = Path()..moveTo(trunkX, -16);
+      final step = math.max(56.0, size.height / 24);
+      var y = -16.0;
+
+      while (y <= size.height + 24) {
+        final wobble = ((math.sin((y * 0.005) + (i * 0.9)) * 0.52) +
+                (_stableNoise(y * 0.021 + i * 5.0) - 0.5)) *
+            edgeBand *
+            0.032;
+        final x = left ? trunkX + wobble : trunkX - wobble;
+        trunkPath.lineTo(x, y);
+        y += step;
+      }
+
+      canvas.drawPath(trunkPath, glowPaint);
+      canvas.drawPath(trunkPath, railPaint);
+
+      final branchStep = math.max(72.0, size.height / 20);
+      for (var branchIndex = 0; branchIndex < 20; branchIndex++) {
+        final yBase = (branchIndex * branchStep) +
+            (_stableNoise(i * 83 + branchIndex * 11) * branchStep * 0.28);
+        if (yBase < 0 || yBase > size.height) continue;
+
+        final sway = ((math.sin((yBase * 0.0045) + (i * 0.7)) * 0.5) +
+                (_stableNoise(branchIndex * 17 + i * 9) - 0.5)) *
+            edgeBand *
+            0.028;
+        final startX = left ? trunkX + sway : trunkX - sway;
+        final root = Offset(startX, yBase);
+        final len = edgeBand *
+            (0.13 + (_stableNoise(branchIndex * 13 + i * 3.0) * 0.18));
+        final baseAngle = left ? 0.16 : math.pi - 0.16;
+
+        _drawFractalBranch(
+          canvas: canvas,
+          start: root,
+          baseLength: len,
+          angle: baseAngle,
+          depth: 3,
+          left: left,
+          branchPaint: branchPaint,
+          nodePaint: nodePaint,
+          seed: (i * 100) + branchIndex,
+        );
+      }
     }
+
+    canvas.restore();
+  }
+
+  void _drawFractalBranch({
+    required Canvas canvas,
+    required Offset start,
+    required double baseLength,
+    required double angle,
+    required int depth,
+    required bool left,
+    required Paint branchPaint,
+    required Paint nodePaint,
+    required int seed,
+  }) {
+    if (depth <= 0 || baseLength < 6) return;
+
+    final noise = _stableNoise(seed * 0.91 + depth * 1.27) - 0.5;
+    final adjustedAngle = angle + (noise * 0.34);
+    final dx = math.cos(adjustedAngle) * baseLength;
+    final dy = math.sin(adjustedAngle) * baseLength;
+    final end = Offset(start.dx + dx, start.dy + dy);
+
+    final control = Offset(
+      start.dx + (dx * 0.48) + ((left ? 1 : -1) * dy * 0.11),
+      start.dy + (dy * 0.48) + ((left ? -1 : 1) * dx * 0.09),
+    );
+
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
+
+    final strokeScale = 0.62 + (depth * 0.22);
+    final branchAlpha = (0.42 + depth * 0.17).clamp(0.0, 1.0).toDouble();
+    final paint = Paint()
+      ..style = branchPaint.style
+      ..strokeCap = branchPaint.strokeCap
+      ..color = branchPaint.color.withValues(alpha: branchAlpha)
+      ..strokeWidth = branchPaint.strokeWidth * strokeScale;
+
+    canvas.drawPath(path, paint);
+    final nodeAlpha = (0.45 + depth * 0.14).clamp(0.0, 1.0).toDouble();
+    canvas.drawCircle(
+      end,
+      (1.05 + (depth * 0.42)).clamp(1.0, 3.3),
+      Paint()
+        ..style = PaintingStyle.fill
+        ..color = nodePaint.color.withValues(alpha: nodeAlpha),
+    );
+
+    final childLen = baseLength * (0.58 + (_stableNoise(seed + 41) * 0.12));
+    final spread = 0.38 + (_stableNoise(seed + 23) * 0.18);
+    _drawFractalBranch(
+      canvas: canvas,
+      start: end,
+      baseLength: childLen,
+      angle: adjustedAngle + spread,
+      depth: depth - 1,
+      left: left,
+      branchPaint: branchPaint,
+      nodePaint: nodePaint,
+      seed: seed + 19,
+    );
+    _drawFractalBranch(
+      canvas: canvas,
+      start: end,
+      baseLength: childLen,
+      angle: adjustedAngle - spread,
+      depth: depth - 1,
+      left: left,
+      branchPaint: branchPaint,
+      nodePaint: nodePaint,
+      seed: seed + 31,
+    );
+
+    if (depth >= 3 && _stableNoise(seed + 61) > 0.35) {
+      final mid = Offset.lerp(start, end, 0.58)!;
+      _drawFractalBranch(
+        canvas: canvas,
+        start: mid,
+        baseLength: childLen * 0.72,
+        angle: adjustedAngle + (left ? 0.19 : -0.19),
+        depth: depth - 1,
+        left: left,
+        branchPaint: branchPaint,
+        nodePaint: nodePaint,
+        seed: seed + 47,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _EdgeMatrixPainter extends CustomPainter {
+  const _EdgeMatrixPainter();
+
+  static const List<String> _glyphs = <String>[
+    '0',
+    '1',
+    '{',
+    '}',
+    '[',
+    ']',
+    '(',
+    ')',
+    '#',
+    '+',
+    '-',
+    '=',
+    '*',
+    '/',
+    '\\',
+    ':',
+    ';',
+    '\$',
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final edgeBand = math.min(220.0, math.max(100.0, size.width * 0.16));
+    _paintSide(
+      canvas: canvas,
+      size: size,
+      edgeBand: edgeBand,
+      left: true,
+    );
+    _paintSide(
+      canvas: canvas,
+      size: size,
+      edgeBand: edgeBand,
+      left: false,
+    );
+  }
+
+  void _paintSide({
+    required Canvas canvas,
+    required Size size,
+    required double edgeBand,
+    required bool left,
+  }) {
+    final edgeRect = left
+        ? Rect.fromLTWH(0, 0, edgeBand, size.height)
+        : Rect.fromLTWH(size.width - edgeBand, 0, edgeBand, size.height);
+    canvas.save();
+    canvas.clipRect(edgeRect);
+
+    final columns = math.max(7, (edgeBand / 18).floor());
+    final fontSize = (edgeBand * 0.062).clamp(9.2, 13.0);
+    final spacing = (fontSize * 1.44).clamp(13.0, 20.0);
+    final painters = <String, TextPainter>{};
+
+    TextPainter glyphPainter(String glyph, int tone) {
+      final key = '$glyph:$tone';
+      return painters.putIfAbsent(key, () {
+        final color = switch (tone) {
+          0 => const Color(0x7438D59A),
+          1 => const Color(0x9A52E6B0),
+          2 => const Color(0xCF7CFFD0),
+          _ => const Color(0xEEB5FFE8),
+        };
+        final tp = TextPainter(
+          text: TextSpan(
+            text: glyph,
+            style: TextStyle(
+              color: color,
+              fontFamily: 'monospace',
+              fontSize: fontSize,
+              height: 1.0,
+              shadows: const [
+                Shadow(
+                  color: Color(0x6636EAB3),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        tp.layout(minWidth: 0, maxWidth: fontSize + 4);
+        return tp;
+      });
+    }
+
+    for (var column = 0; column < columns; column++) {
+      final t = column / (columns - 1);
+      final offsetFromEdge = edgeBand * (0.08 + t * 0.82);
+      final x = left ? offsetFromEdge : size.width - offsetFromEdge;
+      final seedBase = left ? (column * 31 + 70) : (column * 31 + 970);
+      final streamOffset = _stableNoise(seedBase * 0.33) * spacing * 5.4;
+      final laneDensity = 0.38 + (_stableNoise(seedBase + 11) * 0.32);
+
+      for (var y = -streamOffset; y < size.height + spacing; y += spacing) {
+        final row = (y / spacing).floor();
+        final gate = _stableNoise(seedBase + row * 7.0);
+        if (gate > laneDensity) continue;
+
+        final glyphIndex =
+            (_stableNoise(seedBase * 9 + row * 1.3) * _glyphs.length).floor() %
+                _glyphs.length;
+        final toneScore = _stableNoise(seedBase * 1.9 + row * 0.77);
+        final tone = toneScore > 0.91
+            ? 3
+            : toneScore > 0.67
+                ? 2
+                : toneScore > 0.4
+                    ? 1
+                    : 0;
+        final painter = glyphPainter(_glyphs[glyphIndex], tone);
+        painter.paint(canvas, Offset(x - (painter.width * 0.5), y));
+      }
+    }
+
+    final fade = Paint()
+      ..shader = left
+          ? const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: <Color>[
+                Color(0x00010207),
+                Color(0x42010207),
+                Color(0xA0010207),
+              ],
+              stops: <double>[0, 0.55, 1],
+            ).createShader(edgeRect)
+          : const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: <Color>[
+                Color(0xA0010207),
+                Color(0x42010207),
+                Color(0x00010207),
+              ],
+              stops: <double>[0, 0.45, 1],
+            ).createShader(edgeRect);
+    canvas.drawRect(edgeRect, fade);
+    canvas.restore();
   }
 
   @override
@@ -1604,6 +1879,11 @@ double _clampedParallaxOffset({
   if (shift < 0) return 0;
   if (shift > overflow) return overflow;
   return shift;
+}
+
+double _stableNoise(num seed) {
+  final value = math.sin(seed * 12.9898) * 43758.5453;
+  return value - value.floorToDouble();
 }
 
 int _totalParticipants(List<LandingEvent> events) {
