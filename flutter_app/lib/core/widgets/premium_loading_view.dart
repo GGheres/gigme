@@ -51,9 +51,17 @@ class _PremiumLoadingViewState extends State<PremiumLoadingView>
       media?.size.width ?? 320,
       media?.size.height ?? 320,
     );
-    final orbitSize = (shortest * (widget.compact ? 0.46 : 0.38)).clamp(
-      widget.compact ? 82.0 : 140.0,
-      widget.compact ? 160.0 : 260.0,
+    final orbitSize = (shortest *
+            (widget.compact
+                ? _PremiumLoadingTuning.compactOrbitScale
+                : _PremiumLoadingTuning.orbitScale))
+        .clamp(
+      widget.compact
+          ? _PremiumLoadingTuning.compactOrbitMin
+          : _PremiumLoadingTuning.orbitMin,
+      widget.compact
+          ? _PremiumLoadingTuning.compactOrbitMax
+          : _PremiumLoadingTuning.orbitMax,
     );
 
     return SizedBox.expand(
@@ -77,14 +85,20 @@ class _PremiumLoadingTuning {
 
   static const double effectsTimelineSec = 120;
   static const double globalBreathPeriodSec = 4.8;
-  static const double tickerSpeedPxPerSec = 32;
-  static const double shimmerSpeedPxPerSec = 44;
-  static const double waveSpeed = 96;
+  static const double tickerSpeedPxPerSec = 24;
+  static const double shimmerSpeedPxPerSec = 36;
+  static const double waveSpeed = 76;
   static const double waveSigma = 150;
   static const double waveGlowBoost = 0.68;
   static const double waveOpacityBoost = 0.18;
   static const double grainOpacity = 0.0;
   static const double grainFps = 6;
+  static const double orbitScale = 0.44;
+  static const double compactOrbitScale = 0.56;
+  static const double orbitMin = 168;
+  static const double compactOrbitMin = 92;
+  static const double orbitMax = 320;
+  static const double compactOrbitMax = 190;
 }
 
 class _PremiumFrameEffect extends StatelessWidget {
