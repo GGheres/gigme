@@ -24,10 +24,12 @@ class LandingScreen extends ConsumerStatefulWidget {
   ConsumerState<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends ConsumerState<LandingScreen> {
+class _LandingScreenState extends ConsumerState<LandingScreen>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController =
       ScrollController(keepScrollOffset: false);
   final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
+  late final AnimationController _matrixPulseController;
   bool _didForceInitialTop = false;
 
   bool _loading = false;
@@ -39,6 +41,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
   @override
   void initState() {
     super.initState();
+    _matrixPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 7800),
+    )..repeat();
     if (kIsWeb) {
       TelegramWebAppBridge.readyAndExpand();
     }
@@ -54,6 +60,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _scrollOffset.dispose();
+    _matrixPulseController.dispose();
     super.dispose();
   }
 
@@ -84,6 +91,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                   children: [
                     _LandingParallaxCanvas(
                       scrollOffset: _scrollOffset,
+                      matrixPulse: _matrixPulseController,
                       canvasHeight: canvasHeight,
                       viewport: viewport,
                       quietZoneLeft: quietZoneLeft,
@@ -1152,6 +1160,7 @@ class _LandingEventCompactCard extends StatelessWidget {
 class _LandingParallaxCanvas extends StatelessWidget {
   const _LandingParallaxCanvas({
     required this.scrollOffset,
+    required this.matrixPulse,
     required this.canvasHeight,
     required this.viewport,
     required this.quietZoneLeft,
@@ -1159,6 +1168,7 @@ class _LandingParallaxCanvas extends StatelessWidget {
   });
 
   final ValueListenable<double> scrollOffset;
+  final Animation<double> matrixPulse;
   final double canvasHeight;
   final Size viewport;
   final double quietZoneLeft;
@@ -1209,14 +1219,18 @@ class _LandingParallaxCanvas extends StatelessWidget {
           overflow: overflow,
           child: const CustomPaint(painter: _NearDecorPainter()),
         ),
-        const Positioned.fill(
+        Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(painter: _EdgeCircuitPainter()),
-          ),
-        ),
-        const Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(painter: _EdgeMatrixPainter()),
+            child: AnimatedBuilder(
+              animation: matrixPulse,
+              builder: (context, _) {
+                return RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _EdgeMatrixPainter(phase: matrixPulse.value),
+                  ),
+                );
+              },
+            ),
           ),
         ),
         const Positioned.fill(
@@ -1442,204 +1456,12 @@ class _NearDecorPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _EdgeCircuitPainter extends CustomPainter {
-  const _EdgeCircuitPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final edgeBand = math.min(220.0, math.max(100.0, size.width * 0.16));
-    _paintSide(
-      canvas: canvas,
-      size: size,
-      edgeBand: edgeBand,
-      left: true,
-    );
-    _paintSide(
-      canvas: canvas,
-      size: size,
-      edgeBand: edgeBand,
-      left: false,
-    );
-  }
-
-  void _paintSide({
-    required Canvas canvas,
-    required Size size,
-    required double edgeBand,
-    required bool left,
-  }) {
-    final edgeRect = left
-        ? Rect.fromLTWH(0, 0, edgeBand, size.height)
-        : Rect.fromLTWH(size.width - edgeBand, 0, edgeBand, size.height);
-    canvas.save();
-    canvas.clipRect(edgeRect);
-
-    final railPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = const Color(0x4AAEEBFF);
-    final branchPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.15
-      ..strokeCap = StrokeCap.round
-      ..color = const Color(0x6AB5E9FF);
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.9)
-      ..color = const Color(0x2B88E7FF);
-    final nodePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = const Color(0xC7DFF8FF);
-
-    const trunkCount = 8;
-    for (var i = 0; i < trunkCount; i++) {
-      final laneT = i / (trunkCount - 1);
-      final fromEdge = edgeBand * (0.08 + laneT * 0.76);
-      final trunkX = left ? fromEdge : size.width - fromEdge;
-      final trunkPath = Path()..moveTo(trunkX, -16);
-      final step = math.max(56.0, size.height / 24);
-      var y = -16.0;
-
-      while (y <= size.height + 24) {
-        final wobble = ((math.sin((y * 0.005) + (i * 0.9)) * 0.52) +
-                (_stableNoise(y * 0.021 + i * 5.0) - 0.5)) *
-            edgeBand *
-            0.032;
-        final x = left ? trunkX + wobble : trunkX - wobble;
-        trunkPath.lineTo(x, y);
-        y += step;
-      }
-
-      canvas.drawPath(trunkPath, glowPaint);
-      canvas.drawPath(trunkPath, railPaint);
-
-      final branchStep = math.max(72.0, size.height / 20);
-      for (var branchIndex = 0; branchIndex < 20; branchIndex++) {
-        final yBase = (branchIndex * branchStep) +
-            (_stableNoise(i * 83 + branchIndex * 11) * branchStep * 0.28);
-        if (yBase < 0 || yBase > size.height) continue;
-
-        final sway = ((math.sin((yBase * 0.0045) + (i * 0.7)) * 0.5) +
-                (_stableNoise(branchIndex * 17 + i * 9) - 0.5)) *
-            edgeBand *
-            0.028;
-        final startX = left ? trunkX + sway : trunkX - sway;
-        final root = Offset(startX, yBase);
-        final len = edgeBand *
-            (0.13 + (_stableNoise(branchIndex * 13 + i * 3.0) * 0.18));
-        final baseAngle = left ? 0.16 : math.pi - 0.16;
-
-        _drawFractalBranch(
-          canvas: canvas,
-          start: root,
-          baseLength: len,
-          angle: baseAngle,
-          depth: 3,
-          left: left,
-          branchPaint: branchPaint,
-          nodePaint: nodePaint,
-          seed: (i * 100) + branchIndex,
-        );
-      }
-    }
-
-    canvas.restore();
-  }
-
-  void _drawFractalBranch({
-    required Canvas canvas,
-    required Offset start,
-    required double baseLength,
-    required double angle,
-    required int depth,
-    required bool left,
-    required Paint branchPaint,
-    required Paint nodePaint,
-    required int seed,
-  }) {
-    if (depth <= 0 || baseLength < 6) return;
-
-    final noise = _stableNoise(seed * 0.91 + depth * 1.27) - 0.5;
-    final adjustedAngle = angle + (noise * 0.34);
-    final dx = math.cos(adjustedAngle) * baseLength;
-    final dy = math.sin(adjustedAngle) * baseLength;
-    final end = Offset(start.dx + dx, start.dy + dy);
-
-    final control = Offset(
-      start.dx + (dx * 0.48) + ((left ? 1 : -1) * dy * 0.11),
-      start.dy + (dy * 0.48) + ((left ? -1 : 1) * dx * 0.09),
-    );
-
-    final path = Path()
-      ..moveTo(start.dx, start.dy)
-      ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
-
-    final strokeScale = 0.62 + (depth * 0.22);
-    final branchAlpha = (0.42 + depth * 0.17).clamp(0.0, 1.0).toDouble();
-    final paint = Paint()
-      ..style = branchPaint.style
-      ..strokeCap = branchPaint.strokeCap
-      ..color = branchPaint.color.withValues(alpha: branchAlpha)
-      ..strokeWidth = branchPaint.strokeWidth * strokeScale;
-
-    canvas.drawPath(path, paint);
-    final nodeAlpha = (0.45 + depth * 0.14).clamp(0.0, 1.0).toDouble();
-    canvas.drawCircle(
-      end,
-      (1.05 + (depth * 0.42)).clamp(1.0, 3.3),
-      Paint()
-        ..style = PaintingStyle.fill
-        ..color = nodePaint.color.withValues(alpha: nodeAlpha),
-    );
-
-    final childLen = baseLength * (0.58 + (_stableNoise(seed + 41) * 0.12));
-    final spread = 0.38 + (_stableNoise(seed + 23) * 0.18);
-    _drawFractalBranch(
-      canvas: canvas,
-      start: end,
-      baseLength: childLen,
-      angle: adjustedAngle + spread,
-      depth: depth - 1,
-      left: left,
-      branchPaint: branchPaint,
-      nodePaint: nodePaint,
-      seed: seed + 19,
-    );
-    _drawFractalBranch(
-      canvas: canvas,
-      start: end,
-      baseLength: childLen,
-      angle: adjustedAngle - spread,
-      depth: depth - 1,
-      left: left,
-      branchPaint: branchPaint,
-      nodePaint: nodePaint,
-      seed: seed + 31,
-    );
-
-    if (depth >= 3 && _stableNoise(seed + 61) > 0.35) {
-      final mid = Offset.lerp(start, end, 0.58)!;
-      _drawFractalBranch(
-        canvas: canvas,
-        start: mid,
-        baseLength: childLen * 0.72,
-        angle: adjustedAngle + (left ? 0.19 : -0.19),
-        depth: depth - 1,
-        left: left,
-        branchPaint: branchPaint,
-        nodePaint: nodePaint,
-        seed: seed + 47,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class _EdgeMatrixPainter extends CustomPainter {
-  const _EdgeMatrixPainter();
+  const _EdgeMatrixPainter({
+    required this.phase,
+  });
+
+  final double phase;
 
   static const List<String> _glyphs = <String>[
     '0',
@@ -1665,17 +1487,21 @@ class _EdgeMatrixPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final edgeBand = math.min(220.0, math.max(100.0, size.width * 0.16));
+    final breath =
+        0.62 + (0.38 * (0.5 + (0.5 * math.sin((phase * math.pi * 2) - 1.4))));
     _paintSide(
       canvas: canvas,
       size: size,
       edgeBand: edgeBand,
       left: true,
+      breath: breath,
     );
     _paintSide(
       canvas: canvas,
       size: size,
       edgeBand: edgeBand,
       left: false,
+      breath: breath,
     );
   }
 
@@ -1684,6 +1510,7 @@ class _EdgeMatrixPainter extends CustomPainter {
     required Size size,
     required double edgeBand,
     required bool left,
+    required double breath,
   }) {
     final edgeRect = left
         ? Rect.fromLTWH(0, 0, edgeBand, size.height)
@@ -1695,16 +1522,14 @@ class _EdgeMatrixPainter extends CustomPainter {
     final fontSize = (edgeBand * 0.062).clamp(9.2, 13.0);
     final spacing = (fontSize * 1.44).clamp(13.0, 20.0);
     final painters = <String, TextPainter>{};
+    final shadowColor = const Color(0xFF89FFD8).withValues(
+      alpha: (0.24 + (breath * 0.31)).clamp(0.0, 1.0),
+    );
 
     TextPainter glyphPainter(String glyph, int tone) {
       final key = '$glyph:$tone';
       return painters.putIfAbsent(key, () {
-        final color = switch (tone) {
-          0 => const Color(0x7438D59A),
-          1 => const Color(0x9A52E6B0),
-          2 => const Color(0xCF7CFFD0),
-          _ => const Color(0xEEB5FFE8),
-        };
+        final color = _toneColor(tone: tone, breath: breath);
         final tp = TextPainter(
           text: TextSpan(
             text: glyph,
@@ -1713,10 +1538,10 @@ class _EdgeMatrixPainter extends CustomPainter {
               fontFamily: 'monospace',
               fontSize: fontSize,
               height: 1.0,
-              shadows: const [
+              shadows: [
                 Shadow(
-                  color: Color(0x6636EAB3),
-                  blurRadius: 4,
+                  color: shadowColor,
+                  blurRadius: 5.5,
                 ),
               ],
             ),
@@ -1733,8 +1558,15 @@ class _EdgeMatrixPainter extends CustomPainter {
       final offsetFromEdge = edgeBand * (0.08 + t * 0.82);
       final x = left ? offsetFromEdge : size.width - offsetFromEdge;
       final seedBase = left ? (column * 31 + 70) : (column * 31 + 970);
-      final streamOffset = _stableNoise(seedBase * 0.33) * spacing * 5.4;
+      final streamSpeed = 0.76 + (_stableNoise(seedBase * 0.37) * 1.18);
+      final streamTravel =
+          (phase * spacing * 32 * streamSpeed) % (spacing * 24);
+      final streamOffset =
+          (_stableNoise(seedBase * 0.33) * spacing * 5.4) + streamTravel;
       final laneDensity = 0.38 + (_stableNoise(seedBase + 11) * 0.32);
+      final headY = ((phase * size.height * (0.42 + streamSpeed)) +
+              (_stableNoise(seedBase * 0.91) * size.height)) %
+          size.height;
 
       for (var y = -streamOffset; y < size.height + spacing; y += spacing) {
         final row = (y / spacing).floor();
@@ -1745,13 +1577,20 @@ class _EdgeMatrixPainter extends CustomPainter {
             (_stableNoise(seedBase * 9 + row * 1.3) * _glyphs.length).floor() %
                 _glyphs.length;
         final toneScore = _stableNoise(seedBase * 1.9 + row * 0.77);
-        final tone = toneScore > 0.91
+        var tone = toneScore > 0.91
             ? 3
             : toneScore > 0.67
                 ? 2
                 : toneScore > 0.4
                     ? 1
                     : 0;
+        final distToHead = (y - headY).abs();
+        if (distToHead < spacing * 0.7) {
+          tone = 3;
+        } else if (distToHead < spacing * 1.7 && tone < 2) {
+          tone = 2;
+        }
+
         final painter = glyphPainter(_glyphs[glyphIndex], tone);
         painter.paint(canvas, Offset(x - (painter.width * 0.5), y));
       }
@@ -1783,8 +1622,38 @@ class _EdgeMatrixPainter extends CustomPainter {
     canvas.restore();
   }
 
+  Color _toneColor({
+    required int tone,
+    required double breath,
+  }) {
+    Color base;
+    double alpha;
+    switch (tone) {
+      case 0:
+        base = const Color(0xFF2F8B6A);
+        alpha = 0.20;
+        break;
+      case 1:
+        base = const Color(0xFF45E2A1);
+        alpha = 0.34;
+        break;
+      case 2:
+        base = const Color(0xFF9BFFD4);
+        alpha = 0.54;
+        break;
+      default:
+        base = const Color(0xFFE8FFF4);
+        alpha = 0.84;
+    }
+    final pulsedAlpha = (alpha * (0.74 + (breath * 0.48))).clamp(0.0, 1.0);
+    return base.withValues(alpha: pulsedAlpha);
+  }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return oldDelegate is! _EdgeMatrixPainter ||
+        (oldDelegate.phase - phase).abs() > 0.0001;
+  }
 }
 
 class _GlassPanel extends StatelessWidget {
