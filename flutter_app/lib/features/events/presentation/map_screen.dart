@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/widgets/premium_loading_view.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 
@@ -107,9 +108,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
           if (state.loading)
             const Positioned(
-              top: 16,
-              right: 16,
-              child: CircularProgressIndicator(),
+              top: 14,
+              right: 14,
+              width: 184,
+              height: 104,
+              child: PremiumLoadingView(
+                compact: true,
+                text: 'MAP • LOADING • ',
+                subtitle: 'Обновляем карту',
+              ),
             ),
           if ((state.error ?? '').isNotEmpty)
             Positioned(

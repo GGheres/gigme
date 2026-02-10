@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
+import '../../../core/widgets/premium_loading_view.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 import 'widgets/feed_list.dart';
@@ -97,7 +98,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           Expanded(
             child: showLoader
-                ? const Center(child: CircularProgressIndicator())
+                ? const PremiumLoadingView(
+                    text: 'NEARBY FEED • LOADING • ',
+                    subtitle: 'Загружаем события рядом',
+                  )
                 : RefreshIndicator(
                     onRefresh: () => ref
                         .read(eventsControllerProvider)

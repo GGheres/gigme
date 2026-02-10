@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/config/app_config.dart';
 import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/share_utils.dart';
+import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../application/events_controller.dart';
 
@@ -93,7 +93,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const PremiumLoadingView(
+              text: 'EVENT DETAILS • LOADING • ',
+              subtitle: 'Загружаем карточку события',
+            )
           : (_error != null)
               ? Center(child: Text(_error!))
               : (detail == null)

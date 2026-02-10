@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/widgets/premium_loading_view.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
 
@@ -50,7 +51,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
       body: state.loading && state.user == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const PremiumLoadingView(
+              text: 'PROFILE • LOADING • ',
+              subtitle: 'Загружаем профиль',
+            )
           : RefreshIndicator(
               onRefresh: () => ref.read(profileControllerProvider).load(),
               child: ListView(

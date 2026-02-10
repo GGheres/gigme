@@ -10,6 +10,7 @@ import '../../../core/models/admin_models.dart';
 import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/widgets/premium_loading_view.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/admin_repository.dart';
 
@@ -848,7 +849,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         if (_landingLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: CircularProgressIndicator()),
+            child: SizedBox(
+              height: 180,
+              child: PremiumLoadingView(
+                compact: true,
+                text: 'LANDING • LOADING • ',
+                subtitle: 'Загружаем публикации',
+              ),
+            ),
           ),
         if (_landingEvents.isEmpty && !_landingLoading)
           const Card(
@@ -1173,7 +1181,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             child: _userDetailLoading
                 ? const Padding(
                     padding: EdgeInsets.all(20),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: SizedBox(
+                      height: 180,
+                      child: PremiumLoadingView(
+                        compact: true,
+                        text: 'USER DETAILS • LOADING • ',
+                        subtitle: 'Загружаем пользователя',
+                      ),
+                    ),
                   )
                 : (_userDetailError ?? '').isNotEmpty
                     ? Padding(

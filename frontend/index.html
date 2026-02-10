@@ -4,10 +4,156 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gigme</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #020712;
+      }
+      #boot-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: radial-gradient(120% 70% at 50% 0%, #0d2031 0%, #030b17 50%, #020610 100%);
+        transition: opacity 320ms ease;
+      }
+      #boot-loader.boot-loader--hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .boot-loader__grain {
+        position: absolute;
+        inset: -30%;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.1) 0.5px, transparent 0.5px);
+        background-size: 3px 3px;
+        opacity: 0.045;
+        mix-blend-mode: soft-light;
+        animation: grainShift 1.9s steps(2, end) infinite;
+      }
+      .boot-loader__frame {
+        position: relative;
+        width: min(88vw, 720px);
+        height: min(58vh, 360px);
+        border-radius: 22px;
+        background: linear-gradient(160deg, rgba(8, 24, 38, 0.65), rgba(4, 14, 24, 0.82));
+        box-shadow: inset 0 0 0 1px rgba(138, 255, 223, 0.24), 0 0 36px rgba(35, 191, 154, 0.21);
+      }
+      .boot-loader__frame::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: 22px;
+        border: 1px solid rgba(211, 255, 243, 0.38);
+        filter: drop-shadow(0 0 10px rgba(123, 255, 218, 0.35));
+        animation: frameBreath 4.8s ease-in-out infinite;
+      }
+      .boot-loader__ticker {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 12px;
+        padding-left: 100%;
+        white-space: nowrap;
+        font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        letter-spacing: 0.2em;
+        color: rgba(208, 255, 240, 0.83);
+        text-shadow: 0 0 6px rgba(96, 255, 202, 0.5), 0 0 16px rgba(96, 255, 202, 0.22);
+        animation: tickerMove 9.2s linear infinite;
+      }
+      .boot-loader__wave {
+        position: absolute;
+        top: 9px;
+        left: -28%;
+        width: 28%;
+        height: 20px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(174, 255, 231, 0.58), rgba(0, 0, 0, 0));
+        filter: blur(6px);
+        animation: waveTravel 5.7s linear infinite;
+      }
+      .boot-loader__subtitle {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: rgba(230, 250, 244, 0.9);
+        font: 600 16px/1.35 "Segoe UI", "SF Pro Text", system-ui, sans-serif;
+        text-shadow: 0 0 8px rgba(94, 255, 200, 0.34);
+      }
+      @keyframes tickerMove {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(-200%);
+        }
+      }
+      @keyframes waveTravel {
+        from {
+          transform: translateX(0);
+          opacity: 0.4;
+        }
+        50% {
+          opacity: 0.95;
+        }
+        to {
+          transform: translateX(520%);
+          opacity: 0.4;
+        }
+      }
+      @keyframes frameBreath {
+        0%,
+        100% {
+          opacity: 0.58;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      @keyframes grainShift {
+        0% {
+          transform: translate(0, 0);
+        }
+        50% {
+          transform: translate(-2%, 1.2%);
+        }
+        100% {
+          transform: translate(1.5%, -1.1%);
+        }
+      }
+    </style>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
+    <div id="boot-loader" aria-live="polite">
+      <div class="boot-loader__grain"></div>
+      <div class="boot-loader__frame">
+        <div class="boot-loader__ticker">GIGME • LOADING • GIGME • LOADING • GIGME • LOADING •</div>
+        <div class="boot-loader__wave"></div>
+        <div class="boot-loader__subtitle">Загружаем GigMe…</div>
+      </div>
+    </div>
     <div id="root"></div>
+    <script>
+      (function () {
+        const loader = document.getElementById('boot-loader');
+        if (!loader) return;
+        const hide = () => {
+          loader.classList.add('boot-loader--hide');
+          setTimeout(() => loader.remove(), 420);
+        };
+        window.addEventListener('load', hide, { once: true });
+        setTimeout(hide, 5000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

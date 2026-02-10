@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/providers.dart';
+import '../../../core/widgets/premium_loading_view.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 
@@ -60,9 +61,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 const SizedBox(height: 20),
                 if (state.status == AuthStatus.loading) ...[
-                  const Center(child: CircularProgressIndicator()),
-                  const SizedBox(height: 12),
-                  const Text('Signing in...', textAlign: TextAlign.center),
+                  const SizedBox(
+                    height: 220,
+                    child: PremiumLoadingView(
+                      compact: true,
+                      text: 'SIGN IN • GIGME • ',
+                      subtitle: 'Signing in...',
+                    ),
+                  ),
                 ] else ...[
                   if ((state.error ?? '').trim().isNotEmpty)
                     Container(
