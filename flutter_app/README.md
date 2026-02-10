@@ -67,7 +67,7 @@ flutter run -d android \
 cd flutter_app
 flutter pub get
 flutter build web --release \
-  --base-href /app_flutter/ \
+  --base-href / \
   --dart-define=API_URL=/api \
   --dart-define=BOT_USERNAME=YOUR_BOT_USERNAME \
   --dart-define=AUTH_MODE=telegram_web
@@ -77,9 +77,9 @@ flutter build web --release \
 
 The repo keeps legacy React `frontend/` untouched.
 
-Production compose serves:
-- legacy frontend at `/`
-- Flutter web at `/app_flutter`
+Production compose serves Flutter web:
+- landing at `/`
+- app at `/space_app`
 
 For Flutter build-time env in `infra/.env.prod`:
 - `FLUTTER_API_URL`

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/application/auth_controller.dart';
+import 'routes.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({
@@ -26,7 +27,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       if (startup == null || startup.eventId == null) return;
 
       final uri = Uri(
-        path: '/event/${startup.eventId}',
+        path: AppRoutes.event(startup.eventId!),
         queryParameters: {
           if ((startup.eventKey ?? '').isNotEmpty) 'key': startup.eventKey!,
           if ((startup.refCode ?? '').isNotEmpty) 'ref': startup.refCode!,
@@ -40,7 +41,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = _indexFromLocation(location);
-    final isAdminRoute = location.startsWith('/admin');
+    final isAdminRoute = location.startsWith(AppRoutes.admin);
 
     return Scaffold(
       body: widget.child,
@@ -49,24 +50,29 @@ class _AppShellState extends ConsumerState<AppShell> {
           : NavigationBar(
               selectedIndex: currentIndex,
               destinations: const [
-                NavigationDestination(icon: Icon(Icons.view_list_rounded), label: 'Feed'),
-                NavigationDestination(icon: Icon(Icons.map_rounded), label: 'Map'),
-                NavigationDestination(icon: Icon(Icons.add_circle_outline_rounded), label: 'Create'),
-                NavigationDestination(icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
+                NavigationDestination(
+                    icon: Icon(Icons.view_list_rounded), label: 'Feed'),
+                NavigationDestination(
+                    icon: Icon(Icons.map_rounded), label: 'Map'),
+                NavigationDestination(
+                    icon: Icon(Icons.add_circle_outline_rounded),
+                    label: 'Create'),
+                NavigationDestination(
+                    icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
               ],
               onDestinationSelected: (index) {
                 switch (index) {
                   case 0:
-                    context.go('/feed');
+                    context.go(AppRoutes.feed);
                     return;
                   case 1:
-                    context.go('/map');
+                    context.go(AppRoutes.map);
                     return;
                   case 2:
-                    context.go('/create');
+                    context.go(AppRoutes.create);
                     return;
                   case 3:
-                    context.go('/profile');
+                    context.go(AppRoutes.profile);
                     return;
                 }
               },
@@ -75,9 +81,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   int _indexFromLocation(String location) {
-    if (location.startsWith('/map')) return 1;
-    if (location.startsWith('/create')) return 2;
-    if (location.startsWith('/profile')) return 3;
+    if (location.startsWith(AppRoutes.map)) return 1;
+    if (location.startsWith(AppRoutes.create)) return 2;
+    if (location.startsWith(AppRoutes.profile)) return 3;
     return 0;
   }
 }

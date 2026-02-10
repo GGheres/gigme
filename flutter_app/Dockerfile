@@ -15,7 +15,7 @@ ARG FLUTTER_ENABLE_PUSH=false
 ARG FLUTTER_ADMIN_TELEGRAM_IDS=
 
 RUN flutter build web --release \
-  --base-href /app_flutter/ \
+  --base-href / \
   --dart-define=API_URL=${FLUTTER_API_URL} \
   --dart-define=BOT_USERNAME=${FLUTTER_BOT_USERNAME} \
   --dart-define=AUTH_MODE=${FLUTTER_AUTH_MODE} \
@@ -26,5 +26,5 @@ RUN flutter build web --release \
 
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/build/web /usr/share/nginx/html/app_flutter
+COPY --from=build /app/build/web /usr/share/nginx/html
 EXPOSE 80

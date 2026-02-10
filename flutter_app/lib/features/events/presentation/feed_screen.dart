@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
@@ -47,7 +48,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             icon: const Icon(Icons.my_location_outlined),
           ),
           IconButton(
-            onPressed: () => ref.read(eventsControllerProvider).refresh(center: location.state.center),
+            onPressed: () => ref
+                .read(eventsControllerProvider)
+                .refresh(center: location.state.center),
             tooltip: 'Refresh feed',
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -59,16 +62,24 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             activeFilters: state.activeFilters,
             nearbyOnly: state.nearbyOnly,
             onToggleNearby: () {
-              ref.read(eventsControllerProvider).setNearbyOnly(!state.nearbyOnly);
-              unawaited(ref.read(eventsControllerProvider).refresh(center: location.state.center));
+              ref
+                  .read(eventsControllerProvider)
+                  .setNearbyOnly(!state.nearbyOnly);
+              unawaited(ref
+                  .read(eventsControllerProvider)
+                  .refresh(center: location.state.center));
             },
             onToggleFilter: (filterId) {
               ref.read(eventsControllerProvider).toggleFilter(filterId);
-              unawaited(ref.read(eventsControllerProvider).refresh(center: location.state.center));
+              unawaited(ref
+                  .read(eventsControllerProvider)
+                  .refresh(center: location.state.center));
             },
             onClearFilters: () {
               ref.read(eventsControllerProvider).clearFilters();
-              unawaited(ref.read(eventsControllerProvider).refresh(center: location.state.center));
+              unawaited(ref
+                  .read(eventsControllerProvider)
+                  .refresh(center: location.state.center));
             },
           ),
           if (location.state.permissionDenied)
@@ -85,25 +96,28 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ),
             ),
           Expanded(
-              child: showLoader
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: () => ref.read(eventsControllerProvider).refresh(center: location.state.center),
-                      child: FeedList(
-                        items: state.feed,
-                        referencePoint: location.state.userLocation,
-                        onTap: (event) {
-                          final key = events.accessKeyFor(event.id, fallback: event.accessKey);
-                          final uri = Uri(
-                            path: '/event/${event.id}',
-                            queryParameters: {
-                              if (key.isNotEmpty) 'key': key,
-                            },
-                          );
-                          context.push(uri.toString());
-                        },
-                      ),
+            child: showLoader
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: () => ref
+                        .read(eventsControllerProvider)
+                        .refresh(center: location.state.center),
+                    child: FeedList(
+                      items: state.feed,
+                      referencePoint: location.state.userLocation,
+                      onTap: (event) {
+                        final key = events.accessKeyFor(event.id,
+                            fallback: event.accessKey);
+                        final uri = Uri(
+                          path: AppRoutes.event(event.id),
+                          queryParameters: {
+                            if (key.isNotEmpty) 'key': key,
+                          },
+                        );
+                        context.push(uri.toString());
+                      },
                     ),
+                  ),
           ),
         ],
       ),

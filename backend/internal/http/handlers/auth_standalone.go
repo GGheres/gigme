@@ -101,11 +101,8 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
     (() => {
       const params = new URLSearchParams(window.location.search);
       const redirectUriParam = params.get('redirect_uri') || params.get('redirectUri') || '';
-      const webFallbackUriParam = params.get('web_fallback_uri') || params.get('webFallbackUri') || '';
       const nativeRedirectUri = 'gigme://auth';
-      const webFallbackUri = webFallbackUriParam || 'https://spacefestival.fun/#/auth';
-      let appFallbackTimerId = null;
-      let manualFallbackTimerId = null;
+      let fallbackTimerId = null;
 
       function setStatus(message, isError) {
         const status = document.getElementById('status');
@@ -137,35 +134,27 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
       }
 
       function clearFallbackTimer() {
-        if (appFallbackTimerId != null) {
-          window.clearTimeout(appFallbackTimerId);
-          appFallbackTimerId = null;
-        }
-        if (manualFallbackTimerId != null) {
-          window.clearTimeout(manualFallbackTimerId);
-          manualFallbackTimerId = null;
-        }
+        if (fallbackTimerId == null) return;
+        window.clearTimeout(fallbackTimerId);
+        fallbackTimerId = null;
       }
 
       function openWithoutRedirectParam(initData) {
         const nativeUrl = buildRedirectUrl(nativeRedirectUri, initData);
-        const webUrl = buildRedirectUrl(webFallbackUri, initData);
 
         setStatus('Opening app…', false);
         window.location.href = nativeUrl;
 
-        appFallbackTimerId = window.setTimeout(() => {
-          appFallbackTimerId = null;
+        fallbackTimerId = window.setTimeout(() => {
+          fallbackTimerId = null;
           if (document.visibilityState === 'hidden') return;
-          setStatus('Opening web app on spacefestival.fun…', false);
-          window.location.replace(webUrl);
-        }, 1500);
+          revealInitData(initData, 'App did not open. Copy initData manually.');
+        }, 1600);
 
-        manualFallbackTimerId = window.setTimeout(() => {
-          manualFallbackTimerId = null;
+        window.setTimeout(() => {
           if (document.visibilityState === 'hidden') return;
           revealInitData(initData, 'If redirect failed, copy initData manually.');
-        }, 3200);
+        }, 2600);
       }
 
       async function exchange(user) {

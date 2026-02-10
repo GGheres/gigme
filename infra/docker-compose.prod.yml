@@ -128,7 +128,6 @@ services:
   caddy:
     image: caddy:2.8-alpine
     depends_on:
-      - frontend
       - flutter_frontend
       - api
     environment:

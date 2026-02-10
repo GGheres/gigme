@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
@@ -44,7 +45,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         title: const Text('Event map'),
         actions: [
           IconButton(
-            onPressed: () => ref.read(eventsControllerProvider).refresh(center: center),
+            onPressed: () =>
+                ref.read(eventsControllerProvider).refresh(center: center),
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -56,15 +58,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 12,
-              interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
+              interactionOptions:
+                  const InteractionOptions(flags: InteractiveFlag.all),
               onPositionChanged: (position, hasGesture) {
-                if (!hasGesture || position.center == null) return;
-                ref.read(locationControllerProvider).setMapCenter(position.center!);
+                if (!hasGesture) return;
+                ref
+                    .read(locationControllerProvider)
+                    .setMapCenter(position.center);
               },
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate:
+                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'gigme_flutter',
               ),
               MarkerLayer(
@@ -84,10 +90,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: const [
-                              BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                              BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2)),
                             ],
                           ),
-                          child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
+                          child: const Icon(Icons.music_note_rounded,
+                              color: Colors.white, size: 20),
                         ),
                       ),
                     ),
@@ -129,7 +139,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _openMarkerSheet(BuildContext context, int eventId) async {
     final eventsController = ref.read(eventsControllerProvider);
     final card = eventsController.feedEventById(eventId);
-    final accessKey = eventsController.accessKeyFor(eventId, fallback: card?.accessKey);
+    final accessKey =
+        eventsController.accessKeyFor(eventId, fallback: card?.accessKey);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -141,7 +152,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(card?.title ?? 'Event #$eventId', style: Theme.of(context).textTheme.titleLarge),
+              Text(card?.title ?? 'Event #$eventId',
+                  style: Theme.of(context).textTheme.titleLarge),
               if (card != null) ...[
                 const SizedBox(height: 6),
                 Text(formatDateTime(card.startsAt)),
@@ -157,7 +169,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 onPressed: () {
                   Navigator.of(context).pop();
                   final uri = Uri(
-                    path: '/event/$eventId',
+                    path: AppRoutes.event(eventId),
                     queryParameters: {
                       if (accessKey.isNotEmpty) 'key': accessKey,
                     },

@@ -123,7 +123,7 @@ Notes:
 - Set `BASE_URL` to the public WebApp URL so Telegram buttons point to the correct host.
 - If you use managed Postgres/S3, update `DATABASE_URL` / `S3_*` in `infra/.env.prod`.
 - DNS: point `spacefestival.fun` (and optionally `www.spacefestival.fun`) to your server IP; API is served from `/api` on the same domain. Ensure ports 80/443 are open (Caddy handles TLS).
-- In production both clients are available in parallel: legacy React at `/`, Flutter Web at `/app_flutter`.
+- In production Flutter Web serves both surfaces: landing at `/` and app at `/space_app`.
 - If `VITE_PRESIGN_ENABLED=false`, uploads go through the API and `S3_PUBLIC_ENDPOINT` can stay internal (e.g. `http://minio:9000`).
 - MinIO ports are not exposed in the prod compose; access is internal-only.
 
@@ -158,6 +158,7 @@ Implemented endpoints:
 - `GET /events/mine`
 - `GET /events/nearby`
 - `GET /events/feed`
+- `GET /landing/events` (public landing feed)
 - `GET /events/{id}`
 - `POST /events/{id}/like`
 - `DELETE /events/{id}/like`
@@ -170,6 +171,7 @@ Implemented endpoints:
 - `POST /wallet/topup/token`
 - `POST /wallet/topup/card`
 - `POST /admin/events/{id}/hide`
+- `POST /admin/events/{id}/landing` (admin publish/unpublish on landing)
 - `PATCH /admin/events/{id}` (admin only)
 - `DELETE /admin/events/{id}` (admin only)
 - `GET /admin/parser/sources` (admin only)

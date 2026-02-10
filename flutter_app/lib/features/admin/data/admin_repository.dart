@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/admin_models.dart';
+import '../../../core/models/landing_event.dart';
+import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/json_utils.dart';
 
@@ -115,7 +117,8 @@ class AdminRepository {
             'audience': audience,
             'message': message,
             if ((userIds ?? const <int>[]).isNotEmpty) 'userIds': userIds,
-            if ((filters ?? const <String, dynamic>{}).isNotEmpty) 'filters': filters,
+            if ((filters ?? const <String, dynamic>{}).isNotEmpty)
+              'filters': filters,
             if ((buttons ?? const <BroadcastButton>[]).isNotEmpty)
               'buttons': buttons!.map((button) => button.toJson()).toList(),
           },
@@ -262,24 +265,26 @@ class AdminRepository {
     List<String>? filters,
   }) {
     return _ref.read(apiClientProvider).post<int>(
-          '/admin/parser/events/$id/import',
-          token: token,
-          body: <String, dynamic>{
-            if ((title ?? '').trim().isNotEmpty) 'title': title!.trim(),
-            if ((description ?? '').trim().isNotEmpty) 'description': description!.trim(),
-            if ((startsAt ?? '').trim().isNotEmpty) 'startsAt': startsAt!.trim(),
-            'lat': lat,
-            'lng': lng,
-            if ((addressLabel ?? '').trim().isNotEmpty) 'addressLabel': addressLabel!.trim(),
-            if ((media ?? const <String>[]).isNotEmpty) 'media': media,
-            if ((links ?? const <String>[]).isNotEmpty) 'links': links,
-            if ((filters ?? const <String>[]).isNotEmpty) 'filters': filters,
-          },
-          decoder: (data) {
-            final map = asMap(data);
-            return asInt(map['eventId']);
-          },
-        );
+      '/admin/parser/events/$id/import',
+      token: token,
+      body: <String, dynamic>{
+        if ((title ?? '').trim().isNotEmpty) 'title': title!.trim(),
+        if ((description ?? '').trim().isNotEmpty)
+          'description': description!.trim(),
+        if ((startsAt ?? '').trim().isNotEmpty) 'startsAt': startsAt!.trim(),
+        'lat': lat,
+        'lng': lng,
+        if ((addressLabel ?? '').trim().isNotEmpty)
+          'addressLabel': addressLabel!.trim(),
+        if ((media ?? const <String>[]).isNotEmpty) 'media': media,
+        if ((links ?? const <String>[]).isNotEmpty) 'links': links,
+        if ((filters ?? const <String>[]).isNotEmpty) 'filters': filters,
+      },
+      decoder: (data) {
+        final map = asMap(data);
+        return asInt(map['eventId']);
+      },
+    );
   }
 
   Future<void> rejectParsedEvent({
@@ -304,6 +309,34 @@ class AdminRepository {
           decoder: (_) => null,
         );
   }
+
+  Future<LandingEventsResponse> listLandingEvents({
+    int limit = 100,
+    int offset = 0,
+  }) {
+    return _ref.read(apiClientProvider).get<LandingEventsResponse>(
+          ApiPaths.landingEvents,
+          query: <String, dynamic>{
+            'limit': limit,
+            'offset': offset,
+          },
+          decoder: LandingEventsResponse.fromJson,
+        );
+  }
+
+  Future<void> setLandingPublished({
+    required String token,
+    required int eventId,
+    required bool published,
+  }) {
+    return _ref.read(apiClientProvider).post<void>(
+          ApiPaths.adminLandingPublish(eventId),
+          token: token,
+          body: <String, dynamic>{'published': published},
+          decoder: (_) => null,
+        );
+  }
 }
 
-final adminRepositoryProvider = Provider<AdminRepository>((ref) => AdminRepository(ref));
+final adminRepositoryProvider =
+    Provider<AdminRepository>((ref) => AdminRepository(ref));

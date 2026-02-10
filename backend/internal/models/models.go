@@ -48,6 +48,7 @@ type Event struct {
 	Capacity           *int       `json:"capacity,omitempty"`
 	IsHidden           bool       `json:"isHidden"`
 	IsPrivate          bool       `json:"isPrivate"`
+	IsLandingPublished bool       `json:"isLandingPublished"`
 	PromotedUntil      *time.Time `json:"promotedUntil,omitempty"`
 	AccessKey          string     `json:"accessKey,omitempty"`
 	Participants       int        `json:"participantsCount"`

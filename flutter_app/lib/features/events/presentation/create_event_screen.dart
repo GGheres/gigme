@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
@@ -88,7 +89,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               maxLines: 7,
               decoration: const InputDecoration(labelText: 'Description'),
               validator: (value) {
-                if ((value ?? '').trim().isEmpty) return 'Description is required';
+                if ((value ?? '').trim().isEmpty)
+                  return 'Description is required';
                 return null;
               },
             ),
@@ -98,7 +100,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               runSpacing: 8,
               children: kEventFilters.map((filter) {
                 final active = _selectedFilters.contains(filter.id);
-                final limitReached = !active && _selectedFilters.length >= kMaxEventFilters;
+                final limitReached =
+                    !active && _selectedFilters.length >= kMaxEventFilters;
                 return FilterChip(
                   selected: active,
                   label: Text('${filter.icon} ${filter.label}'),
@@ -138,18 +141,22 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
             TextFormField(
               controller: _capacityCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Participant limit (optional)'),
+              decoration: const InputDecoration(
+                  labelText: 'Participant limit (optional)'),
             ),
             const SizedBox(height: 16),
-            Text('Contacts (at least one required)', style: Theme.of(context).textTheme.titleSmall),
+            Text('Contacts (at least one required)',
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
-            _ContactField(controller: _contactTelegramCtrl, label: 'Telegram @username'),
+            _ContactField(
+                controller: _contactTelegramCtrl, label: 'Telegram @username'),
             const SizedBox(height: 8),
             _ContactField(controller: _contactWhatsappCtrl, label: 'WhatsApp'),
             const SizedBox(height: 8),
             _ContactField(controller: _contactWechatCtrl, label: 'WeChat'),
             const SizedBox(height: 8),
-            _ContactField(controller: _contactMessengerCtrl, label: 'Messenger'),
+            _ContactField(
+                controller: _contactMessengerCtrl, label: 'Messenger'),
             const SizedBox(height: 8),
             _ContactField(controller: _contactSnapchatCtrl, label: 'Snapchat'),
             const SizedBox(height: 10),
@@ -174,7 +181,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'gigme_flutter',
                     ),
                     if (_selectedPoint != null)
@@ -184,7 +192,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                             point: _selectedPoint!,
                             width: 40,
                             height: 40,
-                            child: const Icon(Icons.location_pin, color: Colors.red, size: 38),
+                            child: const Icon(Icons.location_pin,
+                                color: Colors.red, size: 38),
                           ),
                         ],
                       ),
@@ -208,7 +217,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: _uploading || _uploadedMedia.length >= kMaxMediaCount ? null : _pickAndUploadMedia,
+              onPressed: _uploading || _uploadedMedia.length >= kMaxMediaCount
+                  ? null
+                  : _pickAndUploadMedia,
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(_uploading ? 'Uploading…' : 'Select photos'),
             ),
@@ -226,16 +237,21 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(item.previewBytes, width: 90, height: 90, fit: BoxFit.cover),
+                          child: Image.memory(item.previewBytes,
+                              width: 90, height: 90, fit: BoxFit.cover),
                         ),
                         Positioned(
                           right: 2,
                           top: 2,
                           child: InkWell(
-                            onTap: () => setState(() => _uploadedMedia.removeAt(index)),
+                            onTap: () =>
+                                setState(() => _uploadedMedia.removeAt(index)),
                             child: Container(
-                              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                              child: const Icon(Icons.close, color: Colors.white, size: 18),
+                              decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle),
+                              child: const Icon(Icons.close,
+                                  color: Colors.white, size: 18),
                             ),
                           ),
                         ),
@@ -271,7 +287,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       for (final file in picked.take(remaining)) {
         final bytes = await file.readAsBytes();
         if (bytes.lengthInBytes > kMaxUploadBytes) {
-          _showError('"${file.name}" exceeds ${kMaxUploadBytes ~/ (1024 * 1024)}MB limit');
+          _showError(
+              '"${file.name}" exceeds ${kMaxUploadBytes ~/ (1024 * 1024)}MB limit');
           continue;
         }
 
@@ -281,11 +298,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
             .toLowerCase();
 
         if (!_isSupportedUploadContentType(contentType)) {
-          _showError('Unsupported file type for ${file.name}. Use jpeg/png/webp/heic.');
+          _showError(
+              'Unsupported file type for ${file.name}. Use jpeg/png/webp/heic.');
           continue;
         }
 
-        final uploadFileName = _normalizedUploadFileName(file.name, contentType);
+        final uploadFileName =
+            _normalizedUploadFileName(file.name, contentType);
 
         final uploadedUrl = await events.uploadImage(
           fileName: uploadFileName,
@@ -347,7 +366,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     }
 
     final capacity = int.tryParse(_capacityCtrl.text.trim());
-    if (_capacityCtrl.text.trim().isNotEmpty && (capacity == null || capacity <= 0)) {
+    if (_capacityCtrl.text.trim().isNotEmpty &&
+        (capacity == null || capacity <= 0)) {
       _showError('Participant limit must be > 0');
       return;
     }
@@ -370,7 +390,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         contactWechat: _contactWechatCtrl.text.trim(),
         contactFbMessenger: _contactMessengerCtrl.text.trim(),
         contactSnapchat: _contactSnapchatCtrl.text.trim(),
-        addressLabel: '${selectedPoint.latitude.toStringAsFixed(5)}, ${selectedPoint.longitude.toStringAsFixed(5)}',
+        addressLabel:
+            '${selectedPoint.latitude.toStringAsFixed(5)}, ${selectedPoint.longitude.toStringAsFixed(5)}',
       );
 
       final events = ref.read(eventsControllerProvider);
@@ -380,7 +401,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       unawaited(events.refresh(center: center));
 
       if (!mounted) return;
-      context.go('/event/$eventId');
+      context.go(AppRoutes.event(eventId));
     } catch (error) {
       _showError('$error');
     } finally {
@@ -427,7 +448,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
   String _normalizedUploadFileName(String sourceName, String contentType) {
     final trimmed = sourceName.trim();
-    final baseName = trimmed.isEmpty ? 'photo' : p.basenameWithoutExtension(trimmed);
+    final baseName =
+        trimmed.isEmpty ? 'photo' : p.basenameWithoutExtension(trimmed);
     final safeBase = baseName.isEmpty ? 'photo' : baseName;
     final ext = switch (contentType) {
       'image/png' => '.png',
@@ -497,7 +519,9 @@ class _DateTimeField extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(value == null ? 'Not selected' : value!.toLocal().toString().substring(0, 16)),
+            child: Text(value == null
+                ? 'Not selected'
+                : value!.toLocal().toString().substring(0, 16)),
           ),
           TextButton(
             onPressed: () => _pick(context),
@@ -526,6 +550,7 @@ class _DateTimeField extends StatelessWidget {
     );
     if (time == null) return;
 
-    onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    onChanged(
+        DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 }

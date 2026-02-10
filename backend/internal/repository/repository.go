@@ -272,7 +272,7 @@ func (r *Repository) GetFeed(ctx context.Context, userID int64, limit, offset in
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
 	ST_Y(e.location::geometry) AS lat,
 	ST_X(e.location::geometry) AS lng,
-	e.capacity, e.promoted_until, e.filters, e.links, e.is_private,
+	e.capacity, e.promoted_until, e.filters, e.links, e.is_private, e.is_landing_published,
 	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
@@ -343,6 +343,7 @@ LIMIT $2 OFFSET $3;`
 			&e.Filters,
 			&e.Links,
 			&e.IsPrivate,
+			&e.IsLandingPublished,
 			&contactTelegram,
 			&contactWhatsapp,
 			&contactWechat,
@@ -379,6 +380,78 @@ LIMIT $2 OFFSET $3;`
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func (r *Repository) ListLandingEvents(ctx context.Context, limit, offset int) ([]models.Event, int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	rows, err := r.pool.Query(ctx, `
+SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
+	ST_Y(e.location::geometry) AS lat,
+	ST_X(e.location::geometry) AS lng,
+	e.address_label, e.promoted_until,
+	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
+	(SELECT url FROM event_media WHERE event_id = e.id ORDER BY id ASC LIMIT 1) AS thumbnail_url,
+	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
+	COUNT(*) OVER() AS total
+FROM events e
+JOIN users u ON u.id = e.creator_user_id
+WHERE e.is_hidden = false
+	AND e.is_private = false
+	AND e.is_landing_published = true
+	AND COALESCE(e.ends_at, e.starts_at + interval '2 hours') >= now()
+ORDER BY
+	(e.promoted_until IS NOT NULL AND e.promoted_until > now()) DESC,
+	e.starts_at ASC
+LIMIT $1 OFFSET $2;`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	out := make([]models.Event, 0)
+	total := 0
+	for rows.Next() {
+		var item models.Event
+		var address sql.NullString
+		var thumb sql.NullString
+		var rowTotal int
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Description,
+			&item.StartsAt,
+			&item.EndsAt,
+			&item.Lat,
+			&item.Lng,
+			&address,
+			&item.PromotedUntil,
+			&item.CreatorName,
+			&thumb,
+			&item.Participants,
+			&rowTotal,
+		); err != nil {
+			return nil, 0, err
+		}
+		if address.Valid {
+			item.AddressLabel = address.String
+		}
+		if thumb.Valid {
+			item.ThumbnailURL = thumb.String
+		}
+		item.IsLandingPublished = true
+		total = rowTotal
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
 }
 
 func (r *Repository) ListUserEvents(ctx context.Context, userID int64, limit, offset int) ([]models.UserEvent, int, error) {
@@ -425,7 +498,7 @@ SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
 	e.links,
 	e.address_label,
 	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
-	e.capacity, e.is_hidden, e.is_private, e.access_key, e.promoted_until, e.filters,
+	e.capacity, e.is_hidden, e.is_private, e.is_landing_published, e.access_key, e.promoted_until, e.filters,
 	e.created_at, e.updated_at,
 	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
 	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
@@ -463,6 +536,7 @@ WHERE e.id = $1;`
 		&e.Capacity,
 		&e.IsHidden,
 		&e.IsPrivate,
+		&e.IsLandingPublished,
 		&accessKey,
 		&e.PromotedUntil,
 		&e.Filters,
@@ -858,6 +932,21 @@ func (r *Repository) ListEventMedia(ctx context.Context, eventID int64) ([]strin
 func (r *Repository) SetEventHidden(ctx context.Context, eventID int64, hidden bool) error {
 	_, err := r.pool.Exec(ctx, `UPDATE events SET is_hidden = $1, updated_at = now() WHERE id = $2`, hidden, eventID)
 	return err
+}
+
+func (r *Repository) SetEventLandingPublished(ctx context.Context, eventID int64, published bool) error {
+	command, err := r.pool.Exec(ctx, `
+UPDATE events
+SET is_landing_published = $1,
+	updated_at = now()
+WHERE id = $2;`, published, eventID)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repository) UpdateEventWithMedia(ctx context.Context, event models.Event, media []string, replaceMedia bool) error {

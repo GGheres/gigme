@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../application/profile_controller.dart';
@@ -24,7 +25,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final controller = ref.watch(profileControllerProvider);
     final state = controller.state;
     final config = ref.watch(appConfigProvider);
-    final isAdmin = state.user != null && config.adminTelegramIds.contains(state.user!.telegramId);
+    final isAdmin = state.user != null &&
+        config.adminTelegramIds.contains(state.user!.telegramId);
 
     if (!_loaded) {
       _loaded = true;
@@ -37,7 +39,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         actions: [
           if (isAdmin)
             IconButton(
-              onPressed: () => context.push('/admin'),
+              onPressed: () => context.push(AppRoutes.admin),
               icon: const Icon(Icons.admin_panel_settings_outlined),
               tooltip: 'Admin panel',
             ),
@@ -59,7 +61,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Text(
                         state.error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                     ),
                   if ((state.notice ?? '').isNotEmpty)
@@ -73,13 +76,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onTopup: () async {
                       final amount = await _askTopupAmount(context);
                       if (amount == null) return;
-                      await ref.read(profileControllerProvider).topupTokens(amount);
+                      await ref
+                          .read(profileControllerProvider)
+                          .topupTokens(amount);
                     },
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text('My events', style: Theme.of(context).textTheme.titleMedium),
+                      Text('My events',
+                          style: Theme.of(context).textTheme.titleMedium),
                       const Spacer(),
                       Text('${state.total} total'),
                     ],
@@ -96,7 +102,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ...state.events.map(
                       (event) => Card(
                         child: ListTile(
-                          onTap: () => context.push('/event/${event.id}'),
+                          onTap: () => context.push(AppRoutes.event(event.id)),
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: SizedBox(
@@ -105,20 +111,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: event.thumbnailUrl.trim().isEmpty
                                   ? const ColoredBox(
                                       color: Color(0xFFE8F0F4),
-                                      child: Icon(Icons.image_not_supported_outlined),
+                                      child: Icon(
+                                          Icons.image_not_supported_outlined),
                                     )
                                   : Image.network(
                                       event.thumbnailUrl,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, _, __) => const ColoredBox(
+                                      errorBuilder: (context, _, __) =>
+                                          const ColoredBox(
                                         color: Color(0xFFE8F0F4),
-                                        child: Icon(Icons.broken_image_outlined),
+                                        child:
+                                            Icon(Icons.broken_image_outlined),
                                       ),
                                     ),
                             ),
                           ),
                           title: Text(event.title),
-                          subtitle: Text('${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
+                          subtitle: Text(
+                              '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
                           trailing: const Icon(Icons.chevron_right_rounded),
                         ),
                       ),
@@ -141,7 +151,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           decoration: const InputDecoration(labelText: 'Amount (1..1,000,000)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               final value = int.tryParse(ctrl.text.trim());

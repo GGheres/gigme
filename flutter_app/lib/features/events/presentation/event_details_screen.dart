@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
 import '../../../core/network/providers.dart';
@@ -91,7 +92,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               context.pop();
               return;
             }
-            context.go('/feed');
+            context.go(AppRoutes.feed);
           },
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
@@ -135,9 +136,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                     child: Image.network(
                                       url,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, _, __) => Container(
+                                      errorBuilder: (context, _, __) =>
+                                          Container(
                                         color: const Color(0xFFE8F0F4),
-                                        child: const Icon(Icons.broken_image_outlined),
+                                        child: const Icon(
+                                            Icons.broken_image_outlined),
                                       ),
                                     ),
                                   ),
@@ -152,9 +155,15 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            Chip(label: Text('${detail.event.participantsCount} going')),
-                            Chip(label: Text('${detail.event.likesCount} likes')),
-                            Chip(label: Text('${detail.event.commentsCount} comments')),
+                            Chip(
+                                label: Text(
+                                    '${detail.event.participantsCount} going')),
+                            Chip(
+                                label:
+                                    Text('${detail.event.likesCount} likes')),
+                            Chip(
+                                label: Text(
+                                    '${detail.event.commentsCount} comments')),
                             if (detail.event.capacity != null)
                               Chip(
                                 label: Text(
@@ -173,7 +182,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                     : () async {
                                         setState(() => _joining = true);
                                         try {
-                                          final events = ref.read(eventsControllerProvider);
+                                          final events = ref
+                                              .read(eventsControllerProvider);
                                           if (detail.isJoined) {
                                             await events.leaveEvent(
                                               eventId: detail.event.id,
@@ -194,7 +204,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                           }
                                         }
                                       },
-                                child: Text(detail.isJoined ? 'Leave event' : 'Join event'),
+                                child: Text(detail.isJoined
+                                    ? 'Leave event'
+                                    : 'Join event'),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -210,7 +222,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           onPressed: () {
                             final lat = detail.event.lat;
                             final lng = detail.event.lng;
-                            launchUrl(Uri.parse('https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng'));
+                            launchUrl(Uri.parse(
+                                'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng'));
                           },
                           icon: const Icon(Icons.location_on_outlined),
                           label: const Text('Open location on map'),
@@ -220,7 +233,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           _ContactsBlock(detail: detail),
                         ],
                         const SizedBox(height: 16),
-                        Text('Comments', style: Theme.of(context).textTheme.titleMedium),
+                        Text('Comments',
+                            style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 8),
                         if (_comments.isEmpty)
                           const Text('No comments yet')
@@ -241,7 +255,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           minLines: 2,
                           maxLines: 4,
                           maxLength: 400,
-                          decoration: const InputDecoration(labelText: 'Add comment'),
+                          decoration:
+                              const InputDecoration(labelText: 'Add comment'),
                           onChanged: (value) => _commentInput = value,
                         ),
                         FilledButton(
@@ -256,7 +271,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
                                   setState(() => _sendingComment = true);
                                   try {
-                                    await ref.read(eventsControllerProvider).addComment(
+                                    await ref
+                                        .read(eventsControllerProvider)
+                                        .addComment(
                                           eventId: detail.event.id,
                                           body: body,
                                           accessKey: widget.eventKey,
@@ -271,7 +288,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                     }
                                   }
                                 },
-                          child: Text(_sendingComment ? 'Sending…' : 'Send comment'),
+                          child: Text(
+                              _sendingComment ? 'Sending…' : 'Send comment'),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -284,7 +302,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.person_outline_rounded),
                               title: Text(participant.name),
-                              subtitle: Text(formatDateTime(participant.joinedAt)),
+                              subtitle:
+                                  Text(formatDateTime(participant.joinedAt)),
                             )),
                       ],
                     ),
@@ -300,7 +319,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       final events = ref.read(eventsControllerProvider);
       final config = ref.read(appConfigProvider);
       final refCode = await events.loadReferralCode();
-      final accessKey = events.accessKeyFor(detail.event.id, fallback: detail.event.accessKey);
+      final accessKey = events.accessKeyFor(detail.event.id,
+          fallback: detail.event.accessKey);
 
       final url = buildEventShareUrl(
         eventId: detail.event.id,
@@ -329,7 +349,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
