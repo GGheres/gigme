@@ -12,6 +12,7 @@ import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../tickets/presentation/admin_products_page.dart';
 import '../data/admin_repository.dart';
 
 // TODO(ui-migration): convert admin tabs/tables/forms to AppScaffold + tokenized App* components.
@@ -117,7 +118,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -201,6 +202,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             Tab(text: 'Users'),
             Tab(text: 'Broadcasts'),
             Tab(text: 'Parser'),
+            Tab(text: 'Products'),
             Tab(text: 'Landing'),
           ],
         ),
@@ -211,6 +213,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           _buildUsersTab(),
           _buildBroadcastsTab(),
           _buildParserTab(),
+          const AdminProductsPage(embedded: true),
           _buildLandingTab(),
         ],
       ),
@@ -912,6 +915,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           children: [
             Text(
                 '${item.name.isEmpty ? 'Untitled' : item.name} • ${item.status}'),
+            if (item.importedEventId != null) ...[
+              const SizedBox(height: 4),
+              Text('Event ID: #${item.importedEventId}'),
+            ],
             const SizedBox(height: 4),
             Text(
                 '${item.sourceType} • parsed ${formatDateTime(item.parsedAt)}'),
@@ -1248,7 +1255,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                               ...detail.createdEvents.map(
                                 (event) => ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  title: Text(event.title),
+                                  title: Text('${event.title} (#${event.id})'),
                                   subtitle: Text(
                                       '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
                                   onTap: () {

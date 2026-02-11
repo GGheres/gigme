@@ -9,7 +9,14 @@ import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
 class AdminProductsPage extends ConsumerStatefulWidget {
-  const AdminProductsPage({super.key});
+  const AdminProductsPage({
+    super.key,
+    this.embedded = false,
+    this.initialEventId,
+  });
+
+  final bool embedded;
+  final int? initialEventId;
 
   @override
   ConsumerState<AdminProductsPage> createState() => _AdminProductsPageState();
@@ -35,6 +42,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   @override
   void initState() {
     super.initState();
+    if ((widget.initialEventId ?? 0) > 0) {
+      _eventCtrl.text = '${widget.initialEventId}';
+    }
     _ticketPriceCtrl.text = '0';
     _transferPriceCtrl.text = '0';
     unawaited(_load());
@@ -181,6 +191,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _buildBody(context);
+    if (widget.embedded) return body;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin products'),
@@ -188,148 +201,160 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                if ((_error ?? '').trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(_error!,
-                        style: const TextStyle(color: Colors.red)),
-                  ),
-                TextField(
-                  controller: _eventCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: 'Event ID (required for create/filter)'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                    onPressed: _load, child: const Text('Apply event filter')),
-                const SizedBox(height: 14),
-                Text('Create ticket product',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _ticketType,
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'SINGLE', child: Text('SINGLE')),
-                          DropdownMenuItem(
-                              value: 'GROUP2', child: Text('GROUP2')),
-                          DropdownMenuItem(
-                              value: 'GROUP10', child: Text('GROUP10')),
-                        ],
-                        onChanged: (value) =>
-                            setState(() => _ticketType = value ?? 'SINGLE'),
-                        decoration: const InputDecoration(labelText: 'Type'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _ticketPriceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: 'Price cents'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _busy ? null : _createTicketProduct,
-                  child: Text(_busy ? 'Please wait…' : 'Create ticket product'),
-                ),
-                const SizedBox(height: 14),
-                Text('Create transfer product',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _transferDirection,
-                  decoration: const InputDecoration(labelText: 'Direction'),
-                  items: const [
-                    DropdownMenuItem(value: 'THERE', child: Text('THERE')),
-                    DropdownMenuItem(value: 'BACK', child: Text('BACK')),
-                    DropdownMenuItem(
-                        value: 'ROUNDTRIP', child: Text('ROUNDTRIP')),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _transferDirection = value ?? 'THERE'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _transferPriceCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Price cents'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _transferTimeCtrl,
-                  decoration: const InputDecoration(labelText: 'Transfer time'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _transferPickupCtrl,
-                  decoration: const InputDecoration(labelText: 'Pickup point'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _transferNotesCtrl,
-                  decoration: const InputDecoration(labelText: 'Notes'),
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _busy ? null : _createTransferProduct,
-                  child:
-                      Text(_busy ? 'Please wait…' : 'Create transfer product'),
-                ),
-                const SizedBox(height: 16),
-                Text('Ticket products (${_ticketProducts.length})',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                ..._ticketProducts.map(
-                  (item) => Card(
-                    child: ListTile(
-                      title: Text(
-                          '${item.type} · ${formatMoney(item.priceCents)}'),
-                      subtitle: Text(
-                          'Event ${item.eventId} · sold ${item.soldCount} · active ${item.isActive}'),
-                      trailing: IconButton(
-                        onPressed:
-                            _busy ? null : () => _deleteTicketProduct(item.id),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('Transfer products (${_transferProducts.length})',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                ..._transferProducts.map(
-                  (item) => Card(
-                    child: ListTile(
-                      title: Text(
-                          '${item.direction} · ${formatMoney(item.priceCents)}'),
-                      subtitle: Text(
-                          'Event ${item.eventId} · ${item.infoLabel} · active ${item.isActive}'),
-                      trailing: IconButton(
-                        onPressed: _busy
-                            ? null
-                            : () => _deleteTransferProduct(item.id),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+      body: body,
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        if ((_error ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(_error!, style: const TextStyle(color: Colors.red)),
+          ),
+        TextField(
+          controller: _eventCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Event ID (required for create/filter)',
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'How to find Event ID: Parser tab after import (event #ID), Landing tab list shows title (#ID), or event URL /space_app/events/<id>.',
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: _load,
+          child: const Text('Apply event filter'),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Create ticket product',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _ticketType,
+                items: const [
+                  DropdownMenuItem(value: 'SINGLE', child: Text('SINGLE')),
+                  DropdownMenuItem(value: 'GROUP2', child: Text('GROUP2')),
+                  DropdownMenuItem(value: 'GROUP10', child: Text('GROUP10')),
+                ],
+                onChanged: (value) =>
+                    setState(() => _ticketType = value ?? 'SINGLE'),
+                decoration: const InputDecoration(labelText: 'Type'),
+              ),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _ticketPriceCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Price cents'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _busy ? null : _createTicketProduct,
+          child: Text(_busy ? 'Please wait…' : 'Create ticket product'),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Create transfer product',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _transferDirection,
+          decoration: const InputDecoration(labelText: 'Direction'),
+          items: const [
+            DropdownMenuItem(value: 'THERE', child: Text('THERE')),
+            DropdownMenuItem(value: 'BACK', child: Text('BACK')),
+            DropdownMenuItem(value: 'ROUNDTRIP', child: Text('ROUNDTRIP')),
+          ],
+          onChanged: (value) =>
+              setState(() => _transferDirection = value ?? 'THERE'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _transferPriceCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Price cents'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _transferTimeCtrl,
+          decoration: const InputDecoration(labelText: 'Transfer time'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _transferPickupCtrl,
+          decoration: const InputDecoration(labelText: 'Pickup point'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _transferNotesCtrl,
+          decoration: const InputDecoration(labelText: 'Notes'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _busy ? null : _createTransferProduct,
+          child: Text(_busy ? 'Please wait…' : 'Create transfer product'),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Ticket products (${_ticketProducts.length})',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        ..._ticketProducts.map(
+          (item) => Card(
+            child: ListTile(
+              title: Text('${item.type} · ${formatMoney(item.priceCents)}'),
+              subtitle: Text(
+                'Event ${item.eventId} · sold ${item.soldCount} · active ${item.isActive}',
+              ),
+              trailing: IconButton(
+                onPressed: _busy ? null : () => _deleteTicketProduct(item.id),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Transfer products (${_transferProducts.length})',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        ..._transferProducts.map(
+          (item) => Card(
+            child: ListTile(
+              title:
+                  Text('${item.direction} · ${formatMoney(item.priceCents)}'),
+              subtitle: Text(
+                'Event ${item.eventId} · ${item.infoLabel} · active ${item.isActive}',
+              ),
+              trailing: IconButton(
+                onPressed: _busy ? null : () => _deleteTransferProduct(item.id),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
