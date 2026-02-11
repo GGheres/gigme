@@ -9,7 +9,12 @@ import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
 class AdminStatsPage extends ConsumerStatefulWidget {
-  const AdminStatsPage({super.key});
+  const AdminStatsPage({
+    super.key,
+    this.embedded = false,
+  });
+
+  final bool embedded;
 
   @override
   ConsumerState<AdminStatsPage> createState() => _AdminStatsPageState();
@@ -71,6 +76,40 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
   @override
   Widget build(BuildContext context) {
     final stats = _stats;
+    final body = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              TextField(
+                controller: _eventIdCtrl,
+                keyboardType: TextInputType.number,
+                decoration:
+                    const InputDecoration(labelText: 'Event ID (optional)'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(onPressed: _load, child: const Text('Load stats')),
+              if ((_error ?? '').trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              ],
+              if (stats != null) ...[
+                const SizedBox(height: 12),
+                Text('Global totals',
+                    style: Theme.of(context).textTheme.titleMedium),
+                _statsCard(stats.global),
+                const SizedBox(height: 10),
+                Text('Per-event totals',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 6),
+                if (stats.events.isEmpty)
+                  const Text('No per-event data')
+                else
+                  ...stats.events.map(_statsCard),
+              ],
+            ],
+          );
+    if (widget.embedded) return body;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,40 +118,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                TextField(
-                  controller: _eventIdCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Event ID (optional)'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                    onPressed: _load, child: const Text('Load stats')),
-                if ((_error ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                ],
-                if (stats != null) ...[
-                  const SizedBox(height: 12),
-                  Text('Global totals',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  _statsCard(stats.global),
-                  const SizedBox(height: 10),
-                  Text('Per-event totals',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 6),
-                  if (stats.events.isEmpty)
-                    const Text('No per-event data')
-                  else
-                    ...stats.events.map(_statsCard),
-                ],
-              ],
-            ),
+      body: body,
     );
   }
 

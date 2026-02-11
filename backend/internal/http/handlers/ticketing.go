@@ -528,10 +528,7 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.requireAdmin(logger, w, r, "admin_get_order"); !ok {
 		return
 	}
-	orderID := strings.TrimSpace(chi.URLParam(r, "id"))
-	if orderID == "" {
-		orderID = strings.TrimSpace(chi.URLParam(r, "orderId"))
-	}
+	orderID := resolveOrderIDParam(r)
 	if orderID == "" {
 		writeError(w, http.StatusBadRequest, "invalid order id")
 		return
@@ -562,7 +559,7 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	orderID := strings.TrimSpace(chi.URLParam(r, "id"))
+	orderID := resolveOrderIDParam(r)
 	if orderID == "" {
 		writeError(w, http.StatusBadRequest, "invalid order id")
 		return
@@ -605,7 +602,7 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	orderID := strings.TrimSpace(chi.URLParam(r, "id"))
+	orderID := resolveOrderIDParam(r)
 	if orderID == "" {
 		writeError(w, http.StatusBadRequest, "invalid order id")
 		return
@@ -1275,6 +1272,14 @@ func parseIntQuery(r *http.Request, key string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func resolveOrderIDParam(r *http.Request) string {
+	orderID := strings.TrimSpace(chi.URLParam(r, "id"))
+	if orderID != "" {
+		return orderID
+	}
+	return strings.TrimSpace(chi.URLParam(r, "orderId"))
 }
 
 func formatAmount(cents int64) string {

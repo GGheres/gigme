@@ -14,6 +14,7 @@ import '../../../core/widgets/premium_loading_view.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/presentation/admin_orders_page.dart';
 import '../../tickets/presentation/admin_products_page.dart';
+import '../../tickets/presentation/admin_stats_page.dart';
 import '../data/admin_repository.dart';
 
 // TODO(ui-migration): convert admin tabs/tables/forms to AppScaffold + tokenized App* components.
@@ -119,7 +120,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -199,12 +200,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: const [
             Tab(text: 'Users'),
             Tab(text: 'Broadcasts'),
             Tab(text: 'Parser'),
             Tab(text: 'Orders'),
             Tab(text: 'Products'),
+            Tab(text: 'Stats'),
             Tab(text: 'Landing'),
           ],
         ),
@@ -217,6 +220,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           _buildParserTab(),
           const AdminOrdersPage(embedded: true),
           const AdminProductsPage(embedded: true),
+          const AdminStatsPage(embedded: true),
           _buildLandingTab(),
         ],
       ),
