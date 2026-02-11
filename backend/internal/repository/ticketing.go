@@ -884,14 +884,26 @@ WHERE o.id = $1::uuid;`, orderID))
 
 	if includeUser {
 		var user models.OrderUserSummary
+		var firstName sql.NullString
+		var lastName sql.NullString
+		var username sql.NullString
 		if err := q.QueryRow(ctx, `
 SELECT id, telegram_id, first_name, last_name, username
 FROM users
-WHERE id = $1;`, order.UserID).Scan(&user.ID, &user.TelegramID, &user.FirstName, &user.LastName, &user.Username); err != nil {
+WHERE id = $1;`, order.UserID).Scan(&user.ID, &user.TelegramID, &firstName, &lastName, &username); err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return out, err
 			}
 		} else {
+			if firstName.Valid {
+				user.FirstName = firstName.String
+			}
+			if lastName.Valid {
+				user.LastName = lastName.String
+			}
+			if username.Valid {
+				user.Username = username.String
+			}
 			out.User = &user
 		}
 	}
@@ -1600,6 +1612,8 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	var confirmedBy sql.NullInt64
 	var canceledBy sql.NullInt64
 	var canceledReason sql.NullString
+	var firstName sql.NullString
+	var lastName sql.NullString
 	var username sql.NullString
 	if err := row.Scan(
 		&order.ID,
@@ -1625,8 +1639,8 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 		&order.UpdatedAt,
 		&user.ID,
 		&user.TelegramID,
-		&user.FirstName,
-		&user.LastName,
+		&firstName,
+		&lastName,
 		&username,
 	); err != nil {
 		return out, err
@@ -1657,6 +1671,12 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	}
 	if canceledReason.Valid {
 		order.CanceledReason = canceledReason.String
+	}
+	if firstName.Valid {
+		user.FirstName = firstName.String
+	}
+	if lastName.Valid {
+		user.LastName = lastName.String
 	}
 	if username.Valid {
 		user.Username = username.String
