@@ -163,10 +163,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   const SizedBox(
                     height: 240,
-                    child: PremiumLoadingView(
-                      compact: true,
-                      text: 'SPACE • LOADING • ',
-                      subtitle: '',
+                    child: Center(
+                      child: Text(
+                        'SPACE',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
                     ),
                   ),
                   if (state.status != AuthStatus.loading &&
