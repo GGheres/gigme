@@ -48,7 +48,7 @@ func AggregateStats(rows []StatsRow) (StatsBucket, map[int64]StatsBucket) {
 		// Total values should be counted once per order+status pair.
 		orderKey := orderKey(row)
 		if _, exists := seenOrder[orderKey]; !exists {
-			if row.Status == "CONFIRMED" || row.Status == "REDEEMED" {
+			if isPurchasedStatus(row.Status) {
 				bucket.PurchasedAmountCents += row.TotalCents
 				global.PurchasedAmountCents += row.TotalCents
 			}
@@ -59,7 +59,7 @@ func AggregateStats(rows []StatsRow) (StatsBucket, map[int64]StatsBucket) {
 			seenOrder[orderKey] = struct{}{}
 		}
 
-		if row.Status == "CONFIRMED" || row.Status == "REDEEMED" {
+		if isPurchasedStatus(row.Status) {
 			switch row.ItemType {
 			case "TICKET":
 				if _, ok := bucket.TicketTypeCounts[row.ProductRef]; ok {
@@ -81,4 +81,13 @@ func AggregateStats(rows []StatsRow) (StatsBucket, map[int64]StatsBucket) {
 
 func orderKey(row StatsRow) string {
 	return row.OrderID + "|" + row.Status
+}
+
+func isPurchasedStatus(status string) bool {
+	switch status {
+	case "PAID", "CONFIRMED", "REDEEMED":
+		return true
+	default:
+		return false
+	}
 }

@@ -54,7 +54,7 @@ func TestAdminEndpointsRequireAllowlist(t *testing.T) {
 		AdminTGIDs: map[int64]struct{}{adminTelegramID: {}},
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	handler := New(repo, nil, nil, cfg, logger)
+	handler := New(repo, nil, nil, nil, cfg, logger)
 
 	r := chi.NewRouter()
 	r.Use(middleware.AuthMiddleware(cfg.JWTSecret))

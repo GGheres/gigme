@@ -201,6 +201,7 @@ class PaymentInstructionsModel {
     required this.usdtNetwork,
     required this.usdtMemo,
     required this.paymentQrData,
+    required this.paymentQrCId,
     required this.amountCents,
     required this.currency,
     required this.displayMessage,
@@ -211,6 +212,7 @@ class PaymentInstructionsModel {
   final String usdtNetwork;
   final String usdtMemo;
   final String paymentQrData;
+  final String paymentQrCId;
   final int amountCents;
   final String currency;
   final String displayMessage;
@@ -223,6 +225,7 @@ class PaymentInstructionsModel {
       usdtNetwork: asString(map['usdtNetwork']),
       usdtMemo: asString(map['usdtMemo']),
       paymentQrData: asString(map['paymentQrData']),
+      paymentQrCId: asString(map['paymentQrCId']),
       amountCents: asInt(map['amountCents']),
       currency: asString(map['currency']),
       displayMessage: asString(map['displayMessage']),
@@ -407,7 +410,7 @@ class TicketModel {
     );
   }
 
-  String get status => redeemedAt == null ? 'CONFIRMED' : 'REDEEMED';
+  String get status => redeemedAt == null ? 'PAID' : 'REDEEMED';
 }
 
 class OrderDetailModel {
@@ -543,6 +546,101 @@ class TicketRedeemResultModel {
     return TicketRedeemResultModel(
       ticket: TicketModel.fromJson(map['ticket']),
       orderStatus: asString(map['orderStatus']).toUpperCase(),
+    );
+  }
+}
+
+class SbpQrModel {
+  SbpQrModel({
+    required this.id,
+    required this.orderId,
+    required this.qrcId,
+    required this.payload,
+    required this.merchantId,
+    required this.accountId,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String orderId;
+  final String qrcId;
+  final String payload;
+  final String merchantId;
+  final String accountId;
+  final String status;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  factory SbpQrModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return SbpQrModel(
+      id: asString(map['id']),
+      orderId: asString(map['orderId']),
+      qrcId: asString(map['qrcId']),
+      payload: asString(map['payload']),
+      merchantId: asString(map['merchantId']),
+      accountId: asString(map['accountId']),
+      status: asString(map['status']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+    );
+  }
+}
+
+class CreateSbpQrOrderResponseModel {
+  CreateSbpQrOrderResponseModel({
+    required this.order,
+    required this.sbpQr,
+  });
+
+  final OrderDetailModel order;
+  final SbpQrModel sbpQr;
+
+  factory CreateSbpQrOrderResponseModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return CreateSbpQrOrderResponseModel(
+      order: OrderDetailModel.fromJson(map['order']),
+      sbpQr: SbpQrModel.fromJson(map['sbpQr']),
+    );
+  }
+}
+
+class SbpQrStatusResponseModel {
+  SbpQrStatusResponseModel({
+    required this.orderId,
+    required this.qrcId,
+    required this.paymentStatus,
+    required this.orderStatus,
+    required this.paid,
+    required this.unknown,
+    required this.message,
+    required this.detail,
+  });
+
+  final String orderId;
+  final String qrcId;
+  final String paymentStatus;
+  final String orderStatus;
+  final bool paid;
+  final bool unknown;
+  final String message;
+  final OrderDetailModel? detail;
+
+  factory SbpQrStatusResponseModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return SbpQrStatusResponseModel(
+      orderId: asString(map['orderId']),
+      qrcId: asString(map['qrcId']),
+      paymentStatus: asString(map['paymentStatus']),
+      orderStatus: asString(map['orderStatus']).toUpperCase(),
+      paid: asBool(map['paid']),
+      unknown: asBool(map['unknown']),
+      message: asString(map['message']),
+      detail: map['detail'] == null
+          ? null
+          : OrderDetailModel.fromJson(map['detail']),
     );
   }
 }

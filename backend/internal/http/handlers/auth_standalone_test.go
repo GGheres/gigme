@@ -46,6 +46,7 @@ func TestStandaloneAuthExchange(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&config.Config{
 			TelegramToken: botToken,
 			TelegramUser:  "gigme_test_bot",

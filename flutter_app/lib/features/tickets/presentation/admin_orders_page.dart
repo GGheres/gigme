@@ -106,6 +106,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                       DropdownMenuItem(value: '', child: Text('All')),
                       DropdownMenuItem(
                           value: 'PENDING', child: Text('PENDING')),
+                      DropdownMenuItem(value: 'PAID', child: Text('PAID')),
                       DropdownMenuItem(
                           value: 'CONFIRMED', child: Text('CONFIRMED')),
                       DropdownMenuItem(

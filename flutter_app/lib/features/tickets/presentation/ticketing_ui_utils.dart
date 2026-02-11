@@ -14,6 +14,7 @@ Color statusColor(String status, BuildContext context) {
   switch (value) {
     case 'PENDING':
       return Colors.amber.shade700;
+    case 'PAID':
     case 'CONFIRMED':
       return Colors.green.shade700;
     case 'CANCELED':
@@ -29,6 +30,7 @@ Color statusTint(String status) {
   switch (status.toUpperCase()) {
     case 'PENDING':
       return const Color(0xFFFFF8E1);
+    case 'PAID':
     case 'CONFIRMED':
       return const Color(0xFFE8F5E9);
     case 'CANCELED':

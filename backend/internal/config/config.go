@@ -27,8 +27,21 @@ type Config struct {
 	AdminLogin    string
 	AdminPassword string
 	AdminPassHash string
+	Tochka        TochkaConfig
 	S3            S3Config
 	Logging       LoggingConfig
+}
+
+type TochkaConfig struct {
+	ClientID     string
+	ClientSecret string
+	CustomerCode string
+	MerchantID   string
+	AccountID    string
+	Scope        string
+	TokenURL     string
+	BaseURL      string
+	RedirectURL  string
 }
 
 type S3Config struct {
@@ -48,13 +61,17 @@ type LoggingConfig struct {
 }
 
 func Load() (*Config, error) {
+	hmacSecret := strings.TrimSpace(os.Getenv("HMAC_SECRET"))
+	if hmacSecret == "" {
+		hmacSecret = strings.TrimSpace(os.Getenv("TICKET_HMAC_SECRET"))
+	}
 	cfg := &Config{
 		Env:           getenv("APP_ENV", "dev"),
 		HTTPAddr:      getenv("HTTP_ADDR", ":8080"),
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		RedisURL:      os.Getenv("REDIS_URL"),
 		JWTSecret:     os.Getenv("JWT_SECRET"),
-		HMACSecret:    os.Getenv("HMAC_SECRET"),
+		HMACSecret:    hmacSecret,
 		TelegramToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramUser:  os.Getenv("TELEGRAM_BOT_USERNAME"),
 		BaseURL:       getenv("BASE_URL", ""),
@@ -67,6 +84,17 @@ func Load() (*Config, error) {
 		AdminLogin:    getenv("ADMIN_LOGIN", ""),
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		AdminPassHash: os.Getenv("ADMIN_PASSWORD_HASH"),
+		Tochka: TochkaConfig{
+			ClientID:     strings.TrimSpace(os.Getenv("TOCHKA_CLIENT_ID")),
+			ClientSecret: strings.TrimSpace(os.Getenv("TOCHKA_CLIENT_SECRET")),
+			CustomerCode: strings.TrimSpace(os.Getenv("TOCHKA_CUSTOMER_CODE")),
+			MerchantID:   strings.TrimSpace(os.Getenv("TOCHKA_MERCHANT_ID")),
+			AccountID:    strings.TrimSpace(os.Getenv("TOCHKA_ACCOUNT_ID")),
+			Scope:        strings.TrimSpace(getenv("TOCHKA_SCOPE", "sbp")),
+			TokenURL:     strings.TrimSpace(getenv("TOCHKA_TOKEN_URL", "https://enter.tochka.com/connect/token")),
+			BaseURL:      strings.TrimSpace(getenv("TOCHKA_API_BASE_URL", "https://enter.tochka.com/uapi")),
+			RedirectURL:  strings.TrimSpace(os.Getenv("TOCHKA_REDIRECT_URL")),
+		},
 		S3: S3Config{
 			Endpoint:       os.Getenv("S3_ENDPOINT"),
 			PublicEndpoint: os.Getenv("S3_PUBLIC_ENDPOINT"),

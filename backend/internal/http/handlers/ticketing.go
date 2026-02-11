@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gigme/backend/internal/http/middleware"
+	tochkaapi "gigme/backend/internal/integrations/tochka"
 	"gigme/backend/internal/models"
 	"gigme/backend/internal/repository"
 	"gigme/backend/internal/ticketing"
@@ -45,6 +46,37 @@ type cancelOrderRequest struct {
 type redeemTicketRequest struct {
 	QRPayload string `json:"qrPayload"`
 }
+
+type adminRedeemTicketRequest struct {
+	TicketID  string `json:"ticketId"`
+	QRPayload string `json:"qrPayload"`
+}
+
+type createSbpQRCodeRequest struct {
+	EventID       int64                   `json:"eventId"`
+	TicketItems   []orderSelectionRequest `json:"ticketItems"`
+	TransferItems []orderSelectionRequest `json:"transferItems"`
+	PromoCode     string                  `json:"promoCode"`
+	RedirectURL   string                  `json:"redirectUrl"`
+}
+
+type createSbpQRCodeResponse struct {
+	Order models.OrderDetail `json:"order"`
+	SBPQR models.SbpQR       `json:"sbpQr"`
+}
+
+type sbpQRStatusResponse struct {
+	OrderID       string              `json:"orderId"`
+	QRCID         string              `json:"qrcId"`
+	PaymentStatus string              `json:"paymentStatus"`
+	OrderStatus   string              `json:"orderStatus"`
+	Paid          bool                `json:"paid"`
+	Unknown       bool                `json:"unknown"`
+	Message       string              `json:"message,omitempty"`
+	Detail        *models.OrderDetail `json:"detail,omitempty"`
+}
+
+const paymentProviderTochkaSBP = "tochka_sbp"
 
 type listOrdersResponse struct {
 	Items []models.OrderSummary `json:"items"`
@@ -104,6 +136,235 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
 	writeJSON(w, http.StatusCreated, detail)
+}
+
+func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if !h.hasTochkaSBPConfig() {
+		writeError(w, http.StatusServiceUnavailable, "sbp payment is not configured")
+		return
+	}
+
+	var req createSbpQRCodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("create_sbp_qr", "status", "invalid_json")
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+
+	detail, err := h.repo.CreateOrder(ctx, models.CreateOrderParams{
+		UserID:           userID,
+		EventID:          req.EventID,
+		PaymentMethod:    models.PaymentMethodTochkaSBPQR,
+		PaymentReference: "",
+		TicketItems:      mapSelections(req.TicketItems),
+		TransferItems:    mapSelections(req.TransferItems),
+		PromoCode:        strings.TrimSpace(req.PromoCode),
+	})
+	if err != nil {
+		h.handleTicketingError(logger, w, "create_sbp_qr", err)
+		return
+	}
+
+	amount := detail.Order.TotalCents
+	if amount <= 0 {
+		writeError(w, http.StatusBadRequest, "order amount must be greater than zero for sbp payment")
+		return
+	}
+
+	paymentPurpose := fmt.Sprintf("Order %s Event %d", detail.Order.ID, detail.Order.EventID)
+	ttl := 15
+	registerReq := tochkaapi.RegisterQRCodeRequest{
+		Amount:         &amount,
+		Currency:       "RUB",
+		PaymentPurpose: paymentPurpose,
+		QRCType:        tochkaapi.QRCTypeDynamic,
+		TTL:            &ttl,
+		RedirectURL:    h.resolveSBPRedirectURL(strings.TrimSpace(req.RedirectURL), detail.Order.ID),
+	}
+
+	registered, raw, err := h.tochka.RegisterQRCode(ctx, h.cfg.Tochka.MerchantID, h.cfg.Tochka.AccountID, registerReq)
+	if err != nil {
+		logger.Error("create_sbp_qr", "status", "tochka_error", "order_id", detail.Order.ID, "error", err)
+		writeJSON(w, http.StatusBadGateway, map[string]interface{}{
+			"error": "tochka register qr failed",
+			"order": detail,
+		})
+		return
+	}
+
+	sbpQR, err := h.repo.UpsertSbpQR(
+		ctx,
+		detail.Order.ID,
+		registered.QRCID,
+		registered.Payload,
+		h.cfg.Tochka.MerchantID,
+		h.cfg.Tochka.AccountID,
+		"REGISTERED",
+	)
+	if err != nil {
+		logger.Error("create_sbp_qr", "status", "db_error", "order_id", detail.Order.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if _, err := h.repo.UpsertPayment(ctx, repository.UpsertPaymentParams{
+		OrderID:           detail.Order.ID,
+		Provider:          paymentProviderTochkaSBP,
+		ProviderPaymentID: registered.QRCID,
+		Amount:            detail.Order.TotalCents,
+		Status:            "REGISTERED",
+		RawResponseJSON:   raw,
+	}); err != nil {
+		logger.Warn("create_sbp_qr", "status", "payment_upsert_failed", "order_id", detail.Order.ID, "error", err)
+	}
+
+	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	h.attachSBPInstructions(&detail, &sbpQR)
+	writeJSON(w, http.StatusCreated, createSbpQRCodeResponse{
+		Order: detail,
+		SBPQR: sbpQR,
+	})
+}
+
+func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	orderID := strings.TrimSpace(chi.URLParam(r, "orderId"))
+	if orderID == "" {
+		writeError(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+
+	detail, err := h.repo.GetOrderDetail(ctx, orderID, false)
+	if err != nil {
+		h.handleTicketingError(logger, w, "sbp_status", err)
+		return
+	}
+
+	isAdmin := false
+	if tgID, ok := middleware.TelegramIDFromContext(r.Context()); ok {
+		_, isAdmin = h.cfg.AdminTGIDs[tgID]
+	}
+	if detail.Order.UserID != userID && !isAdmin {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID)
+	if err != nil {
+		h.handleTicketingError(logger, w, "sbp_status", err)
+		return
+	}
+
+	response := sbpQRStatusResponse{
+		OrderID:     orderID,
+		QRCID:       sbpQR.QRCID,
+		OrderStatus: strings.ToUpper(strings.TrimSpace(detail.Order.Status)),
+	}
+
+	if isPaidOrderStatus(detail.Order.Status) || isRedeemedOrderStatus(detail.Order.Status) {
+		response.PaymentStatus = "Accepted"
+		response.Paid = true
+		detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+		h.attachSBPInstructions(&detail, &sbpQR)
+		response.Detail = &detail
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	if !h.hasTochkaSBPConfig() || h.tochka == nil {
+		response.Unknown = true
+		response.Message = "tochka configuration is missing"
+		response.PaymentStatus = strings.TrimSpace(sbpQR.Status)
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	statuses, raw, err := h.tochka.GetQRCodesPaymentStatus(ctx, []string{sbpQR.QRCID})
+	if err != nil {
+		response.Unknown = true
+		response.Message = "failed to fetch payment status"
+		response.PaymentStatus = strings.TrimSpace(sbpQR.Status)
+		logger.Warn("sbp_status", "status", "tochka_error", "order_id", orderID, "qrc_id", sbpQR.QRCID, "error", err)
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	paymentStatus := strings.TrimSpace(sbpQR.Status)
+	var providerPaymentID string
+	if len(statuses) > 0 {
+		paymentStatus = strings.TrimSpace(statuses[0].Status)
+		if paymentStatus == "" {
+			paymentStatus = strings.TrimSpace(statuses[0].Code)
+		}
+		if strings.TrimSpace(statuses[0].Message) != "" {
+			response.Message = strings.TrimSpace(statuses[0].Message)
+		}
+		providerPaymentID = strings.TrimSpace(statuses[0].TrxID)
+	}
+	response.PaymentStatus = paymentStatus
+
+	if err := h.repo.UpdateSbpQRStatus(ctx, orderID, paymentStatus); err != nil {
+		logger.Warn("sbp_status", "status", "sbp_qr_update_failed", "order_id", orderID, "error", err)
+	}
+	if _, err := h.repo.UpsertPayment(ctx, repository.UpsertPaymentParams{
+		OrderID:           orderID,
+		Provider:          paymentProviderTochkaSBP,
+		ProviderPaymentID: providerPaymentID,
+		Amount:            detail.Order.TotalCents,
+		Status:            normalizeProviderStatus(paymentStatus),
+		RawResponseJSON:   raw,
+	}); err != nil {
+		logger.Warn("sbp_status", "status", "payment_upsert_failed", "order_id", orderID, "error", err)
+	}
+
+	if tochkaapi.IsPaidStatus(paymentStatus) {
+		confirmedDetail, telegramID, confirmedNow, err := h.repo.ConfirmOrder(ctx, orderID, 0, h.cfg.HMACSecret)
+		if err != nil {
+			h.handleTicketingError(logger, w, "sbp_status_confirm", err)
+			return
+		}
+		confirmedDetail.PaymentInstructions = h.buildPaymentInstructions(confirmedDetail.Order)
+		h.attachSBPInstructions(&confirmedDetail, &sbpQR)
+		response.OrderStatus = confirmedDetail.Order.Status
+		response.Paid = true
+		response.Detail = &confirmedDetail
+
+		if confirmedNow && telegramID > 0 {
+			for _, ticket := range confirmedDetail.Tickets {
+				if strings.TrimSpace(ticket.QRPayload) == "" {
+					continue
+				}
+				if err := h.sendTicketQrToBot(telegramID, ticket); err != nil {
+					logger.Warn("sbp_status_confirm", "status", "ticket_delivery_failed", "ticket_id", ticket.ID, "telegram_id", telegramID, "error", err)
+				}
+			}
+		}
+
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	response.Paid = false
+	response.Unknown = paymentStatus == ""
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (h *Handler) ValidatePromoCode(w http.ResponseWriter, r *http.Request) {
@@ -254,6 +515,9 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	orderID := strings.TrimSpace(chi.URLParam(r, "id"))
 	if orderID == "" {
+		orderID = strings.TrimSpace(chi.URLParam(r, "orderId"))
+	}
+	if orderID == "" {
 		writeError(w, http.StatusBadRequest, "invalid order id")
 		return
 	}
@@ -266,6 +530,9 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
+		h.attachSBPInstructions(&detail, &sbpQR)
+	}
 	writeJSON(w, http.StatusOK, detail)
 }
 
@@ -287,14 +554,17 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	detail, telegramID, err := h.repo.ConfirmOrder(ctx, orderID, adminID, h.cfg.HMACSecret)
+	detail, telegramID, confirmedNow, err := h.repo.ConfirmOrder(ctx, orderID, adminID, h.cfg.HMACSecret)
 	if err != nil {
 		h.handleTicketingError(logger, w, "admin_confirm_order", err)
 		return
 	}
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
+		h.attachSBPInstructions(&detail, &sbpQR)
+	}
 
-	if telegramID > 0 {
+	if confirmedNow && telegramID > 0 {
 		for _, ticket := range detail.Tickets {
 			if strings.TrimSpace(ticket.QRPayload) == "" {
 				continue
@@ -360,6 +630,48 @@ func (h *Handler) RedeemTicket(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
 	result, err := h.repo.RedeemTicket(ctx, ticketID, adminID, strings.TrimSpace(req.QRPayload), h.cfg.HMACSecret)
+	if err != nil {
+		h.handleTicketingError(logger, w, "admin_redeem_ticket", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) AdminRedeemTicket(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_redeem_ticket"); !ok {
+		return
+	}
+	adminID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req adminRedeemTicketRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	qrPayload := strings.TrimSpace(req.QRPayload)
+	ticketID := strings.TrimSpace(req.TicketID)
+	if qrPayload != "" {
+		claims, err := ticketing.VerifyQRPayload(h.cfg.HMACSecret, qrPayload)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid qrPayload")
+			return
+		}
+		ticketID = claims.TicketID
+	}
+	if ticketID == "" {
+		writeError(w, http.StatusBadRequest, "ticketId or valid qrPayload is required")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	result, err := h.repo.RedeemTicket(ctx, ticketID, adminID, qrPayload, h.cfg.HMACSecret)
 	if err != nil {
 		h.handleTicketingError(logger, w, "admin_redeem_ticket", err)
 		return
@@ -676,7 +988,7 @@ func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) 
 	if err != nil {
 		return err
 	}
-	caption := fmt.Sprintf("Ticket %s\nType: %s\nQty: %d", ticket.ID, ticket.TicketType, ticket.Quantity)
+	caption := fmt.Sprintf("Ticket %s\nEvent: %d\nType: %s\nQty: %d", ticket.ID, ticket.EventID, ticket.TicketType, ticket.Quantity)
 	if err := h.telegram.SendPhotoBytes(userTelegramID, fmt.Sprintf("ticket-%s.png", ticket.ID), qrBytes, caption, nil); err != nil {
 		return h.telegram.SendMessage(userTelegramID, fmt.Sprintf("Ticket %s\nQR payload: %s", ticket.ID, payload))
 	}
@@ -706,6 +1018,8 @@ func (h *Handler) buildPaymentInstructions(order models.Order) models.PaymentIns
 		payload = strings.ReplaceAll(payload, "{amount}", amountText)
 		instructions.PaymentQRData = payload
 		instructions.DisplayMessage = "Scan payment QR code and click I paid."
+	case models.PaymentMethodTochkaSBPQR:
+		instructions.DisplayMessage = "Scan SBP QR and complete payment in your bank app."
 	default:
 		instructions.DisplayMessage = "Follow payment instructions and click I paid."
 	}
@@ -717,7 +1031,7 @@ func (h *Handler) handleTicketingError(logger interface {
 	Warn(string, ...any)
 }, w http.ResponseWriter, action string, err error) {
 	switch {
-	case errors.Is(err, repository.ErrOrderNotFound), errors.Is(err, repository.ErrTicketNotFound), errors.Is(err, pgx.ErrNoRows):
+	case errors.Is(err, repository.ErrOrderNotFound), errors.Is(err, repository.ErrTicketNotFound), errors.Is(err, repository.ErrSbpQRNotFound), errors.Is(err, pgx.ErrNoRows):
 		logger.Warn(action, "status", "not_found", "error", err)
 		writeError(w, http.StatusNotFound, "not found")
 	case errors.Is(err, repository.ErrInvalidProduct), errors.Is(err, repository.ErrPromoInvalid), errors.Is(err, repository.ErrTicketQRMismatch):
@@ -782,4 +1096,60 @@ func formatAmount(cents int64) string {
 		rest = -rest
 	}
 	return fmt.Sprintf("%d.%02d", dollars, rest)
+}
+
+func (h *Handler) hasTochkaSBPConfig() bool {
+	return h.tochka != nil &&
+		strings.TrimSpace(h.cfg.Tochka.MerchantID) != "" &&
+		strings.TrimSpace(h.cfg.Tochka.AccountID) != ""
+}
+
+func (h *Handler) resolveSBPRedirectURL(requestURL, orderID string) string {
+	redirectURL := strings.TrimSpace(requestURL)
+	if redirectURL == "" {
+		redirectURL = strings.TrimSpace(h.cfg.Tochka.RedirectURL)
+	}
+	if redirectURL == "" {
+		return ""
+	}
+	redirectURL = strings.ReplaceAll(redirectURL, "{order_id}", strings.TrimSpace(orderID))
+	redirectURL = strings.ReplaceAll(redirectURL, "{orderId}", strings.TrimSpace(orderID))
+	return redirectURL
+}
+
+func (h *Handler) attachSBPInstructions(detail *models.OrderDetail, sbpQR *models.SbpQR) {
+	if detail == nil || sbpQR == nil {
+		return
+	}
+	detail.PaymentInstructions.PaymentQRCID = strings.TrimSpace(sbpQR.QRCID)
+	detail.PaymentInstructions.PaymentQRData = strings.TrimSpace(sbpQR.Payload)
+	if detail.PaymentInstructions.DisplayMessage == "" {
+		detail.PaymentInstructions.DisplayMessage = "Scan SBP QR and complete payment in your bank app."
+	}
+}
+
+func normalizeProviderStatus(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACCEPTED":
+		return "PAID"
+	case "REJECTED":
+		return "FAILED"
+	case "NOTSTARTED", "RECEIVED", "INPROGRESS":
+		return "PENDING"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func isPaidOrderStatus(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "PAID", "CONFIRMED":
+		return true
+	default:
+		return false
+	}
+}
+
+func isRedeemedOrderStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), models.OrderStatusRedeemed)
 }

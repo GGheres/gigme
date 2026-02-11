@@ -194,6 +194,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           Text('Payment: ${order.paymentMethod}'),
           if (order.paymentReference.trim().isNotEmpty)
             Text('Payment reference: ${order.paymentReference}'),
+          if (detail.paymentInstructions.paymentQrCId.trim().isNotEmpty)
+            Text('SBP qrcId: ${detail.paymentInstructions.paymentQrCId}'),
           Text('Subtotal: ${formatMoney(order.subtotalCents)}'),
           Text('Discount: ${formatMoney(order.discountCents)}'),
           Text('Total: ${formatMoney(order.totalCents)}'),
@@ -217,9 +219,28 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
               contentPadding: EdgeInsets.zero,
               title: Text('Ticket ${ticket.id}'),
               subtitle: Text('${ticket.ticketType} · qty ${ticket.quantity}'),
-              trailing: ticket.redeemedAt == null
-                  ? const Text('Not redeemed')
-                  : Text('Redeemed\n${ticket.redeemedAt!.toLocal()}'),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Chip(
+                    label: Text(ticket.status),
+                    backgroundColor: statusColor(ticket.status, context)
+                        .withValues(alpha: 0.12),
+                    side:
+                        BorderSide(color: statusColor(ticket.status, context)),
+                    labelStyle: TextStyle(
+                      color: statusColor(ticket.status, context),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (ticket.redeemedAt != null)
+                    Text(
+                      ticket.redeemedAt!.toLocal().toString(),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -233,7 +254,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
               onPressed: _busy ? null : _cancel,
               child: const Text('Cancel order'),
             ),
-          ] else if (status == 'CONFIRMED') ...[
+          ] else if (status == 'PAID' || status == 'CONFIRMED') ...[
             OutlinedButton(
               onPressed: _busy ? null : _cancel,
               child: const Text('Cancel order'),

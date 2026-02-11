@@ -51,6 +51,40 @@ class TicketingRepository {
         );
   }
 
+  Future<CreateSbpQrOrderResponseModel> createSbpQrOrder({
+    required String token,
+    required CreateOrderPayload payload,
+    String redirectUrl = '',
+  }) {
+    return _ref.read(apiClientProvider).post<CreateSbpQrOrderResponseModel>(
+          '/payments/sbp/qr/create',
+          token: token,
+          body: <String, dynamic>{
+            'eventId': payload.eventId,
+            'ticketItems':
+                payload.ticketItems.map((item) => item.toJson()).toList(),
+            'transferItems':
+                payload.transferItems.map((item) => item.toJson()).toList(),
+            'promoCode': payload.promoCode,
+            if (redirectUrl.trim().isNotEmpty)
+              'redirectUrl': redirectUrl.trim(),
+          },
+          decoder: CreateSbpQrOrderResponseModel.fromJson,
+        );
+  }
+
+  Future<SbpQrStatusResponseModel> getSbpQrStatus({
+    required String token,
+    required String orderId,
+  }) {
+    return _ref.read(apiClientProvider).get<SbpQrStatusResponseModel>(
+          '/payments/sbp/qr/$orderId/status',
+          token: token,
+          decoder: SbpQrStatusResponseModel.fromJson,
+          retry: false,
+        );
+  }
+
   Future<OrdersListModel> listMyOrders({
     required String token,
     int limit = 50,
@@ -123,7 +157,7 @@ class TicketingRepository {
     required String orderId,
   }) {
     return _ref.read(apiClientProvider).post<OrderDetailModel>(
-          '/orders/$orderId/confirm',
+          '/admin/orders/$orderId/confirm',
           token: token,
           body: const <String, dynamic>{},
           decoder: OrderDetailModel.fromJson,
@@ -151,9 +185,10 @@ class TicketingRepository {
     String qrPayload = '',
   }) {
     return _ref.read(apiClientProvider).post<TicketRedeemResultModel>(
-          '/tickets/$ticketId/redeem',
+          '/admin/tickets/redeem',
           token: token,
           body: <String, dynamic>{
+            if (ticketId.trim().isNotEmpty) 'ticketId': ticketId.trim(),
             if (qrPayload.trim().isNotEmpty) 'qrPayload': qrPayload.trim(),
           },
           decoder: TicketRedeemResultModel.fromJson,

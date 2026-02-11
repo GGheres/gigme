@@ -12,6 +12,7 @@ import (
 	"gigme/backend/internal/geocode"
 	authmw "gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/integrations"
+	tochkaapi "gigme/backend/internal/integrations/tochka"
 	"gigme/backend/internal/rate"
 	"gigme/backend/internal/repository"
 
@@ -23,6 +24,7 @@ type Handler struct {
 	repo             *repository.Repository
 	s3               *integrations.S3Client
 	telegram         *integrations.TelegramClient
+	tochka           *tochkaapi.Client
 	eventParser      *parsercore.Dispatcher
 	geocoder         *geocode.Client
 	cfg              *config.Config
@@ -31,7 +33,7 @@ type Handler struct {
 	joinLeaveLimiter *rate.WindowLimiter
 }
 
-func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integrations.TelegramClient, cfg *config.Config, logger *slog.Logger) *Handler {
+func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integrations.TelegramClient, tochka *tochkaapi.Client, cfg *config.Config, logger *slog.Logger) *Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -39,6 +41,7 @@ func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integ
 		repo:             repo,
 		s3:               s3,
 		telegram:         telegram,
+		tochka:           tochka,
 		eventParser:      eventparser.NewDispatcher(nil, logger, nil),
 		geocoder:         geocode.NewClient(geocode.Config{}),
 		cfg:              cfg,

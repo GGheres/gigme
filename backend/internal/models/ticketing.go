@@ -4,7 +4,8 @@ import "time"
 
 const (
 	OrderStatusPending   = "PENDING"
-	OrderStatusConfirmed = "CONFIRMED"
+	OrderStatusPaid      = "PAID"
+	OrderStatusConfirmed = OrderStatusPaid // Backward-compatible alias.
 	OrderStatusCanceled  = "CANCELED"
 	OrderStatusRedeemed  = "REDEEMED"
 )
@@ -32,9 +33,10 @@ const (
 )
 
 const (
-	PaymentMethodPhone = "PHONE"
-	PaymentMethodUSDT  = "USDT"
-	PaymentMethodQR    = "PAYMENT_QR"
+	PaymentMethodPhone       = "PHONE"
+	PaymentMethodUSDT        = "USDT"
+	PaymentMethodQR          = "PAYMENT_QR"
+	PaymentMethodTochkaSBPQR = "TOCHKA_SBP_QR"
 )
 
 var TicketGroupSizeByType = map[string]int{
@@ -152,9 +154,34 @@ type PaymentInstructions struct {
 	USDTNetwork    string `json:"usdtNetwork,omitempty"`
 	USDTMemo       string `json:"usdtMemo,omitempty"`
 	PaymentQRData  string `json:"paymentQrData,omitempty"`
+	PaymentQRCID   string `json:"paymentQrCId,omitempty"`
 	AmountCents    int64  `json:"amountCents"`
 	Currency       string `json:"currency"`
 	DisplayMessage string `json:"displayMessage"`
+}
+
+type SbpQR struct {
+	ID         string    `json:"id"`
+	OrderID    string    `json:"orderId"`
+	QRCID      string    `json:"qrcId"`
+	Payload    string    `json:"payload"`
+	MerchantID string    `json:"merchantId"`
+	AccountID  string    `json:"accountId"`
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+type Payment struct {
+	ID                string                 `json:"id"`
+	OrderID           string                 `json:"orderId"`
+	Provider          string                 `json:"provider"`
+	ProviderPaymentID string                 `json:"providerPaymentId,omitempty"`
+	Amount            int64                  `json:"amount"`
+	Status            string                 `json:"status"`
+	RawResponseJSON   map[string]interface{} `json:"rawResponseJson,omitempty"`
+	CreatedAt         time.Time              `json:"createdAt"`
+	UpdatedAt         time.Time              `json:"updatedAt"`
 }
 
 type OrderDetail struct {

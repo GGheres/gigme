@@ -15,6 +15,7 @@ import (
 	"gigme/backend/internal/http/handlers"
 	"gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/integrations"
+	tochkaapi "gigme/backend/internal/integrations/tochka"
 	"gigme/backend/internal/logging"
 	"gigme/backend/internal/repository"
 
@@ -48,6 +49,19 @@ func main() {
 
 	repo := repository.New(pool)
 	telegram := integrations.NewTelegramClient(cfg.TelegramToken)
+	var tochkaClient *tochkaapi.Client
+	if cfg.Tochka.ClientID != "" && cfg.Tochka.ClientSecret != "" {
+		tokenManager := tochkaapi.NewTokenManager(tochkaapi.TokenManagerConfig{
+			ClientID:     cfg.Tochka.ClientID,
+			ClientSecret: cfg.Tochka.ClientSecret,
+			Scope:        cfg.Tochka.Scope,
+			TokenURL:     cfg.Tochka.TokenURL,
+		}, nil)
+		tochkaClient = tochkaapi.NewClient(tochkaapi.Config{
+			BaseURL:      cfg.Tochka.BaseURL,
+			CustomerCode: cfg.Tochka.CustomerCode,
+		}, tokenManager, nil, logger)
+	}
 
 	var s3Client *integrations.S3Client
 	if cfg.S3.Bucket != "" {
@@ -58,7 +72,7 @@ func main() {
 		}
 	}
 
-	h := handlers.New(repo, s3Client, telegram, cfg, logger)
+	h := handlers.New(repo, s3Client, telegram, tochkaClient, cfg, logger)
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -114,6 +128,8 @@ func main() {
 		r.Post("/wallet/topup/token", h.TopupToken)
 		r.Post("/wallet/topup/card", h.TopupCard)
 		r.Post("/orders", h.CreateOrder)
+		r.Post("/payments/sbp/qr/create", h.CreateSBPQRCodePayment)
+		r.Get("/payments/sbp/qr/{orderId}/status", h.GetSBPQRCodePaymentStatus)
 		r.Get("/orders/my", h.ListMyOrders)
 		r.Get("/tickets/my", h.ListMyTickets)
 		r.Post("/promo-codes/validate", h.ValidatePromoCode)
@@ -145,6 +161,8 @@ func main() {
 		r.Delete("/admin/events/{id}", h.DeleteEventAdmin)
 		r.Get("/admin/orders", h.ListAdminOrders)
 		r.Get("/admin/orders/{id}", h.GetAdminOrder)
+		r.Post("/admin/orders/{orderId}/confirm", h.ConfirmOrder)
+		r.Post("/admin/tickets/redeem", h.AdminRedeemTicket)
 		r.Get("/admin/stats", h.AdminStats)
 		r.Get("/admin/products/tickets", h.ListAdminTicketProducts)
 		r.Post("/admin/products/tickets", h.CreateAdminTicketProduct)

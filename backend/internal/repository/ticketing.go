@@ -538,6 +538,10 @@ WHERE id = $1::uuid;`, promoID); err != nil {
 	if total < 0 {
 		total = 0
 	}
+	currency := "USD"
+	if params.PaymentMethod == models.PaymentMethodTochkaSBPQR {
+		currency = "RUB"
+	}
 
 	row := tx.QueryRow(ctx, `
 INSERT INTO orders (
@@ -575,7 +579,7 @@ RETURNING id::text, user_id, event_id, ''::text, status, payment_method, payment
 		subtotal,
 		discount,
 		total,
-		"USD",
+		currency,
 		nullString("waiting_for_manual_confirmation"),
 	)
 	order, err := scanOrder(row)
@@ -891,12 +895,13 @@ ORDER BY created_at ASC, id ASC;`, orderID)
 	return out, nil
 }
 
-func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID int64, qrSecret string) (models.OrderDetail, int64, error) {
+func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID int64, qrSecret string) (models.OrderDetail, int64, bool, error) {
 	var detail models.OrderDetail
 	var telegramID int64
+	confirmedNow := false
 	secret := strings.TrimSpace(qrSecret)
 	if secret == "" {
-		return detail, 0, fmt.Errorf("qr secret is required")
+		return detail, 0, false, fmt.Errorf("qr secret is required")
 	}
 
 	err := r.WithTx(ctx, func(tx pgx.Tx) error {
@@ -906,83 +911,88 @@ func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID i
 SELECT status, user_id
 FROM orders
 WHERE id = $1::uuid
-FOR UPDATE;`, orderID).Scan(&orderStatus, &userID); err != nil {
+		FOR UPDATE;`, orderID).Scan(&orderStatus, &userID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrOrderNotFound
 			}
 			return err
 		}
-		if orderStatus != models.OrderStatusPending {
-			return ErrOrderStateNotAllowed
-		}
 
-		itemRows, err := tx.Query(ctx, `
+		if isPendingOrderStatus(orderStatus) {
+			itemRows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
 WHERE order_id = $1::uuid
 ORDER BY id ASC
 FOR UPDATE;`, orderID)
-		if err != nil {
-			return err
-		}
-		defer itemRows.Close()
-		for itemRows.Next() {
-			var itemType string
-			var productID string
-			var quantity int
-			if err := itemRows.Scan(&itemType, &productID, &quantity); err != nil {
+			if err != nil {
 				return err
 			}
-			switch itemType {
-			case models.ItemTypeTicket:
-				cmd, err := tx.Exec(ctx, `
+			defer itemRows.Close()
+			for itemRows.Next() {
+				var itemType string
+				var productID string
+				var quantity int
+				if err := itemRows.Scan(&itemType, &productID, &quantity); err != nil {
+					return err
+				}
+				switch itemType {
+				case models.ItemTypeTicket:
+					cmd, err := tx.Exec(ctx, `
 UPDATE ticket_products
 SET sold_count = sold_count + $2,
 	updated_at = now()
 WHERE id = $1::uuid
 	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, productID, quantity)
-				if err != nil {
-					return err
-				}
-				if cmd.RowsAffected() == 0 {
-					return ErrInventoryLimitReached
-				}
-			case models.ItemTypeTransfer:
-				cmd, err := tx.Exec(ctx, `
+					if err != nil {
+						return err
+					}
+					if cmd.RowsAffected() == 0 {
+						return ErrInventoryLimitReached
+					}
+				case models.ItemTypeTransfer:
+					cmd, err := tx.Exec(ctx, `
 UPDATE transfer_products
 SET sold_count = sold_count + $2,
 	updated_at = now()
 WHERE id = $1::uuid
 	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, productID, quantity)
-				if err != nil {
-					return err
-				}
-				if cmd.RowsAffected() == 0 {
-					return ErrInventoryLimitReached
+					if err != nil {
+						return err
+					}
+					if cmd.RowsAffected() == 0 {
+						return ErrInventoryLimitReached
+					}
 				}
 			}
-		}
-		if err := itemRows.Err(); err != nil {
-			return err
-		}
+			if err := itemRows.Err(); err != nil {
+				return err
+			}
 
-		cmd, err := tx.Exec(ctx, `
+			var confirmedBy interface{}
+			if adminID > 0 {
+				confirmedBy = adminID
+			}
+			cmd, err := tx.Exec(ctx, `
 UPDATE orders
 SET status = $2,
 	confirmed_at = now(),
 	confirmed_by = $3,
 	updated_at = now()
-WHERE id = $1::uuid
-	AND status = $4;`, orderID, models.OrderStatusConfirmed, adminID, models.OrderStatusPending)
-		if err != nil {
-			return err
-		}
-		if cmd.RowsAffected() == 0 {
+WHERE id = $1::uuid AND status = $4;`, orderID, models.OrderStatusPaid, confirmedBy, models.OrderStatusPending)
+			if err != nil {
+				return err
+			}
+			if cmd.RowsAffected() == 0 {
+				return ErrOrderStateNotAllowed
+			}
+			confirmedNow = true
+		} else if !(isPaidOrderStatus(orderStatus) || isRedeemedOrderStatus(orderStatus)) {
 			return ErrOrderStateNotAllowed
 		}
 
 		ticketRows, err := tx.Query(ctx, `
-SELECT id::text, user_id, event_id, ticket_type, quantity
+SELECT id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at
 FROM tickets
 WHERE order_id = $1::uuid
 ORDER BY created_at ASC
@@ -998,8 +1008,14 @@ FOR UPDATE;`, orderID)
 			var eventID int64
 			var ticketType string
 			var quantity int
-			if err := ticketRows.Scan(&ticketID, &ticketUserID, &eventID, &ticketType, &quantity); err != nil {
+			var existingPayload sql.NullString
+			var existingHash sql.NullString
+			var existingIssuedAt sql.NullTime
+			if err := ticketRows.Scan(&ticketID, &ticketUserID, &eventID, &ticketType, &quantity, &existingPayload, &existingHash, &existingIssuedAt); err != nil {
 				return err
+			}
+			if existingPayload.Valid && existingHash.Valid && existingIssuedAt.Valid {
+				continue
 			}
 			nonce, err := ticketing.NewNonce(16)
 			if err != nil {
@@ -1025,16 +1041,19 @@ WHERE id = $1::uuid;`, ticketID, token, hash, now); err != nil {
 		}
 
 		if err := tx.QueryRow(ctx, `SELECT telegram_id FROM users WHERE id = $1`, userID).Scan(&telegramID); err != nil {
-			return err
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			telegramID = 0
 		}
 
 		detail, err = r.fetchOrderDetail(ctx, tx, orderID, true)
 		return err
 	})
 	if err != nil {
-		return models.OrderDetail{}, 0, err
+		return models.OrderDetail{}, 0, false, err
 	}
-	return detail, telegramID, nil
+	return detail, telegramID, confirmedNow, nil
 }
 
 func (r *Repository) CancelOrder(ctx context.Context, orderID string, adminID int64, reason string) (models.OrderDetail, error) {
@@ -1057,7 +1076,7 @@ FOR UPDATE;`, orderID).Scan(&status, &promoCodeID); err != nil {
 			return ErrOrderStateNotAllowed
 		}
 
-		if status == models.OrderStatusConfirmed {
+		if isPaidOrderStatus(status) {
 			rows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
@@ -1188,7 +1207,7 @@ FOR UPDATE;`, ticketID).Scan(
 		if ticket.RedeemedAt != nil {
 			return ErrTicketAlreadyRedeemed
 		}
-		if orderStatus != models.OrderStatusConfirmed && orderStatus != models.OrderStatusRedeemed {
+		if !isPaidOrderStatus(orderStatus) && !isRedeemedOrderStatus(orderStatus) {
 			return ErrOrderStateNotAllowed
 		}
 
@@ -1234,12 +1253,12 @@ WHERE order_id = $1::uuid
 		}
 		if pending == 0 {
 			if _, err := tx.Exec(ctx, `
-UPDATE orders
+	UPDATE orders
 SET status = $2,
 	redeemed_at = now(),
 	updated_at = now()
 WHERE id = $1::uuid
-	AND status IN ($3, $4);`, ticket.OrderID, models.OrderStatusRedeemed, models.OrderStatusConfirmed, models.OrderStatusRedeemed); err != nil {
+	AND status IN ($3, $4, $5);`, ticket.OrderID, models.OrderStatusRedeemed, models.OrderStatusPaid, "CONFIRMED", models.OrderStatusRedeemed); err != nil {
 				return err
 			}
 			orderStatus = models.OrderStatusRedeemed
@@ -1676,11 +1695,24 @@ func mergeSelections(items []models.OrderProductSelection) map[string]int {
 
 func isValidPaymentMethod(method string) bool {
 	switch method {
-	case models.PaymentMethodPhone, models.PaymentMethodUSDT, models.PaymentMethodQR:
+	case models.PaymentMethodPhone, models.PaymentMethodUSDT, models.PaymentMethodQR, models.PaymentMethodTochkaSBPQR:
 		return true
 	default:
 		return false
 	}
+}
+
+func isPendingOrderStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), models.OrderStatusPending)
+}
+
+func isPaidOrderStatus(status string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(status))
+	return normalized == models.OrderStatusPaid || normalized == "CONFIRMED"
+}
+
+func isRedeemedOrderStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), models.OrderStatusRedeemed)
 }
 
 func safeMap(input map[string]interface{}) map[string]interface{} {

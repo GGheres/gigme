@@ -32,8 +32,8 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
       {required String ticketId, String qrPayload = ''}) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
-    if (ticketId.trim().isEmpty) {
-      setState(() => _message = 'Ticket ID is required');
+    if (ticketId.trim().isEmpty && qrPayload.trim().isEmpty) {
+      setState(() => _message = 'Ticket ID or QR payload is required');
       return;
     }
 
@@ -65,13 +65,11 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     if (_busy || payload.trim().isEmpty) return;
     if (_lastPayload == payload) return;
     _lastPayload = payload;
-    final ticketId = _extractTicketId(payload);
-    if (ticketId == null || ticketId.trim().isEmpty) {
-      setState(() => _message = 'QR payload is invalid');
-      return;
-    }
+    final ticketId = _extractTicketId(payload) ?? '';
     _payloadCtrl.text = payload;
-    _ticketIdCtrl.text = ticketId;
+    if (ticketId.isNotEmpty) {
+      _ticketIdCtrl.text = ticketId;
+    }
     await _redeem(ticketId: ticketId, qrPayload: payload);
   }
 

@@ -14,6 +14,11 @@ class AppConfig {
     required this.standaloneRedirectUri,
     required this.enablePush,
     required this.adminTelegramIds,
+    required this.paymentPhoneNumber,
+    required this.paymentUsdtWallet,
+    required this.paymentUsdtNetwork,
+    required this.paymentUsdtMemo,
+    required this.paymentQrData,
   });
 
   final String apiUrl;
@@ -23,6 +28,11 @@ class AppConfig {
   final String standaloneRedirectUri;
   final bool enablePush;
   final Set<int> adminTelegramIds;
+  final String paymentPhoneNumber;
+  final String paymentUsdtWallet;
+  final String paymentUsdtNetwork;
+  final String paymentUsdtMemo;
+  final String paymentQrData;
 
   bool get isTelegramWebMode => authMode == AuthMode.telegramWeb;
 
@@ -40,6 +50,16 @@ class AppConfig {
         String.fromEnvironment('ENABLE_PUSH', defaultValue: 'false');
     const rawAdminTelegramIds =
         String.fromEnvironment('ADMIN_TELEGRAM_IDS', defaultValue: '');
+    const rawPaymentPhone =
+        String.fromEnvironment('PAYMENT_PHONE_NUMBER', defaultValue: '');
+    const rawPaymentUsdtWallet =
+        String.fromEnvironment('PAYMENT_USDT_WALLET', defaultValue: '');
+    const rawPaymentUsdtNetwork =
+        String.fromEnvironment('PAYMENT_USDT_NETWORK', defaultValue: 'TRC20');
+    const rawPaymentUsdtMemo =
+        String.fromEnvironment('PAYMENT_USDT_MEMO', defaultValue: '');
+    const rawPaymentQrData =
+        String.fromEnvironment('PAYMENT_QR_DATA', defaultValue: '');
     const defaultApiUrl = kIsWeb ? '/api' : 'https://spacefestival.fun/api';
     final rawApiUrl = envApiUrl.trim().isEmpty ? defaultApiUrl : envApiUrl;
     final apiUrl = _normalizeApiUrl(rawApiUrl);
@@ -58,6 +78,11 @@ class AppConfig {
       standaloneRedirectUri: standaloneRedirectUri,
       enablePush: rawEnablePush.toLowerCase().trim() == 'true',
       adminTelegramIds: _parseAdminIds(rawAdminTelegramIds),
+      paymentPhoneNumber: rawPaymentPhone.trim(),
+      paymentUsdtWallet: rawPaymentUsdtWallet.trim(),
+      paymentUsdtNetwork: rawPaymentUsdtNetwork.trim(),
+      paymentUsdtMemo: rawPaymentUsdtMemo.trim(),
+      paymentQrData: rawPaymentQrData.trim(),
     );
   }
 

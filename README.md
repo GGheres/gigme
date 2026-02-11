@@ -74,7 +74,8 @@ flutter run -d chrome \
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_USERNAME`
 - `JWT_SECRET`
-- `HMAC_SECRET` - HMAC key for signed ticket QR payloads (falls back to `JWT_SECRET` if empty)
+- `HMAC_SECRET` - HMAC key for signed ticket QR payloads
+- `TICKET_HMAC_SECRET` - optional alias for `HMAC_SECRET` (used if `HMAC_SECRET` is empty)
 - `BASE_URL` - (optional) base URL for links
 - `API_PUBLIC_URL` - optional public API base URL for notification media (example `https://spacefestival.fun/api`)
 - `ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
@@ -83,6 +84,15 @@ flutter run -d chrome \
 - `USDT_NETWORK` - network label (default `TRC20`)
 - `USDT_MEMO` - optional memo/tag for USDT transfers
 - `PAYMENT_QR_DATA` - optional payment payload template for QR method (`{order_id}`, `{event_id}`, `{amount}`, `{amount_cents}` placeholders supported)
+- `TOCHKA_CLIENT_ID` - Tochka OAuth client id
+- `TOCHKA_CLIENT_SECRET` - Tochka OAuth client secret
+- `TOCHKA_CUSTOMER_CODE` - optional Tochka customer/company context header
+- `TOCHKA_MERCHANT_ID` - merchant id for SBP QR registration
+- `TOCHKA_ACCOUNT_ID` - account id for SBP QR registration
+- `TOCHKA_SCOPE` - OAuth scope (default `sbp`)
+- `TOCHKA_TOKEN_URL` - OAuth token endpoint (default `https://enter.tochka.com/connect/token`)
+- `TOCHKA_API_BASE_URL` - Tochka API base URL (default `https://enter.tochka.com/uapi`)
+- `TOCHKA_REDIRECT_URL` - optional redirect URL template for dynamic QR (`{order_id}` placeholder is supported)
 - `LOG_LEVEL` - `debug|info|warn|error` (default: `info`)
 - `LOG_FORMAT` - `text|json` (default: `text`)
 - `LOG_FILE` - optional path to also write logs to a file
@@ -106,6 +116,11 @@ flutter run -d chrome \
 - `STANDALONE_REDIRECT_URI` - deep-link URL for Mode B callback (default `gigme://auth`)
 - `ENABLE_PUSH` - `true|false` toggle for FCM scaffold initialization in standalone mode
 - `ADMIN_TELEGRAM_IDS` - optional comma-separated allowlist for showing admin UI entrypoint
+- `PAYMENT_PHONE_NUMBER` - phone transfer recipient shown on checkout screen
+- `PAYMENT_USDT_WALLET` - USDT wallet shown on checkout screen
+- `PAYMENT_USDT_NETWORK` - USDT network label (default `TRC20`)
+- `PAYMENT_USDT_MEMO` - optional memo/tag for USDT transfer
+- `PAYMENT_QR_DATA` - optional payment payload shown for QR payment method
 - Production build args are read from `infra/.env.prod` as `FLUTTER_*` variables.
 
 ## Deployment (prod, Docker Compose)
@@ -175,6 +190,8 @@ Implemented endpoints:
 - `POST /events/{id}/leave`
 - `GET /events/{id}/products`
 - `POST /orders`
+- `POST /payments/sbp/qr/create`
+- `GET /payments/sbp/qr/{orderId}/status`
 - `GET /orders/my`
 - `POST /orders/{id}/confirm` (admin only)
 - `POST /orders/{id}/cancel` (admin only)
@@ -200,6 +217,8 @@ Implemented endpoints:
 - `POST /admin/parser/events/{id}/reject` (admin only)
 - `GET /admin/orders` (admin only)
 - `GET /admin/orders/{id}` (admin only)
+- `POST /admin/orders/{orderId}/confirm` (admin only)
+- `POST /admin/tickets/redeem` (admin only)
 - `GET /admin/stats` (admin only)
 - `GET /admin/products/tickets` / `POST /admin/products/tickets` / `PATCH /admin/products/tickets/{id}` / `DELETE /admin/products/tickets/{id}` (admin only)
 - `GET /admin/products/transfers` / `POST /admin/products/transfers` / `PATCH /admin/products/transfers/{id}` / `DELETE /admin/products/transfers/{id}` (admin only)
@@ -208,25 +227,42 @@ Implemented endpoints:
 Promoted events are marked as featured and sorted to the top while `promoted_until` is in the future.
 
 ## Ticket purchase + QR validation
-- DB schema: apply migration `infra/migrations/017_ticketing.up.sql` (tables: `ticket_products`, `transfer_products`, `promo_codes`, `orders`, `order_items`, `tickets`).
+- DB schema: apply migrations `infra/migrations/017_ticketing.up.sql` and `infra/migrations/018_sbp_tochka_payments.up.sql` (adds `PAID` status, `sbp_qr`, `payments`).
 - Purchase flow:
   1. User opens event page, chooses tickets/transfer, optional promo, and payment method.
-  2. `POST /orders` creates order with `PENDING` status.
-  3. UI shows `Waiting for confirmation`.
-- Admin payment confirmation:
+  2. For manual methods (`PHONE`, `USDT`, `PAYMENT_QR`) app uses `POST /orders` and waits for admin confirmation.
+  3. For Tochka SBP method app uses `POST /payments/sbp/qr/create`, backend creates a dynamic SBP QR and returns `payload` + `qrcId`.
+  4. App polls `GET /payments/sbp/qr/{orderId}/status`; when payment is `Accepted`, backend marks order `PAID`, generates signed ticket QR payloads, and sends ticket QR images to Telegram bot.
+- Admin payment fallback:
   1. Open `Admin orders` screen.
-  2. Review order details and click `Confirm payment`.
-  3. Backend marks order `CONFIRMED`, generates signed QR payload per ticket, and sends QR image to Telegram.
+  2. Review order details and click `Confirm payment` (`POST /admin/orders/{orderId}/confirm`).
+  3. Backend marks order `PAID`, generates signed QR payload per ticket, and sends QR image to Telegram.
 - Ticket redeem:
   1. Admin opens `QR scanner`.
   2. Scan QR or paste payload / ticket ID manually.
-  3. `POST /tickets/{id}/redeem` verifies HMAC signature and atomically marks ticket redeemed.
+  3. `POST /admin/tickets/redeem` (or legacy `POST /tickets/{id}/redeem`) verifies HMAC signature and atomically marks ticket redeemed.
   4. Repeated redeem attempts return conflict (`ticket already redeemed`).
 - Stats/accounting:
   - `GET /admin/stats` returns global and per-event totals:
-    - purchased amount (`CONFIRMED + REDEEMED`)
+    - purchased amount (`PAID + REDEEMED`; legacy `CONFIRMED` is still counted)
     - redeemed amount (`REDEEMED`)
     - counts by ticket type and transfer direction.
+
+## Tochka SBP setup
+- Credentials:
+  1. In Tochka developer cabinet create/get OAuth client credentials (`TOCHKA_CLIENT_ID`, `TOCHKA_CLIENT_SECRET`).
+  2. Get SBP merchant/account identifiers (`TOCHKA_MERCHANT_ID`, `TOCHKA_ACCOUNT_ID`).
+  3. If your organization requires context header, set `TOCHKA_CUSTOMER_CODE`.
+  4. Set ticket signature secret (`HMAC_SECRET` or `TICKET_HMAC_SECRET`) and bot token (`TELEGRAM_BOT_TOKEN`).
+- Sandbox vs production:
+  - Use separate credential sets for sandbox and production.
+  - Override endpoints with `TOCHKA_TOKEN_URL` and `TOCHKA_API_BASE_URL` only if Tochka provides different URLs for your environment.
+  - Keep `TOCHKA_SCOPE=sbp` unless your contract specifies another scope.
+- Troubleshooting:
+  - `sbp payment is not configured`: required Tochka env vars are missing in API container.
+  - `tochka register qr failed`: verify OAuth credentials, `merchantId/accountId`, and (if used) `customerCode`.
+  - Status remains `unknown`/unavailable: dynamic QR status may be unavailable after QR lifetime or about 24h after payment; use admin confirm fallback.
+  - Money received but order still `PENDING`: run `POST /admin/orders/{orderId}/confirm`, then check ticket delivery in Telegram bot.
 
 ## Universal Event Parser
 
