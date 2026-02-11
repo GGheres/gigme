@@ -35,6 +35,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      final isAdminRoute = location.startsWith(AppRoutes.admin);
+
       if (location == AppRoutes.appRoot) {
         if (status == AuthStatus.authenticated) {
           return AppRoutes.feed;
@@ -45,10 +47,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final inAuth = location == AppRoutes.auth;
 
       if (status == AuthStatus.loading) {
+        if (isAdminRoute) return null;
         return inAuth ? null : AppRoutes.auth;
       }
 
       if (status == AuthStatus.unauthenticated) {
+        if (isAdminRoute) return null;
         return inAuth ? null : AppRoutes.auth;
       }
 
