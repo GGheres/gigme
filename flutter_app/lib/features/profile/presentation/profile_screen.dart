@@ -93,6 +93,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 14),
+                  FilledButton.icon(
+                    onPressed: () => context.push(AppRoutes.myTickets),
+                    icon: const Icon(Icons.qr_code_rounded),
+                    label: const Text('My tickets'),
+                  ),
+                  if (isAdmin) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => context.push(AppRoutes.adminOrders),
+                          child: const Text('Admin orders'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => context.push(AppRoutes.adminScanner),
+                          child: const Text('QR scanner'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () =>
+                              context.push(AppRoutes.adminProducts),
+                          child: const Text('Products'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => context.push(AppRoutes.adminPromos),
+                          child: const Text('Promo codes'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => context.push(AppRoutes.adminStats),
+                          child: const Text('Stats'),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Text('My events',

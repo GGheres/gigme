@@ -13,10 +13,16 @@ type Config struct {
 	DatabaseURL   string
 	RedisURL      string
 	JWTSecret     string
+	HMACSecret    string
 	TelegramToken string
 	TelegramUser  string
 	BaseURL       string
 	APIPublicURL  string
+	PhoneNumber   string
+	USDTWallet    string
+	USDTNetwork   string
+	USDTMemo      string
+	PaymentQRData string
 	AdminTGIDs    map[int64]struct{}
 	AdminLogin    string
 	AdminPassword string
@@ -48,10 +54,16 @@ func Load() (*Config, error) {
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		RedisURL:      os.Getenv("REDIS_URL"),
 		JWTSecret:     os.Getenv("JWT_SECRET"),
+		HMACSecret:    os.Getenv("HMAC_SECRET"),
 		TelegramToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramUser:  os.Getenv("TELEGRAM_BOT_USERNAME"),
 		BaseURL:       getenv("BASE_URL", ""),
 		APIPublicURL:  getenv("API_PUBLIC_URL", ""),
+		PhoneNumber:   getenv("PHONE_NUMBER", ""),
+		USDTWallet:    getenv("USDT_WALLET", ""),
+		USDTNetwork:   getenv("USDT_NETWORK", "TRC20"),
+		USDTMemo:      getenv("USDT_MEMO", ""),
+		PaymentQRData: getenv("PAYMENT_QR_DATA", ""),
 		AdminLogin:    getenv("ADMIN_LOGIN", ""),
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		AdminPassHash: os.Getenv("ADMIN_PASSWORD_HASH"),
@@ -77,6 +89,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.JWTSecret == "" {
 		return nil, fmt.Errorf("JWT_SECRET is required")
+	}
+	if cfg.HMACSecret == "" {
+		cfg.HMACSecret = cfg.JWTSecret
 	}
 	if cfg.TelegramToken == "" {
 		return nil, fmt.Errorf("TELEGRAM_BOT_TOKEN is required")

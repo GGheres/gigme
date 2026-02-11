@@ -61,11 +61,11 @@ func TestAdminEndpointsRequireAllowlist(t *testing.T) {
 	r.Use(middleware.BlockedUserMiddleware(repo, cfg.AdminTGIDs))
 	r.Get("/admin/users", handler.ListAdminUsers)
 
-	adminToken, err := auth.SignAccessToken(cfg.JWTSecret, adminUserID, adminTelegramID, false)
+	adminToken, err := auth.SignAccessToken(cfg.JWTSecret, adminUserID, adminTelegramID, false, true)
 	if err != nil {
 		t.Fatalf("admin token: %v", err)
 	}
-	normalToken, err := auth.SignAccessToken(cfg.JWTSecret, normalUserID, normalTelegramID, false)
+	normalToken, err := auth.SignAccessToken(cfg.JWTSecret, normalUserID, normalTelegramID, false, false)
 	if err != nil {
 		t.Fatalf("user token: %v", err)
 	}

@@ -74,7 +74,7 @@ func (h *Handler) AuthAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = h.repo.TouchUserLastSeen(ctx, user.ID)
 
-	token, err := auth.SignAccessToken(h.cfg.JWTSecret, user.ID, user.TelegramID, false)
+	token, err := auth.SignAccessToken(h.cfg.JWTSecret, user.ID, user.TelegramID, false, true)
 	if err != nil {
 		logger.Error("action", "action", "auth_admin", "status", "token_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "token error")

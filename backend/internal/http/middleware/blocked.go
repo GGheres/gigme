@@ -15,6 +15,10 @@ func BlockedUserMiddleware(repo *repository.Repository, adminTGIDs map[int64]str
 				return
 			}
 			telegramID, hasTelegram := TelegramIDFromContext(r.Context())
+			if isAdmin, ok := IsAdminFromContext(r.Context()); ok && isAdmin {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if hasTelegram {
 				if _, allowed := adminTGIDs[telegramID]; allowed {
 					next.ServeHTTP(w, r)

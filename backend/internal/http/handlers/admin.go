@@ -86,6 +86,9 @@ func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *ht
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return 0, false
 	}
+	if isAdmin, ok := middleware.IsAdminFromContext(r.Context()); ok && isAdmin {
+		return telegramID, true
+	}
 	if _, allowed := h.cfg.AdminTGIDs[telegramID]; !allowed {
 		logger.Warn("action", "action", action, "status", "forbidden", "telegram_id", telegramID)
 		writeError(w, http.StatusForbidden, "forbidden")

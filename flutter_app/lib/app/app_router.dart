@@ -11,6 +11,13 @@ import '../features/events/presentation/event_details_screen.dart';
 import '../features/events/presentation/feed_screen.dart';
 import '../features/events/presentation/map_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/tickets/presentation/admin_order_detail_page.dart';
+import '../features/tickets/presentation/admin_orders_page.dart';
+import '../features/tickets/presentation/admin_products_page.dart';
+import '../features/tickets/presentation/admin_promo_codes_page.dart';
+import '../features/tickets/presentation/admin_qr_scanner_page.dart';
+import '../features/tickets/presentation/admin_stats_page.dart';
+import '../features/tickets/presentation/my_tickets_page.dart';
 import 'app_shell.dart';
 import 'routes.dart';
 
@@ -92,6 +99,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.admin,
             builder: (context, state) => const AdminScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.myTickets,
+            builder: (context, state) => const MyTicketsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.adminOrders,
+            builder: (context, state) => const AdminOrdersPage(),
+          ),
+          GoRoute(
+            path: '/space_app/admin/orders/:id',
+            builder: (context, state) => AdminOrderDetailPage(
+              orderId: state.pathParameters['id'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.adminScanner,
+            builder: (context, state) => const AdminQrScannerPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.adminProducts,
+            builder: (context, state) => const AdminProductsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.adminPromos,
+            builder: (context, state) => const AdminPromoCodesPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.adminStats,
+            builder: (context, state) => const AdminStatsPage(),
           ),
         ],
       ),

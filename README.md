@@ -74,9 +74,15 @@ flutter run -d chrome \
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_USERNAME`
 - `JWT_SECRET`
+- `HMAC_SECRET` - HMAC key for signed ticket QR payloads (falls back to `JWT_SECRET` if empty)
 - `BASE_URL` - (optional) base URL for links
 - `API_PUBLIC_URL` - optional public API base URL for notification media (example `https://spacefestival.fun/api`)
 - `ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
+- `PHONE_NUMBER` - manual transfer recipient shown for `PHONE` payment method
+- `USDT_WALLET` - wallet shown for `USDT` payment method
+- `USDT_NETWORK` - network label (default `TRC20`)
+- `USDT_MEMO` - optional memo/tag for USDT transfers
+- `PAYMENT_QR_DATA` - optional payment payload template for QR method (`{order_id}`, `{event_id}`, `{amount}`, `{amount_cents}` placeholders supported)
 - `LOG_LEVEL` - `debug|info|warn|error` (default: `info`)
 - `LOG_FORMAT` - `text|json` (default: `text`)
 - `LOG_FILE` - optional path to also write logs to a file
@@ -167,6 +173,14 @@ Implemented endpoints:
 - `POST /events/{id}/comments`
 - `POST /events/{id}/join`
 - `POST /events/{id}/leave`
+- `GET /events/{id}/products`
+- `POST /orders`
+- `GET /orders/my`
+- `POST /orders/{id}/confirm` (admin only)
+- `POST /orders/{id}/cancel` (admin only)
+- `GET /tickets/my`
+- `POST /tickets/{id}/redeem` (admin only)
+- `POST /promo-codes/validate`
 - `POST /events/{id}/promote` (admin only)
 - `POST /media/presign`
 - `POST /wallet/topup/token`
@@ -184,8 +198,35 @@ Implemented endpoints:
 - `GET /admin/parser/events` (admin only)
 - `POST /admin/parser/events/{id}/import` (admin only)
 - `POST /admin/parser/events/{id}/reject` (admin only)
+- `GET /admin/orders` (admin only)
+- `GET /admin/orders/{id}` (admin only)
+- `GET /admin/stats` (admin only)
+- `GET /admin/products/tickets` / `POST /admin/products/tickets` / `PATCH /admin/products/tickets/{id}` / `DELETE /admin/products/tickets/{id}` (admin only)
+- `GET /admin/products/transfers` / `POST /admin/products/transfers` / `PATCH /admin/products/transfers/{id}` / `DELETE /admin/products/transfers/{id}` (admin only)
+- `GET /admin/promo-codes` / `POST /admin/promo-codes` / `PATCH /admin/promo-codes/{id}` / `DELETE /admin/promo-codes/{id}` (admin only)
 
 Promoted events are marked as featured and sorted to the top while `promoted_until` is in the future.
+
+## Ticket purchase + QR validation
+- DB schema: apply migration `infra/migrations/017_ticketing.up.sql` (tables: `ticket_products`, `transfer_products`, `promo_codes`, `orders`, `order_items`, `tickets`).
+- Purchase flow:
+  1. User opens event page, chooses tickets/transfer, optional promo, and payment method.
+  2. `POST /orders` creates order with `PENDING` status.
+  3. UI shows `Waiting for confirmation`.
+- Admin payment confirmation:
+  1. Open `Admin orders` screen.
+  2. Review order details and click `Confirm payment`.
+  3. Backend marks order `CONFIRMED`, generates signed QR payload per ticket, and sends QR image to Telegram.
+- Ticket redeem:
+  1. Admin opens `QR scanner`.
+  2. Scan QR or paste payload / ticket ID manually.
+  3. `POST /tickets/{id}/redeem` verifies HMAC signature and atomically marks ticket redeemed.
+  4. Repeated redeem attempts return conflict (`ticket already redeemed`).
+- Stats/accounting:
+  - `GET /admin/stats` returns global and per-event totals:
+    - purchased amount (`CONFIRMED + REDEEMED`)
+    - redeemed amount (`REDEEMED`)
+    - counts by ticket type and transfer direction.
 
 ## Universal Event Parser
 

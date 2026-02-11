@@ -14,6 +14,7 @@ import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
+import '../../tickets/presentation/purchase_ticket_flow.dart';
 import '../application/events_controller.dart';
 
 // TODO(ui-migration): migrate details/comments/participants blocks to AppScaffold and App* components.
@@ -211,28 +212,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           children: [
                             Expanded(
                               child: FilledButton(
-                                onPressed: _joining
-                                    ? null
-                                    : () async {
-                                        setState(() => _joining = true);
-                                        try {
-                                          final events = ref
-                                              .read(eventsControllerProvider);
-                                          await events.joinEvent(
-                                            eventId: detail.event.id,
-                                            accessKey: widget.eventKey,
-                                          );
-                                          await _load();
-                                        } catch (error) {
-                                          _showMessage('$error');
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() => _joining = false);
-                                          }
-                                        }
-                                      },
-                                child: Text(
-                                    _joining ? 'Обработка…' : 'КУПИТЬ билет'),
+                                onPressed: () => showPurchaseTicketFlow(
+                                  context,
+                                  eventId: detail.event.id,
+                                ),
+                                child: const Text('КУПИТЬ билет'),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -243,6 +227,32 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             ),
                           ],
                         ),
+                        if (!detail.isJoined) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: _joining
+                                ? null
+                                : () async {
+                                    setState(() => _joining = true);
+                                    try {
+                                      final events =
+                                          ref.read(eventsControllerProvider);
+                                      await events.joinEvent(
+                                        eventId: detail.event.id,
+                                        accessKey: widget.eventKey,
+                                      );
+                                      await _load();
+                                    } catch (error) {
+                                      _showMessage('$error');
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _joining = false);
+                                      }
+                                    }
+                                  },
+                            child: Text(_joining ? 'Joining…' : 'Join event'),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: () {

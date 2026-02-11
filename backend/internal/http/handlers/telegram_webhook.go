@@ -131,7 +131,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	markup := &integrations.ReplyMarkup{
 		InlineKeyboard: [][]integrations.InlineKeyboardButton{{
 			{
-				Text:   "Открыть Gigme",
+				Text:   "Открыть SPACE",
 				WebApp: &integrations.WebAppInfo{URL: webAppURL},
 			},
 		}},

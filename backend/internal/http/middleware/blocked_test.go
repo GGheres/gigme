@@ -43,7 +43,7 @@ RETURNING id;`, telegramID, "blocked_user", "Blocked", "User")
 	})
 
 	secret := "test-secret"
-	token, err := auth.SignAccessToken(secret, userID, telegramID, false)
+	token, err := auth.SignAccessToken(secret, userID, telegramID, false, false)
 	if err != nil {
 		t.Fatalf("token error: %v", err)
 	}

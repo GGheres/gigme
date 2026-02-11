@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -62,6 +64,62 @@ func (t *TelegramClient) SendPhotoWithMarkup(chatID int64, photoURL, caption str
 		payload["reply_markup"] = markup
 	}
 	return t.post("sendPhoto", payload)
+}
+
+func (t *TelegramClient) SendPhotoBytes(chatID int64, filename string, photo []byte, caption string, markup *ReplyMarkup) error {
+	if len(photo) == 0 {
+		return fmt.Errorf("photo is empty")
+	}
+	if filename == "" {
+		filename = "ticket.png"
+	}
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("chat_id", strconv.FormatInt(chatID, 10)); err != nil {
+		return err
+	}
+	if caption != "" {
+		if err := writer.WriteField("caption", caption); err != nil {
+			return err
+		}
+	}
+	if markup != nil {
+		markupJSON, err := json.Marshal(markup)
+		if err != nil {
+			return err
+		}
+		if err := writer.WriteField("reply_markup", string(markupJSON)); err != nil {
+			return err
+		}
+	}
+	fileWriter, err := writer.CreateFormFile("photo", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := fileWriter.Write(photo); err != nil {
+		return err
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendPhoto", t.token)
+	req, err := http.NewRequest(http.MethodPost, url, &body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("telegram sendPhoto status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (t *TelegramClient) post(method string, payload map[string]interface{}) error {

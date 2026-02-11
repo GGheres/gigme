@@ -50,7 +50,7 @@ func (h *Handler) AuthTelegram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.SignAccessToken(h.cfg.JWTSecret, stored.ID, stored.TelegramID, isNew)
+	token, err := auth.SignAccessToken(h.cfg.JWTSecret, stored.ID, stored.TelegramID, isNew, false)
 	if err != nil {
 		logger.Error("action", "action", "auth_telegram", "status", "token_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "token error")
