@@ -24,6 +24,14 @@ class AdminProductsPage extends ConsumerStatefulWidget {
 
 class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _eventCtrl = TextEditingController();
+  final TextEditingController _paymentPhoneCtrl = TextEditingController();
+  final TextEditingController _paymentUsdtWalletCtrl = TextEditingController();
+  final TextEditingController _paymentUsdtNetworkCtrl = TextEditingController();
+  final TextEditingController _paymentUsdtMemoCtrl = TextEditingController();
+  final TextEditingController _phoneDescriptionCtrl = TextEditingController();
+  final TextEditingController _usdtDescriptionCtrl = TextEditingController();
+  final TextEditingController _qrDescriptionCtrl = TextEditingController();
+  final TextEditingController _sbpDescriptionCtrl = TextEditingController();
   final TextEditingController _ticketPriceCtrl = TextEditingController();
   final TextEditingController _transferPriceCtrl = TextEditingController();
   final TextEditingController _transferTimeCtrl = TextEditingController();
@@ -45,6 +53,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     if ((widget.initialEventId ?? 0) > 0) {
       _eventCtrl.text = '${widget.initialEventId}';
     }
+    _paymentUsdtNetworkCtrl.text = 'TRC20';
     _ticketPriceCtrl.text = '0';
     _transferPriceCtrl.text = '0';
     unawaited(_load());
@@ -53,6 +62,14 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   @override
   void dispose() {
     _eventCtrl.dispose();
+    _paymentPhoneCtrl.dispose();
+    _paymentUsdtWalletCtrl.dispose();
+    _paymentUsdtNetworkCtrl.dispose();
+    _paymentUsdtMemoCtrl.dispose();
+    _phoneDescriptionCtrl.dispose();
+    _usdtDescriptionCtrl.dispose();
+    _qrDescriptionCtrl.dispose();
+    _sbpDescriptionCtrl.dispose();
     _ticketPriceCtrl.dispose();
     _transferPriceCtrl.dispose();
     _transferTimeCtrl.dispose();
@@ -80,6 +97,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     try {
       final repo = ref.read(ticketingRepositoryProvider);
       final results = await Future.wait<dynamic>([
+        repo.getAdminPaymentSettings(token: token),
         repo.listAdminTicketProducts(
             token: token, eventId: (eventId ?? 0) > 0 ? eventId : null),
         repo.listAdminTransferProducts(
@@ -87,8 +105,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       ]);
       if (!mounted) return;
       setState(() {
-        _ticketProducts = results[0] as List<TicketProductModel>;
-        _transferProducts = results[1] as List<TransferProductModel>;
+        _applyPaymentSettings(results[0] as PaymentSettingsModel);
+        _ticketProducts = results[1] as List<TicketProductModel>;
+        _transferProducts = results[2] as List<TransferProductModel>;
         _loading = false;
       });
     } catch (error) {
@@ -189,6 +208,34 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  Future<void> _savePaymentSettings() async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final saved = await ref
+          .read(ticketingRepositoryProvider)
+          .upsertAdminPaymentSettings(
+            token: token,
+            phoneNumber: _paymentPhoneCtrl.text,
+            usdtWallet: _paymentUsdtWalletCtrl.text,
+            usdtNetwork: _paymentUsdtNetworkCtrl.text,
+            usdtMemo: _paymentUsdtMemoCtrl.text,
+            phoneDescription: _phoneDescriptionCtrl.text,
+            usdtDescription: _usdtDescriptionCtrl.text,
+            qrDescription: _qrDescriptionCtrl.text,
+            sbpDescription: _sbpDescriptionCtrl.text,
+          );
+      if (!mounted) return;
+      setState(() => _applyPaymentSettings(saved));
+      _showMessage('Payment settings saved');
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final body = _buildBody(context);
@@ -218,6 +265,101 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(_error!, style: const TextStyle(color: Colors.red)),
           ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Payment settings',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _paymentPhoneCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'PAYMENT_PHONE_NUMBER',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _paymentUsdtWalletCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'USDT TRC wallet',
+                    hintText: 'TRC20 wallet address',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _paymentUsdtNetworkCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'USDT network',
+                    hintText: 'TRC20',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _paymentUsdtMemoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'USDT memo/tag (optional)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _phoneDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description for PHONE payment',
+                    hintText:
+                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _usdtDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description for USDT payment',
+                    hintText:
+                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _qrDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description for PAYMENT_QR',
+                    hintText:
+                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _sbpDescriptionCtrl,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description for TOCHKA_SBP_QR',
+                    hintText:
+                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _savePaymentSettings,
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(_busy ? 'Please wait…' : 'Save payment settings'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         TextField(
           controller: _eventCtrl,
           keyboardType: TextInputType.number,
@@ -362,5 +504,17 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _applyPaymentSettings(PaymentSettingsModel settings) {
+    _paymentPhoneCtrl.text = settings.phoneNumber;
+    _paymentUsdtWalletCtrl.text = settings.usdtWallet;
+    _paymentUsdtNetworkCtrl.text =
+        settings.usdtNetwork.trim().isEmpty ? 'TRC20' : settings.usdtNetwork;
+    _paymentUsdtMemoCtrl.text = settings.usdtMemo;
+    _phoneDescriptionCtrl.text = settings.phoneDescription;
+    _usdtDescriptionCtrl.text = settings.usdtDescription;
+    _qrDescriptionCtrl.text = settings.qrDescription;
+    _sbpDescriptionCtrl.text = settings.sbpDescription;
   }
 }

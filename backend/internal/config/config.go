@@ -76,10 +76,10 @@ func Load() (*Config, error) {
 		TelegramUser:  os.Getenv("TELEGRAM_BOT_USERNAME"),
 		BaseURL:       getenv("BASE_URL", ""),
 		APIPublicURL:  getenv("API_PUBLIC_URL", ""),
-		PhoneNumber:   getenv("PHONE_NUMBER", ""),
-		USDTWallet:    getenv("USDT_WALLET", ""),
-		USDTNetwork:   getenv("USDT_NETWORK", "TRC20"),
-		USDTMemo:      getenv("USDT_MEMO", ""),
+		PhoneNumber:   getenvAny([]string{"PAYMENT_PHONE_NUMBER", "PHONE_NUMBER"}, ""),
+		USDTWallet:    getenvAny([]string{"PAYMENT_USDT_WALLET", "USDT_WALLET"}, ""),
+		USDTNetwork:   getenvAny([]string{"PAYMENT_USDT_NETWORK", "USDT_NETWORK"}, "TRC20"),
+		USDTMemo:      getenvAny([]string{"PAYMENT_USDT_MEMO", "USDT_MEMO"}, ""),
 		PaymentQRData: getenv("PAYMENT_QR_DATA", ""),
 		AdminLogin:    getenv("ADMIN_LOGIN", ""),
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
@@ -131,6 +131,15 @@ func Load() (*Config, error) {
 func getenv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return def
+}
+
+func getenvAny(keys []string, def string) string {
+	for _, key := range keys {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
 	}
 	return def
 }

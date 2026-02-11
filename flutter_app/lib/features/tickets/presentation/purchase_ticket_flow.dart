@@ -54,6 +54,7 @@ class PurchaseTicketFlow extends ConsumerStatefulWidget {
 
 class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
   EventProductsModel? _products;
+  PaymentSettingsModel? _paymentSettings;
   final Map<String, int> _ticketQuantities = <String, int>{};
   String? _selectedTransferId;
   int _transferQty = 1;
@@ -101,14 +102,21 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
     });
 
     try {
-      final products =
-          await ref.read(ticketingRepositoryProvider).getEventProducts(
-                token: token,
-                eventId: widget.eventId,
-              );
+      final repo = ref.read(ticketingRepositoryProvider);
+      final products = await repo.getEventProducts(
+        token: token,
+        eventId: widget.eventId,
+      );
+      PaymentSettingsModel? paymentSettings;
+      try {
+        paymentSettings = await repo.getPaymentSettings(token: token);
+      } catch (_) {
+        paymentSettings = null;
+      }
       if (!mounted) return;
       setState(() {
         _products = products;
+        _paymentSettings = paymentSettings;
         for (final ticket in products.tickets) {
           _ticketQuantities.putIfAbsent(ticket.id, () => 0);
         }
@@ -304,6 +312,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       return _PaymentCheckoutPage(
         paymentMethod: _paymentMethod,
         amountCents: _totalCents,
+        paymentSettings: _paymentSettings,
         onBack: () => setState(() => _showPaymentCheckout = false),
         onPaid: _submitting ? null : _submitOrder,
         submitting: _submitting,
@@ -512,6 +521,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
   }
 
   String _paymentSubtitle(String method) {
+    final custom = _paymentSettings?.descriptionForMethod(method).trim() ?? '';
+    if (custom.isNotEmpty) return custom;
     switch (method) {
       case 'USDT':
         return 'Кошелек + сеть + сумма';
@@ -1025,6 +1036,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
   const _PaymentCheckoutPage({
     required this.paymentMethod,
     required this.amountCents,
+    required this.paymentSettings,
     required this.onBack,
     required this.onPaid,
     required this.submitting,
@@ -1032,6 +1044,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
 
   final String paymentMethod;
   final int amountCents;
+  final PaymentSettingsModel? paymentSettings;
   final VoidCallback onBack;
   final VoidCallback? onPaid;
   final bool submitting;
@@ -1040,7 +1053,22 @@ class _PaymentCheckoutPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final title = _methodTitle(paymentMethod);
-    final subtitle = _methodSubtitle(paymentMethod);
+    final customSubtitle = paymentSettings?.descriptionForMethod(paymentMethod);
+    final subtitle = (customSubtitle ?? '').trim().isNotEmpty
+        ? customSubtitle!.trim()
+        : _methodSubtitle(paymentMethod);
+    final phoneNumber = (paymentSettings?.phoneNumber ?? '').trim().isNotEmpty
+        ? paymentSettings!.phoneNumber.trim()
+        : config.paymentPhoneNumber;
+    final usdtWallet = (paymentSettings?.usdtWallet ?? '').trim().isNotEmpty
+        ? paymentSettings!.usdtWallet.trim()
+        : config.paymentUsdtWallet;
+    final usdtNetwork = (paymentSettings?.usdtNetwork ?? '').trim().isNotEmpty
+        ? paymentSettings!.usdtNetwork.trim()
+        : config.paymentUsdtNetwork;
+    final usdtMemo = (paymentSettings?.usdtMemo ?? '').trim().isNotEmpty
+        ? paymentSettings!.usdtMemo.trim()
+        : config.paymentUsdtMemo;
     final isSbp = paymentMethod == 'TOCHKA_SBP_QR';
 
     return Scaffold(
@@ -1081,10 +1109,10 @@ class _PaymentCheckoutPage extends ConsumerWidget {
           const SizedBox(height: 12),
           _PaymentRequisitesBlock(
             paymentMethod: paymentMethod,
-            phoneNumber: config.paymentPhoneNumber,
-            usdtWallet: config.paymentUsdtWallet,
-            usdtNetwork: config.paymentUsdtNetwork,
-            usdtMemo: config.paymentUsdtMemo,
+            phoneNumber: phoneNumber,
+            usdtWallet: usdtWallet,
+            usdtNetwork: usdtNetwork,
+            usdtMemo: usdtMemo,
             qrData: config.paymentQrData,
           ),
           const SizedBox(height: 14),

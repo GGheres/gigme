@@ -84,6 +84,8 @@ flutter run -d chrome \
 - `USDT_NETWORK` - network label (default `TRC20`)
 - `USDT_MEMO` - optional memo/tag for USDT transfers
 - `PAYMENT_QR_DATA` - optional payment payload template for QR method (`{order_id}`, `{event_id}`, `{amount}`, `{amount_cents}` placeholders supported)
+- `PAYMENT_PHONE_NUMBER` / `PAYMENT_USDT_*` aliases are also supported on backend.
+- These payment fields can be overridden in Admin panel (`/space_app/admin` -> `Products` -> `Payment settings`).
 - `TOCHKA_CLIENT_ID` - Tochka OAuth client id
 - `TOCHKA_CLIENT_SECRET` - Tochka OAuth client secret
 - `TOCHKA_CUSTOMER_CODE` - optional Tochka customer/company context header
@@ -192,6 +194,7 @@ Implemented endpoints:
 - `POST /orders`
 - `POST /payments/sbp/qr/create`
 - `GET /payments/sbp/qr/{orderId}/status`
+- `GET /payments/settings`
 - `GET /orders/my`
 - `POST /orders/{id}/confirm` (admin only)
 - `POST /orders/{id}/cancel` (admin only)
@@ -220,6 +223,8 @@ Implemented endpoints:
 - `POST /admin/orders/{orderId}/confirm` (admin only)
 - `POST /admin/tickets/redeem` (admin only)
 - `GET /admin/stats` (admin only)
+- `GET /admin/payment-settings` (admin only)
+- `POST /admin/payment-settings` (admin only)
 - `GET /admin/products/tickets` / `POST /admin/products/tickets` / `PATCH /admin/products/tickets/{id}` / `DELETE /admin/products/tickets/{id}` (admin only)
 - `GET /admin/products/transfers` / `POST /admin/products/transfers` / `PATCH /admin/products/transfers/{id}` / `DELETE /admin/products/transfers/{id}` (admin only)
 - `GET /admin/promo-codes` / `POST /admin/promo-codes` / `PATCH /admin/promo-codes/{id}` / `DELETE /admin/promo-codes/{id}` (admin only)
@@ -227,7 +232,7 @@ Implemented endpoints:
 Promoted events are marked as featured and sorted to the top while `promoted_until` is in the future.
 
 ## Ticket purchase + QR validation
-- DB schema: apply migrations `infra/migrations/017_ticketing.up.sql` and `infra/migrations/018_sbp_tochka_payments.up.sql` (adds `PAID` status, `sbp_qr`, `payments`).
+- DB schema: apply migrations `infra/migrations/017_ticketing.up.sql`, `infra/migrations/018_sbp_tochka_payments.up.sql`, and `infra/migrations/019_payment_settings.up.sql` (adds `PAID` status, `sbp_qr`, `payments`, and editable payment settings).
 - Purchase flow:
   1. User opens event page, chooses tickets/transfer, optional promo, and payment method.
   2. For manual methods (`PHONE`, `USDT`, `PAYMENT_QR`) app uses `POST /orders` and waits for admin confirmation.

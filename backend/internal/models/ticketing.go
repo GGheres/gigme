@@ -160,6 +160,31 @@ type PaymentInstructions struct {
 	DisplayMessage string `json:"displayMessage"`
 }
 
+type PaymentSettings struct {
+	PhoneNumber      string     `json:"phoneNumber"`
+	USDTWallet       string     `json:"usdtWallet"`
+	USDTNetwork      string     `json:"usdtNetwork"`
+	USDTMemo         string     `json:"usdtMemo"`
+	PhoneDescription string     `json:"phoneDescription"`
+	USDTDescription  string     `json:"usdtDescription"`
+	QRDescription    string     `json:"qrDescription"`
+	SBPDescription   string     `json:"sbpDescription"`
+	UpdatedBy        *int64     `json:"updatedBy,omitempty"`
+	CreatedAt        *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
+}
+
+type PaymentSettingsPatch struct {
+	PhoneNumber      *string `json:"phoneNumber,omitempty"`
+	USDTWallet       *string `json:"usdtWallet,omitempty"`
+	USDTNetwork      *string `json:"usdtNetwork,omitempty"`
+	USDTMemo         *string `json:"usdtMemo,omitempty"`
+	PhoneDescription *string `json:"phoneDescription,omitempty"`
+	USDTDescription  *string `json:"usdtDescription,omitempty"`
+	QRDescription    *string `json:"qrDescription,omitempty"`
+	SBPDescription   *string `json:"sbpDescription,omitempty"`
+}
+
 type SbpQR struct {
 	ID         string    `json:"id"`
 	OrderID    string    `json:"orderId"`

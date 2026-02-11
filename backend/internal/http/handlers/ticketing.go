@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,6 +59,17 @@ type createSbpQRCodeRequest struct {
 	TransferItems []orderSelectionRequest `json:"transferItems"`
 	PromoCode     string                  `json:"promoCode"`
 	RedirectURL   string                  `json:"redirectUrl"`
+}
+
+type upsertPaymentSettingsRequest struct {
+	PhoneNumber      *string `json:"phoneNumber"`
+	USDTWallet       *string `json:"usdtWallet"`
+	USDTNetwork      *string `json:"usdtNetwork"`
+	USDTMemo         *string `json:"usdtMemo"`
+	PhoneDescription *string `json:"phoneDescription"`
+	USDTDescription  *string `json:"usdtDescription"`
+	QRDescription    *string `json:"qrDescription"`
+	SBPDescription   *string `json:"sbpDescription"`
 }
 
 type createSbpQRCodeResponse struct {
@@ -134,7 +146,8 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "create_order", err)
 		return
 	}
-	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	paymentSettings := h.loadPaymentSettings(ctx)
+	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	writeJSON(w, http.StatusCreated, detail)
 }
 
@@ -227,7 +240,8 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 		logger.Warn("create_sbp_qr", "status", "payment_upsert_failed", "order_id", detail.Order.ID, "error", err)
 	}
 
-	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	paymentSettings := h.loadPaymentSettings(ctx)
+	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	h.attachSBPInstructions(&detail, &sbpQR)
 	writeJSON(w, http.StatusCreated, createSbpQRCodeResponse{
 		Order: detail,
@@ -278,11 +292,12 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 		QRCID:       sbpQR.QRCID,
 		OrderStatus: strings.ToUpper(strings.TrimSpace(detail.Order.Status)),
 	}
+	paymentSettings := h.loadPaymentSettings(ctx)
 
 	if isPaidOrderStatus(detail.Order.Status) || isRedeemedOrderStatus(detail.Order.Status) {
 		response.PaymentStatus = "Accepted"
 		response.Paid = true
-		detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+		detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 		h.attachSBPInstructions(&detail, &sbpQR)
 		response.Detail = &detail
 		writeJSON(w, http.StatusOK, response)
@@ -341,7 +356,7 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 			h.handleTicketingError(logger, w, "sbp_status_confirm", err)
 			return
 		}
-		confirmedDetail.PaymentInstructions = h.buildPaymentInstructions(confirmedDetail.Order)
+		confirmedDetail.PaymentInstructions = h.buildPaymentInstructions(confirmedDetail.Order, paymentSettings)
 		h.attachSBPInstructions(&confirmedDetail, &sbpQR)
 		response.OrderStatus = confirmedDetail.Order.Status
 		response.Paid = true
@@ -529,7 +544,8 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "admin_get_order", err)
 		return
 	}
-	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	paymentSettings := h.loadPaymentSettings(ctx)
+	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
 		h.attachSBPInstructions(&detail, &sbpQR)
 	}
@@ -559,7 +575,8 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "admin_confirm_order", err)
 		return
 	}
-	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	paymentSettings := h.loadPaymentSettings(ctx)
+	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
 		h.attachSBPInstructions(&detail, &sbpQR)
 	}
@@ -604,7 +621,8 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "admin_cancel_order", err)
 		return
 	}
-	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order)
+	paymentSettings := h.loadPaymentSettings(ctx)
+	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	writeJSON(w, http.StatusOK, detail)
 }
 
@@ -704,6 +722,58 @@ func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
+}
+
+func (h *Handler) GetPaymentSettings(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx))
+}
+
+func (h *Handler) GetAdminPaymentSettings(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_get_payment_settings"); !ok {
+		return
+	}
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx))
+}
+
+func (h *Handler) UpsertAdminPaymentSettings(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_upsert_payment_settings"); !ok {
+		return
+	}
+	adminID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req upsertPaymentSettingsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if !req.hasAny() {
+		writeError(w, http.StatusBadRequest, "at least one field is required")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	current := h.loadPaymentSettings(ctx)
+	merged := mergePaymentSettings(current, req)
+	merged.UpdatedBy = &adminID
+
+	saved, err := h.repo.UpsertPaymentSettings(ctx, merged)
+	if err != nil {
+		logger.Error("admin_upsert_payment_settings", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, saved)
 }
 
 func (h *Handler) ListAdminTicketProducts(w http.ResponseWriter, r *http.Request) {
@@ -995,7 +1065,7 @@ func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) 
 	return nil
 }
 
-func (h *Handler) buildPaymentInstructions(order models.Order) models.PaymentInstructions {
+func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings models.PaymentSettings) models.PaymentInstructions {
 	amountText := formatAmount(order.TotalCents)
 	instructions := models.PaymentInstructions{
 		AmountCents: order.TotalCents,
@@ -1003,13 +1073,23 @@ func (h *Handler) buildPaymentInstructions(order models.Order) models.PaymentIns
 	}
 	switch order.PaymentMethod {
 	case models.PaymentMethodPhone:
-		instructions.PhoneNumber = strings.TrimSpace(h.cfg.PhoneNumber)
-		instructions.DisplayMessage = fmt.Sprintf("Transfer %s to phone number %s and click I paid.", amountText, instructions.PhoneNumber)
+		instructions.PhoneNumber = strings.TrimSpace(paymentSettings.PhoneNumber)
+		instructions.DisplayMessage = applyPaymentTextTemplate(
+			paymentSettings.PhoneDescription,
+			order,
+			amountText,
+			fmt.Sprintf("Transfer %s to phone number %s and click I paid.", amountText, instructions.PhoneNumber),
+		)
 	case models.PaymentMethodUSDT:
-		instructions.USDTWallet = strings.TrimSpace(h.cfg.USDTWallet)
-		instructions.USDTNetwork = strings.TrimSpace(h.cfg.USDTNetwork)
-		instructions.USDTMemo = strings.TrimSpace(h.cfg.USDTMemo)
-		instructions.DisplayMessage = fmt.Sprintf("Send %s USDT to %s (%s).", amountText, instructions.USDTWallet, instructions.USDTNetwork)
+		instructions.USDTWallet = strings.TrimSpace(paymentSettings.USDTWallet)
+		instructions.USDTNetwork = strings.TrimSpace(paymentSettings.USDTNetwork)
+		instructions.USDTMemo = strings.TrimSpace(paymentSettings.USDTMemo)
+		instructions.DisplayMessage = applyPaymentTextTemplate(
+			paymentSettings.USDTDescription,
+			order,
+			amountText,
+			fmt.Sprintf("Send %s USDT to %s (%s).", amountText, instructions.USDTWallet, instructions.USDTNetwork),
+		)
 	case models.PaymentMethodQR:
 		payload := strings.TrimSpace(h.cfg.PaymentQRData)
 		payload = strings.ReplaceAll(payload, "{order_id}", order.ID)
@@ -1017,13 +1097,121 @@ func (h *Handler) buildPaymentInstructions(order models.Order) models.PaymentIns
 		payload = strings.ReplaceAll(payload, "{amount_cents}", strconv.FormatInt(order.TotalCents, 10))
 		payload = strings.ReplaceAll(payload, "{amount}", amountText)
 		instructions.PaymentQRData = payload
-		instructions.DisplayMessage = "Scan payment QR code and click I paid."
+		instructions.DisplayMessage = applyPaymentTextTemplate(
+			paymentSettings.QRDescription,
+			order,
+			amountText,
+			"Scan payment QR code and click I paid.",
+		)
 	case models.PaymentMethodTochkaSBPQR:
-		instructions.DisplayMessage = "Scan SBP QR and complete payment in your bank app."
+		instructions.DisplayMessage = applyPaymentTextTemplate(
+			paymentSettings.SBPDescription,
+			order,
+			amountText,
+			"Scan SBP QR and complete payment in your bank app.",
+		)
 	default:
 		instructions.DisplayMessage = "Follow payment instructions and click I paid."
 	}
 	return instructions
+}
+
+func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSettings {
+	settings := models.PaymentSettings{
+		PhoneNumber: strings.TrimSpace(h.cfg.PhoneNumber),
+		USDTWallet:  strings.TrimSpace(h.cfg.USDTWallet),
+		USDTNetwork: strings.TrimSpace(h.cfg.USDTNetwork),
+		USDTMemo:    strings.TrimSpace(h.cfg.USDTMemo),
+	}
+	if strings.TrimSpace(settings.USDTNetwork) == "" {
+		settings.USDTNetwork = "TRC20"
+	}
+	stored, err := h.repo.GetPaymentSettings(ctx)
+	if err != nil {
+		return settings
+	}
+	if stored.UpdatedBy != nil {
+		if strings.TrimSpace(stored.USDTNetwork) == "" {
+			stored.USDTNetwork = "TRC20"
+		}
+		return stored
+	}
+
+	if strings.TrimSpace(stored.PhoneNumber) != "" {
+		settings.PhoneNumber = strings.TrimSpace(stored.PhoneNumber)
+	}
+	if strings.TrimSpace(stored.USDTWallet) != "" {
+		settings.USDTWallet = strings.TrimSpace(stored.USDTWallet)
+	}
+	if strings.TrimSpace(stored.USDTNetwork) != "" {
+		settings.USDTNetwork = strings.TrimSpace(stored.USDTNetwork)
+	}
+	if strings.TrimSpace(stored.USDTMemo) != "" {
+		settings.USDTMemo = strings.TrimSpace(stored.USDTMemo)
+	}
+	settings.PhoneDescription = strings.TrimSpace(stored.PhoneDescription)
+	settings.USDTDescription = strings.TrimSpace(stored.USDTDescription)
+	settings.QRDescription = strings.TrimSpace(stored.QRDescription)
+	settings.SBPDescription = strings.TrimSpace(stored.SBPDescription)
+	settings.UpdatedBy = stored.UpdatedBy
+	settings.CreatedAt = stored.CreatedAt
+	settings.UpdatedAt = stored.UpdatedAt
+	return settings
+}
+
+func mergePaymentSettings(current models.PaymentSettings, req upsertPaymentSettingsRequest) models.PaymentSettings {
+	merged := current
+	if req.PhoneNumber != nil {
+		merged.PhoneNumber = strings.TrimSpace(*req.PhoneNumber)
+	}
+	if req.USDTWallet != nil {
+		merged.USDTWallet = strings.TrimSpace(*req.USDTWallet)
+	}
+	if req.USDTNetwork != nil {
+		merged.USDTNetwork = strings.TrimSpace(*req.USDTNetwork)
+	}
+	if req.USDTMemo != nil {
+		merged.USDTMemo = strings.TrimSpace(*req.USDTMemo)
+	}
+	if req.PhoneDescription != nil {
+		merged.PhoneDescription = strings.TrimSpace(*req.PhoneDescription)
+	}
+	if req.USDTDescription != nil {
+		merged.USDTDescription = strings.TrimSpace(*req.USDTDescription)
+	}
+	if req.QRDescription != nil {
+		merged.QRDescription = strings.TrimSpace(*req.QRDescription)
+	}
+	if req.SBPDescription != nil {
+		merged.SBPDescription = strings.TrimSpace(*req.SBPDescription)
+	}
+	if strings.TrimSpace(merged.USDTNetwork) == "" {
+		merged.USDTNetwork = "TRC20"
+	}
+	return merged
+}
+
+func (r upsertPaymentSettingsRequest) hasAny() bool {
+	return r.PhoneNumber != nil ||
+		r.USDTWallet != nil ||
+		r.USDTNetwork != nil ||
+		r.USDTMemo != nil ||
+		r.PhoneDescription != nil ||
+		r.USDTDescription != nil ||
+		r.QRDescription != nil ||
+		r.SBPDescription != nil
+}
+
+func applyPaymentTextTemplate(template string, order models.Order, amountText string, fallback string) string {
+	out := strings.TrimSpace(template)
+	if out == "" {
+		return fallback
+	}
+	out = strings.ReplaceAll(out, "{order_id}", strings.TrimSpace(order.ID))
+	out = strings.ReplaceAll(out, "{event_id}", strconv.FormatInt(order.EventID, 10))
+	out = strings.ReplaceAll(out, "{amount_cents}", strconv.FormatInt(order.TotalCents, 10))
+	out = strings.ReplaceAll(out, "{amount}", amountText)
+	return out
 }
 
 func (h *Handler) handleTicketingError(logger interface {

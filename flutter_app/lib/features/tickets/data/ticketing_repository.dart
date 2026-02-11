@@ -85,6 +85,58 @@ class TicketingRepository {
         );
   }
 
+  Future<PaymentSettingsModel> getPaymentSettings({
+    required String token,
+  }) {
+    return _ref.read(apiClientProvider).get<PaymentSettingsModel>(
+          '/payments/settings',
+          token: token,
+          decoder: PaymentSettingsModel.fromJson,
+          retry: false,
+        );
+  }
+
+  Future<PaymentSettingsModel> getAdminPaymentSettings({
+    required String token,
+  }) {
+    return _ref.read(apiClientProvider).get<PaymentSettingsModel>(
+          '/admin/payment-settings',
+          token: token,
+          decoder: PaymentSettingsModel.fromJson,
+          retry: false,
+        );
+  }
+
+  Future<PaymentSettingsModel> upsertAdminPaymentSettings({
+    required String token,
+    String? phoneNumber,
+    String? usdtWallet,
+    String? usdtNetwork,
+    String? usdtMemo,
+    String? phoneDescription,
+    String? usdtDescription,
+    String? qrDescription,
+    String? sbpDescription,
+  }) {
+    return _ref.read(apiClientProvider).post<PaymentSettingsModel>(
+          '/admin/payment-settings',
+          token: token,
+          body: <String, dynamic>{
+            if (phoneNumber != null) 'phoneNumber': phoneNumber.trim(),
+            if (usdtWallet != null) 'usdtWallet': usdtWallet.trim(),
+            if (usdtNetwork != null) 'usdtNetwork': usdtNetwork.trim(),
+            if (usdtMemo != null) 'usdtMemo': usdtMemo.trim(),
+            if (phoneDescription != null)
+              'phoneDescription': phoneDescription.trim(),
+            if (usdtDescription != null)
+              'usdtDescription': usdtDescription.trim(),
+            if (qrDescription != null) 'qrDescription': qrDescription.trim(),
+            if (sbpDescription != null) 'sbpDescription': sbpDescription.trim(),
+          },
+          decoder: PaymentSettingsModel.fromJson,
+        );
+  }
+
   Future<OrdersListModel> listMyOrders({
     required String token,
     int limit = 50,

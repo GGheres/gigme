@@ -233,6 +233,57 @@ class PaymentInstructionsModel {
   }
 }
 
+class PaymentSettingsModel {
+  PaymentSettingsModel({
+    required this.phoneNumber,
+    required this.usdtWallet,
+    required this.usdtNetwork,
+    required this.usdtMemo,
+    required this.phoneDescription,
+    required this.usdtDescription,
+    required this.qrDescription,
+    required this.sbpDescription,
+  });
+
+  final String phoneNumber;
+  final String usdtWallet;
+  final String usdtNetwork;
+  final String usdtMemo;
+  final String phoneDescription;
+  final String usdtDescription;
+  final String qrDescription;
+  final String sbpDescription;
+
+  factory PaymentSettingsModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return PaymentSettingsModel(
+      phoneNumber: asString(map['phoneNumber']),
+      usdtWallet: asString(map['usdtWallet']),
+      usdtNetwork: asString(map['usdtNetwork']),
+      usdtMemo: asString(map['usdtMemo']),
+      phoneDescription: asString(map['phoneDescription']),
+      usdtDescription: asString(map['usdtDescription']),
+      qrDescription: asString(map['qrDescription']),
+      sbpDescription: asString(map['sbpDescription']),
+    );
+  }
+
+  String descriptionForMethod(String method) {
+    switch (method.toUpperCase()) {
+      case 'PHONE':
+        return phoneDescription;
+      case 'USDT':
+        return usdtDescription;
+      case 'PAYMENT_QR':
+        return qrDescription;
+      case 'TOCHKA_SBP_QR':
+        return sbpDescription;
+      default:
+        return '';
+    }
+  }
+}
+
 class OrderModel {
   OrderModel({
     required this.id,

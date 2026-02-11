@@ -32,6 +32,53 @@ type queryRunner interface {
 	QueryRow(context.Context, string, ...interface{}) pgx.Row
 }
 
+func (r *Repository) GetPaymentSettings(ctx context.Context) (models.PaymentSettings, error) {
+	row := r.pool.QueryRow(ctx, `
+SELECT phone_number, usdt_wallet, usdt_network, usdt_memo,
+	phone_description, usdt_description, qr_description, sbp_description,
+	updated_by, created_at, updated_at
+FROM payment_settings
+WHERE id = 1;`)
+
+	return scanPaymentSettingsRow(row)
+}
+
+func (r *Repository) UpsertPaymentSettings(ctx context.Context, in models.PaymentSettings) (models.PaymentSettings, error) {
+	row := r.pool.QueryRow(ctx, `
+INSERT INTO payment_settings (
+	id, phone_number, usdt_wallet, usdt_network, usdt_memo,
+	phone_description, usdt_description, qr_description, sbp_description, updated_by
+) VALUES (
+	1, $1, $2, $3, $4, $5, $6, $7, $8, $9
+)
+ON CONFLICT (id) DO UPDATE SET
+	phone_number = EXCLUDED.phone_number,
+	usdt_wallet = EXCLUDED.usdt_wallet,
+	usdt_network = EXCLUDED.usdt_network,
+	usdt_memo = EXCLUDED.usdt_memo,
+	phone_description = EXCLUDED.phone_description,
+	usdt_description = EXCLUDED.usdt_description,
+	qr_description = EXCLUDED.qr_description,
+	sbp_description = EXCLUDED.sbp_description,
+	updated_by = EXCLUDED.updated_by,
+	updated_at = now()
+RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
+	phone_description, usdt_description, qr_description, sbp_description,
+	updated_by, created_at, updated_at;`,
+		strings.TrimSpace(in.PhoneNumber),
+		strings.TrimSpace(in.USDTWallet),
+		strings.TrimSpace(in.USDTNetwork),
+		strings.TrimSpace(in.USDTMemo),
+		strings.TrimSpace(in.PhoneDescription),
+		strings.TrimSpace(in.USDTDescription),
+		strings.TrimSpace(in.QRDescription),
+		strings.TrimSpace(in.SBPDescription),
+		nullInt64Ptr(in.UpdatedBy),
+	)
+
+	return scanPaymentSettingsRow(row)
+}
+
 func (r *Repository) ListTicketProducts(ctx context.Context, eventID *int64, active *bool) ([]models.TicketProduct, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT id::text, event_id, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
@@ -1675,6 +1722,39 @@ func scanTicket(row pgx.Row) (models.Ticket, error) {
 		value := redeemedBy.Int64
 		out.RedeemedBy = &value
 	}
+	return out, nil
+}
+
+func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
+	var out models.PaymentSettings
+	var updatedBy sql.NullInt64
+	var createdAt sql.NullTime
+	var updatedAt sql.NullTime
+	if err := row.Scan(
+		&out.PhoneNumber,
+		&out.USDTWallet,
+		&out.USDTNetwork,
+		&out.USDTMemo,
+		&out.PhoneDescription,
+		&out.USDTDescription,
+		&out.QRDescription,
+		&out.SBPDescription,
+		&updatedBy,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			out.USDTNetwork = "TRC20"
+			return out, nil
+		}
+		return out, err
+	}
+	if strings.TrimSpace(out.USDTNetwork) == "" {
+		out.USDTNetwork = "TRC20"
+	}
+	out.UpdatedBy = nullInt64ToPtr(updatedBy)
+	out.CreatedAt = nullTimeToPtr(createdAt)
+	out.UpdatedAt = nullTimeToPtr(updatedAt)
 	return out, nil
 }
 
