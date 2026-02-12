@@ -541,6 +541,8 @@ class AdminStatsBreakdownModel {
     required this.eventTitle,
     required this.purchasedAmountCents,
     required this.redeemedAmountCents,
+    required this.checkedInTickets,
+    required this.checkedInPeople,
     required this.ticketTypeCounts,
     required this.transferDirectionCounts,
   });
@@ -549,6 +551,8 @@ class AdminStatsBreakdownModel {
   final String eventTitle;
   final int purchasedAmountCents;
   final int redeemedAmountCents;
+  final int checkedInTickets;
+  final int checkedInPeople;
   final Map<String, int> ticketTypeCounts;
   final Map<String, int> transferDirectionCounts;
 
@@ -559,6 +563,8 @@ class AdminStatsBreakdownModel {
       eventTitle: asString(map['eventTitle']),
       purchasedAmountCents: asInt(map['purchasedAmountCents']),
       redeemedAmountCents: asInt(map['redeemedAmountCents']),
+      checkedInTickets: asInt(map['checkedInTickets']),
+      checkedInPeople: asInt(map['checkedInPeople']),
       ticketTypeCounts: _parseCountMap(map['ticketTypeCounts']),
       transferDirectionCounts: _parseCountMap(map['transferDirectionCounts']),
     );

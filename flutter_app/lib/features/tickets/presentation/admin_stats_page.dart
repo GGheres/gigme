@@ -135,6 +135,8 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
             const SizedBox(height: 6),
             Text('Purchased amount: ${formatMoney(item.purchasedAmountCents)}'),
             Text('Redeemed amount: ${formatMoney(item.redeemedAmountCents)}'),
+            Text('Checked-in tickets: ${item.checkedInTickets}'),
+            Text('Checked-in people: ${item.checkedInPeople}'),
             const SizedBox(height: 6),
             Text('Ticket counts: ${item.ticketTypeCounts}'),
             Text('Transfer counts: ${item.transferDirectionCounts}'),

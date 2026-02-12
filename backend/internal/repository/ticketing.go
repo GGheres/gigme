@@ -1442,6 +1442,85 @@ ORDER BY o.created_at DESC;`, nullInt64Ptr(eventID))
 			TransferDirectionCounts: bucket.TransferDirectionCounts,
 		})
 	}
+
+	eventIndex := make(map[int64]int, len(result.Events))
+	for i, item := range result.Events {
+		if item.EventID != nil {
+			eventIndex[*item.EventID] = i
+		}
+	}
+
+	checkInRows, err := r.pool.Query(ctx, `
+SELECT
+	t.event_id,
+	COALESCE(e.title, ''),
+	count(*) FILTER (WHERE t.redeemed_at IS NOT NULL) AS checked_in_tickets,
+	COALESCE(sum(t.quantity) FILTER (WHERE t.redeemed_at IS NOT NULL), 0) AS checked_in_people
+FROM tickets t
+LEFT JOIN events e ON e.id = t.event_id
+WHERE ($1::bigint IS NULL OR t.event_id = $1)
+GROUP BY t.event_id, e.title
+ORDER BY t.event_id ASC;`, nullInt64Ptr(eventID))
+	if err != nil {
+		return models.TicketStats{}, err
+	}
+	defer checkInRows.Close()
+
+	for checkInRows.Next() {
+		var eid int64
+		var title string
+		var checkedInTickets int64
+		var checkedInPeople int64
+		if err := checkInRows.Scan(&eid, &title, &checkedInTickets, &checkedInPeople); err != nil {
+			return models.TicketStats{}, err
+		}
+
+		result.Global.CheckedInTickets += checkedInTickets
+		result.Global.CheckedInPeople += checkedInPeople
+
+		if idx, ok := eventIndex[eid]; ok {
+			result.Events[idx].CheckedInTickets = checkedInTickets
+			result.Events[idx].CheckedInPeople = checkedInPeople
+			if result.Events[idx].EventTitle == "" {
+				result.Events[idx].EventTitle = title
+			}
+			continue
+		}
+
+		eventIDVal := eid
+		result.Events = append(result.Events, models.TicketStatsBreakdown{
+			EventID:          &eventIDVal,
+			EventTitle:       title,
+			CheckedInTickets: checkedInTickets,
+			CheckedInPeople:  checkedInPeople,
+			TicketTypeCounts: map[string]int64{
+				models.TicketTypeSingle:  0,
+				models.TicketTypeGroup2:  0,
+				models.TicketTypeGroup10: 0,
+			},
+			TransferDirectionCounts: map[string]int64{
+				models.TransferDirectionThere:     0,
+				models.TransferDirectionBack:      0,
+				models.TransferDirectionRoundTrip: 0,
+			},
+		})
+	}
+	if err := checkInRows.Err(); err != nil {
+		return models.TicketStats{}, err
+	}
+
+	sort.Slice(result.Events, func(i, j int) bool {
+		left := int64(0)
+		right := int64(0)
+		if result.Events[i].EventID != nil {
+			left = *result.Events[i].EventID
+		}
+		if result.Events[j].EventID != nil {
+			right = *result.Events[j].EventID
+		}
+		return left < right
+	})
+
 	return result, nil
 }
 

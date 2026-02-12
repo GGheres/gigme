@@ -308,6 +308,8 @@ type TicketStatsBreakdown struct {
 	EventTitle              string           `json:"eventTitle,omitempty"`
 	PurchasedAmountCents    int64            `json:"purchasedAmountCents"`
 	RedeemedAmountCents     int64            `json:"redeemedAmountCents"`
+	CheckedInTickets        int64            `json:"checkedInTickets"`
+	CheckedInPeople         int64            `json:"checkedInPeople"`
 	TicketTypeCounts        map[string]int64 `json:"ticketTypeCounts"`
 	TransferDirectionCounts map[string]int64 `json:"transferDirectionCounts"`
 }

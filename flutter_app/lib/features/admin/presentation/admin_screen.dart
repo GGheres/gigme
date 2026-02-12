@@ -14,6 +14,7 @@ import '../../../core/widgets/premium_loading_view.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/presentation/admin_orders_page.dart';
 import '../../tickets/presentation/admin_products_page.dart';
+import '../../tickets/presentation/admin_qr_scanner_page.dart';
 import '../../tickets/presentation/admin_stats_page.dart';
 import '../data/admin_repository.dart';
 
@@ -120,7 +121,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -206,6 +207,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             Tab(text: 'Broadcasts'),
             Tab(text: 'Parser'),
             Tab(text: 'Orders'),
+            Tab(text: 'Scanner'),
             Tab(text: 'Products'),
             Tab(text: 'Stats'),
             Tab(text: 'Landing'),
@@ -219,6 +221,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           _buildBroadcastsTab(),
           _buildParserTab(),
           const AdminOrdersPage(embedded: true),
+          const AdminQrScannerPage(embedded: true),
           const AdminProductsPage(embedded: true),
           const AdminStatsPage(embedded: true),
           _buildLandingTab(),
