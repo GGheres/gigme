@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/models/landing_content.dart';
@@ -19,7 +20,6 @@ import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
 import '../../../ui/components/app_section_header.dart';
-import '../../../ui/layout/spiral_text_background.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -33,9 +33,12 @@ class LandingScreen extends ConsumerStatefulWidget {
   ConsumerState<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends ConsumerState<LandingScreen> {
+class _LandingScreenState extends ConsumerState<LandingScreen>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController =
       ScrollController(keepScrollOffset: false);
+  final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
+  late final AnimationController _matrixPulseController;
   bool _didForceInitialTop = false;
 
   bool _loading = false;
@@ -47,9 +50,16 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
   @override
   void initState() {
     super.initState();
+    _matrixPulseController = AnimationController(
+      vsync: this,
+      duration: Duration(
+        milliseconds: (LandingLayoutConfig.effectsTimelineSec * 1000).round(),
+      ),
+    )..repeat();
     if (kIsWeb) {
       TelegramWebAppBridge.readyAndExpand();
     }
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _forceScrollTop();
     });
@@ -58,12 +68,16 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _scrollOffset.dispose();
+    _matrixPulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = LandingLayoutConfig.shouldReduceMotion(context);
     final apiUrl = ref.watch(appConfigProvider).apiUrl;
 
     return AppScaffold(
@@ -92,40 +106,19 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    const Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: <Color>[
-                              Color(0xFF060B1D),
-                              Color(0xFF040814),
-                              Color(0xFF050A16),
-                            ],
-                            stops: <double>[0, 0.45, 1],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Align(
-                      alignment: Alignment.topCenter,
-                      child: SpiralTextBackground(
-                        text: SpiralTextBackground.defaultText,
-                        bandHeight: 420,
-                        baseFontSize: 32,
-                        fontWeight: FontWeight.w600,
-                        spiralTurns: 4.5,
-                        spiralSpacing: 22,
-                        rotationSpeed: 0.12,
-                        opacity: 0.22,
-                        color: Colors.white,
-                        parallax: true,
-                        bubbleRate: 2.0,
-                        bubbleStrength: 0.45,
-                        bubbleMinRadius: 0.04,
-                        bubbleMaxRadius: 0.16,
-                        quality: Quality.high,
+                    BreathingTextFrame(
+                      text: LandingLayoutConfig.frameTickerText,
+                      timeline: _matrixPulseController,
+                      reduceMotion: reduceMotion,
+                      enableShimmer: true,
+                      enableGrain: true,
+                      child: _LandingParallaxCanvas(
+                        scrollOffset: _scrollOffset,
+                        canvasHeight: canvasHeight,
+                        viewport: viewport,
+                        quietZoneLeft: quietZoneLeft,
+                        quietZoneWidth: quietZoneWidth,
+                        reduceMotion: reduceMotion,
                       ),
                     ),
                     _LandingForeground(
@@ -164,6 +157,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
     );
   }
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final next = _scrollController.offset;
+    if ((_scrollOffset.value - next).abs() < 0.5) return;
+    _scrollOffset.value = next;
+  }
+
   ScrollPhysics _scrollPhysicsForContext(BuildContext context) {
     final isTelegramWeb = kIsWeb && TelegramWebAppBridge.isAvailable();
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
@@ -185,6 +185,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen> {
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
+    _scrollOffset.value = 0;
   }
 
   Future<void> _load() async {
@@ -357,9 +358,8 @@ class LandingLayoutConfig {
   static const bool forceReduceMotion = false;
   static const String frameTickerText =
       'SPACE • EVENT • 31–3 AUG • SPACE • EVENT • ';
-  static const String backgroundAssetPath = kIsWeb
-      ? 'assets/images/landing/99_web.jpg'
-      : 'assets/images/landing/99.png';
+  static const String backgroundVideoAssetPath =
+      'assets/videos/landing/IMG_9645.webm';
 
   static bool isDesktop(double width) => width >= desktopBreakpoint;
   static bool isTablet(double width) =>
@@ -1208,7 +1208,6 @@ class _LandingEventCompactCard extends StatelessWidget {
   }
 }
 
-// ignore: unused_element
 class _LandingParallaxCanvas extends StatelessWidget {
   const _LandingParallaxCanvas({
     required this.scrollOffset,
@@ -1234,32 +1233,9 @@ class _LandingParallaxCanvas extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: <Color>[
-                Color(0xFF060B1D),
-                Color(0xFF040814),
-                Color(0xFF050A16),
-              ],
-              stops: <double>[0, 0.45, 1],
-            ),
-          ),
-        ),
-        _ParallaxLayer(
-          scrollOffset: scrollOffset,
-          factor: LandingLayoutConfig.parallaxFactor(
-            layer: 'farStars',
-            reduceMotion: reduceMotion,
-          ),
-          overflow: overflow,
-          child: Image.asset(
-            LandingLayoutConfig.backgroundAssetPath,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            filterQuality: FilterQuality.medium,
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: _LandingVideoBackground(),
           ),
         ),
         _ParallaxLayer(
@@ -1307,6 +1283,93 @@ class _LandingParallaxCanvas extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LandingVideoBackground extends StatefulWidget {
+  const _LandingVideoBackground();
+
+  @override
+  State<_LandingVideoBackground> createState() =>
+      _LandingVideoBackgroundState();
+}
+
+class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
+  VideoPlayerController? _controller;
+  Object? _initError;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initializeVideo());
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeVideo() async {
+    final controller = VideoPlayerController.asset(
+      LandingLayoutConfig.backgroundVideoAssetPath,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+
+    try {
+      await controller.initialize();
+      await controller.setLooping(true);
+      await controller.setVolume(0);
+      await controller.play();
+    } catch (error) {
+      await controller.dispose();
+      if (!mounted) return;
+      setState(() => _initError = error);
+      return;
+    }
+
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
+    setState(() {
+      _controller = controller;
+      _initError = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        _initError != null) {
+      return const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              Color(0xFF060B1D),
+              Color(0xFF040814),
+              Color(0xFF050A16),
+            ],
+            stops: <double>[0, 0.45, 1],
+          ),
+        ),
+      );
+    }
+
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
+      ),
     );
   }
 }

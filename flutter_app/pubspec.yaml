@@ -22,6 +22,7 @@ dependencies:
   image_picker: ^1.1.2
   intl: ^0.20.1
   url_launcher: ^6.3.1
+  video_player: ^2.9.2
   share_plus: ^10.1.2
   app_links: ^6.3.2
   firebase_core: ^3.10.0
@@ -41,5 +42,6 @@ flutter:
   assets:
     - assets/images/landing/99.png
     - assets/images/landing/99_web.jpg
+    - assets/videos/landing/IMG_9645.webm
   shaders:
     - assets/shaders/bubble_warp.frag

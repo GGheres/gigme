@@ -34,7 +34,7 @@ class SpiralTextBackground extends StatefulWidget {
   });
 
   static const String defaultText =
-      'SPACE EVENТ 31 - 3 AUG THE BEST PARTY OF MY LIFE LOVE DANCE ART SUMMER';
+      'SPACE EVENT 31 - 3 AUG THE BEST PARTY OF MY LIFE LOVE DANCE ART SUMMER';
 
   final String text;
   final double bandHeight;
@@ -80,8 +80,8 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
   ui.Image? _spiralImage;
   _SpiralCacheSignature? _cacheSignature;
   int _cacheGeneration = 0;
-  bool _cacheRenderInProgress = false;
 
+  ui.FragmentProgram? _fragmentProgram;
   ui.FragmentShader? _fragmentShader;
   bool _shaderLoadAttempted = false;
 
@@ -148,6 +148,7 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _fragmentShader = null;
+    _fragmentProgram = null;
     _spiralImage?.dispose();
     super.dispose();
   }
@@ -163,8 +164,7 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
         final height = widget.bandHeight.clamp(120.0, 1200.0);
         final size = Size(width, height);
 
-        _ensureSpiralCache(
-            size: size, devicePixelRatio: media.devicePixelRatio);
+        _ensureSpiralCache(size: size, devicePixelRatio: media.devicePixelRatio);
         _packUniforms(size: size);
 
         return SizedBox(
@@ -173,8 +173,7 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
           child: MouseRegion(
             opaque: false,
             onHover: widget.parallax && !_reduceMotion
-                ? (event) =>
-                    _onPointerMove(position: event.localPosition, size: size)
+                ? (event) => _onPointerMove(position: event.localPosition, size: size)
                 : null,
             onExit: widget.parallax
                 ? (_) {
@@ -226,11 +225,13 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
       final program = await ui.FragmentProgram.fromAsset(_shaderAssetPath);
       if (!mounted) return;
       setState(() {
+        _fragmentProgram = program;
         _fragmentShader = program.fragmentShader();
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        _fragmentProgram = null;
         _fragmentShader = null;
       });
     }
@@ -239,7 +240,6 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
   void _invalidateCache() {
     _cacheSignature = null;
     _cacheGeneration += 1;
-    _cacheRenderInProgress = false;
     _spiralImage?.dispose();
     _spiralImage = null;
   }
@@ -268,14 +268,11 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
       color: widget.color,
     );
 
-    if (_cacheSignature == signature) {
-      if (_spiralImage != null || _cacheRenderInProgress) {
-        return;
-      }
+    if (_cacheSignature == signature && _spiralImage != null) {
+      return;
     }
 
     _cacheSignature = signature;
-    _cacheRenderInProgress = true;
     final generation = ++_cacheGeneration;
     unawaited(_renderSpiralCache(signature: signature, generation: generation));
   }
@@ -284,46 +281,37 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
     required _SpiralCacheSignature signature,
     required int generation,
   }) async {
-    try {
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      canvas.scale(signature.pixelRatio, signature.pixelRatio);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.scale(signature.pixelRatio, signature.pixelRatio);
 
-      final painter = SpiralPainter(
-        text: signature.text,
-        baseFontSize: signature.baseFontSize,
-        fontWeight: signature.fontWeight,
-        fontFamily: signature.fontFamily,
-        spiralTurns: signature.spiralTurns,
-        spiralSpacing: signature.spiralSpacing,
-        color: signature.color,
-      );
-      painter.paint(canvas, signature.size);
+    final painter = SpiralPainter(
+      text: signature.text,
+      baseFontSize: signature.baseFontSize,
+      fontWeight: signature.fontWeight,
+      fontFamily: signature.fontFamily,
+      spiralTurns: signature.spiralTurns,
+      spiralSpacing: signature.spiralSpacing,
+      color: signature.color,
+    );
+    painter.paint(canvas, signature.size);
 
-      final picture = recorder.endRecording();
-      final image = await picture.toImage(
-        signature.widthPx,
-        signature.heightPx,
-      );
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      signature.widthPx,
+      signature.heightPx,
+    );
 
-      if (!mounted || generation != _cacheGeneration) {
-        image.dispose();
-        return;
-      }
-
-      final previous = _spiralImage;
-      setState(() {
-        _spiralImage = image;
-        _cacheRenderInProgress = false;
-      });
-      previous?.dispose();
-    } catch (_) {
-      if (mounted && generation == _cacheGeneration) {
-        setState(() {
-          _cacheRenderInProgress = false;
-        });
-      }
+    if (!mounted || generation != _cacheGeneration) {
+      image.dispose();
+      return;
     }
+
+    final previous = _spiralImage;
+    setState(() {
+      _spiralImage = image;
+    });
+    previous?.dispose();
   }
 
   void _onTick(Duration elapsed) {
@@ -391,11 +379,9 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
     final y = (0.26 + (centerBias * 0.48)).clamp(0.04, 0.96);
     final x = _random.nextDouble();
 
-    final minRadius = widget.bubbleMinRadius.clamp(0.01, 0.25);
-    final maxRadius = widget.bubbleMaxRadius.clamp(0.02, 0.30);
     final radius = _lerp(
-      math.min(minRadius, maxRadius),
-      math.max(minRadius, maxRadius),
+      widget.bubbleMinRadius.clamp(0.01, 0.25),
+      widget.bubbleMaxRadius.clamp(0.02, 0.30),
       _random.nextDouble(),
     );
 
@@ -527,7 +513,7 @@ class _SpiralTextBackgroundPainter extends CustomPainter {
       imageValue.width.toDouble(),
       imageValue.height.toDouble(),
     );
-    const drawScale = 1.34;
+    final drawScale = 1.34;
     final dstRect = Rect.fromCenter(
       center: Offset.zero,
       width: size.width * drawScale,
@@ -592,14 +578,11 @@ class SpiralPainter extends CustomPainter {
     for (var i = 0; i < words.length; i++) {
       final segment = i == words.length - 1 ? '${words[i]}   ' : '${words[i]} ';
       final paragraph = _buildParagraph(segment);
-      runs.add(_SpiralTextRun(
-          paragraph: paragraph, width: paragraph.maxIntrinsicWidth));
+      runs.add(_SpiralTextRun(paragraph: paragraph, width: paragraph.maxIntrinsicWidth));
     }
 
     final center = Offset(size.width / 2, size.height / 2);
-    final maxRadius =
-        math.sqrt((size.width * size.width) + (size.height * size.height)) *
-            0.62;
+    final maxRadius = math.sqrt((size.width * size.width) + (size.height * size.height)) * 0.62;
     final turns = spiralTurns.clamp(1.0, 12.0);
     final thetaMax = turns * math.pi * 2;
     final b = spiralSpacing.clamp(8.0, 56.0);
@@ -630,15 +613,14 @@ class SpiralPainter extends CustomPainter {
         canvas.save();
         canvas.translate(point.dx, point.dy);
         canvas.rotate(tangentAngle);
-        canvas.drawParagraph(
-          run.paragraph,
+        run.paragraph.paint(
+          canvas,
           Offset(-(run.width / 2), -baseFontSize * 0.58),
         );
         canvas.restore();
 
         final ds = run.width + (baseFontSize * 0.22);
-        final denom =
-            math.sqrt((radius * radius) + (b * b)).clamp(1.0, double.infinity);
+        final denom = math.sqrt((radius * radius) + (b * b)).clamp(1.0, double.infinity);
         final dTheta = (ds / denom).clamp(0.012, 0.82);
         theta += dTheta;
         runIndex = (runIndex + 1) % runs.length;

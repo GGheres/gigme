@@ -18,34 +18,6 @@ Flutter migration of GigMe frontend with unchanged Go backend contracts.
 - `lib/integrations/telegram` - JS bridge for Telegram WebApp
 - `lib/core/notifications` - FCM bootstrap scaffold (standalone mode)
 
-## Spiral text background
-
-`SpiralTextBackground` is a reusable animated background band with:
-- cached spiral text render (`CustomPaint` + `SpiralPainter`)
-- bubble-style local distortion via fragment shader (`assets/shaders/bubble_warp.frag`)
-- reduced motion fallback (static render when animations are disabled)
-
-Usage:
-
-```dart
-Stack(
-  children: [
-    const Positioned.fill(
-      child: DecoratedBox(decoration: BoxDecoration(color: Colors.black)),
-    ),
-    const Align(
-      alignment: Alignment.topCenter,
-      child: SpiralTextBackground(
-        text: SpiralTextBackground.defaultText,
-        bandHeight: 420,
-        quality: Quality.high,
-      ),
-    ),
-    // foreground content here
-  ],
-)
-```
-
 ## Environment (`--dart-define`)
 
 - `API_URL` (default `/api`)
