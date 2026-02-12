@@ -111,7 +111,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       timeline: _matrixPulseController,
                       reduceMotion: reduceMotion,
                       enableShimmer: true,
-                      enableGrain: true,
+                      enableGrain: false,
                       child: _LandingParallaxCanvas(
                         scrollOffset: _scrollOffset,
                         canvasHeight: canvasHeight,
