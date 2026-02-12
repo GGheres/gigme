@@ -978,6 +978,10 @@ WHERE id = $1::uuid
 		}
 
 		if isPendingOrderStatus(orderStatus) {
+			paidStatus, err := resolveOrderPaidStatus(ctx, tx)
+			if err != nil {
+				return err
+			}
 			itemRows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
@@ -1038,7 +1042,7 @@ SET status = $2,
 	confirmed_at = now(),
 	confirmed_by = $3,
 	updated_at = now()
-WHERE id = $1::uuid AND status = $4;`, orderID, models.OrderStatusPaid, confirmedBy, models.OrderStatusPending)
+WHERE id = $1::uuid AND status = $4;`, orderID, paidStatus, confirmedBy, models.OrderStatusPending)
 			if err != nil {
 				return err
 			}
@@ -1800,6 +1804,24 @@ func isValidPaymentMethod(method string) bool {
 	default:
 		return false
 	}
+}
+
+func resolveOrderPaidStatus(ctx context.Context, q queryRunner) (string, error) {
+	var supportsPaid bool
+	if err := q.QueryRow(ctx, `
+SELECT EXISTS (
+	SELECT 1
+	FROM pg_constraint
+	WHERE conrelid = 'orders'::regclass
+		AND contype = 'c'
+		AND pg_get_constraintdef(oid) ILIKE '%PAID%'
+);`).Scan(&supportsPaid); err != nil {
+		return "", err
+	}
+	if supportsPaid {
+		return models.OrderStatusPaid, nil
+	}
+	return "CONFIRMED", nil
 }
 
 func isPendingOrderStatus(status string) bool {

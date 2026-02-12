@@ -363,6 +363,9 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 		response.Detail = &confirmedDetail
 
 		if confirmedNow && telegramID > 0 {
+			if err := h.sendPaymentConfirmedToBot(telegramID, confirmedDetail.Order); err != nil {
+				logger.Warn("sbp_status_confirm", "status", "payment_confirm_notification_failed", "order_id", confirmedDetail.Order.ID, "telegram_id", telegramID, "error", err)
+			}
 			for _, ticket := range confirmedDetail.Tickets {
 				if strings.TrimSpace(ticket.QRPayload) == "" {
 					continue
@@ -579,6 +582,9 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if confirmedNow && telegramID > 0 {
+		if err := h.sendPaymentConfirmedToBot(telegramID, detail.Order); err != nil {
+			logger.Warn("admin_confirm_order", "status", "payment_confirm_notification_failed", "order_id", detail.Order.ID, "telegram_id", telegramID, "error", err)
+		}
 		for _, ticket := range detail.Tickets {
 			if strings.TrimSpace(ticket.QRPayload) == "" {
 				continue
@@ -1060,6 +1066,29 @@ func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) 
 		return h.telegram.SendMessage(userTelegramID, fmt.Sprintf("Ticket %s\nQR payload: %s", ticket.ID, payload))
 	}
 	return nil
+}
+
+func (h *Handler) sendPaymentConfirmedToBot(userTelegramID int64, order models.Order) error {
+	if h.telegram == nil || userTelegramID <= 0 {
+		return nil
+	}
+	lines := []string{"Ваш платеж подтвержден."}
+	if id := strings.TrimSpace(order.ID); id != "" {
+		lines = append(lines, fmt.Sprintf("Заказ: %s", id))
+	}
+	if title := strings.TrimSpace(order.EventTitle); title != "" {
+		lines = append(lines, fmt.Sprintf("Событие: %s", title))
+	} else if order.EventID > 0 {
+		lines = append(lines, fmt.Sprintf("Событие ID: %d", order.EventID))
+	}
+	currency := strings.TrimSpace(order.Currency)
+	if currency == "" {
+		currency = "USD"
+	}
+	if order.TotalCents > 0 {
+		lines = append(lines, fmt.Sprintf("Сумма: %s %s", formatAmount(order.TotalCents), currency))
+	}
+	return h.telegram.SendMessage(userTelegramID, strings.Join(lines, "\n"))
 }
 
 func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings models.PaymentSettings) models.PaymentInstructions {
