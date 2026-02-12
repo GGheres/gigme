@@ -41,3 +41,5 @@ flutter:
   assets:
     - assets/images/landing/99.png
     - assets/images/landing/99_web.jpg
+  shaders:
+    - assets/shaders/bubble_warp.frag
