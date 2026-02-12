@@ -338,6 +338,37 @@ class AdminRepository {
         );
   }
 
+  Future<List<String>> getEventMedia({
+    required String token,
+    required int eventId,
+  }) {
+    return _ref.read(apiClientProvider).get<List<String>>(
+      ApiPaths.eventById(eventId),
+      token: token,
+      decoder: (data) {
+        final map = asMap(data);
+        return asList(map['media'])
+            .map((item) => asString(item).trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      },
+      retry: false,
+    );
+  }
+
+  Future<void> updateEventMedia({
+    required String token,
+    required int eventId,
+    required List<String> media,
+  }) {
+    return _ref.read(apiClientProvider).patch<void>(
+          ApiPaths.adminEventById(eventId),
+          token: token,
+          body: <String, dynamic>{'media': media},
+          decoder: (_) {},
+        );
+  }
+
   Future<LandingContent> getLandingContent() {
     return _ref.read(apiClientProvider).get<LandingContent>(
           ApiPaths.landingContent,

@@ -104,9 +104,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   final TextEditingController _landingPartnersDescriptionCtrl =
       TextEditingController();
   final TextEditingController _landingFooterCtrl = TextEditingController();
+  final TextEditingController _landingImageUrlCtrl = TextEditingController();
   bool _landingPublishedValue = true;
   bool _landingLoading = false;
   bool _landingBusy = false;
+  bool _landingImageBusy = false;
   bool _landingContentBusy = false;
   int? _landingActionEventId;
   String? _landingError;
@@ -153,6 +155,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     _landingPartnersTitleCtrl.dispose();
     _landingPartnersDescriptionCtrl.dispose();
     _landingFooterCtrl.dispose();
+    _landingImageUrlCtrl.dispose();
     for (final item in _broadcastButtons) {
       item.dispose();
     }
@@ -836,11 +839,34 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingImageUrlCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Card image URL',
+                    hintText: 'https://example.com/cover.jpg',
+                  ),
+                ),
                 const SizedBox(height: 10),
-                FilledButton(
-                  onPressed:
-                      _landingBusy ? null : _applyLandingPublicationFromInput,
-                  child: Text(_landingBusy ? 'Saving…' : 'Apply'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton(
+                      onPressed: _landingBusy || _landingImageBusy
+                          ? null
+                          : _applyLandingPublicationFromInput,
+                      child: Text(_landingBusy ? 'Saving…' : 'Apply'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _landingBusy || _landingImageBusy
+                          ? null
+                          : _saveLandingEventImageFromInput,
+                      icon: const Icon(Icons.image_outlined),
+                      label: Text(
+                          _landingImageBusy ? 'Saving…' : 'Save card image'),
+                    ),
+                  ],
                 ),
                 if ((_landingError ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -886,6 +912,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           ..._landingEvents.map(
             (event) => Card(
               child: ListTile(
+                onTap: () {
+                  setState(() {
+                    _landingEventIdCtrl.text = '${event.id}';
+                    _landingImageUrlCtrl.text = event.thumbnailUrl.trim();
+                    _landingPublishedValue = true;
+                  });
+                },
+                leading: _buildLandingEventThumbnail(event.thumbnailUrl),
                 title: Text('${event.title} (#${event.id})'),
                 subtitle: Text(
                   '${formatDateTime(event.startsAt)} • ${event.addressLabel.isEmpty ? 'No address' : event.addressLabel}',
@@ -899,7 +933,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       child: const Text('Open'),
                     ),
                     FilledButton.tonal(
-                      onPressed: _landingBusy
+                      onPressed: _landingBusy || _landingImageBusy
                           ? null
                           : () => _setLandingPublished(
                               eventId: event.id, published: false),
@@ -913,6 +947,39 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildLandingEventThumbnail(String rawUrl) {
+    const size = 52.0;
+    final url = rawUrl.trim();
+
+    Widget fallback() {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.blueGrey.withValues(alpha: 0.18),
+          border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.4)),
+        ),
+        child: const Icon(Icons.image_outlined, size: 18),
+      );
+    }
+
+    if (url.isEmpty) {
+      return fallback();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, _, __) => fallback(),
+      ),
     );
   }
 
@@ -1912,6 +1979,104 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       return;
     }
     await _setLandingPublished(eventId: id, published: _landingPublishedValue);
+  }
+
+  Future<void> _saveLandingEventImageFromInput() async {
+    final id = int.tryParse(_landingEventIdCtrl.text.trim());
+    if (id == null || id <= 0) {
+      setState(() => _landingError = 'Valid event ID is required');
+      return;
+    }
+
+    final imageUrl = _landingImageUrlCtrl.text.trim();
+    if (imageUrl.isEmpty) {
+      setState(() => _landingError = 'Image URL is required');
+      return;
+    }
+    if (!_isHttpUrl(imageUrl)) {
+      setState(() => _landingError = 'Image URL must be a valid http(s) link');
+      return;
+    }
+
+    await _saveLandingEventImage(eventId: id, imageUrl: imageUrl);
+  }
+
+  Future<void> _saveLandingEventImage({
+    required int eventId,
+    required String imageUrl,
+  }) async {
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+
+    setState(() {
+      _landingImageBusy = true;
+      _landingActionEventId = eventId;
+      _landingError = null;
+    });
+
+    try {
+      final repository = ref.read(adminRepositoryProvider);
+      final existingMedia = await repository.getEventMedia(
+        token: token,
+        eventId: eventId,
+      );
+      final mergedMedia = _mergeLandingCardImage(
+        existingMedia: existingMedia,
+        imageUrl: imageUrl,
+      );
+      await repository.updateEventMedia(
+        token: token,
+        eventId: eventId,
+        media: mergedMedia,
+      );
+      if (!mounted) return;
+      await _loadLanding();
+    } catch (error) {
+      _handleAdminError(error, setter: (value) => _landingError = value);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _landingImageBusy = false;
+          _landingActionEventId = null;
+        });
+      }
+    }
+  }
+
+  List<String> _mergeLandingCardImage({
+    required List<String> existingMedia,
+    required String imageUrl,
+  }) {
+    final normalized = imageUrl.trim();
+    final out = <String>[];
+    final seen = <String>{};
+
+    if (normalized.isNotEmpty) {
+      out.add(normalized);
+      seen.add(normalized.toLowerCase());
+    }
+
+    for (final raw in existingMedia) {
+      final candidate = raw.trim();
+      if (candidate.isEmpty) continue;
+      final key = candidate.toLowerCase();
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      out.add(candidate);
+      if (out.length >= 5) {
+        break;
+      }
+    }
+
+    return out;
+  }
+
+  bool _isHttpUrl(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl.trim());
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+      return false;
+    }
+    return uri.scheme == 'http' || uri.scheme == 'https';
   }
 
   Future<void> _setLandingPublished({

@@ -536,6 +536,7 @@ class _LandingForeground extends StatelessWidget {
                 creators: creators,
                 content: content,
                 total: total,
+                apiUrl: apiUrl,
                 onOpenEvent: onOpenEvent,
                 onBuy: onBuy,
                 onShowEventDetails: onShowEventDetails,
@@ -984,6 +985,7 @@ class _PartnersContactsSection extends StatelessWidget {
     required this.creators,
     required this.content,
     required this.total,
+    required this.apiUrl,
     required this.onOpenEvent,
     required this.onBuy,
     required this.onShowEventDetails,
@@ -996,6 +998,7 @@ class _PartnersContactsSection extends StatelessWidget {
   final List<String> creators;
   final LandingContent content;
   final int total;
+  final String apiUrl;
   final ValueChanged<LandingEvent> onOpenEvent;
   final ValueChanged<LandingEvent> onBuy;
   final ValueChanged<LandingEvent> onShowEventDetails;
@@ -1086,6 +1089,7 @@ class _PartnersContactsSection extends StatelessWidget {
             ...events.map(
               (event) => _LandingEventCompactCard(
                 event: event,
+                apiUrl: apiUrl,
                 onOpenEvent: () => onOpenEvent(event),
                 onBuy: () => onBuy(event),
                 onShowDetails: () => onShowEventDetails(event),
@@ -1111,18 +1115,30 @@ class _PartnersContactsSection extends StatelessWidget {
 class _LandingEventCompactCard extends StatelessWidget {
   const _LandingEventCompactCard({
     required this.event,
+    required this.apiUrl,
     required this.onOpenEvent,
     required this.onBuy,
     required this.onShowDetails,
   });
 
   final LandingEvent event;
+  final String apiUrl;
   final VoidCallback onOpenEvent;
   final VoidCallback onBuy;
   final VoidCallback onShowDetails;
 
   @override
   Widget build(BuildContext context) {
+    final fallbackImage = event.thumbnailUrl.trim();
+    final proxyImage = buildEventMediaProxyUrl(
+      apiUrl: apiUrl,
+      eventId: event.id,
+      index: 0,
+    );
+    final imageUrl = proxyImage.isNotEmpty ? proxyImage : fallbackImage;
+    final fallbackUrl = proxyImage.isNotEmpty ? fallbackImage : '';
+    final hasImage = imageUrl.isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       decoration: BoxDecoration(
@@ -1135,6 +1151,57 @@ class _LandingEventCompactCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (hasImage) ...[
+              Align(
+                alignment: Alignment.center,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.info.withValues(alpha: 0.72),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.info.withValues(alpha: 0.42),
+                          blurRadius: 28,
+                          spreadRadius: 1.2,
+                        ),
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(13),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, __) {
+                            if (fallbackUrl.isNotEmpty &&
+                                fallbackUrl != imageUrl) {
+                              return Image.network(
+                                fallbackUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, _, __) =>
+                                    const _LandingCardPosterFallback(),
+                              );
+                            }
+                            return const _LandingCardPosterFallback();
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             Text(
               event.title,
               maxLines: 2,
@@ -1202,6 +1269,34 @@ class _LandingEventCompactCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LandingCardPosterFallback extends StatelessWidget {
+  const _LandingCardPosterFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            AppColors.info.withValues(alpha: 0.7),
+            AppColors.backgroundDeep.withValues(alpha: 0.9),
+            const Color(0xFF15224A),
+          ],
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.photo_size_select_actual_outlined,
+          color: Colors.white,
+          size: 32,
         ),
       ),
     );
