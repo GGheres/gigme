@@ -50,7 +50,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       title: 'Nearby feed',
       subtitle: 'Discover events around your current location',
       showBackgroundDecor: false,
-      backgroundColor: Colors.black,
       titleColor: Colors.white,
       subtitleColor: Colors.white70,
       trailing: Wrap(

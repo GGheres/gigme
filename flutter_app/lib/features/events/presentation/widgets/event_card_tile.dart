@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -28,12 +29,19 @@ class EventCardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const isMobileUi = !kIsWeb;
+    final cardPadding = isMobileUi ? AppSpacing.md : AppSpacing.sm;
+    final mediaSize = isMobileUi ? 142.0 : 110.0;
+    final titleStyle =
+        isMobileUi ? theme.textTheme.titleLarge : theme.textTheme.titleMedium;
+    final descriptionMaxLines = isMobileUi ? 3 : 2;
     final startsAt = formatDateTime(event.startsAt);
     final distanceText = _distanceText();
 
     return AppCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: EdgeInsets.all(cardPadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -42,8 +50,9 @@ class EventCardTile extends StatelessWidget {
             apiUrl: apiUrl,
             accessKey: accessKey,
             distanceText: distanceText,
+            mediaSize: mediaSize,
           ),
-          const SizedBox(width: AppSpacing.sm),
+          SizedBox(width: isMobileUi ? AppSpacing.md : AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,7 +63,7 @@ class EventCardTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         event.title,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: titleStyle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -73,19 +82,15 @@ class EventCardTile extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   startsAt,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
+                  style: theme.textTheme.bodySmall
                       ?.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   event.description,
-                  maxLines: 2,
+                  maxLines: descriptionMaxLines,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
+                  style: theme.textTheme.bodySmall
                       ?.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -138,12 +143,14 @@ class _CardMedia extends StatelessWidget {
     required this.apiUrl,
     required this.accessKey,
     required this.distanceText,
+    required this.mediaSize,
   });
 
   final EventCard event;
   final String apiUrl;
   final String accessKey;
   final String? distanceText;
+  final double mediaSize;
 
   @override
   Widget build(BuildContext context) {
@@ -162,8 +169,8 @@ class _CardMedia extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadii.lg),
       child: SizedBox(
-        width: 110,
-        height: 110,
+        width: mediaSize,
+        height: mediaSize,
         child: Stack(
           fit: StackFit.expand,
           children: [

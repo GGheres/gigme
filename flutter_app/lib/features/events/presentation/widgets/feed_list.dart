@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -26,6 +27,8 @@ class FeedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const itemSpacing = kIsWeb ? AppSpacing.sm : AppSpacing.md;
+
     if (items.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -58,7 +61,7 @@ class FeedList extends StatelessWidget {
         final event = items[index];
         final accessKey = eventAccessKeys[event.id] ?? event.accessKey;
         return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          padding: EdgeInsets.only(bottom: itemSpacing),
           child: EventCardTile(
             event: event,
             apiUrl: apiUrl,

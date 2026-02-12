@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_router.dart';
 import 'push_bootstrap.dart';
 import 'theme.dart';
+import '../ui/layout/app_background.dart';
 
 class GigMeApp extends ConsumerWidget {
   const GigMeApp({super.key});
@@ -17,6 +18,9 @@ class GigMeApp extends ConsumerWidget {
         title: 'SPACE',
         theme: buildGigMeTheme(),
         routerConfig: router,
+        builder: (context, child) => AppBackground(
+          child: child ?? const SizedBox.shrink(),
+        ),
         debugShowCheckedModeBanner: false,
       ),
     );

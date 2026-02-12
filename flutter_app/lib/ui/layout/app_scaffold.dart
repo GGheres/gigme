@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../components/app_section_header.dart';
@@ -107,11 +108,12 @@ class AppScaffold extends StatelessWidget {
       appBar: appBar,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
-      backgroundColor: backgroundColor ?? AppColors.background,
+      backgroundColor: backgroundColor ??
+          (kIsWeb ? AppColors.background : Colors.transparent),
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (showBackgroundDecor) const _ScaffoldBackdrop(),
+          if (showBackgroundDecor && kIsWeb) const _ScaffoldBackdrop(),
           body,
         ],
       ),

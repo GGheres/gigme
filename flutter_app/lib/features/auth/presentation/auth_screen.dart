@@ -151,7 +151,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final error = (state.error ?? '').trim();
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
