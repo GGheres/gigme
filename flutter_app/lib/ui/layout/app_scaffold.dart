@@ -124,7 +124,7 @@ class AppScaffold extends StatelessWidget {
 class _ScaffoldBackdrop extends StatelessWidget {
   const _ScaffoldBackdrop();
 
-  static const String webBackgroundAsset = 'assets/images/landing/99.png';
+  static const String webBackgroundAsset = 'assets/images/landing/99_web.jpg';
 
   @override
   Widget build(BuildContext context) {
@@ -133,8 +133,9 @@ class _ScaffoldBackdrop extends StatelessWidget {
       children: [
         Image.asset(
           webBackgroundAsset,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           alignment: Alignment.center,
+          filterQuality: FilterQuality.low,
         ),
         ColoredBox(
           color: Colors.black.withValues(alpha: 0.32),

@@ -357,7 +357,9 @@ class LandingLayoutConfig {
   static const bool forceReduceMotion = false;
   static const String frameTickerText =
       'SPACE • EVENT • 31–3 AUG • SPACE • EVENT • ';
-  static const String backgroundAssetPath = 'assets/images/landing/99.png';
+  static const String backgroundAssetPath = kIsWeb
+      ? 'assets/images/landing/99_web.jpg'
+      : 'assets/images/landing/99.png';
 
   static bool isDesktop(double width) => width >= desktopBreakpoint;
   static bool isTablet(double width) =>
