@@ -193,6 +193,29 @@ func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) n
 			ButtonURL:  eventURL,
 			ButtonText: buttonText(eventURL),
 		}
+	case "payment_confirmed":
+		orderID := strings.TrimSpace(payloadString(job.Payload, "orderId"))
+		amount := strings.TrimSpace(payloadString(job.Payload, "amount"))
+		currency := strings.TrimSpace(payloadString(job.Payload, "currency"))
+		lines := []string{"Ваш платеж подтвержден."}
+		if orderID != "" {
+			lines = append(lines, fmt.Sprintf("Заказ: %s", orderID))
+		}
+		if title != "" {
+			lines = append(lines, fmt.Sprintf("Событие: %s", title))
+		}
+		if amount != "" {
+			if currency != "" {
+				lines = append(lines, fmt.Sprintf("Сумма: %s %s", amount, currency))
+			} else {
+				lines = append(lines, fmt.Sprintf("Сумма: %s", amount))
+			}
+		}
+		return notificationMessage{
+			Text:       strings.Join(lines, "\n"),
+			ButtonURL:  eventURL,
+			ButtonText: buttonText(eventURL),
+		}
 	default:
 		return notificationMessage{}
 	}

@@ -17,8 +17,8 @@ import (
 	"gigme/backend/internal/ticketing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type orderSelectionRequest struct {
@@ -363,10 +363,23 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 		response.Paid = true
 		response.Detail = &confirmedDetail
 
-		if confirmedNow && telegramID > 0 {
-			if err := h.sendPaymentConfirmedToBot(telegramID, confirmedDetail.Order); err != nil {
-				logger.Warn("sbp_status_confirm", "status", "payment_confirm_notification_failed", "order_id", confirmedDetail.Order.ID, "telegram_id", telegramID, "error", err)
+		if confirmedNow {
+			notified := false
+			if telegramID > 0 {
+				if err := h.sendPaymentConfirmedToBot(telegramID, confirmedDetail.Order); err != nil {
+					logger.Warn("sbp_status_confirm", "status", "payment_confirm_notification_failed", "order_id", confirmedDetail.Order.ID, "telegram_id", telegramID, "error", err)
+				} else {
+					notified = true
+				}
 			}
+			if !notified {
+				if err := h.enqueuePaymentConfirmedNotification(ctx, confirmedDetail.Order); err != nil {
+					logger.Warn("sbp_status_confirm", "status", "payment_confirm_enqueue_failed", "order_id", confirmedDetail.Order.ID, "error", err)
+				}
+			}
+		}
+
+		if confirmedNow && telegramID > 0 {
 			for _, ticket := range confirmedDetail.Tickets {
 				if strings.TrimSpace(ticket.QRPayload) == "" {
 					continue
@@ -582,10 +595,23 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 		h.attachSBPInstructions(&detail, &sbpQR)
 	}
 
-	if confirmedNow && telegramID > 0 {
-		if err := h.sendPaymentConfirmedToBot(telegramID, detail.Order); err != nil {
-			logger.Warn("admin_confirm_order", "status", "payment_confirm_notification_failed", "order_id", detail.Order.ID, "telegram_id", telegramID, "error", err)
+	if confirmedNow {
+		notified := false
+		if telegramID > 0 {
+			if err := h.sendPaymentConfirmedToBot(telegramID, detail.Order); err != nil {
+				logger.Warn("admin_confirm_order", "status", "payment_confirm_notification_failed", "order_id", detail.Order.ID, "telegram_id", telegramID, "error", err)
+			} else {
+				notified = true
+			}
 		}
+		if !notified {
+			if err := h.enqueuePaymentConfirmedNotification(ctx, detail.Order); err != nil {
+				logger.Warn("admin_confirm_order", "status", "payment_confirm_enqueue_failed", "order_id", detail.Order.ID, "error", err)
+			}
+		}
+	}
+
+	if confirmedNow && telegramID > 0 {
 		for _, ticket := range detail.Tickets {
 			if strings.TrimSpace(ticket.QRPayload) == "" {
 				continue
@@ -1090,6 +1116,38 @@ func (h *Handler) sendPaymentConfirmedToBot(userTelegramID int64, order models.O
 		lines = append(lines, fmt.Sprintf("Сумма: %s %s", formatAmount(order.TotalCents), currency))
 	}
 	return h.telegram.SendMessage(userTelegramID, strings.Join(lines, "\n"))
+}
+
+func (h *Handler) enqueuePaymentConfirmedNotification(ctx context.Context, order models.Order) error {
+	if order.UserID <= 0 {
+		return nil
+	}
+	var eventID *int64
+	if order.EventID > 0 {
+		eventID = &order.EventID
+	}
+	currency := strings.TrimSpace(order.Currency)
+	if currency == "" {
+		currency = "USD"
+	}
+	payload := map[string]interface{}{
+		"orderId":  strings.TrimSpace(order.ID),
+		"title":    strings.TrimSpace(order.EventTitle),
+		"amount":   formatAmount(order.TotalCents),
+		"currency": currency,
+	}
+	if order.EventID > 0 {
+		payload["eventId"] = order.EventID
+	}
+	_, err := h.repo.CreateNotificationJob(ctx, models.NotificationJob{
+		UserID:  order.UserID,
+		EventID: eventID,
+		Kind:    "payment_confirmed",
+		RunAt:   time.Now(),
+		Payload: payload,
+		Status:  "pending",
+	})
+	return err
 }
 
 func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings models.PaymentSettings) models.PaymentInstructions {
