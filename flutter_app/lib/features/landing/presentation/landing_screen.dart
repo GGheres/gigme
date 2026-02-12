@@ -110,7 +110,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       text: LandingLayoutConfig.frameTickerText,
                       timeline: _matrixPulseController,
                       reduceMotion: reduceMotion,
-                      enableShimmer: true,
+                      enableShimmer: false,
                       enableGrain: false,
                       child: _LandingParallaxCanvas(
                         scrollOffset: _scrollOffset,
