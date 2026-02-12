@@ -13,8 +13,8 @@ import (
 	"gigme/backend/internal/models"
 	"gigme/backend/internal/ticketing"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
@@ -917,18 +917,20 @@ ORDER BY id ASC;`, orderID)
 	if err != nil {
 		return out, err
 	}
-	defer itemRows.Close()
 	items := make([]models.OrderItem, 0)
 	for itemRows.Next() {
 		item, err := scanOrderItem(itemRows)
 		if err != nil {
+			itemRows.Close()
 			return out, err
 		}
 		items = append(items, item)
 	}
 	if err := itemRows.Err(); err != nil {
+		itemRows.Close()
 		return out, err
 	}
+	itemRows.Close()
 	out.Items = items
 
 	ticketRows, err := q.Query(ctx, `
@@ -939,18 +941,20 @@ ORDER BY created_at ASC, id ASC;`, orderID)
 	if err != nil {
 		return out, err
 	}
-	defer ticketRows.Close()
 	tickets := make([]models.Ticket, 0)
 	for ticketRows.Next() {
 		ticket, err := scanTicket(ticketRows)
 		if err != nil {
+			ticketRows.Close()
 			return out, err
 		}
 		tickets = append(tickets, ticket)
 	}
 	if err := ticketRows.Err(); err != nil {
+		ticketRows.Close()
 		return out, err
 	}
+	ticketRows.Close()
 	out.Tickets = tickets
 	return out, nil
 }
@@ -979,6 +983,11 @@ WHERE id = $1::uuid
 		}
 
 		if isPendingOrderStatus(orderStatus) {
+			type lockedOrderItem struct {
+				itemType  string
+				productID string
+				quantity  int
+			}
 			itemRows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
@@ -988,22 +997,30 @@ FOR UPDATE;`, orderID)
 			if err != nil {
 				return err
 			}
-			defer itemRows.Close()
+			lockedItems := make([]lockedOrderItem, 0, 8)
 			for itemRows.Next() {
-				var itemType string
-				var productID string
-				var quantity int
-				if err := itemRows.Scan(&itemType, &productID, &quantity); err != nil {
+				var item lockedOrderItem
+				if err := itemRows.Scan(&item.itemType, &item.productID, &item.quantity); err != nil {
+					itemRows.Close()
 					return err
 				}
-				switch itemType {
+				lockedItems = append(lockedItems, item)
+			}
+			if err := itemRows.Err(); err != nil {
+				itemRows.Close()
+				return err
+			}
+			itemRows.Close()
+
+			for _, item := range lockedItems {
+				switch item.itemType {
 				case models.ItemTypeTicket:
 					cmd, err := tx.Exec(ctx, `
 UPDATE ticket_products
 SET sold_count = sold_count + $2,
-	updated_at = now()
+	 updated_at = now()
 WHERE id = $1::uuid
-	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, productID, quantity)
+	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, item.productID, item.quantity)
 					if err != nil {
 						return err
 					}
@@ -1014,9 +1031,9 @@ WHERE id = $1::uuid
 					cmd, err := tx.Exec(ctx, `
 UPDATE transfer_products
 SET sold_count = sold_count + $2,
-	updated_at = now()
+	 updated_at = now()
 WHERE id = $1::uuid
-	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, productID, quantity)
+	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, item.productID, item.quantity)
 					if err != nil {
 						return err
 					}
@@ -1024,9 +1041,6 @@ WHERE id = $1::uuid
 						return ErrInventoryLimitReached
 					}
 				}
-			}
-			if err := itemRows.Err(); err != nil {
-				return err
 			}
 
 			var confirmedBy interface{}
@@ -1050,28 +1064,42 @@ FOR UPDATE;`, orderID)
 		if err != nil {
 			return err
 		}
-		defer ticketRows.Close()
+
+		type ticketToIssue struct {
+			id         string
+			userID     int64
+			eventID    int64
+			ticketType string
+			quantity   int
+		}
+		toIssue := make([]ticketToIssue, 0, 8)
 		now := time.Now().UTC()
 		for ticketRows.Next() {
-			var ticketID string
-			var ticketUserID int64
-			var eventID int64
-			var ticketType string
-			var quantity int
+			var row ticketToIssue
 			var existingPayload sql.NullString
 			var existingHash sql.NullString
 			var existingIssuedAt sql.NullTime
-			if err := ticketRows.Scan(&ticketID, &ticketUserID, &eventID, &ticketType, &quantity, &existingPayload, &existingHash, &existingIssuedAt); err != nil {
+			if err := ticketRows.Scan(&row.id, &row.userID, &row.eventID, &row.ticketType, &row.quantity, &existingPayload, &existingHash, &existingIssuedAt); err != nil {
+				ticketRows.Close()
 				return err
 			}
 			if existingPayload.Valid && existingHash.Valid && existingIssuedAt.Valid {
 				continue
 			}
+			toIssue = append(toIssue, row)
+		}
+		if err := ticketRows.Err(); err != nil {
+			ticketRows.Close()
+			return err
+		}
+		ticketRows.Close()
+
+		for _, row := range toIssue {
 			nonce, err := ticketing.NewNonce(16)
 			if err != nil {
 				return err
 			}
-			payload := ticketing.BuildPayload(ticketID, eventID, ticketUserID, ticketType, quantity, now, nonce)
+			payload := ticketing.BuildPayload(row.id, row.eventID, row.userID, row.ticketType, row.quantity, now, nonce)
 			token, err := ticketing.SignQRPayload(secret, payload)
 			if err != nil {
 				return err
@@ -1082,12 +1110,9 @@ UPDATE tickets
 SET qr_payload = $2,
 	qr_payload_hash = $3,
 	qr_issued_at = $4
-WHERE id = $1::uuid;`, ticketID, token, hash, now); err != nil {
+WHERE id = $1::uuid;`, row.id, token, hash, now); err != nil {
 				return err
 			}
-		}
-		if err := ticketRows.Err(); err != nil {
-			return err
 		}
 
 		if err := tx.QueryRow(ctx, `SELECT telegram_id FROM users WHERE id = $1`, userID).Scan(&telegramID); err != nil {
