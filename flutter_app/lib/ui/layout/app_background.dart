@@ -7,8 +7,7 @@ class AppBackground extends StatelessWidget {
     super.key,
   });
 
-  static const String mobileBackgroundAsset =
-      'assets/images/backgrounds/app_cosmic_bg.png';
+  static const String mobileBackgroundAsset = 'assets/images/landing/99.png';
 
   final Widget child;
 

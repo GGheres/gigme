@@ -124,70 +124,22 @@ class AppScaffold extends StatelessWidget {
 class _ScaffoldBackdrop extends StatelessWidget {
   const _ScaffoldBackdrop();
 
-  @override
-  Widget build(BuildContext context) {
-    final isTall = MediaQuery.sizeOf(context).width < AppBreakpoints.smMax;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        gradient: isTall
-            ? AppColors.appBackgroundGradientTall
-            : AppColors.appBackgroundGradientWide,
-      ),
-      child: const Stack(
-        fit: StackFit.expand,
-        children: [
-          _GlowCircle(
-            alignment: Alignment(-0.84, -0.76),
-            radius: 340,
-            color: Color(0x664B96FF),
-          ),
-          _GlowCircle(
-            alignment: Alignment(0.15, -0.65),
-            radius: 320,
-            color: Color(0x5578E1D1),
-          ),
-          _GlowCircle(
-            alignment: Alignment(0.86, -0.25),
-            radius: 300,
-            color: Color(0x55FFC86E),
-          ),
-          _GlowCircle(
-            alignment: Alignment(0.58, 0.84),
-            radius: 320,
-            color: Color(0x55785AD2),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowCircle extends StatelessWidget {
-  const _GlowCircle({
-    required this.alignment,
-    required this.radius,
-    required this.color,
-  });
-
-  final Alignment alignment;
-  final double radius;
-  final Color color;
+  static const String webBackgroundAsset = 'assets/images/landing/99.png';
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      child: IgnorePointer(
-        child: Container(
-          width: radius,
-          height: radius,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-          ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          webBackgroundAsset,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
         ),
-      ),
+        ColoredBox(
+          color: Colors.black.withValues(alpha: 0.32),
+        ),
+      ],
     );
   }
 }
