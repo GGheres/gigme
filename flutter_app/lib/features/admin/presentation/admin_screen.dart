@@ -378,7 +378,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  initialValue: _broadcastAudience,
+                  // ignore: deprecated_member_use
+                  value: _broadcastAudience,
                   items: const [
                     DropdownMenuItem(
                         value: 'all', child: Text('All active users')),
@@ -562,7 +563,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: _parserSourceType,
+                  // ignore: deprecated_member_use
+                  value: _parserSourceType,
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('auto')),
                     DropdownMenuItem(
@@ -650,7 +652,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: _parserQuickType,
+                  // ignore: deprecated_member_use
+                  value: _parserQuickType,
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('auto')),
                     DropdownMenuItem(

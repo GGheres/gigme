@@ -113,7 +113,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  initialValue: _status,
+                  // ignore: deprecated_member_use
+                  value: _status,
                   decoration: const InputDecoration(labelText: 'Status'),
                   items: const [
                     DropdownMenuItem(value: '', child: Text('All')),
