@@ -378,7 +378,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: _broadcastAudience,
+                  initialValue: _broadcastAudience,
                   items: const [
                     DropdownMenuItem(
                         value: 'all', child: Text('All active users')),
@@ -562,7 +562,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _parserSourceType,
+                  initialValue: _parserSourceType,
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('auto')),
                     DropdownMenuItem(
@@ -650,7 +650,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _parserQuickType,
+                  initialValue: _parserQuickType,
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('auto')),
                     DropdownMenuItem(
@@ -1244,9 +1244,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                                 onPressed: _userBlockBusy
                                     ? null
                                     : () async {
+                                        final navigator = Navigator.of(context);
                                         await _toggleBlockUser(detail.user);
                                         if (!mounted) return;
-                                        Navigator.of(context).pop();
+                                        navigator.pop();
                                       },
                                 child: Text(
                                   _userBlockBusy
@@ -1979,6 +1980,23 @@ class _BroadcastButtonDraft {
 }
 
 class _ParserDraft {
+  factory _ParserDraft.fromParsed(AdminParsedEvent item) {
+    final imageLinks = _dedupeTrimmed(item.links.where(_isImageLink).toList());
+    final eventLinks = _dedupeTrimmed(
+        item.links.where((link) => !_isImageLink(link)).toList());
+
+    return _ParserDraft(
+      titleCtrl: TextEditingController(text: item.name),
+      descriptionCtrl: TextEditingController(text: item.description),
+      startsAtCtrl: TextEditingController(
+          text: item.dateTime?.toUtc().toIso8601String() ?? ''),
+      latCtrl: TextEditingController(text: '52.37'),
+      lngCtrl: TextEditingController(text: '4.90'),
+      addressCtrl: TextEditingController(text: item.location),
+      linksCtrl: TextEditingController(text: eventLinks.join('\n')),
+      mediaCtrl: TextEditingController(text: imageLinks.join('\n')),
+    );
+  }
   _ParserDraft({
     required this.titleCtrl,
     required this.descriptionCtrl,
@@ -1999,24 +2017,6 @@ class _ParserDraft {
   final TextEditingController linksCtrl;
   final TextEditingController mediaCtrl;
 
-  factory _ParserDraft.fromParsed(AdminParsedEvent item) {
-    final imageLinks = _dedupeTrimmed(item.links.where(_isImageLink).toList());
-    final eventLinks = _dedupeTrimmed(
-        item.links.where((link) => !_isImageLink(link)).toList());
-
-    return _ParserDraft(
-      titleCtrl: TextEditingController(text: item.name),
-      descriptionCtrl: TextEditingController(text: item.description),
-      startsAtCtrl: TextEditingController(
-          text: item.dateTime?.toUtc().toIso8601String() ?? ''),
-      latCtrl: TextEditingController(text: '52.37'),
-      lngCtrl: TextEditingController(text: '4.90'),
-      addressCtrl: TextEditingController(text: item.location),
-      linksCtrl: TextEditingController(text: eventLinks.join('\n')),
-      mediaCtrl: TextEditingController(text: imageLinks.join('\n')),
-    );
-  }
-
   void dispose() {
     titleCtrl.dispose();
     descriptionCtrl.dispose();
@@ -2032,11 +2032,14 @@ class _ParserDraft {
 bool _isImageLink(String value) {
   final trimmed = value.trim().toLowerCase();
   if (trimmed.isEmpty) return false;
-  if (RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|$)').hasMatch(trimmed))
+  if (RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|$)').hasMatch(trimmed)) {
     return true;
+  }
   if (trimmed.contains('/photo') ||
       trimmed.contains('/image') ||
-      trimmed.contains('/img')) return true;
+      trimmed.contains('/img')) {
+    return true;
+  }
   return false;
 }
 

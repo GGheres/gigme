@@ -1,6 +1,17 @@
 import '../utils/json_utils.dart';
 
 class UserEvent {
+
+  factory UserEvent.fromJson(dynamic json) {
+    final map = asMap(json);
+    return UserEvent(
+      id: asInt(map['id']),
+      title: asString(map['title']),
+      startsAt: asDateTime(map['startsAt']),
+      participantsCount: asInt(map['participantsCount']),
+      thumbnailUrl: asString(map['thumbnailUrl']),
+    );
+  }
   UserEvent({
     required this.id,
     required this.title,
@@ -14,15 +25,4 @@ class UserEvent {
   final DateTime? startsAt;
   final int participantsCount;
   final String thumbnailUrl;
-
-  factory UserEvent.fromJson(dynamic json) {
-    final map = asMap(json);
-    return UserEvent(
-      id: asInt(map['id']),
-      title: asString(map['title']),
-      startsAt: asDateTime(map['startsAt']),
-      participantsCount: asInt(map['participantsCount']),
-      thumbnailUrl: asString(map['thumbnailUrl']),
-    );
-  }
 }

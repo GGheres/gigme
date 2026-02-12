@@ -9,6 +9,15 @@ import '../../auth/application/auth_controller.dart';
 import '../data/profile_repository.dart';
 
 class ProfileState {
+
+  factory ProfileState.initial() => const ProfileState(
+        loading: false,
+        error: null,
+        notice: null,
+        user: null,
+        events: <UserEvent>[],
+        total: 0,
+      );
   const ProfileState({
     required this.loading,
     required this.error,
@@ -24,15 +33,6 @@ class ProfileState {
   final User? user;
   final List<UserEvent> events;
   final int total;
-
-  factory ProfileState.initial() => const ProfileState(
-        loading: false,
-        error: null,
-        notice: null,
-        user: null,
-        events: <UserEvent>[],
-        total: 0,
-      );
 
   ProfileState copyWith({
     bool? loading,

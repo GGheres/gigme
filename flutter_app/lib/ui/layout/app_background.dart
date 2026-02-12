@@ -7,8 +7,6 @@ class AppBackground extends StatelessWidget {
     super.key,
   });
 
-  static const String mobileBackgroundAsset = 'assets/images/landing/99.png';
-
   final Widget child;
 
   @override
@@ -20,10 +18,19 @@ class AppBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: Colors.black),
-        Image.asset(
-          mobileBackgroundAsset,
-          fit: BoxFit.cover,
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Color(0xFF060B1D),
+                Color(0xFF040814),
+                Color(0xFF050A16),
+              ],
+              stops: <double>[0, 0.45, 1],
+            ),
+          ),
         ),
         ColoredBox(
           color: Colors.black.withValues(alpha: 0.2),

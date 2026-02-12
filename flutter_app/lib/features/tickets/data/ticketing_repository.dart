@@ -497,6 +497,22 @@ class TicketingRepository {
 }
 
 class PromoCodeViewModel {
+
+  factory PromoCodeViewModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return PromoCodeViewModel(
+      id: asString(map['id']),
+      code: asString(map['code']),
+      discountType: asString(map['discountType']).toUpperCase(),
+      value: asInt(map['value']),
+      usageLimit: map['usageLimit'] == null ? null : asInt(map['usageLimit']),
+      usedCount: asInt(map['usedCount']),
+      activeFrom: asDateTime(map['activeFrom']),
+      activeTo: asDateTime(map['activeTo']),
+      eventId: map['eventId'] == null ? null : asInt(map['eventId']),
+      isActive: asBool(map['isActive']),
+    );
+  }
   PromoCodeViewModel({
     required this.id,
     required this.code,
@@ -520,22 +536,6 @@ class PromoCodeViewModel {
   final DateTime? activeTo;
   final int? eventId;
   final bool isActive;
-
-  factory PromoCodeViewModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return PromoCodeViewModel(
-      id: asString(map['id']),
-      code: asString(map['code']),
-      discountType: asString(map['discountType']).toUpperCase(),
-      value: asInt(map['value']),
-      usageLimit: map['usageLimit'] == null ? null : asInt(map['usageLimit']),
-      usedCount: asInt(map['usedCount']),
-      activeFrom: asDateTime(map['activeFrom']),
-      activeTo: asDateTime(map['activeTo']),
-      eventId: map['eventId'] == null ? null : asInt(map['eventId']),
-      isActive: asBool(map['isActive']),
-    );
-  }
 }
 
 final ticketingRepositoryProvider =

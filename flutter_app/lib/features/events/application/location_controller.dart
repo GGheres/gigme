@@ -6,6 +6,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 class LocationState {
+
+  factory LocationState.initial() => const LocationState(
+        center: LatLng(52.37, 4.90),
+        userLocation: null,
+        loading: true,
+        permissionDenied: false,
+        error: null,
+      );
   const LocationState({
     required this.center,
     required this.userLocation,
@@ -19,14 +27,6 @@ class LocationState {
   final bool loading;
   final bool permissionDenied;
   final String? error;
-
-  factory LocationState.initial() => const LocationState(
-        center: LatLng(52.37, 4.90),
-        userLocation: null,
-        loading: true,
-        permissionDenied: false,
-        error: null,
-      );
 
   LocationState copyWith({
     LatLng? center,

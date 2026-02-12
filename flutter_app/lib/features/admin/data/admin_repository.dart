@@ -71,7 +71,7 @@ class AdminRepository {
           body: <String, dynamic>{
             'reason': reason,
           },
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -83,7 +83,7 @@ class AdminRepository {
           '/admin/users/$id/unblock',
           token: token,
           body: const <String, dynamic>{},
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -135,7 +135,7 @@ class AdminRepository {
           '/admin/broadcasts/$id/start',
           token: token,
           body: const <String, dynamic>{},
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -184,7 +184,7 @@ class AdminRepository {
           '/admin/parser/sources/$id',
           token: token,
           body: <String, dynamic>{'isActive': isActive},
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -296,7 +296,7 @@ class AdminRepository {
           '/admin/parser/events/$id/reject',
           token: token,
           body: const <String, dynamic>{},
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -307,7 +307,7 @@ class AdminRepository {
     return _ref.read(apiClientProvider).delete<void>(
           '/admin/parser/events/$id',
           token: token,
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -334,7 +334,7 @@ class AdminRepository {
           ApiPaths.adminLandingPublish(eventId),
           token: token,
           body: <String, dynamic>{'published': published},
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -353,7 +353,7 @@ class AdminRepository {
           ApiPaths.adminLandingContent,
           token: token,
           body: content.toJson(),
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 }

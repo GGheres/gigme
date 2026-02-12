@@ -124,18 +124,24 @@ class AppScaffold extends StatelessWidget {
 class _ScaffoldBackdrop extends StatelessWidget {
   const _ScaffoldBackdrop();
 
-  static const String webBackgroundAsset = 'assets/images/landing/99_web.jpg';
-
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          webBackgroundAsset,
-          fit: BoxFit.contain,
-          alignment: Alignment.center,
-          filterQuality: FilterQuality.low,
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.topCenter,
+              radius: 1.2,
+              colors: <Color>[
+                Color(0xFF1D2A58),
+                Color(0xFF070E23),
+                Color(0xFF040814),
+              ],
+              stops: <double>[0, 0.52, 1],
+            ),
+          ),
         ),
         ColoredBox(
           color: Colors.black.withValues(alpha: 0.32),

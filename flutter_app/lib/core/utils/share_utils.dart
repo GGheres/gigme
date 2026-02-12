@@ -32,7 +32,7 @@ String buildEventShareUrl({
 String _buildStartParam(int eventId, String? key, String? refCode) {
   final keyPart = (key != null && key.isNotEmpty) ? '_$key' : '';
   final refPart = (refCode != null && refCode.isNotEmpty) ? '__r_$refCode' : '';
-  return 'e_${eventId}$keyPart$refPart';
+  return 'e_$eventId$keyPart$refPart';
 }
 
 String? _sanitize(String? raw, int max) {

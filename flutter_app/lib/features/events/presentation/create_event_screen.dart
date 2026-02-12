@@ -90,8 +90,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               maxLines: 7,
               decoration: const InputDecoration(labelText: 'Description'),
               validator: (value) {
-                if ((value ?? '').trim().isEmpty)
+                if ((value ?? '').trim().isEmpty) {
                   return 'Description is required';
+                }
                 return null;
               },
             ),

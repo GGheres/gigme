@@ -94,7 +94,7 @@ class PushNotificationService {
         'platform': platform,
         if (appVersion.isNotEmpty) 'appVersion': appVersion,
       },
-      decoder: (_) => null,
+      decoder: (_) {},
     );
   }
 

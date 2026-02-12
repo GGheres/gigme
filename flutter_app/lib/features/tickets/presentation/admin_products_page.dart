@@ -386,7 +386,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _ticketType,
+                initialValue: _ticketType,
                 items: const [
                   DropdownMenuItem(value: 'SINGLE', child: Text('SINGLE')),
                   DropdownMenuItem(value: 'GROUP2', child: Text('GROUP2')),
@@ -419,7 +419,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _transferDirection,
+          initialValue: _transferDirection,
           decoration: const InputDecoration(labelText: 'Direction'),
           items: const [
             DropdownMenuItem(value: 'THERE', child: Text('THERE')),

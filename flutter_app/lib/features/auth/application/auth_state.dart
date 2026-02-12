@@ -7,17 +7,6 @@ enum AuthStatus {
 }
 
 class AuthState {
-  const AuthState({
-    required this.status,
-    this.token,
-    this.user,
-    this.error,
-  });
-
-  final AuthStatus status;
-  final String? token;
-  final User? user;
-  final String? error;
 
   factory AuthState.loading() => const AuthState(status: AuthStatus.loading);
 
@@ -38,6 +27,17 @@ class AuthState {
       error: error,
     );
   }
+  const AuthState({
+    required this.status,
+    this.token,
+    this.user,
+    this.error,
+  });
+
+  final AuthStatus status;
+  final String? token;
+  final User? user;
+  final String? error;
 
   bool get isAuthed => status == AuthStatus.authenticated && token != null && user != null;
 }

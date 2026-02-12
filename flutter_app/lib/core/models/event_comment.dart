@@ -1,6 +1,18 @@
 import '../utils/json_utils.dart';
 
 class EventComment {
+
+  factory EventComment.fromJson(dynamic json) {
+    final map = asMap(json);
+    return EventComment(
+      id: asInt(map['id']),
+      eventId: asInt(map['eventId']),
+      userId: asInt(map['userId']),
+      userName: asString(map['userName']),
+      body: asString(map['body']),
+      createdAt: asDateTime(map['createdAt']),
+    );
+  }
   EventComment({
     required this.id,
     required this.eventId,
@@ -16,16 +28,4 @@ class EventComment {
   final String userName;
   final String body;
   final DateTime? createdAt;
-
-  factory EventComment.fromJson(dynamic json) {
-    final map = asMap(json);
-    return EventComment(
-      id: asInt(map['id']),
-      eventId: asInt(map['eventId']),
-      userId: asInt(map['userId']),
-      userName: asString(map['userName']),
-      body: asString(map['body']),
-      createdAt: asDateTime(map['createdAt']),
-    );
-  }
 }

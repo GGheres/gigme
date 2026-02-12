@@ -175,7 +175,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _discountType,
+                        initialValue: _discountType,
                         items: const [
                           DropdownMenuItem(
                               value: 'PERCENT', child: Text('PERCENT')),

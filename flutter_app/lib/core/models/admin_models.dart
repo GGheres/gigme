@@ -3,18 +3,39 @@ import 'auth_session.dart';
 import 'user_event.dart';
 
 class AdminLoginResponse {
+
+  factory AdminLoginResponse.fromJson(dynamic json) {
+    return AdminLoginResponse(session: AuthSession.fromJson(json));
+  }
   AdminLoginResponse({
     required this.session,
   });
 
   final AuthSession session;
-
-  factory AdminLoginResponse.fromJson(dynamic json) {
-    return AdminLoginResponse(session: AuthSession.fromJson(json));
-  }
 }
 
 class AdminUser {
+
+  factory AdminUser.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminUser(
+      id: asInt(map['id']),
+      telegramId: asInt(map['telegramId']),
+      username: asString(map['username']),
+      firstName: asString(map['firstName']),
+      lastName: asString(map['lastName']),
+      photoUrl: asString(map['photoUrl']),
+      rating: asDouble(map['rating']),
+      ratingCount: asInt(map['ratingCount']),
+      balanceTokens: asInt(map['balanceTokens']),
+      isBlocked: asBool(map['isBlocked']),
+      blockedReason: asString(map['blockedReason']),
+      blockedAt: asDateTime(map['blockedAt']),
+      lastSeenAt: asDateTime(map['lastSeenAt']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+    );
+  }
   AdminUser({
     required this.id,
     required this.telegramId,
@@ -55,37 +76,9 @@ class AdminUser {
     if (username.trim().isNotEmpty) return '@${username.trim()}';
     return 'ID $id';
   }
-
-  factory AdminUser.fromJson(dynamic json) {
-    final map = asMap(json);
-    return AdminUser(
-      id: asInt(map['id']),
-      telegramId: asInt(map['telegramId']),
-      username: asString(map['username']),
-      firstName: asString(map['firstName']),
-      lastName: asString(map['lastName']),
-      photoUrl: asString(map['photoUrl']),
-      rating: asDouble(map['rating']),
-      ratingCount: asInt(map['ratingCount']),
-      balanceTokens: asInt(map['balanceTokens']),
-      isBlocked: asBool(map['isBlocked']),
-      blockedReason: asString(map['blockedReason']),
-      blockedAt: asDateTime(map['blockedAt']),
-      lastSeenAt: asDateTime(map['lastSeenAt']),
-      createdAt: asDateTime(map['createdAt']),
-      updatedAt: asDateTime(map['updatedAt']),
-    );
-  }
 }
 
 class AdminUsersResponse {
-  AdminUsersResponse({
-    required this.items,
-    required this.total,
-  });
-
-  final List<AdminUser> items;
-  final int total;
 
   factory AdminUsersResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -94,16 +87,16 @@ class AdminUsersResponse {
       total: asInt(map['total']),
     );
   }
+  AdminUsersResponse({
+    required this.items,
+    required this.total,
+  });
+
+  final List<AdminUser> items;
+  final int total;
 }
 
 class AdminUserDetailResponse {
-  AdminUserDetailResponse({
-    required this.user,
-    required this.createdEvents,
-  });
-
-  final AdminUser user;
-  final List<UserEvent> createdEvents;
 
   factory AdminUserDetailResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -112,16 +105,16 @@ class AdminUserDetailResponse {
       createdEvents: asList(map['createdEvents']).map(UserEvent.fromJson).toList(),
     );
   }
+  AdminUserDetailResponse({
+    required this.user,
+    required this.createdEvents,
+  });
+
+  final AdminUser user;
+  final List<UserEvent> createdEvents;
 }
 
 class BroadcastButton {
-  BroadcastButton({
-    required this.text,
-    required this.url,
-  });
-
-  final String text;
-  final String url;
 
   factory BroadcastButton.fromJson(dynamic json) {
     final map = asMap(json);
@@ -130,6 +123,13 @@ class BroadcastButton {
       url: asString(map['url']),
     );
   }
+  BroadcastButton({
+    required this.text,
+    required this.url,
+  });
+
+  final String text;
+  final String url;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -140,6 +140,24 @@ class BroadcastButton {
 }
 
 class AdminBroadcast {
+
+  factory AdminBroadcast.fromJson(dynamic json) {
+    final map = asMap(json);
+    final payload = asMap(map['payload']);
+    return AdminBroadcast(
+      id: asInt(map['id']),
+      adminUserId: asInt(map['adminUserId']),
+      audience: asString(map['audience']),
+      status: asString(map['status']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+      targeted: asInt(map['targeted']),
+      sent: asInt(map['sent']),
+      failed: asInt(map['failed']),
+      message: asString(payload['message']),
+      buttons: asList(payload['buttons']).map(BroadcastButton.fromJson).toList(),
+    );
+  }
   AdminBroadcast({
     required this.id,
     required this.adminUserId,
@@ -165,34 +183,9 @@ class AdminBroadcast {
   final int failed;
   final String message;
   final List<BroadcastButton> buttons;
-
-  factory AdminBroadcast.fromJson(dynamic json) {
-    final map = asMap(json);
-    final payload = asMap(map['payload']);
-    return AdminBroadcast(
-      id: asInt(map['id']),
-      adminUserId: asInt(map['adminUserId']),
-      audience: asString(map['audience']),
-      status: asString(map['status']),
-      createdAt: asDateTime(map['createdAt']),
-      updatedAt: asDateTime(map['updatedAt']),
-      targeted: asInt(map['targeted']),
-      sent: asInt(map['sent']),
-      failed: asInt(map['failed']),
-      message: asString(payload['message']),
-      buttons: asList(payload['buttons']).map(BroadcastButton.fromJson).toList(),
-    );
-  }
 }
 
 class AdminBroadcastsResponse {
-  AdminBroadcastsResponse({
-    required this.items,
-    required this.total,
-  });
-
-  final List<AdminBroadcast> items;
-  final int total;
 
   factory AdminBroadcastsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -201,16 +194,16 @@ class AdminBroadcastsResponse {
       total: asInt(map['total']),
     );
   }
+  AdminBroadcastsResponse({
+    required this.items,
+    required this.total,
+  });
+
+  final List<AdminBroadcast> items;
+  final int total;
 }
 
 class AdminCreateBroadcastResponse {
-  AdminCreateBroadcastResponse({
-    required this.broadcastId,
-    required this.targets,
-  });
-
-  final int broadcastId;
-  final int targets;
 
   factory AdminCreateBroadcastResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -219,9 +212,31 @@ class AdminCreateBroadcastResponse {
       targets: asInt(map['targets']),
     );
   }
+  AdminCreateBroadcastResponse({
+    required this.broadcastId,
+    required this.targets,
+  });
+
+  final int broadcastId;
+  final int targets;
 }
 
 class AdminParserSource {
+
+  factory AdminParserSource.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminParserSource(
+      id: asInt(map['id']),
+      sourceType: asString(map['sourceType']),
+      input: asString(map['input']),
+      title: asString(map['title']),
+      isActive: asBool(map['isActive']),
+      lastParsedAt: asDateTime(map['lastParsedAt']),
+      createdBy: asInt(map['createdBy']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+    );
+  }
   AdminParserSource({
     required this.id,
     required this.sourceType,
@@ -243,31 +258,9 @@ class AdminParserSource {
   final int createdBy;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-
-  factory AdminParserSource.fromJson(dynamic json) {
-    final map = asMap(json);
-    return AdminParserSource(
-      id: asInt(map['id']),
-      sourceType: asString(map['sourceType']),
-      input: asString(map['input']),
-      title: asString(map['title']),
-      isActive: asBool(map['isActive']),
-      lastParsedAt: asDateTime(map['lastParsedAt']),
-      createdBy: asInt(map['createdBy']),
-      createdAt: asDateTime(map['createdAt']),
-      updatedAt: asDateTime(map['updatedAt']),
-    );
-  }
 }
 
 class AdminParserSourcesResponse {
-  AdminParserSourcesResponse({
-    required this.items,
-    required this.total,
-  });
-
-  final List<AdminParserSource> items;
-  final int total;
 
   factory AdminParserSourcesResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -276,9 +269,39 @@ class AdminParserSourcesResponse {
       total: asInt(map['total']),
     );
   }
+  AdminParserSourcesResponse({
+    required this.items,
+    required this.total,
+  });
+
+  final List<AdminParserSource> items;
+  final int total;
 }
 
 class AdminParsedEvent {
+
+  factory AdminParsedEvent.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminParsedEvent(
+      id: asInt(map['id']),
+      sourceId: map['sourceId'] == null ? null : asInt(map['sourceId']),
+      sourceType: asString(map['sourceType']),
+      input: asString(map['input']),
+      name: asString(map['name']),
+      dateTime: asDateTime(map['dateTime']),
+      location: asString(map['location']),
+      description: asString(map['description']),
+      links: asList(map['links']).map((item) => asString(item)).where((item) => item.isNotEmpty).toList(),
+      status: asString(map['status']),
+      parserError: asString(map['parserError']),
+      parsedAt: asDateTime(map['parsedAt']),
+      importedEventId: map['importedEventId'] == null ? null : asInt(map['importedEventId']),
+      importedBy: map['importedBy'] == null ? null : asInt(map['importedBy']),
+      importedAt: asDateTime(map['importedAt']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+    );
+  }
   AdminParsedEvent({
     required this.id,
     required this.sourceId,
@@ -316,39 +339,9 @@ class AdminParsedEvent {
   final DateTime? importedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-
-  factory AdminParsedEvent.fromJson(dynamic json) {
-    final map = asMap(json);
-    return AdminParsedEvent(
-      id: asInt(map['id']),
-      sourceId: map['sourceId'] == null ? null : asInt(map['sourceId']),
-      sourceType: asString(map['sourceType']),
-      input: asString(map['input']),
-      name: asString(map['name']),
-      dateTime: asDateTime(map['dateTime']),
-      location: asString(map['location']),
-      description: asString(map['description']),
-      links: asList(map['links']).map((item) => asString(item)).where((item) => item.isNotEmpty).toList(),
-      status: asString(map['status']),
-      parserError: asString(map['parserError']),
-      parsedAt: asDateTime(map['parsedAt']),
-      importedEventId: map['importedEventId'] == null ? null : asInt(map['importedEventId']),
-      importedBy: map['importedBy'] == null ? null : asInt(map['importedBy']),
-      importedAt: asDateTime(map['importedAt']),
-      createdAt: asDateTime(map['createdAt']),
-      updatedAt: asDateTime(map['updatedAt']),
-    );
-  }
 }
 
 class AdminParsedEventsResponse {
-  AdminParsedEventsResponse({
-    required this.items,
-    required this.total,
-  });
-
-  final List<AdminParsedEvent> items;
-  final int total;
 
   factory AdminParsedEventsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -357,9 +350,26 @@ class AdminParsedEventsResponse {
       total: asInt(map['total']),
     );
   }
+  AdminParsedEventsResponse({
+    required this.items,
+    required this.total,
+  });
+
+  final List<AdminParsedEvent> items;
+  final int total;
 }
 
 class AdminParserParseResponse {
+
+  factory AdminParserParseResponse.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminParserParseResponse(
+      item: map['item'] == null ? null : AdminParsedEvent.fromJson(map['item']),
+      items: asList(map['items']).map(AdminParsedEvent.fromJson).toList(),
+      count: asInt(map['count']),
+      error: asString(map['error']),
+    );
+  }
   AdminParserParseResponse({
     required this.item,
     required this.items,
@@ -371,28 +381,9 @@ class AdminParserParseResponse {
   final List<AdminParsedEvent> items;
   final int count;
   final String error;
-
-  factory AdminParserParseResponse.fromJson(dynamic json) {
-    final map = asMap(json);
-    return AdminParserParseResponse(
-      item: map['item'] == null ? null : AdminParsedEvent.fromJson(map['item']),
-      items: asList(map['items']).map(AdminParsedEvent.fromJson).toList(),
-      count: asInt(map['count']),
-      error: asString(map['error']),
-    );
-  }
 }
 
 class GeocodeResult {
-  GeocodeResult({
-    required this.displayName,
-    required this.lat,
-    required this.lng,
-  });
-
-  final String displayName;
-  final double lat;
-  final double lng;
 
   factory GeocodeResult.fromJson(dynamic json) {
     final map = asMap(json);
@@ -402,12 +393,18 @@ class GeocodeResult {
       lng: asDouble(map['lng']),
     );
   }
+  GeocodeResult({
+    required this.displayName,
+    required this.lat,
+    required this.lng,
+  });
+
+  final String displayName;
+  final double lat;
+  final double lng;
 }
 
 class GeocodeResultsResponse {
-  GeocodeResultsResponse({required this.items});
-
-  final List<GeocodeResult> items;
 
   factory GeocodeResultsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -415,4 +412,7 @@ class GeocodeResultsResponse {
       items: asList(map['items']).map(GeocodeResult.fromJson).toList(),
     );
   }
+  GeocodeResultsResponse({required this.items});
+
+  final List<GeocodeResult> items;
 }

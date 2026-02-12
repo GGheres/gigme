@@ -88,7 +88,7 @@ class EventsRepository {
             'lat': lat,
             'lng': lng,
           },
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -177,7 +177,7 @@ class EventsRepository {
           query: <String, dynamic>{
             if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
           },
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 
@@ -192,7 +192,7 @@ class EventsRepository {
           query: <String, dynamic>{
             if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
           },
-          decoder: (_) => null,
+          decoder: (_) {},
         );
   }
 

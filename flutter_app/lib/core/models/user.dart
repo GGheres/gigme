@@ -1,6 +1,21 @@
 import '../utils/json_utils.dart';
 
 class User {
+
+  factory User.fromJson(dynamic json) {
+    final map = asMap(json);
+    return User(
+      id: asInt(map['id']),
+      telegramId: asInt(map['telegramId']),
+      firstName: asString(map['firstName']),
+      lastName: asString(map['lastName']),
+      username: asString(map['username']),
+      photoUrl: asString(map['photoUrl']),
+      rating: asDouble(map['rating']),
+      ratingCount: asInt(map['ratingCount']),
+      balanceTokens: asInt(map['balanceTokens']),
+    );
+  }
   User({
     required this.id,
     required this.telegramId,
@@ -31,21 +46,6 @@ class User {
   }
 
   String get handle => username.trim().isEmpty ? '' : '@${username.trim()}';
-
-  factory User.fromJson(dynamic json) {
-    final map = asMap(json);
-    return User(
-      id: asInt(map['id']),
-      telegramId: asInt(map['telegramId']),
-      firstName: asString(map['firstName']),
-      lastName: asString(map['lastName']),
-      username: asString(map['username']),
-      photoUrl: asString(map['photoUrl']),
-      rating: asDouble(map['rating']),
-      ratingCount: asInt(map['ratingCount']),
-      balanceTokens: asInt(map['balanceTokens']),
-    );
-  }
 
   User copyWith({
     int? id,

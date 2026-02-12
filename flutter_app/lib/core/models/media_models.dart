@@ -1,13 +1,6 @@
 import '../utils/json_utils.dart';
 
 class PresignResponse {
-  PresignResponse({
-    required this.uploadUrl,
-    required this.fileUrl,
-  });
-
-  final String uploadUrl;
-  final String fileUrl;
 
   factory PresignResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -16,16 +9,16 @@ class PresignResponse {
       fileUrl: asString(map['fileUrl']),
     );
   }
+  PresignResponse({
+    required this.uploadUrl,
+    required this.fileUrl,
+  });
+
+  final String uploadUrl;
+  final String fileUrl;
 }
 
 class CreateEventResponse {
-  CreateEventResponse({
-    required this.eventId,
-    required this.accessKey,
-  });
-
-  final int eventId;
-  final String accessKey;
 
   factory CreateEventResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -34,15 +27,22 @@ class CreateEventResponse {
       accessKey: asString(map['accessKey']),
     );
   }
+  CreateEventResponse({
+    required this.eventId,
+    required this.accessKey,
+  });
+
+  final int eventId;
+  final String accessKey;
 }
 
 class TopupTokenResponse {
-  TopupTokenResponse({required this.balanceTokens});
-
-  final int balanceTokens;
 
   factory TopupTokenResponse.fromJson(dynamic json) {
     final map = asMap(json);
     return TopupTokenResponse(balanceTokens: asInt(map['balanceTokens']));
   }
+  TopupTokenResponse({required this.balanceTokens});
+
+  final int balanceTokens;
 }

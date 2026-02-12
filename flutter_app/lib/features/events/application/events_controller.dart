@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +16,18 @@ import '../../auth/application/auth_controller.dart';
 import '../data/events_repository.dart';
 
 class EventsState {
+
+  factory EventsState.initial() => const EventsState(
+        loading: false,
+        refreshing: false,
+        error: null,
+        feed: <EventCard>[],
+        markers: <EventMarker>[],
+        activeFilters: <String>[],
+        nearbyOnly: true,
+        radiusMeters: kNearbyRadiusMeters,
+        lastCenter: null,
+      );
   const EventsState({
     required this.loading,
     required this.refreshing,
@@ -38,18 +49,6 @@ class EventsState {
   final bool nearbyOnly;
   final int radiusMeters;
   final LatLng? lastCenter;
-
-  factory EventsState.initial() => const EventsState(
-        loading: false,
-        refreshing: false,
-        error: null,
-        feed: <EventCard>[],
-        markers: <EventMarker>[],
-        activeFilters: <String>[],
-        nearbyOnly: true,
-        radiusMeters: kNearbyRadiusMeters,
-        lastCenter: null,
-      );
 
   EventsState copyWith({
     bool? loading,

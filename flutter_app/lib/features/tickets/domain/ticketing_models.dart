@@ -1,6 +1,20 @@
 import '../../../core/utils/json_utils.dart';
 
 class TicketProductModel {
+
+  factory TicketProductModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return TicketProductModel(
+      id: asString(map['id']),
+      eventId: asInt(map['eventId']),
+      type: asString(map['type']).toUpperCase(),
+      priceCents: asInt(map['priceCents']),
+      inventoryLimit:
+          map['inventoryLimit'] == null ? null : asInt(map['inventoryLimit']),
+      soldCount: asInt(map['soldCount']),
+      isActive: asBool(map['isActive']),
+    );
+  }
   TicketProductModel({
     required this.id,
     required this.eventId,
@@ -19,20 +33,6 @@ class TicketProductModel {
   final int soldCount;
   final bool isActive;
 
-  factory TicketProductModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return TicketProductModel(
-      id: asString(map['id']),
-      eventId: asInt(map['eventId']),
-      type: asString(map['type']).toUpperCase(),
-      priceCents: asInt(map['priceCents']),
-      inventoryLimit:
-          map['inventoryLimit'] == null ? null : asInt(map['inventoryLimit']),
-      soldCount: asInt(map['soldCount']),
-      isActive: asBool(map['isActive']),
-    );
-  }
-
   String get label {
     switch (type) {
       case 'GROUP2':
@@ -47,6 +47,21 @@ class TicketProductModel {
 }
 
 class TransferProductModel {
+
+  factory TransferProductModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return TransferProductModel(
+      id: asString(map['id']),
+      eventId: asInt(map['eventId']),
+      direction: asString(map['direction']).toUpperCase(),
+      priceCents: asInt(map['priceCents']),
+      info: asMap(map['info']),
+      inventoryLimit:
+          map['inventoryLimit'] == null ? null : asInt(map['inventoryLimit']),
+      soldCount: asInt(map['soldCount']),
+      isActive: asBool(map['isActive']),
+    );
+  }
   TransferProductModel({
     required this.id,
     required this.eventId,
@@ -66,21 +81,6 @@ class TransferProductModel {
   final int? inventoryLimit;
   final int soldCount;
   final bool isActive;
-
-  factory TransferProductModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return TransferProductModel(
-      id: asString(map['id']),
-      eventId: asInt(map['eventId']),
-      direction: asString(map['direction']).toUpperCase(),
-      priceCents: asInt(map['priceCents']),
-      info: asMap(map['info']),
-      inventoryLimit:
-          map['inventoryLimit'] == null ? null : asInt(map['inventoryLimit']),
-      soldCount: asInt(map['soldCount']),
-      isActive: asBool(map['isActive']),
-    );
-  }
 
   String get label {
     switch (direction) {
@@ -105,10 +105,6 @@ class TransferProductModel {
 }
 
 class EventProductsModel {
-  EventProductsModel({required this.tickets, required this.transfers});
-
-  final List<TicketProductModel> tickets;
-  final List<TransferProductModel> transfers;
 
   factory EventProductsModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -118,9 +114,26 @@ class EventProductsModel {
           asList(map['transfers']).map(TransferProductModel.fromJson).toList(),
     );
   }
+  EventProductsModel({required this.tickets, required this.transfers});
+
+  final List<TicketProductModel> tickets;
+  final List<TransferProductModel> transfers;
 }
 
 class PromoValidationModel {
+
+  factory PromoValidationModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return PromoValidationModel(
+      valid: asBool(map['valid']),
+      code: asString(map['code']),
+      discountType: asString(map['discountType']).toUpperCase(),
+      value: asInt(map['value']),
+      discountCents: asInt(map['discountCents']),
+      totalCents: asInt(map['totalCents']),
+      reason: asString(map['reason']),
+    );
+  }
   PromoValidationModel({
     required this.valid,
     required this.code,
@@ -138,19 +151,6 @@ class PromoValidationModel {
   final int discountCents;
   final int totalCents;
   final String reason;
-
-  factory PromoValidationModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return PromoValidationModel(
-      valid: asBool(map['valid']),
-      code: asString(map['code']),
-      discountType: asString(map['discountType']).toUpperCase(),
-      value: asInt(map['value']),
-      discountCents: asInt(map['discountCents']),
-      totalCents: asInt(map['totalCents']),
-      reason: asString(map['reason']),
-    );
-  }
 }
 
 class OrderSelectionModel {
@@ -195,6 +195,21 @@ class CreateOrderPayload {
 }
 
 class PaymentInstructionsModel {
+
+  factory PaymentInstructionsModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return PaymentInstructionsModel(
+      phoneNumber: asString(map['phoneNumber']),
+      usdtWallet: asString(map['usdtWallet']),
+      usdtNetwork: asString(map['usdtNetwork']),
+      usdtMemo: asString(map['usdtMemo']),
+      paymentQrData: asString(map['paymentQrData']),
+      paymentQrCId: asString(map['paymentQrCId']),
+      amountCents: asInt(map['amountCents']),
+      currency: asString(map['currency']),
+      displayMessage: asString(map['displayMessage']),
+    );
+  }
   PaymentInstructionsModel({
     required this.phoneNumber,
     required this.usdtWallet,
@@ -216,24 +231,23 @@ class PaymentInstructionsModel {
   final int amountCents;
   final String currency;
   final String displayMessage;
+}
 
-  factory PaymentInstructionsModel.fromJson(dynamic json) {
+class PaymentSettingsModel {
+
+  factory PaymentSettingsModel.fromJson(dynamic json) {
     final map = asMap(json);
-    return PaymentInstructionsModel(
+    return PaymentSettingsModel(
       phoneNumber: asString(map['phoneNumber']),
       usdtWallet: asString(map['usdtWallet']),
       usdtNetwork: asString(map['usdtNetwork']),
       usdtMemo: asString(map['usdtMemo']),
-      paymentQrData: asString(map['paymentQrData']),
-      paymentQrCId: asString(map['paymentQrCId']),
-      amountCents: asInt(map['amountCents']),
-      currency: asString(map['currency']),
-      displayMessage: asString(map['displayMessage']),
+      phoneDescription: asString(map['phoneDescription']),
+      usdtDescription: asString(map['usdtDescription']),
+      qrDescription: asString(map['qrDescription']),
+      sbpDescription: asString(map['sbpDescription']),
     );
   }
-}
-
-class PaymentSettingsModel {
   PaymentSettingsModel({
     required this.phoneNumber,
     required this.usdtWallet,
@@ -254,20 +268,6 @@ class PaymentSettingsModel {
   final String qrDescription;
   final String sbpDescription;
 
-  factory PaymentSettingsModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return PaymentSettingsModel(
-      phoneNumber: asString(map['phoneNumber']),
-      usdtWallet: asString(map['usdtWallet']),
-      usdtNetwork: asString(map['usdtNetwork']),
-      usdtMemo: asString(map['usdtMemo']),
-      phoneDescription: asString(map['phoneDescription']),
-      usdtDescription: asString(map['usdtDescription']),
-      qrDescription: asString(map['qrDescription']),
-      sbpDescription: asString(map['sbpDescription']),
-    );
-  }
-
   String descriptionForMethod(String method) {
     switch (method.toUpperCase()) {
       case 'PHONE':
@@ -285,6 +285,29 @@ class PaymentSettingsModel {
 }
 
 class OrderModel {
+
+  factory OrderModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return OrderModel(
+      id: asString(map['id']),
+      userId: asInt(map['userId']),
+      eventId: asInt(map['eventId']),
+      eventTitle: asString(map['eventTitle']),
+      status: asString(map['status']).toUpperCase(),
+      paymentMethod: asString(map['paymentMethod']).toUpperCase(),
+      paymentReference: asString(map['paymentReference']),
+      paymentNotes: asString(map['paymentNotes']),
+      subtotalCents: asInt(map['subtotalCents']),
+      discountCents: asInt(map['discountCents']),
+      totalCents: asInt(map['totalCents']),
+      currency: asString(map['currency']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+      confirmedAt: asDateTime(map['confirmedAt']),
+      canceledAt: asDateTime(map['canceledAt']),
+      redeemedAt: asDateTime(map['redeemedAt']),
+    );
+  }
   OrderModel({
     required this.id,
     required this.userId,
@@ -322,32 +345,20 @@ class OrderModel {
   final DateTime? confirmedAt;
   final DateTime? canceledAt;
   final DateTime? redeemedAt;
-
-  factory OrderModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return OrderModel(
-      id: asString(map['id']),
-      userId: asInt(map['userId']),
-      eventId: asInt(map['eventId']),
-      eventTitle: asString(map['eventTitle']),
-      status: asString(map['status']).toUpperCase(),
-      paymentMethod: asString(map['paymentMethod']).toUpperCase(),
-      paymentReference: asString(map['paymentReference']),
-      paymentNotes: asString(map['paymentNotes']),
-      subtotalCents: asInt(map['subtotalCents']),
-      discountCents: asInt(map['discountCents']),
-      totalCents: asInt(map['totalCents']),
-      currency: asString(map['currency']),
-      createdAt: asDateTime(map['createdAt']),
-      updatedAt: asDateTime(map['updatedAt']),
-      confirmedAt: asDateTime(map['confirmedAt']),
-      canceledAt: asDateTime(map['canceledAt']),
-      redeemedAt: asDateTime(map['redeemedAt']),
-    );
-  }
 }
 
 class OrderUserModel {
+
+  factory OrderUserModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return OrderUserModel(
+      id: asInt(map['id']),
+      telegramId: asInt(map['telegramId']),
+      firstName: asString(map['firstName']),
+      lastName: asString(map['lastName']),
+      username: asString(map['username']),
+    );
+  }
   OrderUserModel({
     required this.id,
     required this.telegramId,
@@ -362,17 +373,6 @@ class OrderUserModel {
   final String lastName;
   final String username;
 
-  factory OrderUserModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return OrderUserModel(
-      id: asInt(map['id']),
-      telegramId: asInt(map['telegramId']),
-      firstName: asString(map['firstName']),
-      lastName: asString(map['lastName']),
-      username: asString(map['username']),
-    );
-  }
-
   String get displayName {
     final fullName = [firstName, lastName]
         .where((item) => item.trim().isNotEmpty)
@@ -385,6 +385,21 @@ class OrderUserModel {
 }
 
 class OrderItemModel {
+
+  factory OrderItemModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return OrderItemModel(
+      id: asInt(map['id']),
+      orderId: asString(map['orderId']),
+      itemType: asString(map['itemType']).toUpperCase(),
+      productId: asString(map['productId']),
+      productRef: asString(map['productRef']),
+      quantity: asInt(map['quantity']),
+      unitPriceCents: asInt(map['unitPriceCents']),
+      lineTotalCents: asInt(map['lineTotalCents']),
+      meta: asMap(map['meta']),
+    );
+  }
   OrderItemModel({
     required this.id,
     required this.orderId,
@@ -406,24 +421,24 @@ class OrderItemModel {
   final int unitPriceCents;
   final int lineTotalCents;
   final Map<String, dynamic> meta;
-
-  factory OrderItemModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return OrderItemModel(
-      id: asInt(map['id']),
-      orderId: asString(map['orderId']),
-      itemType: asString(map['itemType']).toUpperCase(),
-      productId: asString(map['productId']),
-      productRef: asString(map['productRef']),
-      quantity: asInt(map['quantity']),
-      unitPriceCents: asInt(map['unitPriceCents']),
-      lineTotalCents: asInt(map['lineTotalCents']),
-      meta: asMap(map['meta']),
-    );
-  }
 }
 
 class TicketModel {
+
+  factory TicketModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return TicketModel(
+      id: asString(map['id']),
+      orderId: asString(map['orderId']),
+      userId: asInt(map['userId']),
+      eventId: asInt(map['eventId']),
+      ticketType: asString(map['ticketType']).toUpperCase(),
+      quantity: asInt(map['quantity']),
+      qrPayload: asString(map['qrPayload']),
+      redeemedAt: asDateTime(map['redeemedAt']),
+      createdAt: asDateTime(map['createdAt']),
+    );
+  }
   TicketModel({
     required this.id,
     required this.orderId,
@@ -446,25 +461,22 @@ class TicketModel {
   final DateTime? redeemedAt;
   final DateTime? createdAt;
 
-  factory TicketModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return TicketModel(
-      id: asString(map['id']),
-      orderId: asString(map['orderId']),
-      userId: asInt(map['userId']),
-      eventId: asInt(map['eventId']),
-      ticketType: asString(map['ticketType']).toUpperCase(),
-      quantity: asInt(map['quantity']),
-      qrPayload: asString(map['qrPayload']),
-      redeemedAt: asDateTime(map['redeemedAt']),
-      createdAt: asDateTime(map['createdAt']),
-    );
-  }
-
   String get status => redeemedAt == null ? 'PAID' : 'REDEEMED';
 }
 
 class OrderDetailModel {
+
+  factory OrderDetailModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return OrderDetailModel(
+      order: OrderModel.fromJson(map['order']),
+      user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
+      items: asList(map['items']).map(OrderItemModel.fromJson).toList(),
+      tickets: asList(map['tickets']).map(TicketModel.fromJson).toList(),
+      paymentInstructions:
+          PaymentInstructionsModel.fromJson(map['paymentInstructions']),
+    );
+  }
   OrderDetailModel({
     required this.order,
     required this.user,
@@ -478,25 +490,9 @@ class OrderDetailModel {
   final List<OrderItemModel> items;
   final List<TicketModel> tickets;
   final PaymentInstructionsModel paymentInstructions;
-
-  factory OrderDetailModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return OrderDetailModel(
-      order: OrderModel.fromJson(map['order']),
-      user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
-      items: asList(map['items']).map(OrderItemModel.fromJson).toList(),
-      tickets: asList(map['tickets']).map(TicketModel.fromJson).toList(),
-      paymentInstructions:
-          PaymentInstructionsModel.fromJson(map['paymentInstructions']),
-    );
-  }
 }
 
 class OrderSummaryModel {
-  OrderSummaryModel({required this.order, required this.user});
-
-  final OrderModel order;
-  final OrderUserModel? user;
 
   factory OrderSummaryModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -505,13 +501,13 @@ class OrderSummaryModel {
       user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
     );
   }
+  OrderSummaryModel({required this.order, required this.user});
+
+  final OrderModel order;
+  final OrderUserModel? user;
 }
 
 class OrdersListModel {
-  OrdersListModel({required this.items, required this.total});
-
-  final List<OrderSummaryModel> items;
-  final int total;
 
   factory OrdersListModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -520,12 +516,13 @@ class OrdersListModel {
       total: asInt(map['total']),
     );
   }
+  OrdersListModel({required this.items, required this.total});
+
+  final List<OrderSummaryModel> items;
+  final int total;
 }
 
 class MyTicketsModel {
-  MyTicketsModel({required this.items});
-
-  final List<TicketModel> items;
 
   factory MyTicketsModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -533,9 +530,26 @@ class MyTicketsModel {
       items: asList(map['items']).map(TicketModel.fromJson).toList(),
     );
   }
+  MyTicketsModel({required this.items});
+
+  final List<TicketModel> items;
 }
 
 class AdminStatsBreakdownModel {
+
+  factory AdminStatsBreakdownModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminStatsBreakdownModel(
+      eventId: map['eventId'] == null ? null : asInt(map['eventId']),
+      eventTitle: asString(map['eventTitle']),
+      purchasedAmountCents: asInt(map['purchasedAmountCents']),
+      redeemedAmountCents: asInt(map['redeemedAmountCents']),
+      checkedInTickets: asInt(map['checkedInTickets']),
+      checkedInPeople: asInt(map['checkedInPeople']),
+      ticketTypeCounts: _parseCountMap(map['ticketTypeCounts']),
+      transferDirectionCounts: _parseCountMap(map['transferDirectionCounts']),
+    );
+  }
   AdminStatsBreakdownModel({
     required this.eventId,
     required this.eventTitle,
@@ -556,20 +570,6 @@ class AdminStatsBreakdownModel {
   final Map<String, int> ticketTypeCounts;
   final Map<String, int> transferDirectionCounts;
 
-  factory AdminStatsBreakdownModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return AdminStatsBreakdownModel(
-      eventId: map['eventId'] == null ? null : asInt(map['eventId']),
-      eventTitle: asString(map['eventTitle']),
-      purchasedAmountCents: asInt(map['purchasedAmountCents']),
-      redeemedAmountCents: asInt(map['redeemedAmountCents']),
-      checkedInTickets: asInt(map['checkedInTickets']),
-      checkedInPeople: asInt(map['checkedInPeople']),
-      ticketTypeCounts: _parseCountMap(map['ticketTypeCounts']),
-      transferDirectionCounts: _parseCountMap(map['transferDirectionCounts']),
-    );
-  }
-
   static Map<String, int> _parseCountMap(dynamic value) {
     final source = asMap(value);
     return source.map((key, item) => MapEntry(key.toUpperCase(), asInt(item)));
@@ -577,10 +577,6 @@ class AdminStatsBreakdownModel {
 }
 
 class AdminStatsModel {
-  AdminStatsModel({required this.global, required this.events});
-
-  final AdminStatsBreakdownModel global;
-  final List<AdminStatsBreakdownModel> events;
 
   factory AdminStatsModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -590,13 +586,13 @@ class AdminStatsModel {
           asList(map['events']).map(AdminStatsBreakdownModel.fromJson).toList(),
     );
   }
+  AdminStatsModel({required this.global, required this.events});
+
+  final AdminStatsBreakdownModel global;
+  final List<AdminStatsBreakdownModel> events;
 }
 
 class TicketRedeemResultModel {
-  TicketRedeemResultModel({required this.ticket, required this.orderStatus});
-
-  final TicketModel ticket;
-  final String orderStatus;
 
   factory TicketRedeemResultModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -605,9 +601,28 @@ class TicketRedeemResultModel {
       orderStatus: asString(map['orderStatus']).toUpperCase(),
     );
   }
+  TicketRedeemResultModel({required this.ticket, required this.orderStatus});
+
+  final TicketModel ticket;
+  final String orderStatus;
 }
 
 class SbpQrModel {
+
+  factory SbpQrModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return SbpQrModel(
+      id: asString(map['id']),
+      orderId: asString(map['orderId']),
+      qrcId: asString(map['qrcId']),
+      payload: asString(map['payload']),
+      merchantId: asString(map['merchantId']),
+      accountId: asString(map['accountId']),
+      status: asString(map['status']),
+      createdAt: asDateTime(map['createdAt']),
+      updatedAt: asDateTime(map['updatedAt']),
+    );
+  }
   SbpQrModel({
     required this.id,
     required this.orderId,
@@ -629,31 +644,9 @@ class SbpQrModel {
   final String status;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-
-  factory SbpQrModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return SbpQrModel(
-      id: asString(map['id']),
-      orderId: asString(map['orderId']),
-      qrcId: asString(map['qrcId']),
-      payload: asString(map['payload']),
-      merchantId: asString(map['merchantId']),
-      accountId: asString(map['accountId']),
-      status: asString(map['status']),
-      createdAt: asDateTime(map['createdAt']),
-      updatedAt: asDateTime(map['updatedAt']),
-    );
-  }
 }
 
 class CreateSbpQrOrderResponseModel {
-  CreateSbpQrOrderResponseModel({
-    required this.order,
-    required this.sbpQr,
-  });
-
-  final OrderDetailModel order;
-  final SbpQrModel sbpQr;
 
   factory CreateSbpQrOrderResponseModel.fromJson(dynamic json) {
     final map = asMap(json);
@@ -662,9 +655,32 @@ class CreateSbpQrOrderResponseModel {
       sbpQr: SbpQrModel.fromJson(map['sbpQr']),
     );
   }
+  CreateSbpQrOrderResponseModel({
+    required this.order,
+    required this.sbpQr,
+  });
+
+  final OrderDetailModel order;
+  final SbpQrModel sbpQr;
 }
 
 class SbpQrStatusResponseModel {
+
+  factory SbpQrStatusResponseModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return SbpQrStatusResponseModel(
+      orderId: asString(map['orderId']),
+      qrcId: asString(map['qrcId']),
+      paymentStatus: asString(map['paymentStatus']),
+      orderStatus: asString(map['orderStatus']).toUpperCase(),
+      paid: asBool(map['paid']),
+      unknown: asBool(map['unknown']),
+      message: asString(map['message']),
+      detail: map['detail'] == null
+          ? null
+          : OrderDetailModel.fromJson(map['detail']),
+    );
+  }
   SbpQrStatusResponseModel({
     required this.orderId,
     required this.qrcId,
@@ -684,20 +700,4 @@ class SbpQrStatusResponseModel {
   final bool unknown;
   final String message;
   final OrderDetailModel? detail;
-
-  factory SbpQrStatusResponseModel.fromJson(dynamic json) {
-    final map = asMap(json);
-    return SbpQrStatusResponseModel(
-      orderId: asString(map['orderId']),
-      qrcId: asString(map['qrcId']),
-      paymentStatus: asString(map['paymentStatus']),
-      orderStatus: asString(map['orderStatus']).toUpperCase(),
-      paid: asBool(map['paid']),
-      unknown: asBool(map['unknown']),
-      message: asString(map['message']),
-      detail: map['detail'] == null
-          ? null
-          : OrderDetailModel.fromJson(map['detail']),
-    );
-  }
 }

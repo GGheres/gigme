@@ -61,7 +61,7 @@ class FeedList extends StatelessWidget {
         final event = items[index];
         final accessKey = eventAccessKeys[event.id] ?? event.accessKey;
         return Padding(
-          padding: EdgeInsets.only(bottom: itemSpacing),
+          padding: const EdgeInsets.only(bottom: itemSpacing),
           child: EventCardTile(
             event: event,
             apiUrl: apiUrl,

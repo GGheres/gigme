@@ -8,13 +8,6 @@ import '../../../core/network/providers.dart';
 import '../../../core/utils/json_utils.dart';
 
 class UserEventsResponse {
-  UserEventsResponse({
-    required this.items,
-    required this.total,
-  });
-
-  final List<UserEvent> items;
-  final int total;
 
   factory UserEventsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -23,6 +16,13 @@ class UserEventsResponse {
       total: asInt(map['total']),
     );
   }
+  UserEventsResponse({
+    required this.items,
+    required this.total,
+  });
+
+  final List<UserEvent> items;
+  final int total;
 }
 
 class ProfileRepository {

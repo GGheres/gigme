@@ -31,7 +31,9 @@ dependencies:
   mime: ^2.0.0
   qr_flutter: ^4.1.0
   mobile_scanner: ^5.2.3
-
+  path: ^1.9.1
+  flutter_web_plugins:
+    sdk: flutter
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -40,8 +42,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/landing/99.png
-    - assets/images/landing/99_web.jpg
     - assets/videos/landing/IMG_9645.webm
   shaders:
     - assets/shaders/bubble_warp.frag

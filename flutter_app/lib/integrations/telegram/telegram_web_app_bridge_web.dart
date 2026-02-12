@@ -1,10 +1,19 @@
-import 'dart:html' as html;
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
-Object? _webApp() {
-  final telegram = js_util.getProperty<Object?>(html.window, 'Telegram');
-  if (telegram == null) return null;
-  return js_util.getProperty<Object?>(telegram, 'WebApp');
+JSObject? _webApp() {
+  final telegram = globalContext['Telegram'];
+  if (telegram is! JSObject) return null;
+  final app = telegram['WebApp'];
+  if (app is! JSObject) return null;
+  return app;
+}
+
+String? _readTrimmedJsString(JSAny? value) {
+  if (value is! JSString) return null;
+  final text = value.toDart.trim();
+  if (text.isEmpty) return null;
+  return text;
 }
 
 bool isAvailable() => _webApp() != null;
@@ -12,29 +21,20 @@ bool isAvailable() => _webApp() != null;
 String? getInitData() {
   final app = _webApp();
   if (app == null) return null;
-  final value =
-      js_util.getProperty<Object?>(app, 'initData')?.toString().trim() ?? '';
-  if (value.isEmpty) return null;
-  return value;
+  return _readTrimmedJsString(app['initData']);
 }
 
 String? startParam() {
   final app = _webApp();
   if (app == null) return null;
-  final unsafe = js_util.getProperty<Object?>(app, 'initDataUnsafe');
-  if (unsafe == null) return null;
 
-  final first =
-      js_util.getProperty<Object?>(unsafe, 'start_param')?.toString().trim() ??
-          '';
-  if (first.isNotEmpty) return first;
+  final unsafe = app['initDataUnsafe'];
+  if (unsafe is! JSObject) return null;
 
-  final second =
-      js_util.getProperty<Object?>(unsafe, 'startParam')?.toString().trim() ??
-          '';
-  if (second.isNotEmpty) return second;
+  final first = _readTrimmedJsString(unsafe['start_param']);
+  if (first != null) return first;
 
-  return null;
+  return _readTrimmedJsString(unsafe['startParam']);
 }
 
 void openLink(String url) {
@@ -42,15 +42,18 @@ void openLink(String url) {
   final trimmed = url.trim();
   if (trimmed.isEmpty) return;
 
-  if (app != null) {
-    final openLink = js_util.getProperty<Object?>(app, 'openLink');
-    if (openLink != null) {
-      js_util.callMethod<void>(app, 'openLink', [trimmed]);
-      return;
-    }
+  if (app != null && app.has('openLink')) {
+    app.callMethodVarArgs<JSAny?>(
+      'openLink'.toJS,
+      <JSAny?>[trimmed.toJS],
+    );
+    return;
   }
 
-  html.window.open(trimmed, '_blank');
+  globalContext.callMethodVarArgs<JSAny?>(
+    'open'.toJS,
+    <JSAny?>[trimmed.toJS, '_blank'.toJS],
+  );
 }
 
 void showToast(String message) {
@@ -58,29 +61,42 @@ void showToast(String message) {
   final text = message.trim();
   if (text.isEmpty) return;
 
-  if (app != null) {
-    final showAlert = js_util.getProperty<Object?>(app, 'showAlert');
-    if (showAlert != null) {
-      js_util.callMethod<void>(app, 'showAlert', [text]);
-      return;
-    }
+  if (app != null && app.has('showAlert')) {
+    app.callMethodVarArgs<JSAny?>(
+      'showAlert'.toJS,
+      <JSAny?>[text.toJS],
+    );
+    return;
   }
 
-  html.window.console.log(text);
+  final console = globalContext['console'];
+  if (console is JSObject && console.has('log')) {
+    console.callMethodVarArgs<JSAny?>(
+      'log'.toJS,
+      <JSAny?>[text.toJS],
+    );
+  }
 }
 
 void readyAndExpand() {
   final app = _webApp();
   if (app == null) return;
 
-  if (js_util.getProperty<Object?>(app, 'ready') != null) {
-    js_util.callMethod<void>(app, 'ready', const []);
+  if (app.has('ready')) {
+    app.callMethodVarArgs<JSAny?>('ready'.toJS, const <JSAny?>[]);
   }
-  if (js_util.getProperty<Object?>(app, 'expand') != null) {
-    js_util.callMethod<void>(app, 'expand', const []);
+  if (app.has('expand')) {
+    app.callMethodVarArgs<JSAny?>('expand'.toJS, const <JSAny?>[]);
   }
-  if (js_util.getProperty<Object?>(app, 'disableVerticalSwipes') != null) {
-    js_util.callMethod<void>(app, 'disableVerticalSwipes', const []);
+  if (app.has('disableVerticalSwipes')) {
+    app.callMethodVarArgs<JSAny?>(
+      'disableVerticalSwipes'.toJS,
+      const <JSAny?>[],
+    );
   }
-  html.window.scrollTo(0, 0);
+
+  globalContext.callMethodVarArgs<JSAny?>(
+    'scrollTo'.toJS,
+    <JSAny?>[0.toJS, 0.toJS],
+  );
 }

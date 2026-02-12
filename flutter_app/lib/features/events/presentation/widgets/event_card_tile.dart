@@ -31,17 +31,17 @@ class EventCardTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     const isMobileUi = !kIsWeb;
-    final cardPadding = isMobileUi ? AppSpacing.md : AppSpacing.sm;
-    final mediaSize = isMobileUi ? 142.0 : 110.0;
+    const cardPadding = isMobileUi ? AppSpacing.md : AppSpacing.sm;
+    const mediaSize = isMobileUi ? 142.0 : 110.0;
     final titleStyle =
         isMobileUi ? theme.textTheme.titleLarge : theme.textTheme.titleMedium;
-    final descriptionMaxLines = isMobileUi ? 3 : 2;
+    const descriptionMaxLines = isMobileUi ? 3 : 2;
     final startsAt = formatDateTime(event.startsAt);
     final distanceText = _distanceText();
 
     return AppCard(
       onTap: onTap,
-      padding: EdgeInsets.all(cardPadding),
+      padding: const EdgeInsets.all(cardPadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -52,7 +52,7 @@ class EventCardTile extends StatelessWidget {
             distanceText: distanceText,
             mediaSize: mediaSize,
           ),
-          SizedBox(width: isMobileUi ? AppSpacing.md : AppSpacing.sm),
+          const SizedBox(width: isMobileUi ? AppSpacing.md : AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

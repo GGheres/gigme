@@ -1,6 +1,37 @@
 import '../utils/json_utils.dart';
 
 class EventCard {
+
+  factory EventCard.fromJson(dynamic json) {
+    final map = asMap(json);
+    return EventCard(
+      id: asInt(map['id']),
+      title: asString(map['title']),
+      description: asString(map['description']),
+      links: asList(map['links']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
+      startsAt: asDateTime(map['startsAt']),
+      endsAt: asDateTime(map['endsAt']),
+      lat: asDouble(map['lat']),
+      lng: asDouble(map['lng']),
+      capacity: map['capacity'] == null ? null : asInt(map['capacity']),
+      promotedUntil: asDateTime(map['promotedUntil']),
+      creatorName: asString(map['creatorName']),
+      thumbnailUrl: asString(map['thumbnailUrl']),
+      participantsCount: asInt(map['participantsCount']),
+      likesCount: asInt(map['likesCount']),
+      commentsCount: asInt(map['commentsCount']),
+      filters: asList(map['filters']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
+      isJoined: asBool(map['isJoined']),
+      isLiked: asBool(map['isLiked']),
+      isPrivate: asBool(map['isPrivate']),
+      accessKey: asString(map['accessKey']),
+      contactTelegram: asString(map['contactTelegram']),
+      contactWhatsapp: asString(map['contactWhatsapp']),
+      contactWechat: asString(map['contactWechat']),
+      contactFbMessenger: asString(map['contactFbMessenger']),
+      contactSnapchat: asString(map['contactSnapchat']),
+    );
+  }
   EventCard({
     required this.id,
     required this.title,
@@ -56,37 +87,6 @@ class EventCard {
   final String contactSnapchat;
 
   bool get isFeatured => promotedUntil != null && promotedUntil!.isAfter(DateTime.now());
-
-  factory EventCard.fromJson(dynamic json) {
-    final map = asMap(json);
-    return EventCard(
-      id: asInt(map['id']),
-      title: asString(map['title']),
-      description: asString(map['description']),
-      links: asList(map['links']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
-      startsAt: asDateTime(map['startsAt']),
-      endsAt: asDateTime(map['endsAt']),
-      lat: asDouble(map['lat']),
-      lng: asDouble(map['lng']),
-      capacity: map['capacity'] == null ? null : asInt(map['capacity']),
-      promotedUntil: asDateTime(map['promotedUntil']),
-      creatorName: asString(map['creatorName']),
-      thumbnailUrl: asString(map['thumbnailUrl']),
-      participantsCount: asInt(map['participantsCount']),
-      likesCount: asInt(map['likesCount']),
-      commentsCount: asInt(map['commentsCount']),
-      filters: asList(map['filters']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
-      isJoined: asBool(map['isJoined']),
-      isLiked: asBool(map['isLiked']),
-      isPrivate: asBool(map['isPrivate']),
-      accessKey: asString(map['accessKey']),
-      contactTelegram: asString(map['contactTelegram']),
-      contactWhatsapp: asString(map['contactWhatsapp']),
-      contactWechat: asString(map['contactWechat']),
-      contactFbMessenger: asString(map['contactFbMessenger']),
-      contactSnapchat: asString(map['contactSnapchat']),
-    );
-  }
 
   EventCard copyWith({
     int? participantsCount,

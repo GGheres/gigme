@@ -81,7 +81,6 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
   _SpiralCacheSignature? _cacheSignature;
   int _cacheGeneration = 0;
 
-  ui.FragmentProgram? _fragmentProgram;
   ui.FragmentShader? _fragmentShader;
   bool _shaderLoadAttempted = false;
 
@@ -148,7 +147,6 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _fragmentShader = null;
-    _fragmentProgram = null;
     _spiralImage?.dispose();
     super.dispose();
   }
@@ -164,7 +162,8 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
         final height = widget.bandHeight.clamp(120.0, 1200.0);
         final size = Size(width, height);
 
-        _ensureSpiralCache(size: size, devicePixelRatio: media.devicePixelRatio);
+        _ensureSpiralCache(
+            size: size, devicePixelRatio: media.devicePixelRatio);
         _packUniforms(size: size);
 
         return SizedBox(
@@ -173,7 +172,8 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
           child: MouseRegion(
             opaque: false,
             onHover: widget.parallax && !_reduceMotion
-                ? (event) => _onPointerMove(position: event.localPosition, size: size)
+                ? (event) =>
+                    _onPointerMove(position: event.localPosition, size: size)
                 : null,
             onExit: widget.parallax
                 ? (_) {
@@ -225,13 +225,11 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
       final program = await ui.FragmentProgram.fromAsset(_shaderAssetPath);
       if (!mounted) return;
       setState(() {
-        _fragmentProgram = program;
         _fragmentShader = program.fragmentShader();
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _fragmentProgram = null;
         _fragmentShader = null;
       });
     }
@@ -513,7 +511,7 @@ class _SpiralTextBackgroundPainter extends CustomPainter {
       imageValue.width.toDouble(),
       imageValue.height.toDouble(),
     );
-    final drawScale = 1.34;
+    const drawScale = 1.34;
     final dstRect = Rect.fromCenter(
       center: Offset.zero,
       width: size.width * drawScale,
@@ -578,11 +576,14 @@ class SpiralPainter extends CustomPainter {
     for (var i = 0; i < words.length; i++) {
       final segment = i == words.length - 1 ? '${words[i]}   ' : '${words[i]} ';
       final paragraph = _buildParagraph(segment);
-      runs.add(_SpiralTextRun(paragraph: paragraph, width: paragraph.maxIntrinsicWidth));
+      runs.add(_SpiralTextRun(
+          paragraph: paragraph, width: paragraph.maxIntrinsicWidth));
     }
 
     final center = Offset(size.width / 2, size.height / 2);
-    final maxRadius = math.sqrt((size.width * size.width) + (size.height * size.height)) * 0.62;
+    final maxRadius =
+        math.sqrt((size.width * size.width) + (size.height * size.height)) *
+            0.62;
     final turns = spiralTurns.clamp(1.0, 12.0);
     final thetaMax = turns * math.pi * 2;
     final b = spiralSpacing.clamp(8.0, 56.0);
@@ -613,14 +614,15 @@ class SpiralPainter extends CustomPainter {
         canvas.save();
         canvas.translate(point.dx, point.dy);
         canvas.rotate(tangentAngle);
-        run.paragraph.paint(
-          canvas,
+        canvas.drawParagraph(
+          run.paragraph,
           Offset(-(run.width / 2), -baseFontSize * 0.58),
         );
         canvas.restore();
 
         final ds = run.width + (baseFontSize * 0.22);
-        final denom = math.sqrt((radius * radius) + (b * b)).clamp(1.0, double.infinity);
+        final denom =
+            math.sqrt((radius * radius) + (b * b)).clamp(1.0, double.infinity);
         final dTheta = (ds / denom).clamp(0.012, 0.82);
         theta += dTheta;
         runIndex = (runIndex + 1) % runs.length;

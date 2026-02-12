@@ -14,8 +14,8 @@ void main() {
       final adapter = SequenceAdapter(
         responses: {
           'GET /health': [
-            MockResponse(statusCode: 500, body: {'error': 'temporary'}),
-            MockResponse(statusCode: 200, body: {'ok': true}),
+            const MockResponse(statusCode: 500, body: {'error': 'temporary'}),
+            const MockResponse(statusCode: 200, body: {'ok': true}),
           ],
         },
       );
@@ -37,7 +37,7 @@ void main() {
       final adapter = SequenceAdapter(
         responses: {
           'POST /events': [
-            MockResponse(statusCode: 500, body: {'error': 'db error'}),
+            const MockResponse(statusCode: 500, body: {'error': 'db error'}),
           ],
         },
       );
@@ -50,7 +50,7 @@ void main() {
         () => client.post<void>(
           '/events',
           body: {'title': 'test'},
-          decoder: (_) => null,
+          decoder: (_) {},
         ),
         throwsA(
           isA<AppException>().having((e) => e.statusCode, 'statusCode', 500),

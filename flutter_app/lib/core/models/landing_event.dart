@@ -1,6 +1,25 @@
 import '../utils/json_utils.dart';
 
 class LandingEvent {
+
+  factory LandingEvent.fromJson(dynamic json) {
+    final map = asMap(json);
+    return LandingEvent(
+      id: asInt(map['id']),
+      title: asString(map['title']),
+      description: asString(map['description']),
+      startsAt: asDateTime(map['startsAt']),
+      endsAt: asDateTime(map['endsAt']),
+      lat: asDouble(map['lat']),
+      lng: asDouble(map['lng']),
+      addressLabel: asString(map['addressLabel']),
+      creatorName: asString(map['creatorName']),
+      participantsCount: asInt(map['participantsCount']),
+      thumbnailUrl: asString(map['thumbnailUrl']),
+      ticketUrl: asString(map['ticketUrl']),
+      appUrl: asString(map['appUrl']),
+    );
+  }
   LandingEvent({
     required this.id,
     required this.title,
@@ -30,35 +49,9 @@ class LandingEvent {
   final String thumbnailUrl;
   final String ticketUrl;
   final String appUrl;
-
-  factory LandingEvent.fromJson(dynamic json) {
-    final map = asMap(json);
-    return LandingEvent(
-      id: asInt(map['id']),
-      title: asString(map['title']),
-      description: asString(map['description']),
-      startsAt: asDateTime(map['startsAt']),
-      endsAt: asDateTime(map['endsAt']),
-      lat: asDouble(map['lat']),
-      lng: asDouble(map['lng']),
-      addressLabel: asString(map['addressLabel']),
-      creatorName: asString(map['creatorName']),
-      participantsCount: asInt(map['participantsCount']),
-      thumbnailUrl: asString(map['thumbnailUrl']),
-      ticketUrl: asString(map['ticketUrl']),
-      appUrl: asString(map['appUrl']),
-    );
-  }
 }
 
 class LandingEventsResponse {
-  LandingEventsResponse({
-    required this.items,
-    required this.total,
-  });
-
-  final List<LandingEvent> items;
-  final int total;
 
   factory LandingEventsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -67,4 +60,11 @@ class LandingEventsResponse {
       total: asInt(map['total']),
     );
   }
+  LandingEventsResponse({
+    required this.items,
+    required this.total,
+  });
+
+  final List<LandingEvent> items;
+  final int total;
 }
