@@ -13,6 +13,7 @@ import (
 	"gigme/backend/internal/models"
 	"gigme/backend/internal/ticketing"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -978,10 +979,6 @@ WHERE id = $1::uuid
 		}
 
 		if isPendingOrderStatus(orderStatus) {
-			paidStatus, err := resolveOrderPaidStatus(ctx, tx)
-			if err != nil {
-				return err
-			}
 			itemRows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
@@ -1036,18 +1033,8 @@ WHERE id = $1::uuid
 			if adminID > 0 {
 				confirmedBy = adminID
 			}
-			cmd, err := tx.Exec(ctx, `
-UPDATE orders
-SET status = $2,
-	confirmed_at = now(),
-	confirmed_by = $3,
-	updated_at = now()
-WHERE id = $1::uuid AND status = $4;`, orderID, paidStatus, confirmedBy, models.OrderStatusPending)
-			if err != nil {
+			if err := r.updateOrderToPaidCompatible(ctx, tx, orderID, confirmedBy); err != nil {
 				return err
-			}
-			if cmd.RowsAffected() == 0 {
-				return ErrOrderStateNotAllowed
 			}
 			confirmedNow = true
 		} else if !(isPaidOrderStatus(orderStatus) || isRedeemedOrderStatus(orderStatus)) {
@@ -1806,22 +1793,71 @@ func isValidPaymentMethod(method string) bool {
 	}
 }
 
-func resolveOrderPaidStatus(ctx context.Context, q queryRunner) (string, error) {
-	var supportsPaid bool
-	if err := q.QueryRow(ctx, `
-SELECT EXISTS (
-	SELECT 1
-	FROM pg_constraint
-	WHERE conrelid = 'orders'::regclass
-		AND contype = 'c'
-		AND pg_get_constraintdef(oid) ILIKE '%PAID%'
-);`).Scan(&supportsPaid); err != nil {
-		return "", err
+func (r *Repository) updateOrderToPaidCompatible(ctx context.Context, tx pgx.Tx, orderID string, confirmedBy interface{}) error {
+	if _, err := tx.Exec(ctx, `SAVEPOINT confirm_order_status`); err != nil {
+		return err
 	}
-	if supportsPaid {
-		return models.OrderStatusPaid, nil
+
+	tryUpdate := func(status string) (int64, error) {
+		cmd, err := tx.Exec(ctx, `
+UPDATE orders
+SET status = $2,
+	confirmed_at = now(),
+	confirmed_by = $3,
+	updated_at = now()
+WHERE id = $1::uuid AND status = $4;`, orderID, status, confirmedBy, models.OrderStatusPending)
+		if err != nil {
+			return 0, err
+		}
+		return cmd.RowsAffected(), nil
 	}
-	return "CONFIRMED", nil
+
+	rows, err := tryUpdate(models.OrderStatusPaid)
+	if err == nil {
+		if _, releaseErr := tx.Exec(ctx, `RELEASE SAVEPOINT confirm_order_status`); releaseErr != nil {
+			return releaseErr
+		}
+		if rows == 0 {
+			return ErrOrderStateNotAllowed
+		}
+		return nil
+	}
+
+	if _, rbErr := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT confirm_order_status`); rbErr != nil {
+		return err
+	}
+	if !isOrdersStatusCheckViolation(err) {
+		if _, releaseErr := tx.Exec(ctx, `RELEASE SAVEPOINT confirm_order_status`); releaseErr != nil {
+			return releaseErr
+		}
+		return err
+	}
+
+	rows, err = tryUpdate("CONFIRMED")
+	if err != nil {
+		if _, releaseErr := tx.Exec(ctx, `RELEASE SAVEPOINT confirm_order_status`); releaseErr != nil {
+			return releaseErr
+		}
+		return err
+	}
+	if _, releaseErr := tx.Exec(ctx, `RELEASE SAVEPOINT confirm_order_status`); releaseErr != nil {
+		return releaseErr
+	}
+	if rows == 0 {
+		return ErrOrderStateNotAllowed
+	}
+	return nil
+}
+
+func isOrdersStatusCheckViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	if pgErr.Code != "23514" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(pgErr.ConstraintName), "orders_status_check")
 }
 
 func isPendingOrderStatus(status string) bool {

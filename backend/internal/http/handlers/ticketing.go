@@ -17,6 +17,7 @@ import (
 	"gigme/backend/internal/ticketing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -1244,6 +1245,22 @@ func (h *Handler) handleTicketingError(logger interface {
 	Error(string, ...any)
 	Warn(string, ...any)
 }, w http.ResponseWriter, action string, err error) {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "22P02":
+			logger.Warn(action, "status", "invalid_request", "error", err)
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		case "23514":
+			if strings.EqualFold(strings.TrimSpace(pgErr.ConstraintName), "orders_status_check") {
+				logger.Warn(action, "status", "conflict", "error", err)
+				writeError(w, http.StatusConflict, repository.ErrOrderStateNotAllowed.Error())
+				return
+			}
+		}
+	}
+
 	switch {
 	case errors.Is(err, repository.ErrOrderNotFound), errors.Is(err, repository.ErrTicketNotFound), errors.Is(err, repository.ErrSbpQRNotFound), errors.Is(err, pgx.ErrNoRows):
 		logger.Warn(action, "status", "not_found", "error", err)
