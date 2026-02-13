@@ -351,10 +351,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 
   Future<void> _openTelegramLogin(Uri uri) async {
+    if (kIsWeb) {
+      TelegramWebAppBridge.redirect(uri.toString());
+      return;
+    }
     final opened = await launchUrl(
       uri,
       mode: LaunchMode.platformDefault,
-      webOnlyWindowName: '_self',
     );
     if (!opened) {
       _showMessage('Could not open Telegram login');

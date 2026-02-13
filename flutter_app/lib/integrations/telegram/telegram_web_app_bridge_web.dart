@@ -56,6 +56,25 @@ void openLink(String url) {
   );
 }
 
+void redirect(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return;
+
+  final location = globalContext['location'];
+  if (location is JSObject && location.has('assign')) {
+    location.callMethodVarArgs<JSAny?>(
+      'assign'.toJS,
+      <JSAny?>[trimmed.toJS],
+    );
+    return;
+  }
+
+  globalContext.callMethodVarArgs<JSAny?>(
+    'open'.toJS,
+    <JSAny?>[trimmed.toJS, '_self'.toJS],
+  );
+}
+
 void showToast(String message) {
   final app = _webApp();
   final text = message.trim();

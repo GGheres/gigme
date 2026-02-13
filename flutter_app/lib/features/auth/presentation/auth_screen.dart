@@ -7,6 +7,7 @@ import '../../../app/routes.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/widgets/premium_loading_view.dart';
+import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 
@@ -202,10 +203,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       const SizedBox(height: 10),
                       OutlinedButton(
                         onPressed: () async {
+                          if (kIsWeb) {
+                            TelegramWebAppBridge.redirect(
+                              standaloneHelperUri.toString(),
+                            );
+                            return;
+                          }
                           await launchUrl(
                             standaloneHelperUri,
                             mode: LaunchMode.platformDefault,
-                            webOnlyWindowName: '_self',
                           );
                         },
                         child: const Text('Login via Telegram'),
