@@ -286,6 +286,7 @@ class TicketingRepository {
     required String token,
     required int eventId,
     required String type,
+    String name = '',
     required int priceCents,
     int? inventoryLimit,
     bool isActive = true,
@@ -295,6 +296,7 @@ class TicketingRepository {
           token: token,
           body: <String, dynamic>{
             'eventId': eventId,
+            'name': name.trim(),
             'type': type.toUpperCase(),
             'priceCents': priceCents,
             if (inventoryLimit != null && inventoryLimit > 0)
@@ -358,6 +360,7 @@ class TicketingRepository {
     required String token,
     required int eventId,
     required String direction,
+    String name = '',
     required int priceCents,
     Map<String, dynamic> info = const <String, dynamic>{},
     int? inventoryLimit,
@@ -368,6 +371,7 @@ class TicketingRepository {
           token: token,
           body: <String, dynamic>{
             'eventId': eventId,
+            'name': name.trim(),
             'direction': direction.toUpperCase(),
             'priceCents': priceCents,
             'info': info,

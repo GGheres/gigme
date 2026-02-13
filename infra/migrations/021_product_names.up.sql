@@ -1,0 +1,5 @@
+ALTER TABLE ticket_products
+ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
+
+ALTER TABLE transfer_products
+ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';

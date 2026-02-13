@@ -48,6 +48,7 @@ var TicketGroupSizeByType = map[string]int{
 type TicketProduct struct {
 	ID             string    `json:"id"`
 	EventID        int64     `json:"eventId"`
+	Name           string    `json:"name,omitempty"`
 	Type           string    `json:"type"`
 	PriceCents     int64     `json:"priceCents"`
 	InventoryLimit *int      `json:"inventoryLimit,omitempty"`
@@ -61,6 +62,7 @@ type TicketProduct struct {
 type TransferProduct struct {
 	ID             string                 `json:"id"`
 	EventID        int64                  `json:"eventId"`
+	Name           string                 `json:"name,omitempty"`
 	Direction      string                 `json:"direction"`
 	PriceCents     int64                  `json:"priceCents"`
 	Info           map[string]interface{} `json:"info"`
@@ -251,6 +253,7 @@ type PromoValidation struct {
 
 type TicketProductInput struct {
 	EventID        int64  `json:"eventId"`
+	Name           string `json:"name"`
 	Type           string `json:"type"`
 	PriceCents     int64  `json:"priceCents"`
 	InventoryLimit *int   `json:"inventoryLimit,omitempty"`
@@ -265,6 +268,7 @@ type TicketProductPatch struct {
 
 type TransferProductInput struct {
 	EventID        int64                  `json:"eventId"`
+	Name           string                 `json:"name"`
 	Direction      string                 `json:"direction"`
 	PriceCents     int64                  `json:"priceCents"`
 	Info           map[string]interface{} `json:"info"`

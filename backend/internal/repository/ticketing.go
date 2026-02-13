@@ -87,7 +87,7 @@ RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
 
 func (r *Repository) ListTicketProducts(ctx context.Context, eventID *int64, active *bool) ([]models.TicketProduct, error) {
 	rows, err := r.pool.Query(ctx, `
-SELECT id::text, event_id, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
+SELECT id::text, event_id, name, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
 FROM ticket_products
 WHERE ($1::bigint IS NULL OR event_id = $1)
 	AND ($2::boolean IS NULL OR is_active = $2)
@@ -110,10 +110,11 @@ ORDER BY created_at DESC;`, nullInt64Ptr(eventID), boolPtrOrNil(active))
 
 func (r *Repository) CreateTicketProduct(ctx context.Context, createdBy int64, in models.TicketProductInput) (models.TicketProduct, error) {
 	row := r.pool.QueryRow(ctx, `
-INSERT INTO ticket_products (event_id, type, price_cents, inventory_limit, is_active, created_by)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id::text, event_id, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
+INSERT INTO ticket_products (event_id, name, type, price_cents, inventory_limit, is_active, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id::text, event_id, name, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
 		in.EventID,
+		strings.TrimSpace(in.Name),
 		strings.ToUpper(strings.TrimSpace(in.Type)),
 		in.PriceCents,
 		nullIntPtr(in.InventoryLimit),
@@ -131,7 +132,7 @@ SET price_cents = COALESCE($2, price_cents),
 	is_active = COALESCE($4, is_active),
 	updated_at = now()
 WHERE id = $1::uuid
-RETURNING id::text, event_id, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
+RETURNING id::text, event_id, name, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
 		id,
 		int64PtrOrNil(patch.PriceCents),
 		nullIntPtr(patch.InventoryLimit),
@@ -153,7 +154,7 @@ func (r *Repository) DeleteTicketProduct(ctx context.Context, id string) error {
 
 func (r *Repository) ListTransferProducts(ctx context.Context, eventID *int64, active *bool) ([]models.TransferProduct, error) {
 	rows, err := r.pool.Query(ctx, `
-SELECT id::text, event_id, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
+SELECT id::text, event_id, name, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
 FROM transfer_products
 WHERE ($1::bigint IS NULL OR event_id = $1)
 	AND ($2::boolean IS NULL OR is_active = $2)
@@ -177,10 +178,11 @@ ORDER BY created_at DESC;`, nullInt64Ptr(eventID), boolPtrOrNil(active))
 func (r *Repository) CreateTransferProduct(ctx context.Context, createdBy int64, in models.TransferProductInput) (models.TransferProduct, error) {
 	infoJSON, _ := json.Marshal(safeMap(in.Info))
 	row := r.pool.QueryRow(ctx, `
-INSERT INTO transfer_products (event_id, direction, price_cents, info_json, inventory_limit, is_active, created_by)
-VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
-RETURNING id::text, event_id, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
+INSERT INTO transfer_products (event_id, name, direction, price_cents, info_json, inventory_limit, is_active, created_by)
+VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
 		in.EventID,
+		strings.TrimSpace(in.Name),
 		strings.ToUpper(strings.TrimSpace(in.Direction)),
 		in.PriceCents,
 		infoJSON,
@@ -206,7 +208,7 @@ SET price_cents = COALESCE($2, price_cents),
 	is_active = COALESCE($5, is_active),
 	updated_at = now()
 WHERE id = $1::uuid
-RETURNING id::text, event_id, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
+RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
 		id,
 		int64PtrOrNil(patch.PriceCents),
 		infoRaw,
@@ -1533,6 +1535,7 @@ func scanTicketProduct(row pgx.Row) (models.TicketProduct, error) {
 	if err := row.Scan(
 		&out.ID,
 		&out.EventID,
+		&out.Name,
 		&out.Type,
 		&out.PriceCents,
 		&inventoryLimit,
@@ -1563,6 +1566,7 @@ func scanTransferProduct(row pgx.Row) (models.TransferProduct, error) {
 	if err := row.Scan(
 		&out.ID,
 		&out.EventID,
+		&out.Name,
 		&out.Direction,
 		&out.PriceCents,
 		&infoRaw,

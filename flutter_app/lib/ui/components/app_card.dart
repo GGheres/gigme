@@ -69,22 +69,53 @@ BoxDecoration _decorationFor(AppCardVariant variant,
     case AppCardVariant.surface:
       return BoxDecoration(
         borderRadius: radius,
-        gradient: AppColors.cardGradient,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.surface,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color(0xEEFFFFFF),
+            Color(0xD8F0F6FF),
+            Color(0xCBE9F0FF),
+          ],
+          stops: <double>[0.0, 0.58, 1.0],
+        ),
+        border: Border.all(color: AppColors.borderStrong),
+        boxShadow: const <BoxShadow>[
+          ...AppShadows.surface,
+          BoxShadow(
+            color: Color(0x33253F72),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
       );
     case AppCardVariant.panel:
       return BoxDecoration(
         borderRadius: radius,
-        gradient: AppColors.panelGradient,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color(0x40FF7B1F),
+            Color(0x3866D364),
+            Color(0x473B7BFF),
+          ],
+        ),
         border:
             Border.all(color: AppColors.borderStrong.withValues(alpha: 0.7)),
-        boxShadow: AppShadows.surface,
+        boxShadow: const <BoxShadow>[
+          ...AppShadows.surface,
+          BoxShadow(
+            color: Color(0x2D0F2A60),
+            blurRadius: 26,
+            offset: Offset(0, 12),
+          ),
+        ],
       );
     case AppCardVariant.plain:
       return BoxDecoration(
         borderRadius: radius,
-        color: AppColors.surfaceStrong,
+        color: AppColors.surfaceStrong.withValues(alpha: 0.94),
         border: Border.all(color: AppColors.border),
       );
   }

@@ -6,6 +6,7 @@ class TicketProductModel {
     return TicketProductModel(
       id: asString(map['id']),
       eventId: asInt(map['eventId']),
+      name: asString(map['name']),
       type: asString(map['type']).toUpperCase(),
       priceCents: asInt(map['priceCents']),
       inventoryLimit:
@@ -17,6 +18,7 @@ class TicketProductModel {
   TicketProductModel({
     required this.id,
     required this.eventId,
+    required this.name,
     required this.type,
     required this.priceCents,
     required this.inventoryLimit,
@@ -26,6 +28,7 @@ class TicketProductModel {
 
   final String id;
   final int eventId;
+  final String name;
   final String type;
   final int priceCents;
   final int? inventoryLimit;
@@ -33,6 +36,7 @@ class TicketProductModel {
   final bool isActive;
 
   String get label {
+    if (name.trim().isNotEmpty) return name.trim();
     switch (type) {
       case 'GROUP2':
         return 'Group ticket (2 people)';
@@ -51,6 +55,7 @@ class TransferProductModel {
     return TransferProductModel(
       id: asString(map['id']),
       eventId: asInt(map['eventId']),
+      name: asString(map['name']),
       direction: asString(map['direction']).toUpperCase(),
       priceCents: asInt(map['priceCents']),
       info: asMap(map['info']),
@@ -63,6 +68,7 @@ class TransferProductModel {
   TransferProductModel({
     required this.id,
     required this.eventId,
+    required this.name,
     required this.direction,
     required this.priceCents,
     required this.info,
@@ -73,6 +79,7 @@ class TransferProductModel {
 
   final String id;
   final int eventId;
+  final String name;
   final String direction;
   final int priceCents;
   final Map<String, dynamic> info;
@@ -81,6 +88,7 @@ class TransferProductModel {
   final bool isActive;
 
   String get label {
+    if (name.trim().isNotEmpty) return name.trim();
     switch (direction) {
       case 'BACK':
         return 'One-way back';

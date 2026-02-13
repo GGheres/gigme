@@ -12,6 +12,7 @@ import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
@@ -45,32 +46,24 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     final state = events.state;
     final showLoader = state.loading && state.feed.isEmpty;
+    final featuredCount = state.feed.where((event) => event.isFeatured).length;
 
     return AppScaffold(
       title: 'Nearby feed',
-      subtitle: 'Discover events around your current location',
-      showBackgroundDecor: false,
+      subtitle: 'Landing-style discovery around your current location',
+      showBackgroundDecor: true,
       titleColor: Colors.white,
       subtitleColor: Colors.white70,
-      trailing: Wrap(
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
+      child: Column(
         children: [
-          AppButton(
-            label: 'Location',
-            size: AppButtonSize.sm,
-            variant: AppButtonVariant.outline,
-            icon: const Icon(Icons.my_location_outlined),
-            tooltip: 'Refresh location',
-            onPressed: () => ref.read(locationControllerProvider).refresh(),
-          ),
-          AppButton(
-            label: 'Refresh',
-            size: AppButtonSize.sm,
-            variant: AppButtonVariant.secondary,
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh feed',
-            onPressed: () {
+          _FeedHeroPanel(
+            feedCount: state.feed.length,
+            featuredCount: featuredCount,
+            nearbyOnly: state.nearbyOnly,
+            loading: state.loading,
+            onRefreshLocation: () =>
+                ref.read(locationControllerProvider).refresh(),
+            onRefreshFeed: () {
               unawaited(
                 ref.read(eventsControllerProvider).refresh(
                       center: location.state.center,
@@ -78,10 +71,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               );
             },
           ),
-        ],
-      ),
-      child: Column(
-        children: [
+          const SizedBox(height: AppSpacing.sm),
           _FilterBar(
             activeFilters: state.activeFilters,
             nearbyOnly: state.nearbyOnly,
@@ -108,14 +98,19 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
           if (location.state.permissionDenied) ...[
             const SizedBox(height: AppSpacing.sm),
-            const AppCard(
+            AppCard(
               variant: AppCardVariant.panel,
               child: Row(
                 children: [
-                  Icon(Icons.gps_off_rounded),
-                  SizedBox(width: AppSpacing.xs),
+                  const Icon(Icons.gps_off_rounded, color: Colors.white),
+                  const SizedBox(width: AppSpacing.xs),
                   Expanded(
-                    child: Text('Location denied. Using a default map center.'),
+                    child: Text(
+                      'Location denied. Using a default map center.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.86),
+                          ),
+                    ),
                   ),
                 ],
               ),
@@ -132,45 +127,190 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     variant: AppBadgeVariant.danger,
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  Expanded(child: Text(state.error!)),
+                  Expanded(
+                    child: Text(
+                      state.error!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
           Expanded(
-            child: showLoader
-                ? const PremiumLoadingView(
-                    text: 'NEARBY FEED • LOADING • ',
-                    subtitle: 'Загружаем события рядом',
-                  )
-                : AppCard(
-                    padding: EdgeInsets.zero,
-                    child: RefreshIndicator(
-                      onRefresh: () => ref
-                          .read(eventsControllerProvider)
-                          .refresh(center: location.state.center),
-                      child: FeedList(
-                        items: state.feed,
-                        referencePoint: location.state.userLocation,
-                        apiUrl: config.apiUrl,
-                        eventAccessKeys: events.eventAccessKeys,
-                        onTap: (event) {
-                          final key = events.accessKeyFor(event.id,
-                              fallback: event.accessKey);
-                          final uri = Uri(
-                            path: AppRoutes.event(event.id),
-                            queryParameters: {
-                              if (key.isNotEmpty) 'key': key,
-                            },
-                          );
-                          context.push(uri.toString());
-                        },
+            child: AppCard(
+              variant: AppCardVariant.panel,
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              child: showLoader
+                  ? const PremiumLoadingView(
+                      text: 'NEARBY FEED • LOADING • ',
+                      subtitle: 'Загружаем события рядом',
+                    )
+                  : AppCard(
+                      padding: EdgeInsets.zero,
+                      child: RefreshIndicator(
+                        onRefresh: () => ref
+                            .read(eventsControllerProvider)
+                            .refresh(center: location.state.center),
+                        child: FeedList(
+                          items: state.feed,
+                          referencePoint: location.state.userLocation,
+                          apiUrl: config.apiUrl,
+                          eventAccessKeys: events.eventAccessKeys,
+                          onTap: (event) {
+                            final key = events.accessKeyFor(event.id,
+                                fallback: event.accessKey);
+                            final uri = Uri(
+                              path: AppRoutes.event(event.id),
+                              queryParameters: {
+                                if (key.isNotEmpty) 'key': key,
+                              },
+                            );
+                            context.push(uri.toString());
+                          },
+                        ),
                       ),
                     ),
-                  ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FeedHeroPanel extends StatelessWidget {
+  const _FeedHeroPanel({
+    required this.feedCount,
+    required this.featuredCount,
+    required this.nearbyOnly,
+    required this.loading,
+    required this.onRefreshLocation,
+    required this.onRefreshFeed,
+  });
+
+  final int feedCount;
+  final int featuredCount;
+  final bool nearbyOnly;
+  final bool loading;
+  final VoidCallback onRefreshLocation;
+  final VoidCallback onRefreshFeed;
+
+  @override
+  Widget build(BuildContext context) {
+    final infoTextColor = Colors.white.withValues(alpha: 0.84);
+
+    return AppCard(
+      variant: AppCardVariant.panel,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'City Pulse',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  letterSpacing: 0.4,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            'Подборка ближайших событий с динамикой как на лендинге.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: infoTextColor,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _HeroStatPill(label: 'Events', value: '$feedCount'),
+              _HeroStatPill(label: 'Featured', value: '$featuredCount'),
+              _HeroStatPill(
+                label: 'Mode',
+                value: nearbyOnly ? 'Nearby' : 'All',
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppButton(
+                label: 'Location',
+                size: AppButtonSize.sm,
+                variant: AppButtonVariant.secondary,
+                icon: const Icon(Icons.my_location_outlined),
+                tooltip: 'Refresh location',
+                onPressed: onRefreshLocation,
+              ),
+              AppButton(
+                label: 'Refresh',
+                size: AppButtonSize.sm,
+                variant: AppButtonVariant.primary,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Refresh feed',
+                onPressed: onRefreshFeed,
+              ),
+            ],
+          ),
+          if (loading) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: const LinearProgressIndicator(minHeight: 3),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStatPill extends StatelessWidget {
+  const _HeroStatPill({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.76),
+                  ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -193,7 +333,10 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return AppCard(
+      variant: AppCardVariant.panel,
       padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,8 +345,9 @@ class _FilterBar extends StatelessWidget {
             children: [
               AppBadge(
                 label: nearbyOnly ? 'Nearby only' : 'All regions',
-                variant:
-                    nearbyOnly ? AppBadgeVariant.accent : AppBadgeVariant.ghost,
+                variant: nearbyOnly
+                    ? AppBadgeVariant.accent
+                    : AppBadgeVariant.neutral,
               ),
               const SizedBox(width: AppSpacing.xs),
               AppBadge(
@@ -214,34 +358,46 @@ class _FilterBar extends StatelessWidget {
               if (activeFilters.isNotEmpty || nearbyOnly)
                 AppButton(
                   label: 'Clear',
-                  variant: AppButtonVariant.ghost,
+                  variant: AppButtonVariant.secondary,
                   size: AppButtonSize.sm,
                   onPressed: onClearFilters,
                 ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                FilterChip(
-                  selected: nearbyOnly,
-                  label: const Text('Nearby 100 km'),
-                  onSelected: (_) => onToggleNearby(),
+          Theme(
+            data: theme.copyWith(
+              chipTheme: theme.chipTheme.copyWith(
+                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                selectedColor: AppColors.secondary.withValues(alpha: 0.34),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                labelStyle: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white,
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                ...kEventFilters.map(
-                  (filter) => Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.xs),
-                    child: FilterChip(
-                      selected: activeFilters.contains(filter.id),
-                      label: Text('${filter.icon} ${filter.label}'),
-                      onSelected: (_) => onToggleFilter(filter.id),
+              ),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  FilterChip(
+                    selected: nearbyOnly,
+                    label: const Text('Nearby 100 km'),
+                    onSelected: (_) => onToggleNearby(),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  ...kEventFilters.map(
+                    (filter) => Padding(
+                      padding: const EdgeInsets.only(right: AppSpacing.xs),
+                      child: FilterChip(
+                        selected: activeFilters.contains(filter.id),
+                        label: Text('${filter.icon} ${filter.label}'),
+                        onSelected: (_) => onToggleFilter(filter.id),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

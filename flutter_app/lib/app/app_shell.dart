@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/application/auth_controller.dart';
 import '../ui/layout/app_navbar.dart';
 import '../ui/theme/app_breakpoints.dart';
+import '../ui/theme/app_radii.dart';
+import '../ui/theme/app_spacing.dart';
 import 'routes.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -72,21 +76,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           ? null
           : isDesktop
               ? null
-              : NavigationBar(
+              : _AppBottomDock(
                   selectedIndex: currentIndex,
-                  destinations: const [
-                    NavigationDestination(
-                        icon: Icon(Icons.view_list_rounded), label: 'Feed'),
-                    NavigationDestination(
-                        icon: Icon(Icons.map_rounded), label: 'Map'),
-                    NavigationDestination(
-                        icon: Icon(Icons.add_circle_outline_rounded),
-                        label: 'Create'),
-                    NavigationDestination(
-                        icon: Icon(Icons.person_outline_rounded),
-                        label: 'Profile'),
-                  ],
-                  onDestinationSelected: _onDestinationSelected,
+                  onSelected: _onDestinationSelected,
                 ),
     );
   }
@@ -113,5 +105,74 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith(AppRoutes.create)) return 2;
     if (location.startsWith(AppRoutes.profile)) return 3;
     return 0;
+  }
+}
+
+class _AppBottomDock extends StatelessWidget {
+  const _AppBottomDock({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.sm,
+          AppSpacing.xs,
+          AppSpacing.sm,
+          AppSpacing.sm,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadii.xxl),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[
+                    Color(0xCC101D3D),
+                    Color(0xCC0B1630),
+                  ],
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                borderRadius: BorderRadius.circular(AppRadii.xxl),
+              ),
+              child: NavigationBar(
+                height: 66,
+                backgroundColor: Colors.transparent,
+                selectedIndex: selectedIndex,
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.view_list_rounded),
+                    label: 'Feed',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.map_rounded),
+                    label: 'Map',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.add_circle_outline_rounded),
+                    label: 'Create',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline_rounded),
+                    label: 'Profile',
+                  ),
+                ],
+                onDestinationSelected: onSelected,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

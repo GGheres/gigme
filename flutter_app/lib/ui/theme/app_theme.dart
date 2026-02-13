@@ -27,10 +27,10 @@ ThemeData buildAppTheme() {
     appBarTheme: AppBarTheme(
       centerTitle: false,
       backgroundColor: Colors.transparent,
-      foregroundColor: AppColors.textPrimary,
+      foregroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
-      titleTextStyle: textTheme.titleLarge,
+      titleTextStyle: textTheme.titleLarge?.copyWith(color: Colors.white),
     ),
     cardTheme: CardThemeData(
       color: AppColors.surface,
@@ -132,19 +132,25 @@ ThemeData buildAppTheme() {
     navigationBarTheme: NavigationBarThemeData(
       height: 72,
       elevation: 0,
-      backgroundColor: AppColors.surfaceStrong,
-      labelTextStyle: WidgetStatePropertyAll(textTheme.labelSmall),
+      backgroundColor: Colors.transparent,
+      labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
+        final selected = states.contains(WidgetState.selected);
+        return textTheme.labelSmall?.copyWith(
+          color: selected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.78),
+        );
+      }),
       iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
         if (states.contains(WidgetState.selected)) {
-          return const IconThemeData(color: AppColors.secondary);
+          return const IconThemeData(color: Colors.white);
         }
-        return IconThemeData(
-            color: AppColors.textSecondary.withValues(alpha: 0.85));
+        return IconThemeData(color: Colors.white.withValues(alpha: 0.72));
       }),
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.pill),
       ),
-      indicatorColor: AppColors.secondary.withValues(alpha: 0.12),
+      indicatorColor: AppColors.secondary.withValues(alpha: 0.34),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.primary,

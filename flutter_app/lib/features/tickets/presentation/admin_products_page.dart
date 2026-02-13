@@ -33,7 +33,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _usdtDescriptionCtrl = TextEditingController();
   final TextEditingController _qrDescriptionCtrl = TextEditingController();
   final TextEditingController _sbpDescriptionCtrl = TextEditingController();
+  final TextEditingController _ticketNameCtrl = TextEditingController();
   final TextEditingController _ticketPriceCtrl = TextEditingController();
+  final TextEditingController _transferNameCtrl = TextEditingController();
   final TextEditingController _transferPriceCtrl = TextEditingController();
   final TextEditingController _transferTimeCtrl = TextEditingController();
   final TextEditingController _transferPickupCtrl = TextEditingController();
@@ -72,7 +74,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _usdtDescriptionCtrl.dispose();
     _qrDescriptionCtrl.dispose();
     _sbpDescriptionCtrl.dispose();
+    _ticketNameCtrl.dispose();
     _ticketPriceCtrl.dispose();
+    _transferNameCtrl.dispose();
     _transferPriceCtrl.dispose();
     _transferTimeCtrl.dispose();
     _transferPickupCtrl.dispose();
@@ -124,6 +128,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   Future<void> _createTicketProduct() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     final eventId = int.tryParse(_eventCtrl.text.trim()) ?? 0;
+    final name = _ticketNameCtrl.text.trim();
     final price = int.tryParse(_ticketPriceCtrl.text.trim()) ?? -1;
     if (token.isEmpty || eventId <= 0 || price < 0) {
       _showMessage('Event ID and valid ticket price are required');
@@ -135,6 +140,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       await ref.read(ticketingRepositoryProvider).createAdminTicketProduct(
             token: token,
             eventId: eventId,
+            name: name,
             type: _ticketType,
             priceCents: price,
           );
@@ -150,6 +156,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   Future<void> _createTransferProduct() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     final eventId = int.tryParse(_eventCtrl.text.trim()) ?? 0;
+    final name = _transferNameCtrl.text.trim();
     final price = int.tryParse(_transferPriceCtrl.text.trim()) ?? -1;
     if (token.isEmpty || eventId <= 0 || price < 0) {
       _showMessage('Event ID and valid transfer price are required');
@@ -161,6 +168,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       await ref.read(ticketingRepositoryProvider).createAdminTransferProduct(
         token: token,
         eventId: eventId,
+        name: name,
         direction: _transferDirection,
         priceCents: price,
         info: <String, dynamic>{
@@ -396,6 +404,14 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
+        TextField(
+          controller: _ticketNameCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Product name (custom)',
+            hintText: 'Example: VIP zone ticket',
+          ),
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -431,6 +447,14 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         Text(
           'Create transfer product',
           style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _transferNameCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Product name (custom)',
+            hintText: 'Example: Bus to venue',
+          ),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
@@ -480,9 +504,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         ..._ticketProducts.map(
           (item) => Card(
             child: ListTile(
-              title: Text('${item.type} · ${formatMoney(item.priceCents)}'),
+              title: Text('${item.label} · ${formatMoney(item.priceCents)}'),
               subtitle: Text(
-                'Event ${item.eventId} · sold ${item.soldCount} · active ${item.isActive}',
+                'Event ${item.eventId} · code ${item.type} · sold ${item.soldCount} · active ${item.isActive}',
               ),
               trailing: IconButton(
                 onPressed: _busy ? null : () => _deleteTicketProduct(item.id),
@@ -500,10 +524,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         ..._transferProducts.map(
           (item) => Card(
             child: ListTile(
-              title:
-                  Text('${item.direction} · ${formatMoney(item.priceCents)}'),
+              title: Text('${item.label} · ${formatMoney(item.priceCents)}'),
               subtitle: Text(
-                'Event ${item.eventId} · ${item.infoLabel} · active ${item.isActive}',
+                'Event ${item.eventId} · code ${item.direction} · ${item.infoLabel} · active ${item.isActive}',
               ),
               trailing: IconButton(
                 onPressed: _busy ? null : () => _deleteTransferProduct(item.id),
