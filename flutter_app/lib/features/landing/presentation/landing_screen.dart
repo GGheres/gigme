@@ -312,9 +312,11 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     required String nextLocation,
   }) {
     final config = ref.read(appConfigProvider);
-    final helperUrl = config.standaloneAuthUrl.trim();
-    final helperBase = Uri.tryParse(helperUrl);
-    if (helperBase != null && helperUrl.isNotEmpty) {
+    final helperBase = _resolveStandaloneHelperBaseUri(
+      rawStandaloneAuthUrl: config.standaloneAuthUrl,
+      apiUrl: config.apiUrl,
+    );
+    if (helperBase != null) {
       final redirect = Uri.base.replace(
         path: AppRoutes.auth,
         queryParameters: {'next': nextLocation},
@@ -337,6 +339,67 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     return Uri.parse(
       'https://t.me/$bot?startapp=${Uri.encodeComponent(startApp)}',
     );
+  }
+
+  Uri? _resolveStandaloneHelperBaseUri({
+    required String rawStandaloneAuthUrl,
+    required String apiUrl,
+  }) {
+    final raw = rawStandaloneAuthUrl.trim();
+    if (raw.isEmpty) return null;
+    final parsed = Uri.tryParse(raw);
+    if (parsed == null) return null;
+    final absolute = parsed.hasScheme ? parsed : Uri.base.resolveUri(parsed);
+    return _applyApiPrefixIfNeeded(helperUri: absolute, apiUrl: apiUrl);
+  }
+
+  Uri _applyApiPrefixIfNeeded({
+    required Uri helperUri,
+    required String apiUrl,
+  }) {
+    final helperSegments = <String>[
+      for (final segment in helperUri.pathSegments)
+        if (segment.isNotEmpty) segment,
+    ];
+    if (helperSegments.length < 2) return helperUri;
+
+    final tailIsAuthStandalone =
+        helperSegments[helperSegments.length - 2].toLowerCase() == 'auth' &&
+            helperSegments.last.toLowerCase() == 'standalone';
+    if (!tailIsAuthStandalone) return helperUri;
+
+    final apiUri = Uri.tryParse(apiUrl.trim());
+    if (apiUri == null) return helperUri;
+    final apiSegments = <String>[
+      for (final segment in apiUri.pathSegments)
+        if (segment.isNotEmpty) segment,
+    ];
+    if (apiSegments.isEmpty) return helperUri;
+
+    final startsWithApiPrefix = helperSegments.length >= apiSegments.length &&
+        _segmentsMatch(
+          left: helperSegments.take(apiSegments.length),
+          right: apiSegments,
+        );
+    if (startsWithApiPrefix) return helperUri;
+
+    return helperUri.replace(
+      pathSegments: <String>[...apiSegments, ...helperSegments],
+    );
+  }
+
+  bool _segmentsMatch({
+    required Iterable<String> left,
+    required List<String> right,
+  }) {
+    final leftList = left.toList(growable: false);
+    if (leftList.length != right.length) return false;
+    for (var i = 0; i < right.length; i++) {
+      if (leftList[i].toLowerCase() != right[i].toLowerCase()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   String? _startAppFromNext(String nextLocation) {
