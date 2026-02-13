@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../app/routes.dart';
@@ -17,10 +18,13 @@ import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
+import '../../../ui/components/app_modal.dart';
 import '../../../ui/components/app_section_header.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
+import '../../auth/application/auth_controller.dart';
+import '../../auth/application/auth_state.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../data/landing_repository.dart';
 
@@ -132,7 +136,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       total: _total,
                       onOpenApp: () => context.go(AppRoutes.appRoot),
                       onRefresh: _loading ? null : _load,
-                      onBuy: _openTicket,
+                      onBuy: (event) => unawaited(_openTicket(event)),
                     ),
                   ],
                 ),
@@ -201,8 +205,95 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
   }
 
-  void _openTicket(LandingEvent event) {
+  Future<void> _openTicket(LandingEvent event) async {
+    if (_shouldPromptTelegramLogin()) {
+      await _showTelegramLoginModal(event);
+      return;
+    }
     context.push(AppRoutes.event(event.id));
+  }
+
+  bool _shouldPromptTelegramLogin() {
+    if (!kIsWeb) return false;
+    if (TelegramWebAppBridge.isAvailable()) return false;
+    final authState = ref.read(authControllerProvider).state;
+    return authState.status == AuthStatus.unauthenticated;
+  }
+
+  Future<void> _showTelegramLoginModal(LandingEvent event) async {
+    final loginUri = _telegramLoginUri(event);
+    if (loginUri == null) {
+      _showMessage('Telegram login is not configured.');
+      return;
+    }
+
+    await showAppDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AppModal(
+          title: 'Login via Telegram',
+          subtitle:
+              'Чтобы купить билет, войдите через Telegram. После входа откроем приложение на странице события.',
+          onClose: () => Navigator.of(dialogContext).pop(),
+          body: Text(
+            'Нажмите кнопку ниже, завершите вход и вы вернетесь в SPACE уже авторизованным пользователем.',
+            style: Theme.of(dialogContext).textTheme.bodyMedium,
+          ),
+          actions: [
+            AppButton(
+              label: 'Login via Telegram',
+              variant: AppButtonVariant.primary,
+              icon: const Icon(Icons.telegram_rounded),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_openTelegramLogin(loginUri));
+              },
+            ),
+            AppButton(
+              label: 'Отмена',
+              variant: AppButtonVariant.ghost,
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Uri? _telegramLoginUri(LandingEvent event) {
+    final config = ref.read(appConfigProvider);
+    final helperUrl = config.standaloneAuthUrl.trim();
+    final helperBase = Uri.tryParse(helperUrl);
+    if (helperBase != null && helperUrl.isNotEmpty) {
+      final redirect = Uri.base.replace(
+        path: AppRoutes.auth,
+        queryParameters: {'next': AppRoutes.event(event.id)},
+        fragment: '',
+      );
+      return helperBase.replace(
+        queryParameters: {
+          ...helperBase.queryParameters,
+          'redirect_uri': redirect.toString(),
+        },
+      );
+    }
+
+    final bot = config.botUsername.trim().replaceAll('@', '');
+    if (bot.isEmpty) return null;
+    return Uri.parse('https://t.me/$bot?startapp=e_${event.id}');
+  }
+
+  Future<void> _openTelegramLogin(Uri uri) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    if (!opened) {
+      _showMessage('Could not open Telegram login');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
