@@ -50,16 +50,15 @@ func ValidateLoginWidgetPayload(payload LoginWidgetPayload, botToken string, max
 		values.Set("photo_url", payload.PhotoURL)
 	}
 	for rawKey, rawValue := range payload.AdditionalFields {
-		key := strings.ToLower(strings.TrimSpace(rawKey))
-		value := strings.TrimSpace(rawValue)
-		if key == "" || value == "" {
+		key := strings.TrimSpace(rawKey)
+		if key == "" {
 			continue
 		}
-		switch key {
+		switch strings.ToLower(key) {
 		case "id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash":
 			continue
 		}
-		values.Set(key, value)
+		values.Set(key, rawValue)
 	}
 
 	dataCheckString := buildDataCheckString(values)

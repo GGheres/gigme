@@ -76,8 +76,7 @@ func (r *standaloneAuthExchangeRequest) UnmarshalJSON(data []byte) error {
 func parseStandaloneAuthAdditionalField(raw json.RawMessage) (string, bool) {
 	var asString string
 	if err := json.Unmarshal(raw, &asString); err == nil {
-		trimmed := strings.TrimSpace(asString)
-		return trimmed, trimmed != ""
+		return asString, true
 	}
 
 	var asBool bool
@@ -87,8 +86,7 @@ func parseStandaloneAuthAdditionalField(raw json.RawMessage) (string, bool) {
 
 	var asNumber json.Number
 	if err := json.Unmarshal(raw, &asNumber); err == nil {
-		trimmed := strings.TrimSpace(asNumber.String())
-		return trimmed, trimmed != ""
+		return asNumber.String(), true
 	}
 
 	return "", false
@@ -342,17 +340,24 @@ func (h *Handler) StandaloneAuthExchange(w http.ResponseWriter, r *http.Request)
 
 	user, err := auth.ValidateLoginWidgetPayload(auth.LoginWidgetPayload{
 		ID:               req.ID,
-		FirstName:        strings.TrimSpace(req.FirstName),
-		LastName:         strings.TrimSpace(req.LastName),
-		Username:         strings.TrimSpace(req.Username),
-		PhotoURL:         strings.TrimSpace(req.PhotoURL),
+		FirstName:        req.FirstName,
+		LastName:         req.LastName,
+		Username:         req.Username,
+		PhotoURL:         req.PhotoURL,
 		AuthDate:         req.AuthDate,
-		Hash:             strings.TrimSpace(req.Hash),
+		Hash:             req.Hash,
 		AdditionalFields: req.AdditionalFields,
 	}, h.cfg.TelegramToken, 24*time.Hour)
 	if err != nil {
 		logger.Warn("action", "action", "standalone_auth_exchange", "status", "invalid_telegram_login", "error", err)
-		writeError(w, http.StatusUnauthorized, "invalid telegram login data")
+		message := "invalid telegram login data"
+		switch {
+		case strings.Contains(err.Error(), "invalid hash"):
+			message = "telegram signature mismatch: check TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME for the same bot"
+		case strings.Contains(err.Error(), "auth_date expired"):
+			message = "telegram login data expired, retry login"
+		}
+		writeError(w, http.StatusUnauthorized, message)
 		return
 	}
 
