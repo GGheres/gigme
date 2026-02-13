@@ -135,7 +135,6 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       content: _content,
                       total: _total,
                       onOpenApp: () => context.go(AppRoutes.appRoot),
-                      onRefresh: _loading ? null : _load,
                       onBuy: (event) => unawaited(_openTicket(event)),
                     ),
                   ],
@@ -428,7 +427,6 @@ class _LandingForeground extends StatelessWidget {
     required this.content,
     required this.total,
     required this.onOpenApp,
-    required this.onRefresh,
     required this.onBuy,
   });
 
@@ -443,7 +441,6 @@ class _LandingForeground extends StatelessWidget {
   final LandingContent content;
   final int total;
   final VoidCallback onOpenApp;
-  final Future<void> Function()? onRefresh;
   final ValueChanged<LandingEvent> onBuy;
 
   @override
@@ -481,10 +478,10 @@ class _LandingForeground extends StatelessWidget {
                 error: error,
                 totalParticipants: totalParticipants,
                 content: content,
-                onOpenApp: featuredEvent != null && heroCtaIsTicket
+                onPrimaryAction: featuredEvent != null && heroCtaIsTicket
                     ? () => onBuy(featuredEvent)
                     : onOpenApp,
-                onRefresh: onRefresh,
+                onOpenApp: onOpenApp,
               ),
             ),
           ),
@@ -516,8 +513,8 @@ class _HeroSection extends StatelessWidget {
     required this.loading,
     required this.error,
     required this.totalParticipants,
+    required this.onPrimaryAction,
     required this.onOpenApp,
-    required this.onRefresh,
   });
 
   final LandingEvent? featuredEvent;
@@ -527,8 +524,8 @@ class _HeroSection extends StatelessWidget {
   final bool loading;
   final String? error;
   final int totalParticipants;
+  final VoidCallback onPrimaryAction;
   final VoidCallback onOpenApp;
-  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -573,8 +570,8 @@ class _HeroSection extends StatelessWidget {
             total: total,
             totalParticipants: totalParticipants,
             openAppLabel: content.heroPrimaryCtaLabel.trim(),
+            onPrimaryAction: onPrimaryAction,
             onOpenApp: onOpenApp,
-            onRefresh: onRefresh,
           ),
           if (loading) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -611,15 +608,15 @@ class _HeroActions extends StatelessWidget {
     required this.total,
     required this.totalParticipants,
     required this.openAppLabel,
+    required this.onPrimaryAction,
     required this.onOpenApp,
-    required this.onRefresh,
   });
 
   final int total;
   final int totalParticipants;
   final String openAppLabel;
+  final VoidCallback onPrimaryAction;
   final VoidCallback onOpenApp;
-  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -634,17 +631,13 @@ class _HeroActions extends StatelessWidget {
               label: openAppLabel,
               variant: AppButtonVariant.secondary,
               icon: const Icon(Icons.open_in_new_rounded),
-              onPressed: onOpenApp,
+              onPressed: onPrimaryAction,
             ),
             AppButton(
-              label: 'Обновить',
+              label: 'SPACE APP',
               variant: AppButtonVariant.ghost,
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: onRefresh == null
-                  ? null
-                  : () {
-                      unawaited(onRefresh!.call());
-                    },
+              icon: const Icon(Icons.rocket_launch_rounded),
+              onPressed: onOpenApp,
             ),
           ],
         ),
