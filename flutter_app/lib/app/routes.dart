@@ -16,6 +16,7 @@ class AppRoutes {
   static const adminStats = '/space_app/admin/stats';
 
   static String event(int id) => '/space_app/event/$id';
+  static String adminEvent(int id) => '/space_app/admin/event/$id';
   static String adminOrderDetail(String id) => '/space_app/admin/orders/$id';
 
   static bool isAppPath(String location) =>

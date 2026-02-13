@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -90,8 +91,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final config = ref.watch(appConfigProvider);
     final apiUrl = config.apiUrl;
     final authState = ref.watch(authControllerProvider).state;
-    final isAdmin = authState.user != null &&
-        config.adminTelegramIds.contains(authState.user!.telegramId);
+    final inAdminRoute =
+        GoRouterState.of(context).uri.path.startsWith('/space_app/admin/');
+    final isAdmin = inAdminRoute ||
+        (authState.user != null &&
+            config.adminTelegramIds.contains(authState.user!.telegramId));
     final detailAccessKey = detail == null
         ? (widget.eventKey ?? '').trim()
         : (detail.event.accessKey.trim().isNotEmpty

@@ -105,11 +105,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       TextEditingController();
   final TextEditingController _landingFooterCtrl = TextEditingController();
   final TextEditingController _landingImageUrlCtrl = TextEditingController();
+  final TextEditingController _landingCommentIdCtrl = TextEditingController();
   bool _landingPublishedValue = true;
   bool _landingLoading = false;
   bool _landingBusy = false;
   bool _landingImageBusy = false;
   bool _landingContentBusy = false;
+  bool _landingModerationBusy = false;
   int? _landingActionEventId;
   String? _landingError;
   List<LandingEvent> _landingEvents = <LandingEvent>[];
@@ -156,6 +158,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     _landingPartnersDescriptionCtrl.dispose();
     _landingFooterCtrl.dispose();
     _landingImageUrlCtrl.dispose();
+    _landingCommentIdCtrl.dispose();
     for (final item in _broadcastButtons) {
       item.dispose();
     }
@@ -847,6 +850,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     hintText: 'https://example.com/cover.jpg',
                   ),
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _landingCommentIdCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Comment ID (for delete)',
+                    hintText: 'e.g. 45',
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -865,6 +877,29 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       icon: const Icon(Icons.image_outlined),
                       label: Text(
                           _landingImageBusy ? 'Saving…' : 'Save card image'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed:
+                          _landingModerationBusy ? null : _deleteEventByInput,
+                      icon: const Icon(Icons.delete_forever_outlined),
+                      label: Text(_landingModerationBusy
+                          ? 'Deleting…'
+                          : 'Delete event'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          _landingModerationBusy ? null : _deleteCommentByInput,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: Text(_landingModerationBusy
+                          ? 'Deleting…'
+                          : 'Delete comment'),
                     ),
                   ],
                 ),
@@ -929,7 +964,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   spacing: 6,
                   children: [
                     OutlinedButton(
-                      onPressed: () => context.push(AppRoutes.event(event.id)),
+                      onPressed: () =>
+                          context.push(AppRoutes.adminEvent(event.id)),
                       child: const Text('Open'),
                     ),
                     FilledButton.tonal(
@@ -1119,8 +1155,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 children: [
                   if (item.importedEventId != null)
                     FilledButton.tonal(
-                      onPressed: () =>
-                          context.push(AppRoutes.event(item.importedEventId!)),
+                      onPressed: () => context
+                          .push(AppRoutes.adminEvent(item.importedEventId!)),
                       child: Text('Open event #${item.importedEventId}'),
                     ),
                   const SizedBox(width: 8),
@@ -1341,7 +1377,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                                       '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
                                   onTap: () {
                                     Navigator.of(context).pop();
-                                    context.push(AppRoutes.event(event.id));
+                                    context
+                                        .push(AppRoutes.adminEvent(event.id));
                                   },
                                 ),
                               ),
@@ -1826,7 +1863,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       );
       await _loadParsedEvents();
       if (!mounted) return;
-      context.push(AppRoutes.event(eventId));
+      context.push(AppRoutes.adminEvent(eventId));
     } catch (error) {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
@@ -1981,6 +2018,106 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     await _setLandingPublished(eventId: id, published: _landingPublishedValue);
   }
 
+  Future<void> _deleteEventByInput() async {
+    final id = int.tryParse(_landingEventIdCtrl.text.trim());
+    if (id == null || id <= 0) {
+      setState(() => _landingError = 'Valid event ID is required');
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete event?'),
+        content: Text('Delete event #$id permanently?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+    setState(() {
+      _landingModerationBusy = true;
+      _landingError = null;
+    });
+    try {
+      await ref.read(adminRepositoryProvider).deleteEvent(
+            token: token,
+            eventId: id,
+          );
+      if (!mounted) return;
+      _landingEventIdCtrl.clear();
+      _landingImageUrlCtrl.clear();
+      _showSnackBar('Event #$id deleted');
+      await _loadLanding();
+    } catch (error) {
+      _handleAdminError(error, setter: (value) => _landingError = value);
+    } finally {
+      if (mounted) {
+        setState(() => _landingModerationBusy = false);
+      }
+    }
+  }
+
+  Future<void> _deleteCommentByInput() async {
+    final commentID = int.tryParse(_landingCommentIdCtrl.text.trim());
+    if (commentID == null || commentID <= 0) {
+      setState(() => _landingError = 'Valid comment ID is required');
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete comment?'),
+        content: Text('Delete comment #$commentID permanently?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+    setState(() {
+      _landingModerationBusy = true;
+      _landingError = null;
+    });
+    try {
+      await ref.read(adminRepositoryProvider).deleteComment(
+            token: token,
+            commentId: commentID,
+          );
+      if (!mounted) return;
+      _landingCommentIdCtrl.clear();
+      _showSnackBar('Comment #$commentID deleted');
+    } catch (error) {
+      _handleAdminError(error, setter: (value) => _landingError = value);
+    } finally {
+      if (mounted) {
+        setState(() => _landingModerationBusy = false);
+      }
+    }
+  }
+
   Future<void> _saveLandingEventImageFromInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
@@ -2113,6 +2250,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         });
       }
     }
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleAdminError(Object error, {void Function(String value)? setter}) {

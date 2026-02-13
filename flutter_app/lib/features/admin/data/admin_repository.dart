@@ -369,6 +369,28 @@ class AdminRepository {
         );
   }
 
+  Future<void> deleteEvent({
+    required String token,
+    required int eventId,
+  }) {
+    return _ref.read(apiClientProvider).delete<void>(
+          ApiPaths.adminEventById(eventId),
+          token: token,
+          decoder: (_) {},
+        );
+  }
+
+  Future<void> deleteComment({
+    required String token,
+    required int commentId,
+  }) {
+    return _ref.read(apiClientProvider).delete<void>(
+          ApiPaths.adminCommentById(commentId),
+          token: token,
+          decoder: (_) {},
+        );
+  }
+
   Future<LandingContent> getLandingContent() {
     return _ref.read(apiClientProvider).get<LandingContent>(
           ApiPaths.landingContent,

@@ -150,6 +150,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      GoRoute(
+        path: '/space_app/admin/event/:id',
+        builder: (context, state) {
+          final eventId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return EventDetailsScreen(
+            eventId: eventId,
+            eventKey: state.uri.queryParameters['key'] ??
+                state.uri.queryParameters['eventKey'],
+          );
+        },
+      ),
     ],
   );
 });
