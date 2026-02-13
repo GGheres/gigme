@@ -42,6 +42,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/videos/landing/IMG_9645.webm
+    - assets/videos/landing/IMG_9645.MP4
   shaders:
     - assets/shaders/bubble_warp.frag

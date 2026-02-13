@@ -348,7 +348,7 @@ class LandingLayoutConfig {
   static const String frameTickerText =
       'SPACE • EVENT • 31–3 AUG • SPACE • EVENT • ';
   static const String backgroundVideoAssetPath =
-      'assets/videos/landing/IMG_9645.webm';
+      'assets/videos/landing/IMG_9645.MP4';
 
   static bool isDesktop(double width) => width >= desktopBreakpoint;
   static bool isTablet(double width) =>
