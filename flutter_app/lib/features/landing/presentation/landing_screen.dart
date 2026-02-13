@@ -635,7 +635,7 @@ class _HeroActions extends StatelessWidget {
             ),
             AppButton(
               label: 'SPACE APP',
-              variant: AppButtonVariant.ghost,
+              variant: AppButtonVariant.primary,
               icon: const Icon(Icons.rocket_launch_rounded),
               onPressed: onOpenApp,
             ),
