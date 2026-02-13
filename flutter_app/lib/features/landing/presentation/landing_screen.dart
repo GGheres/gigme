@@ -573,8 +573,6 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isWide = width >= 1200;
     final title = content.heroTitle.trim();
     final description = content.heroDescription.trim();
     final meta = _eventMeta(featuredEvent);
@@ -584,6 +582,8 @@ class _HeroSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _HeroPoster(event: featuredEvent, apiUrl: apiUrl),
+          const SizedBox(height: AppSpacing.md),
           AppBadge(
             label: content.heroEyebrow.trim(),
             variant: AppBadgeVariant.info,
@@ -603,41 +603,20 @@ class _HeroSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             description,
-            maxLines: isWide ? 4 : 5,
+            maxLines: 5,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
                 ),
           ),
           const SizedBox(height: AppSpacing.md),
-          if (isWide)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _HeroActions(
-                    total: total,
-                    totalParticipants: totalParticipants,
-                    openAppLabel: content.heroPrimaryCtaLabel.trim(),
-                    onOpenApp: onOpenApp,
-                    onRefresh: onRefresh,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                _HeroPoster(event: featuredEvent, apiUrl: apiUrl),
-              ],
-            )
-          else ...[
-            _HeroPoster(event: featuredEvent, apiUrl: apiUrl),
-            const SizedBox(height: AppSpacing.sm),
-            _HeroActions(
-              total: total,
-              totalParticipants: totalParticipants,
-              openAppLabel: content.heroPrimaryCtaLabel.trim(),
-              onOpenApp: onOpenApp,
-              onRefresh: onRefresh,
-            ),
-          ],
+          _HeroActions(
+            total: total,
+            totalParticipants: totalParticipants,
+            openAppLabel: content.heroPrimaryCtaLabel.trim(),
+            onOpenApp: onOpenApp,
+            onRefresh: onRefresh,
+          ),
           if (loading) ...[
             const SizedBox(height: AppSpacing.sm),
             const LinearProgressIndicator(minHeight: 3),
@@ -739,9 +718,6 @@ class _HeroPoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNarrow = MediaQuery.of(context).size.width < 1200;
-    final width = isNarrow ? double.infinity : 230.0;
-    final height = isNarrow ? 210.0 : 286.0;
     final fallbackImage = (event?.thumbnailUrl ?? '').trim();
     final proxyImage = buildEventMediaProxyUrl(
       apiUrl: apiUrl,
@@ -752,57 +728,77 @@ class _HeroPoster extends StatelessWidget {
     final fallbackUrl = proxyImage.isNotEmpty ? fallbackImage : '';
     final hasImage = imageUrl.isNotEmpty;
 
-    return SizedBox(
-      width: width,
-      height: height,
-      child: ClipRRect(
+    return DecoratedBox(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (hasImage)
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, _, __) {
-                  if (fallbackUrl.isNotEmpty && fallbackUrl != imageUrl) {
-                    return Image.network(
-                      fallbackUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, _, __) => const _PosterFallback(),
-                    );
-                  }
-                  return const _PosterFallback();
-                },
-              )
-            else
-              const _PosterFallback(),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.center,
-                  colors: <Color>[Color(0xB3040A17), Color(0x00040A17)],
+        border: Border.all(
+          color: AppColors.info.withValues(alpha: 0.78),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.info.withValues(alpha: 0.42),
+            blurRadius: 28,
+            spreadRadius: 1.4,
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.16),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, __) {
+                    if (fallbackUrl.isNotEmpty && fallbackUrl != imageUrl) {
+                      return Image.network(
+                        fallbackUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, _, __) =>
+                            const _PosterFallback(),
+                      );
+                    }
+                    return const _PosterFallback();
+                  },
+                )
+              else
+                const _PosterFallback(),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.center,
+                    colors: <Color>[Color(0xB3040A17), Color(0x00040A17)],
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: Text(
-                (event?.addressLabel ?? '').trim().isEmpty
-                    ? 'Главная сцена'
-                    : event!.addressLabel.trim(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Text(
+                  (event?.addressLabel ?? '').trim().isEmpty
+                      ? 'Главная сцена'
+                      : event!.addressLabel.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
