@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/widgets/premium_loading_view.dart';
-import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 
@@ -156,8 +156,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required Uri? standaloneHelperUri,
   }) {
     final error = (state.error ?? '').trim();
-    final canUseStandaloneHelper =
-        !TelegramWebAppBridge.isAvailable() && standaloneHelperUri != null;
+    final canUseStandaloneHelper = standaloneHelperUri != null;
 
     return Scaffold(
       backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
@@ -237,7 +236,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final base = Uri.tryParse(rawUrl);
     if (base == null) return null;
 
-    final redirectUri = config.standaloneRedirectUri.trim();
+    final redirectUri = _effectiveStandaloneRedirectUri(config);
     if (redirectUri.isEmpty) return base;
 
     final query = <String, String>{
@@ -245,6 +244,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       'redirect_uri': redirectUri,
     };
     return base.replace(queryParameters: query);
+  }
+
+  String _effectiveStandaloneRedirectUri(AppConfig config) {
+    if (kIsWeb && config.authMode == AuthMode.telegramWeb) {
+      final current = Uri.base;
+      if (current.path == AppRoutes.auth) {
+        return current.replace(fragment: '').toString();
+      }
+      return Uri(
+        path: AppRoutes.auth,
+        queryParameters: current.queryParameters,
+      ).toString();
+    }
+    return config.standaloneRedirectUri.trim();
   }
 
   void _scheduleStandaloneHelperAutoLaunch({

@@ -235,7 +235,6 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
   bool _shouldPromptTelegramLogin(AuthState authState) {
     if (!kIsWeb) return false;
-    if (TelegramWebAppBridge.isAvailable()) return false;
     return authState.status == AuthStatus.unauthenticated;
   }
 
