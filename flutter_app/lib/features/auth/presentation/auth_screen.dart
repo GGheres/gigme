@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/widgets/premium_loading_view.dart';
+import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 
@@ -40,7 +41,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
 
     if (config.authMode == AuthMode.telegramWeb) {
-      return _buildTelegramWebScreen(state);
+      return _buildTelegramWebScreen(
+        state: state,
+        standaloneHelperUri: standaloneHelperUri,
+      );
     }
 
     return Scaffold(
@@ -147,8 +151,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-  Widget _buildTelegramWebScreen(AuthState state) {
+  Widget _buildTelegramWebScreen({
+    required AuthState state,
+    required Uri? standaloneHelperUri,
+  }) {
     final error = (state.error ?? '').trim();
+    final canUseStandaloneHelper =
+        !TelegramWebAppBridge.isAvailable() && standaloneHelperUri != null;
 
     return Scaffold(
       backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
@@ -190,6 +199,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ref.read(authControllerProvider).retryAuth(),
                       child: const Text('Retry Telegram Login'),
                     ),
+                    if (canUseStandaloneHelper) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        onPressed: () async {
+                          await launchUrl(
+                            standaloneHelperUri,
+                            mode: LaunchMode.platformDefault,
+                            webOnlyWindowName: '_self',
+                          );
+                        },
+                        child: const Text('Login via Telegram'),
+                      ),
+                    ],
                   ],
                 ],
               ),

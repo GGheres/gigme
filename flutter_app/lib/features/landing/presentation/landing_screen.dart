@@ -206,7 +206,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
   Future<void> _openTicket(LandingEvent event) async {
     final nextLocation = AppRoutes.event(event.id);
-    if (_shouldPromptTelegramLogin()) {
+    final authState = await _resolveAuthStateForAction();
+    if (!mounted) return;
+    if (authState.status == AuthStatus.loading) {
+      _showMessage('Проверяем сессию. Попробуйте еще раз через секунду.');
+      return;
+    }
+    if (_shouldPromptTelegramLogin(authState)) {
       await _showTelegramLoginModal(nextLocation: nextLocation);
       return;
     }
@@ -214,18 +220,50 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 
   Future<void> _openApp() async {
-    if (_shouldPromptTelegramLogin()) {
+    final authState = await _resolveAuthStateForAction();
+    if (!mounted) return;
+    if (authState.status == AuthStatus.loading) {
+      _showMessage('Проверяем сессию. Попробуйте еще раз через секунду.');
+      return;
+    }
+    if (_shouldPromptTelegramLogin(authState)) {
       await _showTelegramLoginModal(nextLocation: AppRoutes.appRoot);
       return;
     }
     context.go(AppRoutes.appRoot);
   }
 
-  bool _shouldPromptTelegramLogin() {
+  bool _shouldPromptTelegramLogin(AuthState authState) {
     if (!kIsWeb) return false;
     if (TelegramWebAppBridge.isAvailable()) return false;
-    final authState = ref.read(authControllerProvider).state;
     return authState.status == AuthStatus.unauthenticated;
+  }
+
+  Future<AuthState> _resolveAuthStateForAction() async {
+    final controller = ref.read(authControllerProvider);
+    final current = controller.state;
+    if (current.status != AuthStatus.loading) {
+      return current;
+    }
+
+    final completer = Completer<AuthState>();
+    void listener() {
+      final next = controller.state;
+      if (next.status == AuthStatus.loading) return;
+      if (!completer.isCompleted) {
+        completer.complete(next);
+      }
+    }
+
+    controller.addListener(listener);
+    try {
+      return await completer.future.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => controller.state,
+      );
+    } finally {
+      controller.removeListener(listener);
+    }
   }
 
   Future<void> _showTelegramLoginModal({
@@ -233,12 +271,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }) async {
     final loginUri = _telegramLoginUri(nextLocation: nextLocation);
     if (loginUri == null) {
-      context.go(
-        Uri(
-          path: AppRoutes.auth,
-          queryParameters: {'next': nextLocation},
-        ).toString(),
-      );
+      _showMessage(
+          'Telegram login недоступен. Проверьте настройки BOT_USERNAME/STANDALONE_AUTH_URL.');
       return;
     }
 
