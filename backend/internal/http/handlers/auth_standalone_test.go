@@ -29,17 +29,19 @@ func TestStandaloneAuthExchange(t *testing.T) {
 	values.Set("last_name", "Tester")
 	values.Set("username", "alex_tester")
 	values.Set("photo_url", "https://example.com/u.jpg")
+	values.Set("allows_write_to_pm", "true")
 	values.Set("auth_date", strconv.FormatInt(authDate, 10))
 	hash := signLoginWidgetPayload(botToken, values)
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"id":         54321,
-		"first_name": "Alex",
-		"last_name":  "Tester",
-		"username":   "alex_tester",
-		"photo_url":  "https://example.com/u.jpg",
-		"auth_date":  authDate,
-		"hash":       hash,
+		"id":                 54321,
+		"first_name":         "Alex",
+		"last_name":          "Tester",
+		"username":           "alex_tester",
+		"photo_url":          "https://example.com/u.jpg",
+		"allows_write_to_pm": true,
+		"auth_date":          authDate,
+		"hash":               hash,
 	})
 
 	h := New(

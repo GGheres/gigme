@@ -8,17 +8,19 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type LoginWidgetPayload struct {
-	ID        int64
-	FirstName string
-	LastName  string
-	Username  string
-	PhotoURL  string
-	AuthDate  int64
-	Hash      string
+	ID               int64
+	FirstName        string
+	LastName         string
+	Username         string
+	PhotoURL         string
+	AuthDate         int64
+	Hash             string
+	AdditionalFields map[string]string
 }
 
 func ValidateLoginWidgetPayload(payload LoginWidgetPayload, botToken string, maxAge time.Duration) (TelegramUser, error) {
@@ -46,6 +48,18 @@ func ValidateLoginWidgetPayload(payload LoginWidgetPayload, botToken string, max
 	}
 	if payload.PhotoURL != "" {
 		values.Set("photo_url", payload.PhotoURL)
+	}
+	for rawKey, rawValue := range payload.AdditionalFields {
+		key := strings.ToLower(strings.TrimSpace(rawKey))
+		value := strings.TrimSpace(rawValue)
+		if key == "" || value == "" {
+			continue
+		}
+		switch key {
+		case "id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash":
+			continue
+		}
+		values.Set(key, value)
 	}
 
 	dataCheckString := buildDataCheckString(values)

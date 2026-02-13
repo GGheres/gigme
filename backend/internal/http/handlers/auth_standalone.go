@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,13 +12,86 @@ import (
 )
 
 type standaloneAuthExchangeRequest struct {
-	ID        int64  `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Username  string `json:"username"`
-	PhotoURL  string `json:"photo_url"`
-	AuthDate  int64  `json:"auth_date"`
-	Hash      string `json:"hash"`
+	ID               int64             `json:"id"`
+	FirstName        string            `json:"first_name"`
+	LastName         string            `json:"last_name"`
+	Username         string            `json:"username"`
+	PhotoURL         string            `json:"photo_url"`
+	AuthDate         int64             `json:"auth_date"`
+	Hash             string            `json:"hash"`
+	AdditionalFields map[string]string `json:"-"`
+}
+
+func (r *standaloneAuthExchangeRequest) UnmarshalJSON(data []byte) error {
+	type alias struct {
+		ID        int64  `json:"id"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Username  string `json:"username"`
+		PhotoURL  string `json:"photo_url"`
+		AuthDate  int64  `json:"auth_date"`
+		Hash      string `json:"hash"`
+	}
+
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+
+	r.ID = decoded.ID
+	r.FirstName = decoded.FirstName
+	r.LastName = decoded.LastName
+	r.Username = decoded.Username
+	r.PhotoURL = decoded.PhotoURL
+	r.AuthDate = decoded.AuthDate
+	r.Hash = decoded.Hash
+	r.AdditionalFields = nil
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+
+	additional := make(map[string]string)
+	for key, value := range raw {
+		switch key {
+		case "id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash":
+			continue
+		}
+
+		if parsed, ok := parseStandaloneAuthAdditionalField(value); ok {
+			additional[key] = parsed
+		}
+	}
+
+	if len(additional) > 0 {
+		r.AdditionalFields = additional
+	}
+	return nil
+}
+
+func parseStandaloneAuthAdditionalField(raw json.RawMessage) (string, bool) {
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		trimmed := strings.TrimSpace(asString)
+		return trimmed, trimmed != ""
+	}
+
+	var asBool bool
+	if err := json.Unmarshal(raw, &asBool); err == nil {
+		return strconv.FormatBool(asBool), true
+	}
+
+	var asNumber json.Number
+	if err := json.Unmarshal(raw, &asNumber); err == nil {
+		trimmed := strings.TrimSpace(asNumber.String())
+		return trimmed, trimmed != ""
+	}
+
+	return "", false
 }
 
 type standaloneAuthExchangeResponse struct {
@@ -240,7 +314,8 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
 
 func (h *Handler) StandaloneAuthPage(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	botUsername := strings.TrimSpace(h.cfg.TelegramUser)
+	botUsername := strings.TrimPrefix(strings.TrimSpace(h.cfg.TelegramUser), "@")
+	botUsername = strings.TrimSpace(botUsername)
 	if botUsername == "" {
 		logger.Warn("action", "action", "standalone_auth_page", "status", "missing_bot_username")
 		writeError(w, http.StatusServiceUnavailable, "telegram bot username is not configured")
@@ -266,13 +341,14 @@ func (h *Handler) StandaloneAuthExchange(w http.ResponseWriter, r *http.Request)
 	}
 
 	user, err := auth.ValidateLoginWidgetPayload(auth.LoginWidgetPayload{
-		ID:        req.ID,
-		FirstName: strings.TrimSpace(req.FirstName),
-		LastName:  strings.TrimSpace(req.LastName),
-		Username:  strings.TrimSpace(req.Username),
-		PhotoURL:  strings.TrimSpace(req.PhotoURL),
-		AuthDate:  req.AuthDate,
-		Hash:      strings.TrimSpace(req.Hash),
+		ID:               req.ID,
+		FirstName:        strings.TrimSpace(req.FirstName),
+		LastName:         strings.TrimSpace(req.LastName),
+		Username:         strings.TrimSpace(req.Username),
+		PhotoURL:         strings.TrimSpace(req.PhotoURL),
+		AuthDate:         req.AuthDate,
+		Hash:             strings.TrimSpace(req.Hash),
+		AdditionalFields: req.AdditionalFields,
 	}, h.cfg.TelegramToken, 24*time.Hour)
 	if err != nil {
 		logger.Warn("action", "action", "standalone_auth_exchange", "status", "invalid_telegram_login", "error", err)

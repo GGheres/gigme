@@ -18,6 +18,7 @@ func TestValidateLoginWidgetPayload_Success(t *testing.T) {
 	values.Set("last_name", "Doe")
 	values.Set("username", "john_doe")
 	values.Set("photo_url", "https://example.com/u.jpg")
+	values.Set("allows_write_to_pm", "true")
 	values.Set("auth_date", strconv.FormatInt(now, 10))
 	dataCheckString := buildDataCheckString(values)
 	secret := sha256.Sum256([]byte(botToken))
@@ -31,6 +32,9 @@ func TestValidateLoginWidgetPayload_Success(t *testing.T) {
 			PhotoURL:  "https://example.com/u.jpg",
 			AuthDate:  now,
 			Hash:      computeHMAC(secret[:], dataCheckString),
+			AdditionalFields: map[string]string{
+				"allows_write_to_pm": "true",
+			},
 		},
 		botToken,
 		time.Hour,
