@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../app/routes.dart';
@@ -18,7 +17,6 @@ import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
-import '../../../ui/components/app_modal.dart';
 import '../../../ui/components/app_section_header.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
@@ -134,18 +132,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       total: _total,
                       onOpenApp: () => context.go(AppRoutes.appRoot),
                       onRefresh: _loading ? null : _load,
-                      onOpenEvent: _openApp,
                       onBuy: _openTicket,
-                      onShowEventDetails: _showEventSheet,
-                      onOpenTelegram: () {
-                        unawaited(_openExternal('https://t.me/gigme_support'));
-                      },
-                      onOpenEmail: () {
-                        unawaited(_openExternal('mailto:hello@gigme.app'));
-                      },
-                      onOpenWebsite: () {
-                        unawaited(_openExternal(Uri.base.origin));
-                      },
                     ),
                   ],
                 ),
@@ -214,93 +201,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
   }
 
-  Future<void> _openExternal(String rawUrl) async {
-    final uri = Uri.tryParse(rawUrl.trim());
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.platformDefault);
-  }
-
   void _openTicket(LandingEvent event) {
     context.push(AppRoutes.event(event.id));
   }
-
-  Future<void> _openApp(LandingEvent event) async {
-    final rawUrl = event.appUrl.trim();
-    if (rawUrl.isEmpty) {
-      context.go(AppRoutes.appRoot);
-      return;
-    }
-    final uri = Uri.tryParse(rawUrl);
-    if (uri == null) {
-      context.go(AppRoutes.appRoot);
-      return;
-    }
-
-    final localPath = _localAppPath(uri);
-    if (localPath != null) {
-      context.go(localPath);
-      return;
-    }
-
-    final target = uri.hasScheme ? uri : Uri.base.resolveUri(uri);
-    await launchUrl(target, mode: LaunchMode.platformDefault);
-  }
-
-  Future<void> _showEventSheet(LandingEvent event) async {
-    await showAppModalBottomSheet<void>(
-      context: context,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(event.title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(formatDateTime(event.startsAt)),
-              if (event.addressLabel.trim().isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(event.addressLabel.trim()),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              AppButton(
-                label: 'Купить билет',
-                variant: AppButtonVariant.primary,
-                icon: const Icon(Icons.confirmation_number_outlined),
-                expand: true,
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _openTicket(event);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-String? _localAppPath(Uri uri) {
-  if (uri.path.isEmpty || !uri.path.startsWith(AppRoutes.appRoot)) {
-    return null;
-  }
-  if (uri.host.isNotEmpty) {
-    final current = Uri.base;
-    if (uri.host != current.host || uri.scheme != current.scheme) {
-      return null;
-    }
-  }
-
-  var out = uri.path;
-  if (uri.hasQuery) {
-    out = '$out?${uri.query}';
-  }
-  if (uri.fragment.isNotEmpty) {
-    out = '$out#${uri.fragment}';
-  }
-  return out;
 }
 
 class LandingLayoutConfig {
@@ -435,12 +338,7 @@ class _LandingForeground extends StatelessWidget {
     required this.total,
     required this.onOpenApp,
     required this.onRefresh,
-    required this.onOpenEvent,
     required this.onBuy,
-    required this.onShowEventDetails,
-    required this.onOpenTelegram,
-    required this.onOpenEmail,
-    required this.onOpenWebsite,
   });
 
   final Size viewport;
@@ -455,12 +353,7 @@ class _LandingForeground extends StatelessWidget {
   final int total;
   final VoidCallback onOpenApp;
   final Future<void> Function()? onRefresh;
-  final ValueChanged<LandingEvent> onOpenEvent;
   final ValueChanged<LandingEvent> onBuy;
-  final ValueChanged<LandingEvent> onShowEventDetails;
-  final VoidCallback onOpenTelegram;
-  final VoidCallback onOpenEmail;
-  final VoidCallback onOpenWebsite;
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +361,6 @@ class _LandingForeground extends StatelessWidget {
     final heroPrimaryLabel = content.heroPrimaryCtaLabel.trim().toLowerCase();
     final heroCtaIsTicket = heroPrimaryLabel.contains('билет');
     final totalParticipants = _totalParticipants(events);
-    final creators = _uniqueCreators(events);
 
     final mediaPadding = MediaQuery.of(context).padding;
     final heroTop = LandingLayoutConfig.sectionTop(
@@ -480,11 +372,6 @@ class _LandingForeground extends StatelessWidget {
       canvasHeight: canvasHeight,
       viewportHeight: viewport.height,
       anchor: LandingLayoutConfig.sectionAnchorOffsets['about']!,
-    );
-    final partnersTop = LandingLayoutConfig.sectionTop(
-      canvasHeight: canvasHeight,
-      viewportHeight: viewport.height,
-      anchor: LandingLayoutConfig.sectionAnchorOffsets['partners']!,
     );
 
     return SafeArea(
@@ -520,25 +407,6 @@ class _LandingForeground extends StatelessWidget {
                 content: content,
                 total: total,
                 totalParticipants: totalParticipants,
-              ),
-            ),
-          ),
-          Positioned(
-            top: partnersTop + mediaPadding.top,
-            left: quietZoneLeft,
-            width: quietZoneWidth,
-            child: RepaintBoundary(
-              child: _PartnersContactsSection(
-                events: events.take(3).toList(),
-                creators: creators,
-                content: content,
-                total: total,
-                apiUrl: apiUrl,
-                onOpenEvent: onOpenEvent,
-                onShowEventDetails: onShowEventDetails,
-                onOpenTelegram: onOpenTelegram,
-                onOpenEmail: onOpenEmail,
-                onOpenWebsite: onOpenWebsite,
               ),
             ),
           ),
@@ -952,318 +820,6 @@ class _HighlightTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PartnersContactsSection extends StatelessWidget {
-  const _PartnersContactsSection({
-    required this.events,
-    required this.creators,
-    required this.content,
-    required this.total,
-    required this.apiUrl,
-    required this.onOpenEvent,
-    required this.onShowEventDetails,
-    required this.onOpenTelegram,
-    required this.onOpenEmail,
-    required this.onOpenWebsite,
-  });
-
-  final List<LandingEvent> events;
-  final List<String> creators;
-  final LandingContent content;
-  final int total;
-  final String apiUrl;
-  final ValueChanged<LandingEvent> onOpenEvent;
-  final ValueChanged<LandingEvent> onShowEventDetails;
-  final VoidCallback onOpenTelegram;
-  final VoidCallback onOpenEmail;
-  final VoidCallback onOpenWebsite;
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassPanel(
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppSectionHeader(
-            title: content.partnersTitle.trim(),
-            subtitle: content.partnersDescription.trim(),
-            titleColor: Colors.white,
-            subtitleColor: Colors.white.withValues(alpha: 0.84),
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          if (creators.isEmpty)
-            const SizedBox.shrink()
-          else
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: creators
-                  .take(10)
-                  .map(
-                    (creator) => AppBadge(
-                      label: creator,
-                      variant: AppBadgeVariant.info,
-                      textStyle: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(color: Colors.white),
-                    ),
-                  )
-                  .toList(),
-            ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              AppButton(
-                label: 'Telegram',
-                variant: AppButtonVariant.outline,
-                icon: const Icon(Icons.telegram_rounded),
-                onPressed: onOpenTelegram,
-              ),
-              AppButton(
-                label: 'Email',
-                variant: AppButtonVariant.outline,
-                icon: const Icon(Icons.mail_outline_rounded),
-                onPressed: onOpenEmail,
-              ),
-              AppButton(
-                label: 'Сайт',
-                variant: AppButtonVariant.secondary,
-                icon: const Icon(Icons.public_rounded),
-                onPressed: onOpenWebsite,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          if (events.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppColors.info.withValues(alpha: 0.35)),
-                color: AppColors.backgroundDeep.withValues(alpha: 0.30),
-              ),
-              child: Text(
-                'События скоро появятся в этом блоке.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
-              ),
-            )
-          else
-            ...events.map(
-              (event) => _LandingEventCompactCard(
-                event: event,
-                apiUrl: apiUrl,
-                onOpenEvent: () => onOpenEvent(event),
-                onShowDetails: () => onShowEventDetails(event),
-              ),
-            ),
-          const SizedBox(height: AppSpacing.sm),
-          Divider(color: AppColors.info.withValues(alpha: 0.35)),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '© ${DateTime.now().year} ${content.footerText.trim()}. '
-            'Опубликовано событий: $total.',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LandingEventCompactCard extends StatelessWidget {
-  const _LandingEventCompactCard({
-    required this.event,
-    required this.apiUrl,
-    required this.onOpenEvent,
-    required this.onShowDetails,
-  });
-
-  final LandingEvent event;
-  final String apiUrl;
-  final VoidCallback onOpenEvent;
-  final VoidCallback onShowDetails;
-
-  @override
-  Widget build(BuildContext context) {
-    final fallbackImage = event.thumbnailUrl.trim();
-    final proxyImage = buildEventMediaProxyUrl(
-      apiUrl: apiUrl,
-      eventId: event.id,
-      index: 0,
-    );
-    final imageUrl = proxyImage.isNotEmpty ? proxyImage : fallbackImage;
-    final fallbackUrl = proxyImage.isNotEmpty ? fallbackImage : '';
-    final hasImage = imageUrl.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
-        color: AppColors.backgroundDeep.withValues(alpha: 0.36),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (hasImage) ...[
-              Align(
-                alignment: Alignment.center,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 340),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.info.withValues(alpha: 0.72),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.info.withValues(alpha: 0.42),
-                          blurRadius: 28,
-                          spreadRadius: 1.2,
-                        ),
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(13),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, _, __) {
-                            if (fallbackUrl.isNotEmpty &&
-                                fallbackUrl != imageUrl) {
-                              return Image.network(
-                                fallbackUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, _, __) =>
-                                    const _LandingCardPosterFallback(),
-                              );
-                            }
-                            return const _LandingCardPosterFallback();
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            Text(
-              event.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              formatDateTime(event.startsAt),
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
-            ),
-            if (event.addressLabel.trim().isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                event.addressLabel.trim(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.white.withValues(alpha: 0.74)),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              event.description.trim(),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                AppButton(
-                  label: 'Подробнее',
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.sm,
-                  icon: const Icon(Icons.info_outline_rounded),
-                  onPressed: onShowDetails,
-                ),
-                AppButton(
-                  label: 'Открыть в app',
-                  variant: AppButtonVariant.outline,
-                  size: AppButtonSize.sm,
-                  onPressed: onOpenEvent,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LandingCardPosterFallback extends StatelessWidget {
-  const _LandingCardPosterFallback();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            AppColors.info.withValues(alpha: 0.7),
-            AppColors.backgroundDeep.withValues(alpha: 0.9),
-            const Color(0xFF15224A),
-          ],
-        ),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.photo_size_select_actual_outlined,
-          color: Colors.white,
-          size: 32,
         ),
       ),
     );
@@ -2324,17 +1880,6 @@ int _totalParticipants(List<LandingEvent> events) {
     total += event.participantsCount;
   }
   return total;
-}
-
-List<String> _uniqueCreators(List<LandingEvent> events) {
-  final unique = <String>{};
-  for (final event in events) {
-    final creator = event.creatorName.trim();
-    if (creator.isNotEmpty) {
-      unique.add(creator);
-    }
-  }
-  return unique.toList();
 }
 
 int _uniqueLocations(List<LandingEvent> events) {

@@ -45,19 +45,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final inAuth = location == AppRoutes.auth;
+      final redirectToAuthWithNext =
+          _authRouteWithNext(targetUri: state.uri, alreadyInAuth: inAuth);
 
       if (status == AuthStatus.loading) {
         if (isAdminRoute) return null;
-        return inAuth ? null : AppRoutes.auth;
+        return redirectToAuthWithNext;
       }
 
       if (status == AuthStatus.unauthenticated) {
         if (isAdminRoute) return null;
-        return inAuth ? null : AppRoutes.auth;
+        return redirectToAuthWithNext;
       }
 
       if (status == AuthStatus.authenticated && inAuth) {
-        return AppRoutes.feed;
+        final next = _readAuthNext(state.uri);
+        return next ?? AppRoutes.feed;
       }
 
       return null;
@@ -150,3 +153,49 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+String? _authRouteWithNext({
+  required Uri targetUri,
+  required bool alreadyInAuth,
+}) {
+  if (alreadyInAuth) return null;
+  final next = _normalizeAppLocation(targetUri);
+  if (next == null || next == AppRoutes.auth) {
+    return AppRoutes.auth;
+  }
+  return Uri(path: AppRoutes.auth, queryParameters: {'next': next}).toString();
+}
+
+String? _readAuthNext(Uri authUri) {
+  final raw = authUri.queryParameters['next']?.trim() ?? '';
+  if (raw.isEmpty) return null;
+  final parsed = Uri.tryParse(raw);
+  if (parsed == null) return null;
+  final path = parsed.path.trim();
+  if (!AppRoutes.isAppPath(path) || path == AppRoutes.auth) {
+    return null;
+  }
+  var out = path;
+  if (parsed.hasQuery) {
+    out = '$out?${parsed.query}';
+  }
+  if (parsed.fragment.isNotEmpty) {
+    out = '$out#${parsed.fragment}';
+  }
+  return out;
+}
+
+String? _normalizeAppLocation(Uri uri) {
+  final path = uri.path.trim();
+  if (!AppRoutes.isAppPath(path)) {
+    return null;
+  }
+  var out = path;
+  if (uri.hasQuery) {
+    out = '$out?${uri.query}';
+  }
+  if (uri.fragment.isNotEmpty) {
+    out = '$out#${uri.fragment}';
+  }
+  return out;
+}
