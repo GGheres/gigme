@@ -19,6 +19,7 @@ class ApiPaths {
   static const adminLandingContent = '/admin/landing/content';
 
   static const mediaPresign = '/media/presign';
+  static const mediaUpload = '/media/upload';
 
   static const referralCode = '/referrals/my-code';
   static const referralClaim = '/referrals/claim';

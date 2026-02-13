@@ -46,8 +46,8 @@ void main() {
       dio.httpClientAdapter = adapter;
       final client = ApiClient(baseUrl: 'https://gigme.test', dio: dio);
 
-      expect(
-        () => client.post<void>(
+      await expectLater(
+        client.post<void>(
           '/events',
           body: {'title': 'test'},
           decoder: (_) {},
@@ -69,7 +69,8 @@ class MockResponse {
 }
 
 class SequenceAdapter implements HttpClientAdapter {
-  SequenceAdapter({required Map<String, List<MockResponse>> responses}) : _responses = responses;
+  SequenceAdapter({required Map<String, List<MockResponse>> responses})
+      : _responses = responses;
 
   final Map<String, List<MockResponse>> _responses;
   final Map<String, int> _calls = <String, int>{};

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/event_filters.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/models/event_card.dart';
 import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
@@ -16,7 +17,6 @@ import '../../auth/application/auth_controller.dart';
 import '../data/events_repository.dart';
 
 class EventsState {
-
   factory EventsState.initial() => const EventsState(
         loading: false,
         refreshing: false,
@@ -101,7 +101,8 @@ class EventsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refresh({required LatLng center, bool forceLoading = false}) async {
+  Future<void> refresh(
+      {required LatLng center, bool forceLoading = false}) async {
     final token = _token;
     if (token == null || token.trim().isEmpty) return;
 
@@ -115,7 +116,8 @@ class EventsController extends ChangeNotifier {
 
     try {
       unawaited(
-        repository.updateLocation(token: token, lat: center.latitude, lng: center.longitude),
+        repository.updateLocation(
+            token: token, lat: center.latitude, lng: center.longitude),
       );
 
       final accessKeys = _eventAccessKeys.values.toList(growable: false);
@@ -196,7 +198,8 @@ class EventsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<EventDetail> loadEventDetail({required int eventId, String? accessKey}) async {
+  Future<EventDetail> loadEventDetail(
+      {required int eventId, String? accessKey}) async {
     final token = _token;
     if (token == null || token.trim().isEmpty) {
       throw StateError('Missing auth token');
@@ -221,7 +224,9 @@ class EventsController extends ChangeNotifier {
 
   Future<void> joinEvent({required int eventId, String? accessKey}) async {
     final token = _token;
-    if (token == null || token.trim().isEmpty) throw StateError('Missing auth token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
     await repository.joinEvent(
       token: token,
       eventId: eventId,
@@ -231,7 +236,9 @@ class EventsController extends ChangeNotifier {
 
   Future<void> leaveEvent({required int eventId, String? accessKey}) async {
     final token = _token;
-    if (token == null || token.trim().isEmpty) throw StateError('Missing auth token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
     await repository.leaveEvent(
       token: token,
       eventId: eventId,
@@ -244,7 +251,9 @@ class EventsController extends ChangeNotifier {
     String? accessKey,
   }) async {
     final token = _token;
-    if (token == null || token.trim().isEmpty) throw StateError('Missing auth token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
     return repository.getComments(
       token: token,
       eventId: eventId,
@@ -258,7 +267,9 @@ class EventsController extends ChangeNotifier {
     String? accessKey,
   }) async {
     final token = _token;
-    if (token == null || token.trim().isEmpty) throw StateError('Missing auth token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
     return repository.addComment(
       token: token,
       eventId: eventId,
@@ -273,7 +284,9 @@ class EventsController extends ChangeNotifier {
     required Uint8List bytes,
   }) async {
     final token = _token;
-    if (token == null || token.trim().isEmpty) throw StateError('Missing auth token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
 
     final presign = await repository.presignMedia(
       token: token,
@@ -282,20 +295,45 @@ class EventsController extends ChangeNotifier {
       sizeBytes: bytes.lengthInBytes,
     );
 
-    await repository.uploadPresigned(
-      uploadUrl: presign.uploadUrl,
-      bytes: bytes,
-      contentType: contentType,
-    );
+    try {
+      await repository.uploadPresigned(
+        uploadUrl: presign.uploadUrl,
+        bytes: bytes,
+        contentType: contentType,
+      );
+    } on AppException catch (error) {
+      if (!_shouldFallbackToApiUpload(error)) {
+        rethrow;
+      }
+      return repository.uploadMedia(
+        token: token,
+        fileName: fileName,
+        contentType: contentType,
+        bytes: bytes,
+      );
+    }
 
     return presign.fileUrl;
   }
 
+  bool _shouldFallbackToApiUpload(AppException error) {
+    if (error.statusCode != null) return false;
+    return const <String>{
+      'connectionError',
+      'connectionTimeout',
+      'sendTimeout',
+      'receiveTimeout',
+    }.contains(error.code);
+  }
+
   Future<int> createEvent(CreateEventPayload payload) async {
     final token = _token;
-    if (token == null || token.trim().isEmpty) throw StateError('Missing auth token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
 
-    final created = await repository.createEvent(token: token, payload: payload);
+    final created =
+        await repository.createEvent(token: token, payload: payload);
     if (created.accessKey.trim().isNotEmpty) {
       await rememberAccessKey(created.eventId, created.accessKey);
     }
@@ -345,8 +383,7 @@ class EventsController extends ChangeNotifier {
 
   List<EventCard> _sortFeed(List<EventCard> items) {
     final now = DateTime.now();
-    return [...items]
-      ..sort((a, b) {
+    return [...items]..sort((a, b) {
         final aPromoted = a.promotedUntil?.isAfter(now) ?? false;
         final bPromoted = b.promotedUntil?.isAfter(now) ?? false;
         if (aPromoted != bPromoted) return aPromoted ? -1 : 1;
@@ -357,10 +394,12 @@ class EventsController extends ChangeNotifier {
       });
   }
 
-  EventCard? feedEventById(int eventId) => _state.feed.firstWhereOrNull((item) => item.id == eventId);
+  EventCard? feedEventById(int eventId) =>
+      _state.feed.firstWhereOrNull((item) => item.id == eventId);
 }
 
-final eventsControllerProvider = ChangeNotifierProvider<EventsController>((ref) {
+final eventsControllerProvider =
+    ChangeNotifierProvider<EventsController>((ref) {
   final controller = EventsController(
     ref: ref,
     repository: ref.watch(eventsRepositoryProvider),

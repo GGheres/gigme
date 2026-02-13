@@ -103,7 +103,7 @@ class ApiClient {
     try {
       await _dio.putUri<void>(
         Uri.parse(url),
-        data: Stream.fromIterable([bytes]),
+        data: bytes,
         options: Options(
           headers: {
             'Content-Type': contentType,
@@ -111,6 +111,43 @@ class ApiClient {
           responseType: ResponseType.plain,
         ),
       );
+    } on DioException catch (error) {
+      throw _toException(error);
+    }
+  }
+
+  Future<T> postMultipart<T>(
+    String path, {
+    required JsonDecoder<T> decoder,
+    required String fileFieldName,
+    required String fileName,
+    required Uint8List bytes,
+    required String contentType,
+    String? token,
+    Map<String, dynamic> fields = const <String, dynamic>{},
+  }) async {
+    final formData = FormData.fromMap(
+      Map<String, dynamic>.from(fields)
+        ..[fileFieldName] = MultipartFile.fromBytes(
+          bytes,
+          filename: fileName,
+          contentType: DioMediaType.parse(contentType),
+        ),
+    );
+
+    try {
+      final response = await _dio.post<dynamic>(
+        path,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          headers: {
+            if (token != null && token.trim().isNotEmpty)
+              'Authorization': 'Bearer ${token.trim()}',
+          },
+        ),
+      );
+      return decoder(response.data);
     } on DioException catch (error) {
       throw _toException(error);
     }
@@ -135,7 +172,8 @@ class ApiClient {
           options: Options(
             method: method,
             headers: {
-              if (token != null && token.trim().isNotEmpty) 'Authorization': 'Bearer ${token.trim()}',
+              if (token != null && token.trim().isNotEmpty)
+                'Authorization': 'Bearer ${token.trim()}',
             },
           ),
         );

@@ -61,12 +61,18 @@ class CreateEventPayload {
       'media': media,
       'filters': filters,
       'isPrivate': isPrivate,
-      if ((contactTelegram ?? '').trim().isNotEmpty) 'contactTelegram': contactTelegram!.trim(),
-      if ((contactWhatsapp ?? '').trim().isNotEmpty) 'contactWhatsapp': contactWhatsapp!.trim(),
-      if ((contactWechat ?? '').trim().isNotEmpty) 'contactWechat': contactWechat!.trim(),
-      if ((contactFbMessenger ?? '').trim().isNotEmpty) 'contactFbMessenger': contactFbMessenger!.trim(),
-      if ((contactSnapchat ?? '').trim().isNotEmpty) 'contactSnapchat': contactSnapchat!.trim(),
-      if ((addressLabel ?? '').trim().isNotEmpty) 'addressLabel': addressLabel!.trim(),
+      if ((contactTelegram ?? '').trim().isNotEmpty)
+        'contactTelegram': contactTelegram!.trim(),
+      if ((contactWhatsapp ?? '').trim().isNotEmpty)
+        'contactWhatsapp': contactWhatsapp!.trim(),
+      if ((contactWechat ?? '').trim().isNotEmpty)
+        'contactWechat': contactWechat!.trim(),
+      if ((contactFbMessenger ?? '').trim().isNotEmpty)
+        'contactFbMessenger': contactFbMessenger!.trim(),
+      if ((contactSnapchat ?? '').trim().isNotEmpty)
+        'contactSnapchat': contactSnapchat!.trim(),
+      if ((addressLabel ?? '').trim().isNotEmpty)
+        'addressLabel': addressLabel!.trim(),
     };
   }
 }
@@ -147,7 +153,8 @@ class EventsRepository {
           ApiPaths.eventById(eventId),
           token: token,
           query: <String, dynamic>{
-            if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
+            if ((accessKey ?? '').trim().isNotEmpty)
+              'eventKey': accessKey!.trim(),
           },
           decoder: EventDetail.fromJson,
           retry: false,
@@ -175,7 +182,8 @@ class EventsRepository {
           ApiPaths.eventJoin(eventId),
           token: token,
           query: <String, dynamic>{
-            if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
+            if ((accessKey ?? '').trim().isNotEmpty)
+              'eventKey': accessKey!.trim(),
           },
           decoder: (_) {},
         );
@@ -190,7 +198,8 @@ class EventsRepository {
           ApiPaths.eventLeave(eventId),
           token: token,
           query: <String, dynamic>{
-            if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
+            if ((accessKey ?? '').trim().isNotEmpty)
+              'eventKey': accessKey!.trim(),
           },
           decoder: (_) {},
         );
@@ -209,7 +218,8 @@ class EventsRepository {
           query: <String, dynamic>{
             'limit': limit,
             'offset': offset,
-            if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
+            if ((accessKey ?? '').trim().isNotEmpty)
+              'eventKey': accessKey!.trim(),
           },
           decoder: (data) => asList(data).map(EventComment.fromJson).toList(),
         );
@@ -222,17 +232,17 @@ class EventsRepository {
     String? accessKey,
   }) {
     return _ref.read(apiClientProvider).post<EventComment>(
-          '${ApiPaths.eventById(eventId)}/comments',
-          token: token,
-          query: <String, dynamic>{
-            if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
-          },
-          body: <String, dynamic>{'body': body.trim()},
-          decoder: (data) {
-            final map = asMap(data);
-            return EventComment.fromJson(map['comment']);
-          },
-        );
+      '${ApiPaths.eventById(eventId)}/comments',
+      token: token,
+      query: <String, dynamic>{
+        if ((accessKey ?? '').trim().isNotEmpty) 'eventKey': accessKey!.trim(),
+      },
+      body: <String, dynamic>{'body': body.trim()},
+      decoder: (data) {
+        final map = asMap(data);
+        return EventComment.fromJson(map['comment']);
+      },
+    );
   }
 
   Future<PresignResponse> presignMedia({
@@ -265,6 +275,23 @@ class EventsRepository {
         );
   }
 
+  Future<String> uploadMedia({
+    required String token,
+    required String fileName,
+    required String contentType,
+    required Uint8List bytes,
+  }) {
+    return _ref.read(apiClientProvider).postMultipart<String>(
+          ApiPaths.mediaUpload,
+          token: token,
+          fileFieldName: 'file',
+          fileName: fileName,
+          bytes: bytes,
+          contentType: contentType,
+          decoder: (data) => asString(asMap(data)['fileUrl']),
+        );
+  }
+
   Future<ReferralCodeResponse> getReferralCode({required String token}) {
     return _ref.read(apiClientProvider).get<ReferralCodeResponse>(
           ApiPaths.referralCode,
@@ -274,4 +301,5 @@ class EventsRepository {
   }
 }
 
-final eventsRepositoryProvider = Provider<EventsRepository>((ref) => EventsRepository(ref));
+final eventsRepositoryProvider =
+    Provider<EventsRepository>((ref) => EventsRepository(ref));
