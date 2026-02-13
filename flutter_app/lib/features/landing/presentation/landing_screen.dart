@@ -220,13 +220,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     await launchUrl(uri, mode: LaunchMode.platformDefault);
   }
 
-  Future<void> _openTicket(LandingEvent event) async {
-    final rawUrl =
-        event.ticketUrl.trim().isNotEmpty ? event.ticketUrl : event.appUrl;
-    if (rawUrl.trim().isEmpty) return;
-    final uri = Uri.tryParse(rawUrl.trim());
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  void _openTicket(LandingEvent event) {
+    context.push(AppRoutes.event(event.id));
   }
 
   Future<void> _openApp(LandingEvent event) async {
@@ -276,7 +271,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                 expand: true,
                 onPressed: () {
                   Navigator.of(context).pop();
-                  unawaited(_openTicket(event));
+                  _openTicket(event);
                 },
               ),
             ],
@@ -470,6 +465,8 @@ class _LandingForeground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final featuredEvent = events.isNotEmpty ? events.first : null;
+    final heroPrimaryLabel = content.heroPrimaryCtaLabel.trim().toLowerCase();
+    final heroCtaIsTicket = heroPrimaryLabel.contains('билет');
     final totalParticipants = _totalParticipants(events);
     final creators = _uniqueCreators(events);
 
@@ -506,10 +503,10 @@ class _LandingForeground extends StatelessWidget {
                 error: error,
                 totalParticipants: totalParticipants,
                 content: content,
-                onOpenApp: onOpenApp,
+                onOpenApp: featuredEvent != null && heroCtaIsTicket
+                    ? () => onBuy(featuredEvent)
+                    : onOpenApp,
                 onRefresh: onRefresh,
-                onBuyFeatured:
-                    featuredEvent == null ? null : () => onBuy(featuredEvent),
               ),
             ),
           ),
@@ -563,7 +560,6 @@ class _HeroSection extends StatelessWidget {
     required this.totalParticipants,
     required this.onOpenApp,
     required this.onRefresh,
-    required this.onBuyFeatured,
   });
 
   final LandingEvent? featuredEvent;
@@ -575,7 +571,6 @@ class _HeroSection extends StatelessWidget {
   final int totalParticipants;
   final VoidCallback onOpenApp;
   final Future<void> Function()? onRefresh;
-  final VoidCallback? onBuyFeatured;
 
   @override
   Widget build(BuildContext context) {
@@ -627,7 +622,6 @@ class _HeroSection extends StatelessWidget {
                     openAppLabel: content.heroPrimaryCtaLabel.trim(),
                     onOpenApp: onOpenApp,
                     onRefresh: onRefresh,
-                    onBuyFeatured: onBuyFeatured,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -643,7 +637,6 @@ class _HeroSection extends StatelessWidget {
               openAppLabel: content.heroPrimaryCtaLabel.trim(),
               onOpenApp: onOpenApp,
               onRefresh: onRefresh,
-              onBuyFeatured: onBuyFeatured,
             ),
           ],
           if (loading) ...[
@@ -683,7 +676,6 @@ class _HeroActions extends StatelessWidget {
     required this.openAppLabel,
     required this.onOpenApp,
     required this.onRefresh,
-    required this.onBuyFeatured,
   });
 
   final int total;
@@ -691,7 +683,6 @@ class _HeroActions extends StatelessWidget {
   final String openAppLabel;
   final VoidCallback onOpenApp;
   final Future<void> Function()? onRefresh;
-  final VoidCallback? onBuyFeatured;
 
   @override
   Widget build(BuildContext context) {
@@ -708,13 +699,6 @@ class _HeroActions extends StatelessWidget {
               icon: const Icon(Icons.open_in_new_rounded),
               onPressed: onOpenApp,
             ),
-            if (onBuyFeatured != null)
-              AppButton(
-                label: 'Купить билет',
-                variant: AppButtonVariant.outline,
-                icon: const Icon(Icons.confirmation_number_outlined),
-                onPressed: onBuyFeatured,
-              ),
             AppButton(
               label: 'Обновить',
               variant: AppButtonVariant.ghost,
