@@ -134,7 +134,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       events: _events,
                       content: _content,
                       total: _total,
-                      onOpenApp: () => context.go(AppRoutes.appRoot),
+                      onOpenApp: () => unawaited(_openApp()),
                       onBuy: (event) => unawaited(_openTicket(event)),
                     ),
                   ],
@@ -205,11 +205,20 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 
   Future<void> _openTicket(LandingEvent event) async {
+    final nextLocation = AppRoutes.event(event.id);
     if (_shouldPromptTelegramLogin()) {
-      await _showTelegramLoginModal(event);
+      await _showTelegramLoginModal(nextLocation: nextLocation);
       return;
     }
-    context.push(AppRoutes.event(event.id));
+    context.push(nextLocation);
+  }
+
+  Future<void> _openApp() async {
+    if (_shouldPromptTelegramLogin()) {
+      await _showTelegramLoginModal(nextLocation: AppRoutes.appRoot);
+      return;
+    }
+    context.go(AppRoutes.appRoot);
   }
 
   bool _shouldPromptTelegramLogin() {
@@ -219,10 +228,17 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     return authState.status == AuthStatus.unauthenticated;
   }
 
-  Future<void> _showTelegramLoginModal(LandingEvent event) async {
-    final loginUri = _telegramLoginUri(event);
+  Future<void> _showTelegramLoginModal({
+    required String nextLocation,
+  }) async {
+    final loginUri = _telegramLoginUri(nextLocation: nextLocation);
     if (loginUri == null) {
-      _showMessage('Telegram login is not configured.');
+      context.go(
+        Uri(
+          path: AppRoutes.auth,
+          queryParameters: {'next': nextLocation},
+        ).toString(),
+      );
       return;
     }
 
@@ -232,7 +248,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         return AppModal(
           title: 'Login via Telegram',
           subtitle:
-              'Чтобы купить билет, войдите через Telegram. После входа откроем приложение на странице события.',
+              'Чтобы продолжить, войдите через Telegram. После входа вы вернетесь в приложение.',
           onClose: () => Navigator.of(dialogContext).pop(),
           body: Text(
             'Нажмите кнопку ниже, завершите вход и вы вернетесь в SPACE уже авторизованным пользователем.',
@@ -259,14 +275,16 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     );
   }
 
-  Uri? _telegramLoginUri(LandingEvent event) {
+  Uri? _telegramLoginUri({
+    required String nextLocation,
+  }) {
     final config = ref.read(appConfigProvider);
     final helperUrl = config.standaloneAuthUrl.trim();
     final helperBase = Uri.tryParse(helperUrl);
     if (helperBase != null && helperUrl.isNotEmpty) {
       final redirect = Uri.base.replace(
         path: AppRoutes.auth,
-        queryParameters: {'next': AppRoutes.event(event.id)},
+        queryParameters: {'next': nextLocation},
         fragment: '',
       );
       return helperBase.replace(
@@ -279,11 +297,32 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
     final bot = config.botUsername.trim().replaceAll('@', '');
     if (bot.isEmpty) return null;
-    return Uri.parse('https://t.me/$bot?startapp=e_${event.id}');
+    final startApp = _startAppFromNext(nextLocation);
+    if (startApp == null) {
+      return Uri.parse('https://t.me/$bot');
+    }
+    return Uri.parse(
+      'https://t.me/$bot?startapp=${Uri.encodeComponent(startApp)}',
+    );
+  }
+
+  String? _startAppFromNext(String nextLocation) {
+    final uri = Uri.tryParse(nextLocation);
+    if (uri == null) return null;
+    final segments = uri.pathSegments;
+    if (segments.length < 3) return null;
+    if (segments[0] != 'space_app' || segments[1] != 'event') return null;
+    final eventId = int.tryParse(segments[2]);
+    if (eventId == null || eventId <= 0) return null;
+    return 'e_$eventId';
   }
 
   Future<void> _openTelegramLogin(Uri uri) async {
-    final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    final opened = await launchUrl(
+      uri,
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_self',
+    );
     if (!opened) {
       _showMessage('Could not open Telegram login');
     }
