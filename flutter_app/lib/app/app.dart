@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_router.dart';
 import 'push_bootstrap.dart';
+import 'theme_mode_provider.dart';
 import 'theme.dart';
 import '../ui/layout/app_background.dart';
 
@@ -13,11 +14,14 @@ class GigMeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
 
     return PushBootstrap(
       child: MaterialApp.router(
         title: 'SPACE',
-        theme: buildGigMeTheme(),
+        theme: buildGigMeLightTheme(),
+        darkTheme: buildGigMeDarkTheme(),
+        themeMode: themeMode,
         locale: const Locale('ru', 'RU'),
         supportedLocales: const [
           Locale('ru', 'RU'),

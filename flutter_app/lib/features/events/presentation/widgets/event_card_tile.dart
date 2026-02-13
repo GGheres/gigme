@@ -30,6 +30,7 @@ class EventCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     const isMobileUi = !kIsWeb;
     const cardPadding = isMobileUi ? AppSpacing.md : AppSpacing.sm;
     const mediaSize = isMobileUi ? 142.0 : 110.0;
@@ -38,10 +39,12 @@ class EventCardTile extends StatelessWidget {
     const descriptionMaxLines = isMobileUi ? 3 : 2;
     final startsAt = formatDateTime(event.startsAt);
     final distanceText = _distanceText();
-    const titleTextColor = Colors.white;
-    final secondaryTextColor = Colors.white.withValues(alpha: 0.78);
+    final titleTextColor =
+        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final secondaryTextColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
     final badgeTextStyle = theme.textTheme.labelSmall?.copyWith(
-      color: Colors.white,
+      color: titleTextColor,
     );
 
     return AppCard(
@@ -77,7 +80,7 @@ class EventCardTile extends StatelessWidget {
                     if (event.isFeatured) ...[
                       const SizedBox(width: AppSpacing.xs),
                       AppBadge(
-                        label: 'Featured',
+                        label: 'Рекомендуем',
                         variant: AppBadgeVariant.accent,
                         textStyle: badgeTextStyle,
                         padding: const EdgeInsets.symmetric(
@@ -110,17 +113,17 @@ class EventCardTile extends StatelessWidget {
                   runSpacing: AppSpacing.xs,
                   children: [
                     AppBadge(
-                      label: '${event.participantsCount} going',
+                      label: '${event.participantsCount} идут',
                       variant: AppBadgeVariant.info,
                       textStyle: badgeTextStyle,
                     ),
                     AppBadge(
-                      label: '${event.likesCount} likes',
+                      label: '${event.likesCount} лайков',
                       variant: AppBadgeVariant.info,
                       textStyle: badgeTextStyle,
                     ),
                     AppBadge(
-                      label: '${event.commentsCount} comments',
+                      label: '${event.commentsCount} комментариев',
                       variant: AppBadgeVariant.info,
                       textStyle: badgeTextStyle,
                     ),

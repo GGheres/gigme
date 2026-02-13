@@ -117,7 +117,7 @@ class AppDropdownField<T> extends StatelessWidget {
       ),
       onChanged: enabled ? onChanged : null,
       items: items,
-      dropdownColor: Colors.white,
+      dropdownColor: Theme.of(context).colorScheme.surface,
       menuMaxHeight: 360,
       borderRadius: BorderRadius.circular(14),
     );

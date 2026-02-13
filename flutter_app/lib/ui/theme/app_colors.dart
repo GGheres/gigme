@@ -3,65 +3,68 @@ import 'package:flutter/material.dart';
 class AppColors {
   const AppColors._();
 
-  // Core background palette derived from the current web skin.
-  static const Color background = Color(0xFF1C3F67);
-  static const Color backgroundDeep = Color(0xFF173556);
-  static const Color backgroundSoft = Color(0xFFF6F8FF);
+  static const Color background = Color(0xFF101A35);
+  static const Color backgroundDeep = Color(0xFF0A1228);
+  static const Color backgroundSoft = Color(0xFFF4F7FC);
 
-  static const Color surface = Color(0xDBFFFFFF);
+  static const Color surface = Color(0xF8FFFFFF);
   static const Color surfaceStrong = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF2F5FF);
+  static const Color surfaceMuted = Color(0xFFEAF0FA);
 
-  static const Color textPrimary = Color(0xFF14161F);
-  static const Color textSecondary = Color(0xFF5B606C);
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF4B5565);
   static const Color textInverse = Color(0xFFFFFFFF);
 
-  static const Color primary = Color(0xFFFF7B1F);
-  static const Color secondary = Color(0xFF3B7BFF);
-  static const Color tertiary = Color(0xFF66D364);
-  static const Color accentPurple = Color(0xFF6A4CFF);
+  static const Color primary = Color(0xFF5868F9);
+  static const Color secondary = Color(0xFF2AC9C5);
+  static const Color tertiary = Color(0xFF7BD88F);
+  static const Color accentPurple = Color(0xFF7B7EFF);
 
-  static const Color success = Color(0xFF66D364);
-  static const Color warning = Color(0xFFF2C678);
-  static const Color danger = Color(0xFFFF5D5D);
-  static const Color info = Color(0xFF3B7BFF);
+  static const Color success = Color(0xFF1D9A52);
+  static const Color warning = Color(0xFFE49E34);
+  static const Color danger = Color(0xFFD74242);
+  static const Color info = Color(0xFF3569F6);
 
-  static const Color border = Color(0x1F14161F);
-  static const Color borderStrong = Color(0x3314161F);
-  static const Color focusRing = Color(0x663B7BFF);
+  static const Color border = Color(0x1F111827);
+  static const Color borderStrong = Color(0x33111827);
+  static const Color focusRing = Color(0x805868F9);
+
+  static const Color darkSurface = Color(0xFF16244A);
+  static const Color darkSurfaceStrong = Color(0xFF1A2B55);
+  static const Color darkSurfaceMuted = Color(0xFF223665);
+  static const Color darkTextPrimary = Color(0xFFF3F6FF);
+  static const Color darkTextSecondary = Color(0xFFB3C2E8);
+  static const Color darkBorder = Color(0x33DDE7FF);
+  static const Color darkBorderStrong = Color(0x4DDDE7FF);
 
   static const LinearGradient appBackgroundGradientWide = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
-      Color(0xFF2B5FA5),
-      Color(0xFF3AA6C6),
-      Color(0xFF7FD0B7),
-      Color(0xFFF2C678),
-      Color(0xFFA88BD5),
+      Color(0xFF1A2B55),
+      Color(0xFF101E43),
+      Color(0xFF0A1228),
     ],
-    stops: <double>[0.0, 0.32, 0.52, 0.72, 1.0],
+    stops: <double>[0.0, 0.55, 1.0],
   );
 
   static const LinearGradient appBackgroundGradientTall = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: <Color>[
-      Color(0xFF2F68B7),
-      Color(0xFF49B8D2),
-      Color(0xFF9FDC9D),
-      Color(0xFFF5C06C),
-      Color(0xFF946CC4),
+      Color(0xFF1A2B55),
+      Color(0xFF111E41),
+      Color(0xFF0A1228),
     ],
-    stops: <double>[0.0, 0.38, 0.56, 0.78, 1.0],
+    stops: <double>[0.0, 0.48, 1.0],
   );
 
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
-      Color(0xF5FFFFFF),
-      Color(0xE6F5F7FF),
+      Color(0xFFFFFFFF),
+      Color(0xFFF5F8FF),
     ],
   );
 
@@ -69,28 +72,37 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
-      Color(0x2EFF7B1F),
-      Color(0x2966D364),
-      Color(0x333B7BFF),
+      Color(0x66335FCB),
+      Color(0x55325BAF),
+      Color(0x552A4C95),
     ],
   );
 
   static const LinearGradient primaryButtonGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: <Color>[primary, accentPurple],
+    colors: <Color>[
+      Color(0xFF5868F9),
+      Color(0xFF6B7AFB),
+    ],
   );
 
   static const LinearGradient secondaryButtonGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: <Color>[tertiary, secondary],
+    colors: <Color>[
+      Color(0xFF2AC9C5),
+      Color(0xFF59D7B4),
+    ],
   );
 
   static const LinearGradient dangerButtonGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: <Color>[danger, Color(0xFFFF8A8A)],
+    colors: <Color>[
+      Color(0xFFD74242),
+      Color(0xFFEF6060),
+    ],
   );
 
   static const ColorScheme lightColorScheme = ColorScheme.light(
@@ -102,6 +114,18 @@ class AppColors {
     error: danger,
     onError: textInverse,
     outline: borderStrong,
-    shadow: Color(0x33141022),
+    shadow: Color(0x29111A35),
+  );
+
+  static const ColorScheme darkColorScheme = ColorScheme.dark(
+    primary: Color(0xFF8790FF),
+    secondary: Color(0xFF54DDD7),
+    tertiary: Color(0xFF91E2A1),
+    surface: darkSurfaceStrong,
+    onSurface: darkTextPrimary,
+    error: Color(0xFFFF8B8B),
+    onError: Color(0xFF390808),
+    outline: darkBorderStrong,
+    shadow: Color(0x66000000),
   );
 }

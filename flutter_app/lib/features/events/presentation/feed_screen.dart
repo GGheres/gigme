@@ -51,8 +51,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     return AppScaffold(
       title: 'Лента',
       showBackgroundDecor: true,
-      titleColor: Colors.white,
-      subtitleColor: Colors.white.withValues(alpha: 0.76),
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
       child: Column(
         children: [
           _FeedHeroPanel(
@@ -201,7 +202,21 @@ class _FeedHeroPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final infoTextColor = Colors.white.withValues(alpha: 0.84);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final titleColor =
+        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final infoTextColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final pillBackground = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.04);
+    final pillBorder = isDark
+        ? Colors.white.withValues(alpha: 0.2)
+        : Colors.black.withValues(alpha: 0.08);
+    final pillLabelColor =
+        isDark ? Colors.white.withValues(alpha: 0.78) : AppColors.textSecondary;
+    final pillValueColor = titleColor;
 
     return AppCard(
       variant: AppCardVariant.panel,
@@ -210,17 +225,17 @@ class _FeedHeroPanel extends StatelessWidget {
         children: [
           Text(
             'События рядом',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  letterSpacing: 0.4,
-                ),
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: titleColor,
+              letterSpacing: 0.2,
+            ),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             'Быстрый доступ к афише в твоем районе.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: infoTextColor,
-                ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: infoTextColor,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
@@ -232,6 +247,10 @@ class _FeedHeroPanel extends StatelessWidget {
               _HeroStatPill(
                 label: 'Режим',
                 value: nearbyOnly ? 'Рядом' : 'Везде',
+                backgroundColor: pillBackground,
+                borderColor: pillBorder,
+                labelColor: pillLabelColor,
+                valueColor: pillValueColor,
               ),
             ],
           ),
@@ -275,18 +294,43 @@ class _HeroStatPill extends StatelessWidget {
   const _HeroStatPill({
     required this.label,
     required this.value,
+    this.backgroundColor,
+    this.borderColor,
+    this.labelColor,
+    this.valueColor,
   });
 
   final String label;
   final String value;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Color? labelColor;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final resolvedBackground = backgroundColor ??
+        (isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.04));
+    final resolvedBorder = borderColor ??
+        (isDark
+            ? Colors.white.withValues(alpha: 0.2)
+            : Colors.black.withValues(alpha: 0.08));
+    final resolvedLabelColor = labelColor ??
+        (isDark
+            ? Colors.white.withValues(alpha: 0.78)
+            : AppColors.textSecondary);
+    final resolvedValueColor = valueColor ??
+        (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: resolvedBackground,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        border: Border.all(color: resolvedBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -298,16 +342,16 @@ class _HeroStatPill extends StatelessWidget {
           children: [
             Text(
               label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.76),
-                  ),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: resolvedLabelColor,
+              ),
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
               value,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Colors.white,
-                  ),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: resolvedValueColor,
+              ),
             ),
           ],
         ),
@@ -334,9 +378,20 @@ class _FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final chipBackground = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : AppColors.surfaceStrong.withValues(alpha: 0.92);
+    final chipSelected = isDark
+        ? AppColors.secondary.withValues(alpha: 0.46)
+        : AppColors.primary.withValues(alpha: 0.18);
+    final chipBorder =
+        isDark ? Colors.white.withValues(alpha: 0.32) : AppColors.borderStrong;
+    final chipTextColor =
+        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
 
     return AppCard(
-      variant: AppCardVariant.panel,
+      variant: AppCardVariant.surface,
       padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,7 +399,7 @@ class _FilterBar extends StatelessWidget {
           Row(
             children: [
               AppBadge(
-                label: nearbyOnly ? 'Nearby only' : 'All regions',
+                label: nearbyOnly ? 'Только рядом' : 'Все регионы',
                 variant: nearbyOnly
                     ? AppBadgeVariant.accent
                     : AppBadgeVariant.neutral,
@@ -368,13 +423,13 @@ class _FilterBar extends StatelessWidget {
           Theme(
             data: theme.copyWith(
               chipTheme: theme.chipTheme.copyWith(
-                backgroundColor: Colors.white.withValues(alpha: 0.16),
-                selectedColor: AppColors.secondary.withValues(alpha: 0.52),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.36)),
-                checkmarkColor: Colors.white,
+                backgroundColor: chipBackground,
+                selectedColor: chipSelected,
+                side: BorderSide(color: chipBorder),
+                checkmarkColor: chipTextColor,
                 labelStyle: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+                  color: chipTextColor,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

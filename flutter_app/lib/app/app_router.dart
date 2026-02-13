@@ -6,6 +6,7 @@ import '../features/admin/presentation/admin_screen.dart';
 import '../features/auth/application/auth_controller.dart';
 import '../features/auth/application/auth_state.dart';
 import '../features/auth/presentation/auth_screen.dart';
+import '../features/dev/presentation/ui_preview_screen.dart';
 import '../features/events/presentation/create_event_screen.dart';
 import '../features/events/presentation/event_details_screen.dart';
 import '../features/events/presentation/feed_screen.dart';
@@ -102,6 +103,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.uiPreview,
+            builder: (context, state) => const UiPreviewScreen(),
           ),
           GoRoute(
             path: AppRoutes.admin,

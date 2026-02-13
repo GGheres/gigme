@@ -14,6 +14,7 @@ class AppRoutes {
   static const adminProducts = '/space_app/admin/products';
   static const adminPromos = '/space_app/admin/promos';
   static const adminStats = '/space_app/admin/stats';
+  static const uiPreview = '/space_app/dev/ui_preview';
 
   static String event(int id) => '/space_app/event/$id';
   static String adminEvent(int id) => '/space_app/admin/event/$id';

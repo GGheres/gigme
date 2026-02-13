@@ -49,7 +49,7 @@ void main() {
     );
 
     expect(find.text('City Jam'), findsOneWidget);
-    expect(find.textContaining('going'), findsOneWidget);
-    expect(find.textContaining('likes'), findsOneWidget);
+    expect(find.textContaining('идут'), findsOneWidget);
+    expect(find.textContaining('лайков'), findsOneWidget);
   });
 }

@@ -6,12 +6,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/routes.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/providers.dart';
-import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 
-// TODO(ui-migration): migrate auth layout/actions fully to AppScaffold/AppButton/AppTextField tokens.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -44,108 +48,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (config.authMode == AuthMode.telegramWeb) {
       return _buildTelegramWebScreen(
         state: state,
+        config: config,
         standaloneHelperUri: standaloneHelperUri,
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('SPACE Login')),
-      body: Center(
+    return AppScaffold(
+      title: 'Вход',
+      subtitle: 'Авторизация в SPACE через Telegram',
+      showBackgroundDecor: true,
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      child: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                const Text(
-                  'SPACE',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700),
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            children: [
+              SectionCard(
+                title: 'Telegram Login',
+                subtitle: _subtitleForMode(config.authMode),
+                child: _buildStandaloneContent(
+                  state: state,
+                  config: config,
+                  standaloneHelperUri: standaloneHelperUri,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  _subtitleForMode(config.authMode),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 20),
-                if (state.status == AuthStatus.loading) ...[
-                  const SizedBox(
-                    height: 220,
-                    child: PremiumLoadingView(
-                      compact: true,
-                      text: 'SIGN IN • SPACE • ',
-                      subtitle: 'Signing in...',
-                    ),
-                  ),
-                ] else ...[
-                  if ((state.error ?? '').trim().isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        state.error!,
-                        style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onErrorContainer),
-                      ),
-                    ),
-                  FilledButton(
-                    onPressed: () =>
-                        ref.read(authControllerProvider).retryAuth(),
-                    child: Text(
-                      config.authMode == AuthMode.telegramWeb
-                          ? 'Retry Telegram Login'
-                          : 'Retry from URL initData',
-                    ),
-                  ),
-                  if (config.authMode == AuthMode.standalone) ...[
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _initDataController,
-                      minLines: 3,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        labelText: 'Telegram initData',
-                        hintText:
-                            'Paste initData here if auth helper returns it',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    FilledButton.tonal(
-                      onPressed: () {
-                        final initData = _initDataController.text.trim();
-                        if (initData.isEmpty) return;
-                        ref
-                            .read(authControllerProvider)
-                            .loginWithTelegram(initData);
-                      },
-                      child: const Text('Login with initData'),
-                    ),
-                    if (standaloneHelperUri != null) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: () async {
-                          await launchUrl(standaloneHelperUri,
-                              mode: LaunchMode.externalApplication);
-                        },
-                        child: const Text('Open standalone auth helper'),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Mode B flow: open auth helper -> receive deep link with initData -> login against /auth/telegram. Backend contract is unchanged.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -154,76 +84,156 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _buildTelegramWebScreen({
     required AuthState state,
+    required AppConfig config,
     required Uri? standaloneHelperUri,
   }) {
     final error = (state.error ?? '').trim();
     final canUseStandaloneHelper = standaloneHelperUri != null;
 
-    return Scaffold(
-      backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    height: 240,
-                    child: Center(
-                      child: Text(
-                        'SPACE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 42,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
+    return AppScaffold(
+      title: 'Вход',
+      subtitle: 'Быстрый вход через Telegram',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            children: [
+              SectionCard(
+                title: 'SPACE',
+                subtitle: _subtitleForMode(config.authMode),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (state.status == AuthStatus.loading)
+                      const LoadingState(
+                        title: 'Проверяем сессию',
+                        subtitle: 'Идет авторизация через Telegram',
+                      )
+                    else ...[
+                      if (error.isNotEmpty) ...[
+                        ErrorState(
+                          message: error,
+                          onRetry: () =>
+                              ref.read(authControllerProvider).retryAuth(),
+                          retryLabel: 'Повторить вход',
                         ),
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
+                      PrimaryButton(
+                        label: 'Повторить Telegram Login',
+                        onPressed: () =>
+                            ref.read(authControllerProvider).retryAuth(),
+                        icon: const Icon(Icons.telegram_rounded),
                       ),
-                    ),
-                  ),
-                  if (state.status != AuthStatus.loading &&
-                      error.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      error,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () =>
-                          ref.read(authControllerProvider).retryAuth(),
-                      child: const Text('Retry Telegram Login'),
-                    ),
-                    if (canUseStandaloneHelper) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: () async {
-                          if (kIsWeb) {
-                            TelegramWebAppBridge.redirect(
-                              standaloneHelperUri.toString(),
+                      if (canUseStandaloneHelper) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        SecondaryButton(
+                          label: 'Открыть Telegram Login',
+                          outline: true,
+                          onPressed: () async {
+                            if (kIsWeb) {
+                              TelegramWebAppBridge.redirect(
+                                standaloneHelperUri.toString(),
+                              );
+                              return;
+                            }
+                            await launchUrl(
+                              standaloneHelperUri,
+                              mode: LaunchMode.platformDefault,
                             );
-                            return;
-                          }
-                          await launchUrl(
-                            standaloneHelperUri,
-                            mode: LaunchMode.platformDefault,
-                          );
-                        },
-                        child: const Text('Login via Telegram'),
-                      ),
+                          },
+                        ),
+                      ],
                     ],
                   ],
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStandaloneContent({
+    required AuthState state,
+    required AppConfig config,
+    required Uri? standaloneHelperUri,
+  }) {
+    final error = (state.error ?? '').trim();
+
+    if (state.status == AuthStatus.loading) {
+      return const SizedBox(
+        height: 180,
+        child: LoadingState(
+          title: 'Выполняем вход',
+          subtitle: 'Проверяем данные Telegram',
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (error.isNotEmpty) ...[
+          ErrorState(
+            message: error,
+            onRetry: () => ref.read(authControllerProvider).retryAuth(),
+            retryLabel: 'Повторить',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        PrimaryButton(
+          label: config.authMode == AuthMode.telegramWeb
+              ? 'Повторить Telegram Login'
+              : 'Повторить авторизацию',
+          onPressed: () => ref.read(authControllerProvider).retryAuth(),
+          icon: const Icon(Icons.telegram_rounded),
+        ),
+        if (config.authMode == AuthMode.standalone) ...[
+          const SizedBox(height: AppSpacing.sm),
+          InputField(
+            controller: _initDataController,
+            minLines: 3,
+            maxLines: 8,
+            label: 'Telegram initData',
+            hint: 'Вставьте initData после входа в helper',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          SecondaryButton(
+            label: 'Войти с initData',
+            onPressed: () {
+              final initData = _initDataController.text.trim();
+              if (initData.isEmpty) return;
+              ref.read(authControllerProvider).loginWithTelegram(initData);
+            },
+            outline: true,
+          ),
+          if (standaloneHelperUri != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            SecondaryButton(
+              label: 'Открыть auth helper',
+              outline: true,
+              onPressed: () async {
+                await launchUrl(
+                  standaloneHelperUri,
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Поток: открыть helper -> получить deep link с initData -> войти в SPACE.',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
     );
   }
 

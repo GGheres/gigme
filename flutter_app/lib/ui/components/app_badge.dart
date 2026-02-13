@@ -28,7 +28,8 @@ class AppBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _styleFor(variant);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final style = _styleFor(variant, isDark: isDark);
     return Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -57,43 +58,51 @@ class _BadgeStyle {
   final Color foreground;
 }
 
-_BadgeStyle _styleFor(AppBadgeVariant variant) {
+_BadgeStyle _styleFor(AppBadgeVariant variant, {required bool isDark}) {
+  final textPrimary =
+      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  final textSecondary =
+      isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
   switch (variant) {
     case AppBadgeVariant.neutral:
       return _BadgeStyle(
-        background: AppColors.surfaceStrong.withValues(alpha: 0.88),
-        border: AppColors.border,
-        foreground: AppColors.textPrimary,
+        background: isDark
+            ? AppColors.darkSurfaceMuted.withValues(alpha: 0.92)
+            : AppColors.surfaceStrong.withValues(alpha: 0.88),
+        border: isDark ? AppColors.darkBorder : AppColors.border,
+        foreground: textPrimary,
       );
     case AppBadgeVariant.accent:
       return _BadgeStyle(
         background: AppColors.secondary.withValues(alpha: 0.18),
         border: AppColors.secondary.withValues(alpha: 0.4),
-        foreground: AppColors.textPrimary,
+        foreground: textPrimary,
       );
     case AppBadgeVariant.ghost:
       return _BadgeStyle(
-        background: AppColors.textPrimary.withValues(alpha: 0.05),
-        border: AppColors.textPrimary.withValues(alpha: 0.10),
-        foreground: AppColors.textPrimary,
+        background: textPrimary.withValues(alpha: isDark ? 0.14 : 0.05),
+        border: textPrimary.withValues(alpha: isDark ? 0.24 : 0.10),
+        foreground: textPrimary,
       );
     case AppBadgeVariant.danger:
       return _BadgeStyle(
         background: AppColors.danger.withValues(alpha: 0.16),
         border: AppColors.danger.withValues(alpha: 0.45),
-        foreground: const Color(0xFF8F1F1F),
+        foreground:
+            isDark ? AppColors.darkTextPrimary : const Color(0xFF8F1F1F),
       );
     case AppBadgeVariant.success:
       return _BadgeStyle(
         background: AppColors.success.withValues(alpha: 0.20),
         border: AppColors.success.withValues(alpha: 0.45),
-        foreground: AppColors.textPrimary,
+        foreground: textPrimary,
       );
     case AppBadgeVariant.info:
       return _BadgeStyle(
         background: AppColors.info.withValues(alpha: 0.16),
         border: AppColors.info.withValues(alpha: 0.4),
-        foreground: AppColors.textPrimary,
+        foreground: textSecondary,
       );
   }
 }

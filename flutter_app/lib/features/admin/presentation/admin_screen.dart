@@ -18,7 +18,6 @@ import '../../tickets/presentation/admin_qr_scanner_page.dart';
 import '../../tickets/presentation/admin_stats_page.dart';
 import '../data/admin_repository.dart';
 
-// TODO(ui-migration): convert admin tabs/tables/forms to AppScaffold + tokenized App* components.
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
 
@@ -323,7 +322,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           Text(_usersError!, style: const TextStyle(color: Colors.red)),
         Row(
           children: [
-            Text('Total: $_usersTotal'),
+            Text('Всего: $_usersTotal'),
           ],
         ),
         const SizedBox(height: 8),
@@ -331,7 +330,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No users found.'),
+              child: Text('Пользователи не найдены.'),
             ),
           )
         else
@@ -349,19 +348,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                               .trim()
                               .substring(0, 1)
                               .toUpperCase()
-                          : 'U')
+                          : 'П')
                       : null,
                 ),
                 title: Text(user.displayName),
                 subtitle: Text(
-                    '@${user.username.isEmpty ? 'no_username' : user.username} • TG ${user.telegramId}'),
+                    '@${user.username.isEmpty ? 'без_username' : user.username} • TG ${user.telegramId}'),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('${user.balanceTokens} GT'),
                     const SizedBox(height: 4),
-                    Text(user.isBlocked ? 'Blocked' : 'Active'),
+                    Text(user.isBlocked ? 'Заблокирован' : 'Активен'),
                   ],
                 ),
               ),
@@ -381,7 +380,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Create broadcast',
+                Text('Создать рассылку',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
@@ -389,24 +388,25 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   value: _broadcastAudience,
                   items: const [
                     DropdownMenuItem(
-                        value: 'all', child: Text('All active users')),
+                        value: 'all', child: Text('Все активные пользователи')),
                     DropdownMenuItem(
-                        value: 'selected', child: Text('Selected user IDs')),
+                        value: 'selected',
+                        child: Text('Выбранные ID пользователей')),
                     DropdownMenuItem(
-                        value: 'filter', child: Text('Filter-based')),
+                        value: 'filter', child: Text('По фильтру')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _broadcastAudience = value);
                   },
-                  decoration: const InputDecoration(labelText: 'Audience'),
+                  decoration: const InputDecoration(labelText: 'Аудитория'),
                 ),
                 const SizedBox(height: 10),
                 if (_broadcastAudience == 'selected') ...[
                   TextField(
                     controller: _broadcastUserIdsCtrl,
                     decoration: const InputDecoration(
-                        labelText: 'User IDs (comma-separated)'),
+                        labelText: 'ID пользователей (через запятую)'),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -415,13 +415,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     controller: _broadcastMinBalanceCtrl,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                        labelText: 'Min balance (optional)'),
+                        labelText: 'Мин. баланс (необязательно)'),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _broadcastLastSeenAfterCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Last seen after (ISO, optional)',
+                      labelText: 'Последняя активность после (ISO)',
                       hintText: '2026-02-08T10:30:00Z',
                     ),
                   ),
@@ -432,10 +432,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   maxLength: 4096,
                   minLines: 3,
                   maxLines: 8,
-                  decoration: const InputDecoration(labelText: 'Message'),
+                  decoration: const InputDecoration(labelText: 'Сообщение'),
                 ),
                 const SizedBox(height: 6),
-                Text('Buttons', style: Theme.of(context).textTheme.titleSmall),
+                Text('Кнопки', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 6),
                 ..._broadcastButtons.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -448,14 +448,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                           child: TextField(
                             controller: item.textCtrl,
                             decoration:
-                                const InputDecoration(labelText: 'Text'),
+                                const InputDecoration(labelText: 'Текст'),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: item.urlCtrl,
-                            decoration: const InputDecoration(labelText: 'URL'),
+                            decoration:
+                                const InputDecoration(labelText: 'Ссылка'),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -481,14 +482,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                           .add(_BroadcastButtonDraft(text: '', url: '')));
                     },
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add button'),
+                    label: const Text('Добавить кнопку'),
                   ),
                 ),
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed: _broadcastCreateBusy ? null : _createBroadcast,
                   child: Text(
-                      _broadcastCreateBusy ? 'Creating…' : 'Create broadcast'),
+                      _broadcastCreateBusy ? 'Создаем…' : 'Создать рассылку'),
                 ),
                 if ((_broadcastsError ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -502,12 +503,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         const SizedBox(height: 10),
         Row(
           children: [
-            Text('History ($_broadcastsTotal)'),
+            Text('История ($_broadcastsTotal)'),
             const Spacer(),
             TextButton.icon(
               onPressed: _broadcastsLoading ? null : _loadBroadcasts,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh'),
+              label: const Text('Обновить'),
             ),
           ],
         ),
@@ -515,7 +516,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No broadcasts yet.'),
+              child: Text('Рассылок пока нет.'),
             ),
           )
         else
@@ -533,8 +534,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                             ? null
                             : () => _startBroadcast(item.id),
                         child: Text(_broadcastStartBusyId == item.id
-                            ? 'Starting…'
-                            : 'Start'),
+                            ? 'Запускаем…'
+                            : 'Запустить'),
                       )
                     : null,
               ),
@@ -554,19 +555,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Parser sources',
+                Text('Источники парсера',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _parserSourceTitleCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Title (optional)'),
+                  decoration: const InputDecoration(
+                      labelText: 'Название (необязательно)'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _parserSourceInputCtrl,
                   decoration: const InputDecoration(
-                      labelText: 'Source input (URL or channel)'),
+                      labelText: 'Источник (URL или канал)'),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -585,25 +586,26 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     if (value == null) return;
                     setState(() => _parserSourceType = value);
                   },
-                  decoration: const InputDecoration(labelText: 'Source type'),
+                  decoration: const InputDecoration(labelText: 'Тип источника'),
                 ),
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed:
                       _parserCreateSourceBusy ? null : _createParserSource,
-                  child:
-                      Text(_parserCreateSourceBusy ? 'Saving…' : 'Add source'),
+                  child: Text(_parserCreateSourceBusy
+                      ? 'Сохраняем…'
+                      : 'Добавить источник'),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text('Sources: $_parserSourcesTotal'),
+                    Text('Источников: $_parserSourcesTotal'),
                     const Spacer(),
                     TextButton.icon(
                       onPressed:
                           _parserSourcesLoading ? null : _loadParserSources,
                       icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Refresh'),
+                      label: const Text('Обновить'),
                     ),
                   ],
                 ),
@@ -614,7 +616,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                           ? '#${source.id}'
                           : source.title),
                       subtitle: Text(
-                          '${source.sourceType} • ${source.input}\nLast parsed: ${formatDateTime(source.lastParsedAt)}'),
+                          '${source.sourceType} • ${source.input}\nПоследний парсинг: ${formatDateTime(source.lastParsedAt)}'),
                       isThreeLine: true,
                       trailing: Wrap(
                         spacing: 6,
@@ -625,13 +627,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                                 : () => _parseSource(source.id),
                             child: Text(_parserSourceBusyId == source.id
                                 ? '…'
-                                : 'Parse'),
+                                : 'Парсить'),
                           ),
                           OutlinedButton(
                             onPressed: _parserSourceBusyId == source.id
                                 ? null
                                 : () => _toggleParserSource(source),
-                            child: Text(source.isActive ? 'Disable' : 'Enable'),
+                            child: Text(
+                                source.isActive ? 'Отключить' : 'Включить'),
                           ),
                         ],
                       ),
@@ -649,13 +652,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Quick parse',
+                Text('Быстрый парсинг',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _parserQuickInputCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'URL or channel'),
+                  decoration: const InputDecoration(labelText: 'URL или канал'),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -674,12 +676,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     if (value == null) return;
                     setState(() => _parserQuickType = value);
                   },
-                  decoration: const InputDecoration(labelText: 'Source type'),
+                  decoration: const InputDecoration(labelText: 'Тип источника'),
                 ),
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed: _parserQuickBusy ? null : _parseQuick,
-                  child: Text(_parserQuickBusy ? 'Parsing…' : 'Run parse'),
+                  child:
+                      Text(_parserQuickBusy ? 'Парсим…' : 'Запустить парсинг'),
                 ),
               ],
             ),
@@ -691,11 +694,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             DropdownButton<String>(
               value: _parsedStatusFilter,
               items: const [
-                DropdownMenuItem(value: 'all', child: Text('All statuses')),
-                DropdownMenuItem(value: 'pending', child: Text('pending')),
-                DropdownMenuItem(value: 'imported', child: Text('imported')),
-                DropdownMenuItem(value: 'rejected', child: Text('rejected')),
-                DropdownMenuItem(value: 'error', child: Text('error')),
+                DropdownMenuItem(value: 'all', child: Text('Все статусы')),
+                DropdownMenuItem(value: 'pending', child: Text('В ожидании')),
+                DropdownMenuItem(
+                    value: 'imported', child: Text('Импортировано')),
+                DropdownMenuItem(value: 'rejected', child: Text('Отклонено')),
+                DropdownMenuItem(value: 'error', child: Text('Ошибка')),
               ],
               onChanged: (value) {
                 if (value == null) return;
@@ -704,12 +708,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               },
             ),
             const Spacer(),
-            Text('Parsed: $_parsedTotal'),
+            Text('Распознано: $_parsedTotal'),
             const SizedBox(width: 8),
             TextButton.icon(
               onPressed: _parsedLoading ? null : _loadParsedEvents,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh'),
+              label: const Text('Обновить'),
             ),
           ],
         ),
@@ -730,37 +734,39 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Landing texts',
+                Text('Тексты лендинга',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _landingHeroEyebrowCtrl,
-                  decoration: const InputDecoration(labelText: 'Hero eyebrow'),
+                  decoration:
+                      const InputDecoration(labelText: 'Hero-подзаголовок'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingHeroTitleCtrl,
-                  decoration: const InputDecoration(labelText: 'Hero title'),
+                  decoration:
+                      const InputDecoration(labelText: 'Hero-заголовок'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingHeroDescriptionCtrl,
                   minLines: 2,
                   maxLines: 5,
-                  decoration:
-                      const InputDecoration(labelText: 'Hero description'),
+                  decoration: const InputDecoration(labelText: 'Hero-описание'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingHeroCtaCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Hero primary CTA label',
+                    labelText: 'Текст главной CTA',
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingAboutTitleCtrl,
-                  decoration: const InputDecoration(labelText: 'About title'),
+                  decoration:
+                      const InputDecoration(labelText: 'Заголовок блока О нас'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -768,13 +774,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   minLines: 2,
                   maxLines: 6,
                   decoration:
-                      const InputDecoration(labelText: 'About description'),
+                      const InputDecoration(labelText: 'Описание блока О нас'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingPartnersTitleCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Partners title'),
+                  decoration: const InputDecoration(
+                      labelText: 'Заголовок блока Партнеры'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -782,19 +788,20 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   minLines: 2,
                   maxLines: 6,
                   decoration: const InputDecoration(
-                    labelText: 'Partners description',
+                    labelText: 'Описание блока Партнеры',
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingFooterCtrl,
-                  decoration: const InputDecoration(labelText: 'Footer text'),
+                  decoration: const InputDecoration(labelText: 'Текст футера'),
                 ),
                 const SizedBox(height: 10),
                 FilledButton.icon(
                   onPressed: _landingContentBusy ? null : _saveLandingContent,
                   icon: const Icon(Icons.save_outlined),
-                  label: Text(_landingContentBusy ? 'Saving…' : 'Save texts'),
+                  label: Text(
+                      _landingContentBusy ? 'Сохраняем…' : 'Сохранить тексты'),
                 ),
                 if ((_landingError ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -812,7 +819,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Publish event on landing',
+                Text('Публикация события на лендинге',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
                 Row(
@@ -822,8 +829,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                         controller: _landingEventIdCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'Event ID',
-                          hintText: 'e.g. 123',
+                          labelText: 'ID события',
+                          hintText: 'например, 123',
                         ),
                       ),
                     ),
@@ -832,9 +839,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       value: _landingPublishedValue,
                       items: const [
                         DropdownMenuItem<bool>(
-                            value: true, child: Text('Publish')),
+                            value: true, child: Text('Опубликовать')),
                         DropdownMenuItem<bool>(
-                            value: false, child: Text('Unpublish')),
+                            value: false, child: Text('Снять с публикации')),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
@@ -847,7 +854,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 TextField(
                   controller: _landingImageUrlCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Card image URL',
+                    labelText: 'URL изображения карточки',
                     hintText: 'https://example.com/cover.jpg',
                   ),
                 ),
@@ -856,8 +863,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   controller: _landingCommentIdCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Comment ID (for delete)',
-                    hintText: 'e.g. 45',
+                    labelText: 'ID комментария (для удаления)',
+                    hintText: 'например, 45',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -869,15 +876,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       onPressed: _landingBusy || _landingImageBusy
                           ? null
                           : _applyLandingPublicationFromInput,
-                      child: Text(_landingBusy ? 'Saving…' : 'Apply'),
+                      child: Text(_landingBusy ? 'Сохраняем…' : 'Применить'),
                     ),
                     OutlinedButton.icon(
                       onPressed: _landingBusy || _landingImageBusy
                           ? null
                           : _saveLandingEventImageFromInput,
                       icon: const Icon(Icons.image_outlined),
-                      label: Text(
-                          _landingImageBusy ? 'Saving…' : 'Save card image'),
+                      label: Text(_landingImageBusy
+                          ? 'Сохраняем…'
+                          : 'Сохранить изображение карточки'),
                     ),
                   ],
                 ),
@@ -891,16 +899,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                           _landingModerationBusy ? null : _deleteEventByInput,
                       icon: const Icon(Icons.delete_forever_outlined),
                       label: Text(_landingModerationBusy
-                          ? 'Deleting…'
-                          : 'Delete event'),
+                          ? 'Удаляем…'
+                          : 'Удалить событие'),
                     ),
                     OutlinedButton.icon(
                       onPressed:
                           _landingModerationBusy ? null : _deleteCommentByInput,
                       icon: const Icon(Icons.delete_outline_rounded),
                       label: Text(_landingModerationBusy
-                          ? 'Deleting…'
-                          : 'Delete comment'),
+                          ? 'Удаляем…'
+                          : 'Удалить комментарий'),
                     ),
                   ],
                 ),
@@ -916,12 +924,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         const SizedBox(height: 10),
         Row(
           children: [
-            Text('Published events: $_landingTotal'),
+            Text('Опубликовано событий: $_landingTotal'),
             const Spacer(),
             TextButton.icon(
               onPressed: _landingLoading ? null : _loadLanding,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh'),
+              label: const Text('Обновить'),
             ),
           ],
         ),
@@ -932,7 +940,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               height: 180,
               child: PremiumLoadingView(
                 compact: true,
-                text: 'LANDING • LOADING • ',
+                text: 'ЛЕНДИНГ • ЗАГРУЗКА • ',
                 subtitle: 'Загружаем публикации',
               ),
             ),
@@ -941,7 +949,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No events published on landing yet.'),
+              child: Text('На лендинге пока нет опубликованных событий.'),
             ),
           )
         else
@@ -958,7 +966,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 leading: _buildLandingEventThumbnail(event.thumbnailUrl),
                 title: Text('${event.title} (#${event.id})'),
                 subtitle: Text(
-                  '${formatDateTime(event.startsAt)} • ${event.addressLabel.isEmpty ? 'No address' : event.addressLabel}',
+                  '${formatDateTime(event.startsAt)} • ${event.addressLabel.isEmpty ? 'Без адреса' : event.addressLabel}',
                 ),
                 isThreeLine: false,
                 trailing: Wrap(
@@ -967,7 +975,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     OutlinedButton(
                       onPressed: () =>
                           context.push(AppRoutes.adminEvent(event.id)),
-                      child: const Text('Open'),
+                      child: const Text('Открыть'),
                     ),
                     FilledButton.tonal(
                       onPressed: _landingBusy || _landingImageBusy
@@ -976,7 +984,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                               eventId: event.id, published: false),
                       child: Text(_landingActionEventId == event.id
                           ? '…'
-                          : 'Unpublish'),
+                          : 'Снять с публикации'),
                     ),
                   ],
                 ),
@@ -1031,16 +1039,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                '${item.name.isEmpty ? 'Untitled' : item.name} • ${item.status}'),
+                '${item.name.isEmpty ? 'Без названия' : item.name} • ${item.status}'),
             if (item.importedEventId != null) ...[
               const SizedBox(height: 4),
-              Text('Event ID: #${item.importedEventId}'),
+              Text('ID события: #${item.importedEventId}'),
             ],
             const SizedBox(height: 4),
             Text(
-                '${item.sourceType} • parsed ${formatDateTime(item.parsedAt)}'),
+                '${item.sourceType} • распознано ${formatDateTime(item.parsedAt)}'),
             if (item.location.trim().isNotEmpty)
-              Text('Location: ${item.location}'),
+              Text('Локация: ${item.location}'),
             if (item.parserError.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -1051,20 +1059,20 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               const SizedBox(height: 10),
               TextField(
                 controller: draft.titleCtrl,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: const InputDecoration(labelText: 'Название'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: draft.descriptionCtrl,
                 minLines: 3,
                 maxLines: 6,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Описание'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: draft.startsAtCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'StartsAt ISO (optional)',
+                  labelText: 'Дата/время ISO (необязательно)',
                   hintText: '2026-02-08T18:30:00Z',
                 ),
               ),
@@ -1093,15 +1101,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               const SizedBox(height: 8),
               TextField(
                 controller: draft.addressCtrl,
-                decoration: const InputDecoration(labelText: 'Address label'),
+                decoration: const InputDecoration(labelText: 'Адрес'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: draft.linksCtrl,
                 minLines: 3,
                 maxLines: 6,
-                decoration:
-                    const InputDecoration(labelText: 'Links (one per line)'),
+                decoration: const InputDecoration(
+                    labelText: 'Ссылки (по одной в строке)'),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -1109,7 +1117,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 minLines: 2,
                 maxLines: 5,
                 decoration: const InputDecoration(
-                    labelText: 'Media URLs (one per line)'),
+                    labelText: 'Медиа-ссылки (по одной в строке)'),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -1121,32 +1129,32 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                         ? null
                         : () => _geocodeDraft(item),
                     child: Text(_parserGeocodeBusyId == item.id
-                        ? 'Geocoding…'
-                        : 'Geocode'),
+                        ? 'Геокодируем…'
+                        : 'Геокодировать'),
                   ),
                   FilledButton(
                     onPressed: _parserImportBusyId == item.id
                         ? null
                         : () => _importParsed(item),
                     child: Text(_parserImportBusyId == item.id
-                        ? 'Importing…'
-                        : 'Import to events'),
+                        ? 'Импортируем…'
+                        : 'Импортировать в события'),
                   ),
                   OutlinedButton(
                     onPressed: _parserRejectBusyId == item.id
                         ? null
                         : () => _rejectParsed(item.id),
                     child: Text(_parserRejectBusyId == item.id
-                        ? 'Rejecting…'
-                        : 'Reject'),
+                        ? 'Отклоняем…'
+                        : 'Отклонить'),
                   ),
                   OutlinedButton(
                     onPressed: _parserDeleteBusyId == item.id
                         ? null
                         : () => _deleteParsed(item.id),
                     child: Text(_parserDeleteBusyId == item.id
-                        ? 'Deleting…'
-                        : 'Delete'),
+                        ? 'Удаляем…'
+                        : 'Удалить'),
                   ),
                 ],
               ),
@@ -1158,7 +1166,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     FilledButton.tonal(
                       onPressed: () => context
                           .push(AppRoutes.adminEvent(item.importedEventId!)),
-                      child: Text('Open event #${item.importedEventId}'),
+                      child: Text('Открыть событие #${item.importedEventId}'),
                     ),
                   const SizedBox(width: 8),
                   OutlinedButton(
@@ -1166,8 +1174,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                         ? null
                         : () => _deleteParsed(item.id),
                     child: Text(_parserDeleteBusyId == item.id
-                        ? 'Deleting…'
-                        : 'Delete from DB'),
+                        ? 'Удаляем…'
+                        : 'Удалить из БД'),
                   ),
                 ],
               ),
@@ -1193,7 +1201,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     final password = _adminPasswordCtrl.text;
     final telegramId = int.tryParse(_adminTelegramIdCtrl.text.trim());
     if (username.isEmpty || password.isEmpty) {
-      setState(() => _adminLoginError = 'Enter username and password');
+      setState(() => _adminLoginError = 'Введите логин и пароль');
       return;
     }
 
@@ -1310,7 +1318,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       height: 180,
                       child: PremiumLoadingView(
                         compact: true,
-                        text: 'USER DETAILS • LOADING • ',
+                        text: 'ПОЛЬЗОВАТЕЛЬ • ЗАГРУЗКА • ',
                         subtitle: 'Загружаем пользователя',
                       ),
                     ),
@@ -1324,7 +1332,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     : detail == null
                         ? const Padding(
                             padding: EdgeInsets.all(12),
-                            child: Text('User not found'),
+                            child: Text('Пользователь не найден'),
                           )
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1336,15 +1344,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                               Text(
                                   'TG: ${detail.user.telegramId} • @${detail.user.username}'),
                               const SizedBox(height: 6),
-                              Text('Balance: ${detail.user.balanceTokens} GT'),
+                              Text('Баланс: ${detail.user.balanceTokens} GT'),
                               Text(
-                                  'Last seen: ${formatDateTime(detail.user.lastSeenAt)}'),
+                                  'Последняя активность: ${formatDateTime(detail.user.lastSeenAt)}'),
                               const SizedBox(height: 10),
                               if (!detail.user.isBlocked)
                                 TextField(
                                   controller: _blockReasonCtrl,
                                   decoration: const InputDecoration(
-                                      labelText: 'Block reason (optional)'),
+                                      labelText:
+                                          'Причина блокировки (необязательно)'),
                                 ),
                               const SizedBox(height: 8),
                               FilledButton(
@@ -1358,15 +1367,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                                       },
                                 child: Text(
                                   _userBlockBusy
-                                      ? 'Saving…'
+                                      ? 'Сохраняем…'
                                       : detail.user.isBlocked
-                                          ? 'Unblock'
-                                          : 'Block user',
+                                          ? 'Разблокировать'
+                                          : 'Заблокировать',
                                 ),
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                  'Created events (${detail.createdEvents.length})',
+                                  'Созданные события (${detail.createdEvents.length})',
                                   style:
                                       Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 6),
@@ -1375,7 +1384,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                                   contentPadding: EdgeInsets.zero,
                                   title: Text('${event.title} (#${event.id})'),
                                   subtitle: Text(
-                                      '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
+                                      '${formatDateTime(event.startsAt)} • ${event.participantsCount} участников'),
                                   onTap: () {
                                     Navigator.of(context).pop();
                                     context
@@ -1464,7 +1473,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
     final message = _broadcastMessageCtrl.text.trim();
     if (message.isEmpty) {
-      setState(() => _broadcastsError = 'Message is required');
+      setState(() => _broadcastsError = 'Сообщение обязательно');
       return;
     }
 
@@ -1495,7 +1504,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             .where((value) => value > 0)
             .toList();
         if (userIds.isEmpty) {
-          throw AppException('Provide at least one valid user ID');
+          throw AppException('Укажите хотя бы один корректный ID пользователя');
         }
       }
 
@@ -1509,7 +1518,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         if (lastSeenAfter.isNotEmpty) {
           final parsed = DateTime.tryParse(lastSeenAfter);
           if (parsed == null) {
-            throw AppException('lastSeenAfter must be valid ISO date');
+            throw AppException(
+                'lastSeenAfter должен быть корректной ISO-датой');
           }
           filters['lastSeenAfter'] = parsed.toUtc().toIso8601String();
         }
@@ -1608,7 +1618,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
     final input = _parserSourceInputCtrl.text.trim();
     if (input.isEmpty) {
-      setState(() => _parserError = 'Source input is required');
+      setState(() => _parserError = 'Поле источника обязательно');
       return;
     }
 
@@ -1702,7 +1712,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
     final input = _parserQuickInputCtrl.text.trim();
     if (input.isEmpty) {
-      setState(() => _parserError = 'Quick parse input is required');
+      setState(
+          () => _parserError = 'Введите URL или канал для быстрого парсинга');
       return;
     }
 
@@ -1779,7 +1790,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             ? draft.titleCtrl.text.trim()
             : item.location.trim());
     if (query.isEmpty) {
-      setState(() => _parserError = 'Address/title required for geocode');
+      setState(
+          () => _parserError = 'Для геокодирования нужен адрес или название');
       return;
     }
 
@@ -1793,7 +1805,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           .read(adminRepositoryProvider)
           .geocode(token: token, query: query, limit: 1);
       if (response.items.isEmpty) {
-        setState(() => _parserError = 'No geocode results found');
+        setState(() => _parserError = 'Не найдены результаты геокодирования');
         return;
       }
       final first = response.items.first;
@@ -1823,7 +1835,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     final lat = double.tryParse(draft.latCtrl.text.trim());
     final lng = double.tryParse(draft.lngCtrl.text.trim());
     if (lat == null || lng == null) {
-      setState(() => _parserError = 'Lat/Lng are required for import');
+      setState(() => _parserError = 'Для импорта требуются Lat/Lng');
       return;
     }
 
@@ -1831,7 +1843,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     if (draft.startsAtCtrl.text.trim().isNotEmpty) {
       final parsed = DateTime.tryParse(draft.startsAtCtrl.text.trim());
       if (parsed == null) {
-        setState(() => _parserError = 'startsAt must be valid ISO');
+        setState(() =>
+            _parserError = 'startsAt должен быть корректным ISO-значением');
         return;
       }
       startsAt = parsed.toUtc().toIso8601String();
@@ -1860,7 +1873,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported as event #$eventId')),
+        SnackBar(content: Text('Импортировано как событие #$eventId')),
       );
       await _loadParsedEvents();
       if (!mounted) return;
@@ -2013,7 +2026,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   Future<void> _applyLandingPublicationFromInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
-      setState(() => _landingError = 'Valid event ID is required');
+      setState(() => _landingError = 'Нужен корректный ID события');
       return;
     }
     await _setLandingPublished(eventId: id, published: _landingPublishedValue);
@@ -2022,23 +2035,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   Future<void> _deleteEventByInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
-      setState(() => _landingError = 'Valid event ID is required');
+      setState(() => _landingError = 'Нужен корректный ID события');
       return;
     }
 
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete event?'),
-        content: Text('Delete event #$id permanently?'),
+        title: const Text('Удалить событие?'),
+        content: Text('Удалить событие #$id безвозвратно?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Отмена'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Удалить'),
           ),
         ],
       ),
@@ -2059,7 +2072,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       if (!mounted) return;
       _landingEventIdCtrl.clear();
       _landingImageUrlCtrl.clear();
-      _showSnackBar('Event #$id deleted');
+      _showSnackBar('Событие #$id удалено');
       await _loadLanding();
     } catch (error) {
       _handleAdminError(error, setter: (value) => _landingError = value);
@@ -2073,23 +2086,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   Future<void> _deleteCommentByInput() async {
     final commentID = int.tryParse(_landingCommentIdCtrl.text.trim());
     if (commentID == null || commentID <= 0) {
-      setState(() => _landingError = 'Valid comment ID is required');
+      setState(() => _landingError = 'Нужен корректный ID комментария');
       return;
     }
 
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete comment?'),
-        content: Text('Delete comment #$commentID permanently?'),
+        title: const Text('Удалить комментарий?'),
+        content: Text('Удалить комментарий #$commentID безвозвратно?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Отмена'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Удалить'),
           ),
         ],
       ),
@@ -2109,7 +2122,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           );
       if (!mounted) return;
       _landingCommentIdCtrl.clear();
-      _showSnackBar('Comment #$commentID deleted');
+      _showSnackBar('Комментарий #$commentID удален');
     } catch (error) {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
@@ -2122,17 +2135,18 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   Future<void> _saveLandingEventImageFromInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
-      setState(() => _landingError = 'Valid event ID is required');
+      setState(() => _landingError = 'Нужен корректный ID события');
       return;
     }
 
     final imageUrl = _landingImageUrlCtrl.text.trim();
     if (imageUrl.isEmpty) {
-      setState(() => _landingError = 'Image URL is required');
+      setState(() => _landingError = 'URL изображения обязателен');
       return;
     }
     if (!_isHttpUrl(imageUrl)) {
-      setState(() => _landingError = 'Image URL must be a valid http(s) link');
+      setState(() => _landingError =
+          'URL изображения должен быть корректной http(s)-ссылкой');
       return;
     }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class AppBackground extends StatelessWidget {
   const AppBackground({
     required this.child,
@@ -10,21 +12,25 @@ class AppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        const DecoratedBox(
+        DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[
-                Color(0xFF152D55),
-                Color(0xFF0A1635),
-                Color(0xFF060B1A),
-              ],
-              stops: <double>[0.0, 0.56, 1.0],
-            ),
+            gradient: isDark
+                ? AppColors.appBackgroundGradientWide
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[
+                      Color(0xFFF8FAFF),
+                      Color(0xFFF2F6FF),
+                      Color(0xFFF8FBFF),
+                    ],
+                    stops: <double>[0.0, 0.45, 1.0],
+                  ),
           ),
         ),
         const Positioned(
@@ -38,8 +44,8 @@ class AppBackground extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: <Color>[
-                    Color(0x663B7BFF),
-                    Color(0x006A4CFF),
+                    Color(0x554562F5),
+                    Color(0x004562F5),
                   ],
                 ),
               ),
@@ -57,8 +63,8 @@ class AppBackground extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: <Color>[
-                    Color(0x55FF7B1F),
-                    Color(0x0066D364),
+                    Color(0x4436CFC8),
+                    Color(0x0036CFC8),
                   ],
                 ),
               ),
@@ -66,7 +72,9 @@ class AppBackground extends StatelessWidget {
           ),
         ),
         ColoredBox(
-          color: Colors.black.withValues(alpha: 0.26),
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.02),
         ),
         child,
       ],

@@ -38,12 +38,12 @@ class FeedList extends StatelessWidget {
             child: Column(
               children: [
                 AppSectionHeader(
-                  title: 'No events yet',
-                  subtitle: 'Create the first event to kick things off.',
+                  title: 'Событий пока нет',
+                  subtitle: 'Создайте первое событие, чтобы запустить ленту.',
                 ),
                 SizedBox(height: AppSpacing.xs),
                 AppButton(
-                  label: 'Try refreshing',
+                  label: 'Обновить ленту',
                   variant: AppButtonVariant.ghost,
                   size: AppButtonSize.sm,
                 ),

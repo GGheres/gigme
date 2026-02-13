@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/application/auth_controller.dart';
-import '../ui/layout/app_navbar.dart';
 import '../ui/theme/app_breakpoints.dart';
+import '../ui/theme/app_colors.dart';
 import '../ui/theme/app_radii.dart';
 import '../ui/theme/app_spacing.dart';
 import 'routes.dart';
@@ -24,11 +24,27 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  static const List<AppNavbarItem> _desktopItems = <AppNavbarItem>[
-    AppNavbarItem(label: 'Feed', icon: Icons.view_list_rounded),
-    AppNavbarItem(label: 'Map', icon: Icons.map_rounded),
-    AppNavbarItem(label: 'Create', icon: Icons.add_circle_outline_rounded),
-    AppNavbarItem(label: 'Profile', icon: Icons.person_outline_rounded),
+  static const List<_ShellDestination> _destinations = <_ShellDestination>[
+    _ShellDestination(
+      label: 'Лента',
+      icon: Icons.view_list_rounded,
+      route: AppRoutes.feed,
+    ),
+    _ShellDestination(
+      label: 'Карта',
+      icon: Icons.map_rounded,
+      route: AppRoutes.map,
+    ),
+    _ShellDestination(
+      label: 'Создать',
+      icon: Icons.add_circle_outline_rounded,
+      route: AppRoutes.create,
+    ),
+    _ShellDestination(
+      label: 'Профиль',
+      icon: Icons.person_outline_rounded,
+      route: AppRoutes.profile,
+    ),
   ];
 
   @override
@@ -55,49 +71,42 @@ class _AppShellState extends ConsumerState<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = _indexFromLocation(location);
     final isAdminRoute = location.startsWith(AppRoutes.admin);
-    final isDesktop = MediaQuery.sizeOf(context).width >= AppBreakpoints.smMax;
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width >= AppBreakpoints.smMax;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          if (!isAdminRoute && isDesktop)
+    if (!isAdminRoute && isDesktop) {
+      return Scaffold(
+        body: Row(
+          children: [
             SafeArea(
-              bottom: false,
-              child: AppTopNavbar(
-                items: _desktopItems,
+              child: _AppNavigationRail(
                 selectedIndex: currentIndex,
+                destinations: _destinations,
                 onSelected: _onDestinationSelected,
               ),
             ),
-          Expanded(child: widget.child),
-        ],
-      ),
+            const VerticalDivider(width: 1),
+            Expanded(child: widget.child),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: widget.child,
       bottomNavigationBar: isAdminRoute
           ? null
-          : isDesktop
-              ? null
-              : _AppBottomDock(
-                  selectedIndex: currentIndex,
-                  onSelected: _onDestinationSelected,
-                ),
+          : _AppBottomDock(
+              selectedIndex: currentIndex,
+              destinations: _destinations,
+              onSelected: _onDestinationSelected,
+            ),
     );
   }
 
   void _onDestinationSelected(int index) {
-    switch (index) {
-      case 0:
-        context.go(AppRoutes.feed);
-        return;
-      case 1:
-        context.go(AppRoutes.map);
-        return;
-      case 2:
-        context.go(AppRoutes.create);
-        return;
-      case 3:
-        context.go(AppRoutes.profile);
-        return;
-    }
+    if (index < 0 || index >= _destinations.length) return;
+    context.go(_destinations[index].route);
   }
 
   int _indexFromLocation(String location) {
@@ -111,10 +120,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _AppBottomDock extends StatelessWidget {
   const _AppBottomDock({
     required this.selectedIndex,
+    required this.destinations,
     required this.onSelected,
   });
 
   final int selectedIndex;
+  final List<_ShellDestination> destinations;
   final ValueChanged<int> onSelected;
 
   @override
@@ -134,38 +145,27 @@ class _AppBottomDock extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: <Color>[
-                    Color(0xCC101D3D),
-                    Color(0xCC0B1630),
+                    AppColors.surfaceStrong.withValues(alpha: 0.9),
+                    AppColors.surface.withValues(alpha: 0.86),
                   ],
                 ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                border: Border.all(color: AppColors.borderStrong),
                 borderRadius: BorderRadius.circular(AppRadii.xxl),
               ),
               child: NavigationBar(
-                height: 66,
+                height: 68,
                 backgroundColor: Colors.transparent,
                 selectedIndex: selectedIndex,
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.view_list_rounded),
-                    label: 'Feed',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.map_rounded),
-                    label: 'Map',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.add_circle_outline_rounded),
-                    label: 'Create',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.person_outline_rounded),
-                    label: 'Profile',
-                  ),
+                destinations: [
+                  for (final item in destinations)
+                    NavigationDestination(
+                      icon: Icon(item.icon),
+                      label: item.label,
+                    ),
                 ],
                 onDestinationSelected: onSelected,
               ),
@@ -175,4 +175,66 @@ class _AppBottomDock extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AppNavigationRail extends StatelessWidget {
+  const _AppNavigationRail({
+    required this.selectedIndex,
+    required this.destinations,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final List<_ShellDestination> destinations;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      margin: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.xxl),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.66),
+        border: Border.all(color: AppColors.borderStrong),
+      ),
+      child: NavigationRail(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onSelected,
+        labelType: NavigationRailLabelType.all,
+        groupAlignment: -0.4,
+        minWidth: 88,
+        backgroundColor: Colors.transparent,
+        leading: Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.sm),
+          child: Text(
+            'SPACE',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+        destinations: [
+          for (final item in destinations)
+            NavigationRailDestination(
+              icon: Icon(item.icon),
+              label: Text(item.label),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShellDestination {
+  const _ShellDestination({
+    required this.label,
+    required this.icon,
+    required this.route,
+  });
+
+  final String label;
+  final IconData icon;
+  final String route;
 }

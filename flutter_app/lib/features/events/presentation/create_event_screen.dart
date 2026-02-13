@@ -12,11 +12,17 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 import '../data/events_repository.dart';
 
-// TODO(ui-migration): replace remaining form fields/chips/map controls with AppTextField/AppButton/AppCard.
 class CreateEventScreen extends ConsumerStatefulWidget {
   const CreateEventScreen({super.key});
 
@@ -66,211 +72,294 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
     _selectedPoint ??= location.userLocation ?? location.center;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create event')),
-      body: Form(
+    return AppScaffold(
+      title: 'Создать событие',
+      subtitle: 'Короткая форма с понятными шагами',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      scrollable: true,
+      child: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(
-              controller: _titleCtrl,
-              maxLength: 80,
-              decoration: const InputDecoration(labelText: 'Title'),
-              validator: (value) {
-                if ((value ?? '').trim().isEmpty) return 'Title is required';
-                return null;
-              },
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _descriptionCtrl,
-              maxLength: 1000,
-              minLines: 4,
-              maxLines: 7,
-              decoration: const InputDecoration(labelText: 'Description'),
-              validator: (value) {
-                if ((value ?? '').trim().isEmpty) {
-                  return 'Description is required';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: kEventFilters.map((filter) {
-                final active = _selectedFilters.contains(filter.id);
-                final limitReached =
-                    !active && _selectedFilters.length >= kMaxEventFilters;
-                return FilterChip(
-                  selected: active,
-                  label: Text('${filter.icon} ${filter.label}'),
-                  onSelected: limitReached
-                      ? null
-                      : (_) {
-                          setState(() {
-                            if (active) {
-                              _selectedFilters.remove(filter.id);
-                            } else {
-                              _selectedFilters.add(filter.id);
-                            }
-                          });
-                        },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_selectedFilters.length}/$kMaxEventFilters filters selected',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 14),
-            _DateTimeField(
-              label: 'Starts at',
-              value: _startsAt,
-              onChanged: (value) => setState(() => _startsAt = value),
-            ),
-            const SizedBox(height: 10),
-            _DateTimeField(
-              label: 'Ends at (optional)',
-              value: _endsAt,
-              onChanged: (value) => setState(() => _endsAt = value),
-              clearable: true,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _capacityCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                  labelText: 'Participant limit (optional)'),
-            ),
-            const SizedBox(height: 16),
-            Text('Contacts (at least one required)',
-                style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            _ContactField(
-                controller: _contactTelegramCtrl, label: 'Telegram @username'),
-            const SizedBox(height: 8),
-            _ContactField(controller: _contactWhatsappCtrl, label: 'WhatsApp'),
-            const SizedBox(height: 8),
-            _ContactField(controller: _contactWechatCtrl, label: 'WeChat'),
-            const SizedBox(height: 8),
-            _ContactField(
-                controller: _contactMessengerCtrl, label: 'Messenger'),
-            const SizedBox(height: 8),
-            _ContactField(controller: _contactSnapchatCtrl, label: 'Snapchat'),
-            const SizedBox(height: 10),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Private event (link only)'),
-              value: _isPrivate,
-              onChanged: (value) => setState(() => _isPrivate = value),
-            ),
-            const SizedBox(height: 12),
-            Text('Location', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                height: 230,
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: _selectedPoint ?? location.center,
-                    initialZoom: 12,
-                    onTap: (_, point) => setState(() => _selectedPoint = point),
+            SectionCard(
+              title: '1. Основная информация',
+              subtitle: 'Название, описание и формат события',
+              child: Column(
+                children: [
+                  InputField(
+                    controller: _titleCtrl,
+                    maxLength: 80,
+                    label: 'Название',
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Введите название';
+                      }
+                      return null;
+                    },
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'gigme_flutter',
-                    ),
-                    if (_selectedPoint != null)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: _selectedPoint!,
-                            width: 40,
-                            height: 40,
-                            child: const Icon(Icons.location_pin,
-                                color: Colors.red, size: 38),
+                  const SizedBox(height: AppSpacing.xs),
+                  InputField(
+                    controller: _descriptionCtrl,
+                    maxLength: 1000,
+                    minLines: 4,
+                    maxLines: 7,
+                    label: 'Описание',
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Добавьте описание';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildFilters(context),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SectionCard(
+              title: '2. Дата и лимиты',
+              child: Column(
+                children: [
+                  _DateTimeField(
+                    label: 'Начало',
+                    value: _startsAt,
+                    onChanged: (value) => setState(() => _startsAt = value),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _DateTimeField(
+                    label: 'Окончание (необязательно)',
+                    value: _endsAt,
+                    onChanged: (value) => setState(() => _endsAt = value),
+                    clearable: true,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  InputField(
+                    controller: _capacityCtrl,
+                    keyboardType: TextInputType.number,
+                    label: 'Лимит участников (необязательно)',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SectionCard(
+              title: '3. Контакты',
+              subtitle: 'Укажите минимум один канал связи',
+              child: Column(
+                children: [
+                  _ContactField(
+                    controller: _contactTelegramCtrl,
+                    label: 'Telegram @username',
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _ContactField(
+                    controller: _contactWhatsappCtrl,
+                    label: 'WhatsApp',
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _ContactField(
+                    controller: _contactWechatCtrl,
+                    label: 'WeChat',
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _ContactField(
+                    controller: _contactMessengerCtrl,
+                    label: 'Messenger',
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _ContactField(
+                    controller: _contactSnapchatCtrl,
+                    label: 'Snapchat',
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Приватное событие (по ссылке)'),
+                    value: _isPrivate,
+                    onChanged: (value) => setState(() => _isPrivate = value),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SectionCard(
+              title: '4. Локация',
+              subtitle: 'Поставьте точку на карте',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      height: 230,
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCenter: _selectedPoint ?? location.center,
+                          initialZoom: 12,
+                          onTap: (_, point) =>
+                              setState(() => _selectedPoint = point),
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'gigme_flutter',
                           ),
+                          if (_selectedPoint != null)
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: _selectedPoint!,
+                                  width: 40,
+                                  height: 40,
+                                  child: const Icon(
+                                    Icons.location_pin,
+                                    color: AppColors.danger,
+                                    size: 38,
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _selectedPoint == null
+                        ? 'Нажмите на карту, чтобы выбрать точку'
+                        : 'Выбрано: ${_selectedPoint!.latitude.toStringAsFixed(5)}, ${_selectedPoint!.longitude.toStringAsFixed(5)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SectionCard(
+              title: '5. Фото',
+              subtitle: '${_uploadedMedia.length}/$kMaxMediaCount загружено',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SecondaryButton(
+                    label: _uploading ? 'Загрузка…' : 'Выбрать фото',
+                    icon: const Icon(Icons.photo_library_outlined),
+                    onPressed:
+                        _uploading || _uploadedMedia.length >= kMaxMediaCount
+                            ? null
+                            : _pickAndUploadMedia,
+                    outline: true,
+                  ),
+                  if (_uploadedMedia.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    SizedBox(
+                      height: 90,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _uploadedMedia.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: AppSpacing.xs),
+                        itemBuilder: (context, index) {
+                          final item = _uploadedMedia[index];
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.memory(
+                                  item.previewBytes,
+                                  width: 90,
+                                  height: 90,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                right: 2,
+                                top: 2,
+                                child: InkWell(
+                                  onTap: () => setState(
+                                      () => _uploadedMedia.removeAt(index)),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              _selectedPoint == null
-                  ? 'Tap map to choose point'
-                  : 'Selected: ${_selectedPoint!.latitude.toStringAsFixed(5)}, ${_selectedPoint!.longitude.toStringAsFixed(5)}',
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Text('Photos', style: Theme.of(context).textTheme.titleSmall),
-                const Spacer(),
-                Text('${_uploadedMedia.length}/$kMaxMediaCount'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _uploading || _uploadedMedia.length >= kMaxMediaCount
-                  ? null
-                  : _pickAndUploadMedia,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(_uploading ? 'Uploading…' : 'Select photos'),
-            ),
-            if (_uploadedMedia.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 90,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _uploadedMedia.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final item = _uploadedMedia[index];
-                    return Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(item.previewBytes,
-                              width: 90, height: 90, fit: BoxFit.cover),
-                        ),
-                        Positioned(
-                          right: 2,
-                          top: 2,
-                          child: InkWell(
-                            onTap: () =>
-                                setState(() => _uploadedMedia.removeAt(index)),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle),
-                              child: const Icon(Icons.close,
-                                  color: Colors.white, size: 18),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: (_submitting || _uploading) ? null : _submit,
+            const SizedBox(height: AppSpacing.md),
+            PrimaryButton(
+              label: _submitting ? 'Создаем…' : 'Создать событие',
               icon: const Icon(Icons.check_circle_outline_rounded),
-              label: Text(_submitting ? 'Creating…' : 'Create event'),
+              onPressed: (_submitting || _uploading) ? null : _submit,
+              expand: true,
             ),
+            const SizedBox(height: AppSpacing.xl),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilters(BuildContext context) {
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Теги события',
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: kEventFilters.map((filter) {
+              final active = _selectedFilters.contains(filter.id);
+              final limitReached =
+                  !active && _selectedFilters.length >= kMaxEventFilters;
+              return FilterChip(
+                selected: active,
+                label: Text('${filter.icon} ${filter.label}'),
+                onSelected: limitReached
+                    ? null
+                    : (_) {
+                        setState(() {
+                          if (active) {
+                            _selectedFilters.remove(filter.id);
+                          } else {
+                            _selectedFilters.add(filter.id);
+                          }
+                        });
+                      },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${_selectedFilters.length}/$kMaxEventFilters выбрано',
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }
@@ -290,7 +379,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         final bytes = await file.readAsBytes();
         if (bytes.lengthInBytes > kMaxUploadBytes) {
           _showError(
-              '"${file.name}" exceeds ${kMaxUploadBytes ~/ (1024 * 1024)}MB limit');
+              '"${file.name}" превышает лимит ${kMaxUploadBytes ~/ (1024 * 1024)} МБ');
           continue;
         }
 
@@ -306,7 +395,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
             contentType == 'image/png' ||
             contentType == 'image/webp')) {
           _showError(
-              'Unsupported file type for ${file.name}. Use jpeg/png/webp.');
+              'Неподдерживаемый формат ${file.name}. Используйте jpeg/png/webp.');
           continue;
         }
 
@@ -340,15 +429,15 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     final selectedPoint = _selectedPoint;
 
     if (startsAt == null) {
-      _showError('Select startsAt date/time');
+      _showError('Выберите дату и время начала');
       return;
     }
     if (_endsAt != null && _endsAt!.isBefore(startsAt)) {
-      _showError('endsAt must be after startsAt');
+      _showError('Дата завершения должна быть позже начала');
       return;
     }
     if (selectedPoint == null) {
-      _showError('Pick event location on the map');
+      _showError('Выберите точку события на карте');
       return;
     }
 
@@ -361,18 +450,18 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     ];
     final hasAnyContact = contacts.any((v) => v.isNotEmpty);
     if (!hasAnyContact) {
-      _showError('Provide at least one contact');
+      _showError('Укажите хотя бы один контакт');
       return;
     }
     if (contacts.any((v) => v.length > 120)) {
-      _showError('Contact value is too long (max 120)');
+      _showError('Слишком длинный контакт (максимум 120 символов)');
       return;
     }
 
     final capacity = int.tryParse(_capacityCtrl.text.trim());
     if (_capacityCtrl.text.trim().isNotEmpty &&
         (capacity == null || capacity <= 0)) {
-      _showError('Participant limit must be > 0');
+      _showError('Лимит участников должен быть больше 0');
       return;
     }
 
@@ -417,9 +506,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    AppToast.show(context, message: message, tone: AppToastTone.error);
   }
 }
 
@@ -444,10 +531,10 @@ class _ContactField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
+    return InputField(
       controller: controller,
       maxLength: 120,
-      decoration: InputDecoration(labelText: label),
+      label: label,
     );
   }
 }
@@ -481,12 +568,12 @@ class _DateTimeField extends StatelessWidget {
         children: [
           Expanded(
             child: Text(value == null
-                ? 'Not selected'
+                ? 'Не выбрано'
                 : value!.toLocal().toString().substring(0, 16)),
           ),
           TextButton(
             onPressed: () => _pick(context),
-            child: const Text('Select'),
+            child: const Text('Выбрать'),
           ),
         ],
       ),

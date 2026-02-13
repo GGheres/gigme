@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme_mode_provider.dart';
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
@@ -16,7 +18,6 @@ import '../../events/application/events_controller.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
 
-// TODO(ui-migration): finish profile page shell/list tiles using AppScaffold/AppCard/AppButton tokens.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -33,6 +34,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final events = ref.watch(eventsControllerProvider);
     final state = controller.state;
     final config = ref.watch(appConfigProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
     final isAdmin = state.user != null &&
         config.adminTelegramIds.contains(state.user!.telegramId);
 
@@ -54,6 +56,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           IconButton(
             onPressed: () => ref.read(profileControllerProvider).load(),
             icon: const Icon(Icons.refresh_rounded),
+          ),
+          IconButton(
+            tooltip: 'Тема',
+            onPressed: () =>
+                ref.read(appThemeModeProvider.notifier).cycleMode(),
+            icon: Icon(
+              switch (themeMode) {
+                ThemeMode.system => Icons.brightness_auto_rounded,
+                ThemeMode.light => Icons.light_mode_rounded,
+                ThemeMode.dark => Icons.dark_mode_rounded,
+              },
+            ),
           ),
         ],
       ),
@@ -98,6 +112,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     icon: const Icon(Icons.qr_code_rounded),
                     label: const Text('Мои билеты'),
                   ),
+                  if (kDebugMode) ...[
+                    const SizedBox(height: 10),
+                    AppButton(
+                      label: 'UI Preview',
+                      variant: AppButtonVariant.ghost,
+                      onPressed: () => context.push(AppRoutes.uiPreview),
+                    ),
+                  ],
                   if (isAdmin) ...[
                     const SizedBox(height: 10),
                     Wrap(

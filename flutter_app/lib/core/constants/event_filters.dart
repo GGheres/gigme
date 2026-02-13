@@ -11,15 +11,15 @@ class EventFilterOption {
 }
 
 const List<EventFilterOption> kEventFilters = [
-  EventFilterOption(id: 'dating', label: 'Dating', icon: '💘'),
-  EventFilterOption(id: 'party', label: 'Party', icon: '🎉'),
-  EventFilterOption(id: 'travel', label: 'Travel', icon: '✈️'),
-  EventFilterOption(id: 'fun', label: 'Fun', icon: '✨'),
-  EventFilterOption(id: 'bar', label: 'Bar', icon: '🍸'),
-  EventFilterOption(id: 'feedme', label: 'Food', icon: '🍔'),
-  EventFilterOption(id: 'sport', label: 'Sport', icon: '⚽'),
-  EventFilterOption(id: 'study', label: 'Study', icon: '📚'),
-  EventFilterOption(id: 'business', label: 'Business', icon: '💼'),
+  EventFilterOption(id: 'dating', label: 'Знакомства', icon: '💘'),
+  EventFilterOption(id: 'party', label: 'Вечеринки', icon: '🎉'),
+  EventFilterOption(id: 'travel', label: 'Путешествия', icon: '✈️'),
+  EventFilterOption(id: 'fun', label: 'Развлечения', icon: '✨'),
+  EventFilterOption(id: 'bar', label: 'Бары', icon: '🍸'),
+  EventFilterOption(id: 'feedme', label: 'Еда', icon: '🍔'),
+  EventFilterOption(id: 'sport', label: 'Спорт', icon: '⚽'),
+  EventFilterOption(id: 'study', label: 'Обучение', icon: '📚'),
+  EventFilterOption(id: 'business', label: 'Бизнес', icon: '💼'),
 ];
 
 const int kMaxEventFilters = 3;

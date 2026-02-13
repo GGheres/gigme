@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../ui/theme/app_theme.dart';
 
-ThemeData buildGigMeTheme() {
-  final theme = buildAppTheme();
-  return theme.copyWith(
-    scaffoldBackgroundColor: Colors.transparent,
-  );
+ThemeData buildGigMeLightTheme() {
+  final theme = buildAppTheme(brightness: Brightness.light);
+  return theme.copyWith(scaffoldBackgroundColor: Colors.transparent);
+}
+
+ThemeData buildGigMeDarkTheme() {
+  final theme = buildAppTheme(brightness: Brightness.dark);
+  return theme.copyWith(scaffoldBackgroundColor: Colors.transparent);
 }

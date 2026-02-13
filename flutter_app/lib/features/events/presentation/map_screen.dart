@@ -8,11 +8,16 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/utils/date_time_utils.dart';
-import '../../../core/widgets/premium_loading_view.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 
-// TODO(ui-migration): move remaining map controls/messages to AppCard/AppButton/AppModal tokens.
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -42,104 +47,146 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final state = eventsController.state;
     final center = locationController.state.center;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Event map'),
-        actions: [
-          IconButton(
-            onPressed: () =>
-                ref.read(eventsControllerProvider).refresh(center: center),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-      body: Stack(
+    return AppScaffold(
+      title: 'Карта',
+      subtitle: 'События рядом с вами',
+      showBackgroundDecor: true,
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      child: Column(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: 12,
-              interactionOptions:
-                  const InteractionOptions(flags: InteractiveFlag.all),
-              onPositionChanged: (position, hasGesture) {
-                if (!hasGesture) return;
-                ref
-                    .read(locationControllerProvider)
-                    .setMapCenter(position.center);
-              },
-            ),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            alignment: WrapAlignment.end,
             children: [
-              TileLayer(
-                urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'gigme_flutter',
+              SecondaryButton(
+                label: 'Моё место',
+                icon: const Icon(Icons.my_location_rounded),
+                onPressed: () {
+                  _mapController.move(locationController.state.center, 13);
+                },
+                outline: true,
               ),
-              MarkerLayer(
-                markers: [
-                  for (final marker in state.markers)
-                    Marker(
-                      width: 46,
-                      height: 46,
-                      point: LatLng(marker.lat, marker.lng),
-                      child: GestureDetector(
-                        onTap: () => _openMarkerSheet(context, marker.id),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: marker.isPromoted
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.secondary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                            boxShadow: const [
-                              BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2)),
-                            ],
-                          ),
-                          child: const Icon(Icons.music_note_rounded,
-                              color: Colors.white, size: 20),
-                        ),
-                      ),
-                    ),
-                ],
+              PrimaryButton(
+                label: 'Обновить',
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: () =>
+                    ref.read(eventsControllerProvider).refresh(center: center),
               ),
             ],
           ),
-          if (state.loading)
-            const Positioned(
-              top: 14,
-              right: 14,
-              width: 184,
-              height: 104,
-              child: PremiumLoadingView(
-                compact: true,
-                text: 'MAP • LOADING • ',
-                subtitle: 'Обновляем карту',
-              ),
-            ),
-          if ((state.error ?? '').isNotEmpty)
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(state.error!),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: AppCard(
+              variant: AppCardVariant.panel,
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: center,
+                        initialZoom: 12,
+                        interactionOptions: const InteractionOptions(
+                            flags: InteractiveFlag.all),
+                        onPositionChanged: (position, hasGesture) {
+                          if (!hasGesture) return;
+                          ref
+                              .read(locationControllerProvider)
+                              .setMapCenter(position.center);
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'gigme_flutter',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            for (final marker in state.markers)
+                              Marker(
+                                width: 46,
+                                height: 46,
+                                point: LatLng(marker.lat, marker.lng),
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      _openMarkerSheet(context, marker.id),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: marker.isPromoted
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .secondary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 2),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 6,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.music_note_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (state.loading)
+                      const Positioned(
+                        top: 12,
+                        right: 12,
+                        left: 12,
+                        child: AppCard(
+                          variant: AppCardVariant.surface,
+                          child: LoadingState(
+                            compact: true,
+                            title: 'Загрузка',
+                            subtitle: 'Обновляем карту',
+                          ),
+                        ),
+                      ),
+                    if ((state.error ?? '').isNotEmpty)
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                        child: AppCard(
+                          variant: AppCardVariant.surface,
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                color: AppColors.danger,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(child: Text(state.error!)),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
+          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _mapController.move(locationController.state.center, 13);
-        },
-        icon: const Icon(Icons.my_location_rounded),
-        label: const Text('Center'),
       ),
     );
   }
@@ -156,38 +203,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(card?.title ?? 'Event #$eventId',
-                  style: Theme.of(context).textTheme.titleLarge),
-              if (card != null) ...[
-                const SizedBox(height: 6),
-                Text(formatDateTime(card.startsAt)),
-                const SizedBox(height: 6),
-                Text(
-                  card.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          child: SectionCard(
+            title: card?.title ?? 'Событие #$eventId',
+            subtitle: card == null ? null : formatDateTime(card.startsAt),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (card != null)
+                  Text(
+                    card.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: AppSpacing.sm),
+                PrimaryButton(
+                  label: 'Открыть событие',
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  expand: true,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    final uri = Uri(
+                      path: AppRoutes.event(eventId),
+                      queryParameters: {
+                        if (accessKey.isNotEmpty) 'key': accessKey,
+                      },
+                    );
+                    this.context.push(uri.toString());
+                  },
                 ),
               ],
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  final uri = Uri(
-                    path: AppRoutes.event(eventId),
-                    queryParameters: {
-                      if (accessKey.isNotEmpty) 'key': accessKey,
-                    },
-                  );
-                  this.context.push(uri.toString());
-                },
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: const Text('Open event'),
-              ),
-            ],
+            ),
           ),
         );
       },

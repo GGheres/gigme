@@ -87,7 +87,7 @@ class AppModal extends StatelessWidget {
                 ),
                 if (onClose != null)
                   AppButton(
-                    label: 'Close',
+                    label: 'Закрыть',
                     size: AppButtonSize.sm,
                     variant: AppButtonVariant.ghost,
                     icon: const Icon(Icons.close_rounded),

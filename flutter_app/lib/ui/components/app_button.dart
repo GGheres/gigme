@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
+import '../theme/app_tokens.dart';
 
 enum AppButtonVariant {
   primary,
@@ -53,7 +54,12 @@ class _AppButtonState extends State<AppButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visual = _resolveVisual(widget.variant, enabled: _enabled);
+    final isDark = theme.brightness == Brightness.dark;
+    final visual = _resolveVisual(
+      widget.variant,
+      enabled: _enabled,
+      isDark: isDark,
+    );
     final metrics = _resolveMetrics(widget.size, theme);
     final shadows = <BoxShadow>[
       ...visual.shadows,
@@ -64,8 +70,8 @@ class _AppButtonState extends State<AppButton> {
     ];
 
     Widget button = AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
+      duration: AppDurations.normal,
+      curve: AppMotionCurves.standard,
       width: widget.expand ? double.infinity : null,
       decoration: BoxDecoration(
         gradient: visual.gradient,
@@ -182,7 +188,7 @@ _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
   switch (size) {
     case AppButtonSize.sm:
       return _ButtonMetrics(
-        height: 34,
+        height: 36,
         horizontalPadding: 14,
         verticalPadding: 8,
         iconSize: 16,
@@ -190,7 +196,7 @@ _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
       );
     case AppButtonSize.md:
       return _ButtonMetrics(
-        height: 42,
+        height: 44,
         horizontalPadding: 18,
         verticalPadding: 10,
         iconSize: 18,
@@ -208,7 +214,7 @@ _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
 }
 
 _ButtonVisual _resolveVisual(AppButtonVariant variant,
-    {required bool enabled}) {
+    {required bool enabled, required bool isDark}) {
   switch (variant) {
     case AppButtonVariant.primary:
       return _ButtonVisual(
@@ -223,21 +229,27 @@ _ButtonVisual _resolveVisual(AppButtonVariant variant,
         gradient: AppColors.secondaryButtonGradient,
         background: AppColors.secondary,
         borderColor: Colors.transparent,
-        foreground: AppColors.textPrimary,
+        foreground: isDark ? AppColors.backgroundDeep : AppColors.textPrimary,
         shadows: enabled ? AppShadows.button : const <BoxShadow>[],
       );
     case AppButtonVariant.outline:
-      return const _ButtonVisual(
-        background: AppColors.surfaceStrong,
-        borderColor: AppColors.borderStrong,
-        foreground: AppColors.textPrimary,
+      return _ButtonVisual(
+        background: isDark
+            ? AppColors.darkSurfaceStrong.withValues(alpha: 0.7)
+            : AppColors.surfaceStrong,
+        borderColor:
+            isDark ? AppColors.darkBorderStrong : AppColors.borderStrong,
+        foreground: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
         shadows: <BoxShadow>[],
       );
     case AppButtonVariant.ghost:
       return _ButtonVisual(
-        background: AppColors.textPrimary.withValues(alpha: 0.05),
-        borderColor: AppColors.textPrimary.withValues(alpha: 0.10),
-        foreground: AppColors.textPrimary,
+        background: (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)
+            .withValues(alpha: 0.08),
+        borderColor:
+            (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)
+                .withValues(alpha: 0.16),
+        foreground: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
         shadows: const <BoxShadow>[],
       );
     case AppButtonVariant.danger:

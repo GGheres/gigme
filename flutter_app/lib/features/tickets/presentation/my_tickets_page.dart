@@ -5,6 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../auth/application/auth_controller.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
@@ -32,7 +38,7 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -62,86 +68,127 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My tickets'),
-        actions: [
-          IconButton(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded),
+    return AppScaffold(
+      title: 'Мои билеты',
+      subtitle: 'Все активные и использованные билеты',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: SecondaryButton(
+              label: 'Обновить',
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: _load,
+              outline: true,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: LoadingState(
+                      title: 'Загрузка билетов',
+                      subtitle: 'Проверяем активные заказы',
+                    ),
+                  )
+                : (_error != null)
+                    ? Center(
+                        child: ErrorState(
+                          message: _error!,
+                          onRetry: _load,
+                        ),
+                      )
+                    : _tickets.isEmpty
+                        ? const Center(
+                            child: EmptyState(
+                              title: 'Билетов пока нет',
+                              subtitle:
+                                  'После подтверждения заказа здесь появится QR-код',
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: _tickets.length,
+                            itemBuilder: (context, index) {
+                              final ticket = _tickets[index];
+                              final status = ticket.status;
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm),
+                                child: AppCard(
+                                  variant: AppCardVariant.surface,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Билет ${ticket.id}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleSmall,
+                                            ),
+                                          ),
+                                          Chip(
+                                            label: Text(status),
+                                            backgroundColor:
+                                                statusColor(status, context)
+                                                    .withValues(alpha: 0.12),
+                                            side: BorderSide(
+                                              color:
+                                                  statusColor(status, context),
+                                            ),
+                                            labelStyle: TextStyle(
+                                              color:
+                                                  statusColor(status, context),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        'Тип: ${ticket.ticketType} · Кол-во: ${ticket.quantity}',
+                                      ),
+                                      if (ticket.redeemedAt != null)
+                                        Text(
+                                          'Погашен: ${ticket.redeemedAt!.toLocal()}',
+                                        ),
+                                      const SizedBox(height: AppSpacing.sm),
+                                      if (ticket.qrPayload.trim().isNotEmpty)
+                                        Center(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surfaceStrong,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: QrImageView(
+                                              data: ticket.qrPayload,
+                                              size: 180,
+                                              backgroundColor: Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        const Text(
+                                          'QR-код появится после подтверждения оплаты.',
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : (_error != null)
-              ? Center(child: Text(_error!))
-              : _tickets.isEmpty
-                  ? const Center(child: Text('No tickets yet'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _tickets.length,
-                      itemBuilder: (context, index) {
-                        final ticket = _tickets[index];
-                        final status = ticket.status;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: statusTint(status),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.black12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Ticket ${ticket.id}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                    Chip(
-                                      label: Text(status),
-                                      backgroundColor:
-                                          statusColor(status, context)
-                                              .withValues(alpha: 0.12),
-                                      side: BorderSide(
-                                          color: statusColor(status, context)),
-                                      labelStyle: TextStyle(
-                                          color: statusColor(status, context),
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                    'Type: ${ticket.ticketType}  ·  Qty: ${ticket.quantity}'),
-                                if (ticket.redeemedAt != null)
-                                  Text(
-                                      'Redeemed at: ${ticket.redeemedAt!.toLocal()}'),
-                                const SizedBox(height: 10),
-                                if (ticket.qrPayload.trim().isNotEmpty)
-                                  Center(
-                                    child: QrImageView(
-                                      data: ticket.qrPayload,
-                                      size: 180,
-                                      backgroundColor: Colors.white,
-                                    ),
-                                  )
-                                else
-                                  const Text(
-                                      'QR will be available after payment confirmation.'),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
     );
   }
 }
