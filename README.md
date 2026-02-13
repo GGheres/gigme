@@ -85,7 +85,8 @@ flutter run -d chrome \
 - `USDT_MEMO` - optional memo/tag for USDT transfers
 - `PAYMENT_QR_DATA` - optional payment payload template for QR method (`{order_id}`, `{event_id}`, `{amount}`, `{amount_cents}` placeholders supported)
 - `PAYMENT_PHONE_NUMBER` / `PAYMENT_USDT_*` aliases are also supported on backend.
-- These payment fields can be overridden in Admin panel (`/space_app/admin` -> `Products` -> `Payment settings`).
+- These payment fields (including `PAYMENT_QR_DATA`) can be overridden in Admin panel (`/space_app/admin` -> `Products` -> `Payment settings`).
+- Order currency defaults to `RUB`.
 - `TOCHKA_CLIENT_ID` - Tochka OAuth client id
 - `TOCHKA_CLIENT_SECRET` - Tochka OAuth client secret
 - `TOCHKA_CUSTOMER_CODE` - optional Tochka customer/company context header
@@ -209,6 +210,7 @@ Implemented endpoints:
 - `POST /admin/events/{id}/landing` (admin publish/unpublish on landing)
 - `PATCH /admin/events/{id}` (admin only)
 - `DELETE /admin/events/{id}` (admin only)
+- `DELETE /admin/comments/{id}` (admin only)
 - `GET /admin/parser/sources` (admin only)
 - `POST /admin/parser/sources` (admin only)
 - `PATCH /admin/parser/sources/{id}` (admin only)
@@ -230,6 +232,15 @@ Implemented endpoints:
 - `GET /admin/promo-codes` / `POST /admin/promo-codes` / `PATCH /admin/promo-codes/{id}` / `DELETE /admin/promo-codes/{id}` (admin only)
 
 Promoted events are marked as featured and sorted to the top while `promoted_until` is in the future.
+
+## DB maintenance scripts
+- `infra/sql/reset_all_data.sql` - truncates all public tables (except `schema_migrations`) with `RESTART IDENTITY CASCADE`; also recreates singleton `payment_settings` row.
+- `infra/sql/clear_photo_data.sql` - clears photo-related DB data (`event_media`, `users.photo_url`) and resets `event_media` sequence.
+- `infra/sql/sync_sequences_by_id.sql` - synchronizes sequence counters with `MAX(id)` in each table (useful after manual imports).
+- Example for local Docker:
+  - `docker compose -f infra/docker-compose.yml exec -T db psql -U gigme -d gigme -f /dev/stdin < infra/sql/clear_photo_data.sql`
+  - `docker compose -f infra/docker-compose.yml exec -T db psql -U gigme -d gigme -f /dev/stdin < infra/sql/reset_all_data.sql`
+  - `docker compose -f infra/docker-compose.yml exec -T db psql -U gigme -d gigme -f /dev/stdin < infra/sql/sync_sequences_by_id.sql`
 
 ## Ticket purchase + QR validation
 - DB schema: apply migrations `infra/migrations/017_ticketing.up.sql`, `infra/migrations/018_sbp_tochka_payments.up.sql`, and `infra/migrations/019_payment_settings.up.sql` (adds `PAID` status, `sbp_qr`, `payments`, and editable payment settings).

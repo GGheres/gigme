@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_router.dart';
@@ -17,6 +18,16 @@ class GigMeApp extends ConsumerWidget {
       child: MaterialApp.router(
         title: 'SPACE',
         theme: buildGigMeTheme(),
+        locale: const Locale('ru', 'RU'),
+        supportedLocales: const [
+          Locale('ru', 'RU'),
+          Locale('en', 'US'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         routerConfig: router,
         builder: (context, child) => AppBackground(
           child: child ?? const SizedBox.shrink(),

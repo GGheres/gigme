@@ -245,6 +245,28 @@ class EventsRepository {
     );
   }
 
+  Future<void> deleteCommentAsAdmin({
+    required String token,
+    required int commentId,
+  }) {
+    return _ref.read(apiClientProvider).delete<void>(
+          ApiPaths.adminCommentById(commentId),
+          token: token,
+          decoder: (_) {},
+        );
+  }
+
+  Future<void> deleteEventAsAdmin({
+    required String token,
+    required int eventId,
+  }) {
+    return _ref.read(apiClientProvider).delete<void>(
+          ApiPaths.adminEventById(eventId),
+          token: token,
+          decoder: (_) {},
+        );
+  }
+
   Future<PresignResponse> presignMedia({
     required String token,
     required String fileName,

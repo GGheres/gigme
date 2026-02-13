@@ -768,6 +768,15 @@ LIMIT $2 OFFSET $3;`, eventID, limit, offset)
 	return comments, rows.Err()
 }
 
+func (r *Repository) DeleteEventComment(ctx context.Context, commentID int64) (int64, error) {
+	row := r.pool.QueryRow(ctx, `DELETE FROM event_comments WHERE id = $1 RETURNING event_id`, commentID)
+	var eventID int64
+	if err := row.Scan(&eventID); err != nil {
+		return 0, err
+	}
+	return eventID, nil
+}
+
 func (r *Repository) GetEventCreatorUserID(ctx context.Context, eventID int64) (int64, error) {
 	row := r.pool.QueryRow(ctx, `SELECT creator_user_id FROM events WHERE id = $1`, eventID)
 	var userID int64

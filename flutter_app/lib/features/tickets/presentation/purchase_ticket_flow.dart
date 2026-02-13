@@ -1069,6 +1069,10 @@ class _PaymentCheckoutPage extends ConsumerWidget {
     final usdtMemo = (paymentSettings?.usdtMemo ?? '').trim().isNotEmpty
         ? paymentSettings!.usdtMemo.trim()
         : config.paymentUsdtMemo;
+    final paymentQrData =
+        (paymentSettings?.paymentQrData ?? '').trim().isNotEmpty
+            ? paymentSettings!.paymentQrData.trim()
+            : config.paymentQrData;
     final isSbp = paymentMethod == 'TOCHKA_SBP_QR';
 
     return Scaffold(
@@ -1113,7 +1117,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
             usdtWallet: usdtWallet,
             usdtNetwork: usdtNetwork,
             usdtMemo: usdtMemo,
-            qrData: config.paymentQrData,
+            qrData: paymentQrData,
           ),
           const SizedBox(height: 14),
           FilledButton.icon(

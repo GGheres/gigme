@@ -1,7 +1,6 @@
 import '../../../core/utils/json_utils.dart';
 
 class TicketProductModel {
-
   factory TicketProductModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TicketProductModel(
@@ -47,7 +46,6 @@ class TicketProductModel {
 }
 
 class TransferProductModel {
-
   factory TransferProductModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TransferProductModel(
@@ -105,7 +103,6 @@ class TransferProductModel {
 }
 
 class EventProductsModel {
-
   factory EventProductsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return EventProductsModel(
@@ -121,7 +118,6 @@ class EventProductsModel {
 }
 
 class PromoValidationModel {
-
   factory PromoValidationModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PromoValidationModel(
@@ -195,7 +191,6 @@ class CreateOrderPayload {
 }
 
 class PaymentInstructionsModel {
-
   factory PaymentInstructionsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PaymentInstructionsModel(
@@ -234,7 +229,6 @@ class PaymentInstructionsModel {
 }
 
 class PaymentSettingsModel {
-
   factory PaymentSettingsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PaymentSettingsModel(
@@ -242,6 +236,7 @@ class PaymentSettingsModel {
       usdtWallet: asString(map['usdtWallet']),
       usdtNetwork: asString(map['usdtNetwork']),
       usdtMemo: asString(map['usdtMemo']),
+      paymentQrData: asString(map['paymentQrData']),
       phoneDescription: asString(map['phoneDescription']),
       usdtDescription: asString(map['usdtDescription']),
       qrDescription: asString(map['qrDescription']),
@@ -253,6 +248,7 @@ class PaymentSettingsModel {
     required this.usdtWallet,
     required this.usdtNetwork,
     required this.usdtMemo,
+    required this.paymentQrData,
     required this.phoneDescription,
     required this.usdtDescription,
     required this.qrDescription,
@@ -263,6 +259,7 @@ class PaymentSettingsModel {
   final String usdtWallet;
   final String usdtNetwork;
   final String usdtMemo;
+  final String paymentQrData;
   final String phoneDescription;
   final String usdtDescription;
   final String qrDescription;
@@ -285,7 +282,6 @@ class PaymentSettingsModel {
 }
 
 class OrderModel {
-
   factory OrderModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderModel(
@@ -348,7 +344,6 @@ class OrderModel {
 }
 
 class OrderUserModel {
-
   factory OrderUserModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderUserModel(
@@ -385,7 +380,6 @@ class OrderUserModel {
 }
 
 class OrderItemModel {
-
   factory OrderItemModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderItemModel(
@@ -424,7 +418,6 @@ class OrderItemModel {
 }
 
 class TicketModel {
-
   factory TicketModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TicketModel(
@@ -465,7 +458,6 @@ class TicketModel {
 }
 
 class OrderDetailModel {
-
   factory OrderDetailModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderDetailModel(
@@ -493,7 +485,6 @@ class OrderDetailModel {
 }
 
 class OrderSummaryModel {
-
   factory OrderSummaryModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderSummaryModel(
@@ -508,7 +499,6 @@ class OrderSummaryModel {
 }
 
 class OrdersListModel {
-
   factory OrdersListModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrdersListModel(
@@ -523,7 +513,6 @@ class OrdersListModel {
 }
 
 class MyTicketsModel {
-
   factory MyTicketsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return MyTicketsModel(
@@ -536,7 +525,6 @@ class MyTicketsModel {
 }
 
 class AdminStatsBreakdownModel {
-
   factory AdminStatsBreakdownModel.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminStatsBreakdownModel(
@@ -577,7 +565,6 @@ class AdminStatsBreakdownModel {
 }
 
 class AdminStatsModel {
-
   factory AdminStatsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminStatsModel(
@@ -593,7 +580,6 @@ class AdminStatsModel {
 }
 
 class TicketRedeemResultModel {
-
   factory TicketRedeemResultModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TicketRedeemResultModel(
@@ -608,7 +594,6 @@ class TicketRedeemResultModel {
 }
 
 class SbpQrModel {
-
   factory SbpQrModel.fromJson(dynamic json) {
     final map = asMap(json);
     return SbpQrModel(
@@ -647,7 +632,6 @@ class SbpQrModel {
 }
 
 class CreateSbpQrOrderResponseModel {
-
   factory CreateSbpQrOrderResponseModel.fromJson(dynamic json) {
     final map = asMap(json);
     return CreateSbpQrOrderResponseModel(
@@ -665,7 +649,6 @@ class CreateSbpQrOrderResponseModel {
 }
 
 class SbpQrStatusResponseModel {
-
   factory SbpQrStatusResponseModel.fromJson(dynamic json) {
     final map = asMap(json);
     return SbpQrStatusResponseModel(

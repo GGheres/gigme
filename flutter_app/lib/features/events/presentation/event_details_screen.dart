@@ -14,6 +14,7 @@ import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../tickets/presentation/purchase_ticket_flow.dart';
 import '../application/events_controller.dart';
 
@@ -41,6 +42,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _joining = false;
   bool _sharing = false;
   bool _sendingComment = false;
+  bool _deletingEvent = false;
+  final Set<int> _deletingCommentIds = <int>{};
   String? _error;
 
   @override
@@ -84,7 +87,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
-    final apiUrl = ref.watch(appConfigProvider).apiUrl;
+    final config = ref.watch(appConfigProvider);
+    final apiUrl = config.apiUrl;
+    final authState = ref.watch(authControllerProvider).state;
+    final isAdmin = authState.user != null &&
+        config.adminTelegramIds.contains(authState.user!.telegramId);
     final detailAccessKey = detail == null
         ? (widget.eventKey ?? '').trim()
         : (detail.event.accessKey.trim().isNotEmpty
@@ -95,8 +102,22 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Event details'),
+        title: const Text('Детали события'),
         actions: [
+          if (isAdmin && detail != null)
+            IconButton(
+              tooltip: 'Удалить событие',
+              onPressed: _deletingEvent
+                  ? null
+                  : () => _deleteEvent(eventId: detail.event.id),
+              icon: _deletingEvent
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever_outlined),
+            ),
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh_rounded),
@@ -111,7 +132,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
           : (_error != null)
               ? Center(child: Text(_error!))
               : (detail == null)
-                  ? const Center(child: Text('Event not found'))
+                  ? const Center(child: Text('Событие не найдено'))
                   : ListView(
                       padding: const EdgeInsets.all(14),
                       children: [
@@ -122,7 +143,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                         const SizedBox(height: 6),
                         Text(formatDateTime(detail.event.startsAt)),
                         if (detail.event.endsAt != null)
-                          Text('Ends: ${formatDateTime(detail.event.endsAt)}'),
+                          Text(
+                              'Завершение: ${formatDateTime(detail.event.endsAt)}'),
                         const SizedBox(height: 10),
                         if (detail.media.isNotEmpty)
                           SizedBox(
@@ -223,7 +245,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             OutlinedButton.icon(
                               onPressed: _sharing ? null : _share,
                               icon: const Icon(Icons.share_outlined),
-                              label: const Text('Share'),
+                              label: const Text('Поделиться'),
                             ),
                           ],
                         ),
@@ -250,7 +272,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                       }
                                     }
                                   },
-                            child: Text(_joining ? 'Joining…' : 'Join event'),
+                            child: Text(
+                                _joining ? 'Выполняется…' : 'Присоединиться'),
                           ),
                         ],
                         const SizedBox(height: 8),
@@ -262,28 +285,62 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng'));
                           },
                           icon: const Icon(Icons.location_on_outlined),
-                          label: const Text('Open location on map'),
+                          label: const Text('Открыть на карте'),
                         ),
                         if (detail.isJoined) ...[
                           const SizedBox(height: 16),
                           _ContactsBlock(detail: detail),
                         ],
                         const SizedBox(height: 16),
-                        Text('Comments',
+                        Text('Комментарии',
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 8),
                         if (_comments.isEmpty)
-                          const Text('No comments yet')
+                          const Text('Комментариев пока нет')
                         else
                           ..._comments.map(
                             (comment) => ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(comment.userName),
                               subtitle: Text(comment.body),
-                              trailing: Text(
-                                formatDateTime(comment.createdAt),
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
+                              trailing: isAdmin
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          formatDateTime(comment.createdAt),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall,
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Удалить комментарий',
+                                          onPressed: _deletingCommentIds
+                                                  .contains(comment.id)
+                                              ? null
+                                              : () => _deleteComment(
+                                                  comment: comment),
+                                          icon: _deletingCommentIds
+                                                  .contains(comment.id)
+                                              ? const SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                )
+                                              : const Icon(
+                                                  Icons.delete_outline),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      formatDateTime(comment.createdAt),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall,
+                                    ),
                             ),
                           ),
                         const SizedBox(height: 10),
@@ -291,8 +348,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           minLines: 2,
                           maxLines: 4,
                           maxLength: 400,
-                          decoration:
-                              const InputDecoration(labelText: 'Add comment'),
+                          decoration: const InputDecoration(
+                              labelText: 'Добавить комментарий'),
                           onChanged: (value) => _commentInput = value,
                         ),
                         FilledButton(
@@ -301,7 +358,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                               : () async {
                                   final body = _commentInput.trim();
                                   if (body.isEmpty) {
-                                    _showMessage('Comment cannot be empty');
+                                    _showMessage(
+                                        'Комментарий не может быть пустым');
                                     return;
                                   }
 
@@ -324,8 +382,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                     }
                                   }
                                 },
-                          child: Text(
-                              _sendingComment ? 'Sending…' : 'Send comment'),
+                          child:
+                              Text(_sendingComment ? 'Отправка…' : 'Отправить'),
                         ),
                         if (detail.isJoined) ...[
                           const SizedBox(height: 10),
@@ -350,12 +408,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                       }
                                     }
                                   },
-                            child: Text(_joining ? 'Leaving…' : 'Leave event'),
+                            child: Text(_joining ? 'Выполняется…' : 'Покинуть'),
                           ),
                         ],
                         const SizedBox(height: 10),
                         Text(
-                          'Participants',
+                          'Участники',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 6),
@@ -409,6 +467,88 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  Future<void> _deleteEvent({required int eventId}) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить событие?'),
+        content: const Text(
+          'Событие будет удалено без возможности восстановления.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    setState(() => _deletingEvent = true);
+    try {
+      await ref
+          .read(eventsControllerProvider)
+          .deleteEventAsAdmin(eventId: eventId);
+      if (!mounted) return;
+      _showMessage('Событие удалено');
+      Navigator.of(context).maybePop();
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() => _deletingEvent = false);
+      }
+    }
+  }
+
+  Future<void> _deleteComment({required EventComment comment}) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить комментарий?'),
+        content: const Text(
+          'Комментарий будет удален без возможности восстановления.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    setState(() {
+      _deletingCommentIds.add(comment.id);
+    });
+    try {
+      await ref.read(eventsControllerProvider).deleteCommentAsAdmin(
+            commentId: comment.id,
+          );
+      await _load();
+      if (!mounted) return;
+      _showMessage('Комментарий удален');
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingCommentIds.remove(comment.id);
+        });
+      }
+    }
+  }
+
   String _stripCoordinatesText(String description) {
     final coordinateLine =
         RegExp(r'^\s*-?\d{1,2}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?\s*$');
@@ -456,7 +596,7 @@ class _ContactsBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Contacts', style: Theme.of(context).textTheme.titleMedium),
+        Text('Контакты', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 6),
         ...rows.map((row) {
           return ListTile(

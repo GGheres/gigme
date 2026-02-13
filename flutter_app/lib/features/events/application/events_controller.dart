@@ -278,6 +278,32 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  Future<void> deleteCommentAsAdmin({
+    required int commentId,
+  }) async {
+    final token = _token;
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
+    await repository.deleteCommentAsAdmin(
+      token: token,
+      commentId: commentId,
+    );
+  }
+
+  Future<void> deleteEventAsAdmin({
+    required int eventId,
+  }) async {
+    final token = _token;
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
+    await repository.deleteEventAsAdmin(
+      token: token,
+      eventId: eventId,
+    );
+  }
+
   Future<String> uploadImage({
     required String fileName,
     required String contentType,

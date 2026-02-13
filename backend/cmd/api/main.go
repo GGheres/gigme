@@ -160,6 +160,7 @@ func main() {
 		r.Post("/admin/landing/content", h.UpsertLandingContent)
 		r.Patch("/admin/events/{id}", h.UpdateEventAdmin)
 		r.Delete("/admin/events/{id}", h.DeleteEventAdmin)
+		r.Delete("/admin/comments/{id}", h.DeleteEventCommentAdmin)
 		r.Get("/admin/orders", h.ListAdminOrders)
 		r.Get("/admin/orders/{id}", h.GetAdminOrder)
 		r.Post("/admin/orders/{orderId}/confirm", h.ConfirmOrder)

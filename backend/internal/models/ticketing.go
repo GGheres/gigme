@@ -165,6 +165,7 @@ type PaymentSettings struct {
 	USDTWallet       string     `json:"usdtWallet"`
 	USDTNetwork      string     `json:"usdtNetwork"`
 	USDTMemo         string     `json:"usdtMemo"`
+	PaymentQRData    string     `json:"paymentQrData"`
 	PhoneDescription string     `json:"phoneDescription"`
 	USDTDescription  string     `json:"usdtDescription"`
 	QRDescription    string     `json:"qrDescription"`
@@ -179,6 +180,7 @@ type PaymentSettingsPatch struct {
 	USDTWallet       *string `json:"usdtWallet,omitempty"`
 	USDTNetwork      *string `json:"usdtNetwork,omitempty"`
 	USDTMemo         *string `json:"usdtMemo,omitempty"`
+	PaymentQRData    *string `json:"paymentQrData,omitempty"`
 	PhoneDescription *string `json:"phoneDescription,omitempty"`
 	USDTDescription  *string `json:"usdtDescription,omitempty"`
 	QRDescription    *string `json:"qrDescription,omitempty"`

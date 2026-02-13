@@ -687,3 +687,46 @@ func (h *Handler) DeleteEventAdmin(w http.ResponseWriter, r *http.Request) {
 	logger.Info("action", "action", "admin_delete_event", "status", "success", "event_id", id)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
+
+func (h *Handler) DeleteEventCommentAdmin(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_comment"); !ok {
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		logger.Warn("action", "action", "admin_delete_comment", "status", "invalid_comment_id")
+		writeError(w, http.StatusBadRequest, "invalid comment id")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+
+	eventID, err := h.repo.DeleteEventComment(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			logger.Warn("action", "action", "admin_delete_comment", "status", "not_found", "comment_id", id)
+			writeError(w, http.StatusNotFound, "comment not found")
+			return
+		}
+		logger.Error("action", "action", "admin_delete_comment", "status", "db_error", "comment_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	commentsCount, err := h.repo.CountEventComments(ctx, eventID)
+	if err != nil {
+		logger.Error("action", "action", "admin_delete_comment", "status", "count_error", "comment_id", id, "event_id", eventID, "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	logger.Info("action", "action", "admin_delete_comment", "status", "success", "comment_id", id, "event_id", eventID, "comments_count", commentsCount)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"ok":            true,
+		"eventId":       eventID,
+		"commentsCount": commentsCount,
+	})
+}

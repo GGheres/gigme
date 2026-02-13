@@ -36,6 +36,7 @@ type queryRunner interface {
 func (r *Repository) GetPaymentSettings(ctx context.Context) (models.PaymentSettings, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT phone_number, usdt_wallet, usdt_network, usdt_memo,
+	payment_qr_data,
 	phone_description, usdt_description, qr_description, sbp_description,
 	updated_by, created_at, updated_at
 FROM payment_settings
@@ -48,15 +49,17 @@ func (r *Repository) UpsertPaymentSettings(ctx context.Context, in models.Paymen
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO payment_settings (
 	id, phone_number, usdt_wallet, usdt_network, usdt_memo,
+	payment_qr_data,
 	phone_description, usdt_description, qr_description, sbp_description, updated_by
 ) VALUES (
-	1, $1, $2, $3, $4, $5, $6, $7, $8, $9
+	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
 ON CONFLICT (id) DO UPDATE SET
 	phone_number = EXCLUDED.phone_number,
 	usdt_wallet = EXCLUDED.usdt_wallet,
 	usdt_network = EXCLUDED.usdt_network,
 	usdt_memo = EXCLUDED.usdt_memo,
+	payment_qr_data = EXCLUDED.payment_qr_data,
 	phone_description = EXCLUDED.phone_description,
 	usdt_description = EXCLUDED.usdt_description,
 	qr_description = EXCLUDED.qr_description,
@@ -64,12 +67,14 @@ ON CONFLICT (id) DO UPDATE SET
 	updated_by = EXCLUDED.updated_by,
 	updated_at = now()
 RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
+	payment_qr_data,
 	phone_description, usdt_description, qr_description, sbp_description,
 	updated_by, created_at, updated_at;`,
 		strings.TrimSpace(in.PhoneNumber),
 		strings.TrimSpace(in.USDTWallet),
 		strings.TrimSpace(in.USDTNetwork),
 		strings.TrimSpace(in.USDTMemo),
+		strings.TrimSpace(in.PaymentQRData),
 		strings.TrimSpace(in.PhoneDescription),
 		strings.TrimSpace(in.USDTDescription),
 		strings.TrimSpace(in.QRDescription),
@@ -586,10 +591,7 @@ WHERE id = $1::uuid;`, promoID); err != nil {
 	if total < 0 {
 		total = 0
 	}
-	currency := "USD"
-	if params.PaymentMethod == models.PaymentMethodTochkaSBPQR {
-		currency = "RUB"
-	}
+	currency := "RUB"
 
 	row := tx.QueryRow(ctx, `
 INSERT INTO orders (
@@ -1850,6 +1852,7 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 		&out.USDTWallet,
 		&out.USDTNetwork,
 		&out.USDTMemo,
+		&out.PaymentQRData,
 		&out.PhoneDescription,
 		&out.USDTDescription,
 		&out.QRDescription,

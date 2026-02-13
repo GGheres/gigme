@@ -16,6 +16,7 @@ class ApiPaths {
   static String eventLeave(int id) => '/events/$id/leave';
   static String adminLandingPublish(int id) => '/admin/events/$id/landing';
   static String adminEventById(int id) => '/admin/events/$id';
+  static String adminCommentById(int id) => '/admin/comments/$id';
   static const adminLandingContent = '/admin/landing/content';
 
   static const mediaPresign = '/media/presign';

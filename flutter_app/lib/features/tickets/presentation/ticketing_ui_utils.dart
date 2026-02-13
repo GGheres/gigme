@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-String formatMoney(int cents, {String currency = 'USD'}) {
+String formatMoney(int cents, {String currency = 'RUB'}) {
   final negative = cents < 0;
   final absolute = cents.abs();
   final units = absolute ~/ 100;

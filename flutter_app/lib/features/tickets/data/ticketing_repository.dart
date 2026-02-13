@@ -113,6 +113,7 @@ class TicketingRepository {
     String? usdtWallet,
     String? usdtNetwork,
     String? usdtMemo,
+    String? paymentQrData,
     String? phoneDescription,
     String? usdtDescription,
     String? qrDescription,
@@ -126,6 +127,7 @@ class TicketingRepository {
             if (usdtWallet != null) 'usdtWallet': usdtWallet.trim(),
             if (usdtNetwork != null) 'usdtNetwork': usdtNetwork.trim(),
             if (usdtMemo != null) 'usdtMemo': usdtMemo.trim(),
+            if (paymentQrData != null) 'paymentQrData': paymentQrData.trim(),
             if (phoneDescription != null)
               'phoneDescription': phoneDescription.trim(),
             if (usdtDescription != null)
@@ -497,7 +499,6 @@ class TicketingRepository {
 }
 
 class PromoCodeViewModel {
-
   factory PromoCodeViewModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PromoCodeViewModel(

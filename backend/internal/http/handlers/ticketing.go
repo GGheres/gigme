@@ -67,6 +67,7 @@ type upsertPaymentSettingsRequest struct {
 	USDTWallet       *string `json:"usdtWallet"`
 	USDTNetwork      *string `json:"usdtNetwork"`
 	USDTMemo         *string `json:"usdtMemo"`
+	PaymentQRData    *string `json:"paymentQrData"`
 	PhoneDescription *string `json:"phoneDescription"`
 	USDTDescription  *string `json:"usdtDescription"`
 	QRDescription    *string `json:"qrDescription"`
@@ -1110,7 +1111,7 @@ func (h *Handler) sendPaymentConfirmedToBot(userTelegramID int64, order models.O
 	}
 	currency := strings.TrimSpace(order.Currency)
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 	if order.TotalCents > 0 {
 		lines = append(lines, fmt.Sprintf("Сумма: %s %s", formatAmount(order.TotalCents), currency))
@@ -1128,7 +1129,7 @@ func (h *Handler) enqueuePaymentConfirmedNotification(ctx context.Context, order
 	}
 	currency := strings.TrimSpace(order.Currency)
 	if currency == "" {
-		currency = "USD"
+		currency = "RUB"
 	}
 	payload := map[string]interface{}{
 		"orderId":  strings.TrimSpace(order.ID),
@@ -1152,9 +1153,13 @@ func (h *Handler) enqueuePaymentConfirmedNotification(ctx context.Context, order
 
 func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings models.PaymentSettings) models.PaymentInstructions {
 	amountText := formatAmount(order.TotalCents)
+	currency := strings.TrimSpace(order.Currency)
+	if currency == "" {
+		currency = "RUB"
+	}
 	instructions := models.PaymentInstructions{
 		AmountCents: order.TotalCents,
-		Currency:    order.Currency,
+		Currency:    currency,
 	}
 	switch order.PaymentMethod {
 	case models.PaymentMethodPhone:
@@ -1176,7 +1181,7 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 			fmt.Sprintf("Send %s USDT to %s (%s).", amountText, instructions.USDTWallet, instructions.USDTNetwork),
 		)
 	case models.PaymentMethodQR:
-		payload := strings.TrimSpace(h.cfg.PaymentQRData)
+		payload := strings.TrimSpace(paymentSettings.PaymentQRData)
 		payload = strings.ReplaceAll(payload, "{order_id}", order.ID)
 		payload = strings.ReplaceAll(payload, "{event_id}", strconv.FormatInt(order.EventID, 10))
 		payload = strings.ReplaceAll(payload, "{amount_cents}", strconv.FormatInt(order.TotalCents, 10))
@@ -1203,10 +1208,11 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 
 func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSettings {
 	settings := models.PaymentSettings{
-		PhoneNumber: strings.TrimSpace(h.cfg.PhoneNumber),
-		USDTWallet:  strings.TrimSpace(h.cfg.USDTWallet),
-		USDTNetwork: strings.TrimSpace(h.cfg.USDTNetwork),
-		USDTMemo:    strings.TrimSpace(h.cfg.USDTMemo),
+		PhoneNumber:   strings.TrimSpace(h.cfg.PhoneNumber),
+		USDTWallet:    strings.TrimSpace(h.cfg.USDTWallet),
+		USDTNetwork:   strings.TrimSpace(h.cfg.USDTNetwork),
+		USDTMemo:      strings.TrimSpace(h.cfg.USDTMemo),
+		PaymentQRData: strings.TrimSpace(h.cfg.PaymentQRData),
 	}
 	if strings.TrimSpace(settings.USDTNetwork) == "" {
 		settings.USDTNetwork = "TRC20"
@@ -1234,6 +1240,9 @@ func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSetting
 	if strings.TrimSpace(stored.USDTMemo) != "" {
 		settings.USDTMemo = strings.TrimSpace(stored.USDTMemo)
 	}
+	if strings.TrimSpace(stored.PaymentQRData) != "" {
+		settings.PaymentQRData = strings.TrimSpace(stored.PaymentQRData)
+	}
 	settings.PhoneDescription = strings.TrimSpace(stored.PhoneDescription)
 	settings.USDTDescription = strings.TrimSpace(stored.USDTDescription)
 	settings.QRDescription = strings.TrimSpace(stored.QRDescription)
@@ -1258,6 +1267,9 @@ func mergePaymentSettings(current models.PaymentSettings, req upsertPaymentSetti
 	if req.USDTMemo != nil {
 		merged.USDTMemo = strings.TrimSpace(*req.USDTMemo)
 	}
+	if req.PaymentQRData != nil {
+		merged.PaymentQRData = strings.TrimSpace(*req.PaymentQRData)
+	}
 	if req.PhoneDescription != nil {
 		merged.PhoneDescription = strings.TrimSpace(*req.PhoneDescription)
 	}
@@ -1281,6 +1293,7 @@ func (r upsertPaymentSettingsRequest) hasAny() bool {
 		r.USDTWallet != nil ||
 		r.USDTNetwork != nil ||
 		r.USDTMemo != nil ||
+		r.PaymentQRData != nil ||
 		r.PhoneDescription != nil ||
 		r.USDTDescription != nil ||
 		r.QRDescription != nil ||

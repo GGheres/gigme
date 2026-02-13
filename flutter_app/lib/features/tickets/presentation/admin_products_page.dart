@@ -28,6 +28,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _paymentUsdtWalletCtrl = TextEditingController();
   final TextEditingController _paymentUsdtNetworkCtrl = TextEditingController();
   final TextEditingController _paymentUsdtMemoCtrl = TextEditingController();
+  final TextEditingController _paymentQrDataCtrl = TextEditingController();
   final TextEditingController _phoneDescriptionCtrl = TextEditingController();
   final TextEditingController _usdtDescriptionCtrl = TextEditingController();
   final TextEditingController _qrDescriptionCtrl = TextEditingController();
@@ -66,6 +67,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _paymentUsdtWalletCtrl.dispose();
     _paymentUsdtNetworkCtrl.dispose();
     _paymentUsdtMemoCtrl.dispose();
+    _paymentQrDataCtrl.dispose();
     _phoneDescriptionCtrl.dispose();
     _usdtDescriptionCtrl.dispose();
     _qrDescriptionCtrl.dispose();
@@ -221,6 +223,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             usdtWallet: _paymentUsdtWalletCtrl.text,
             usdtNetwork: _paymentUsdtNetworkCtrl.text,
             usdtMemo: _paymentUsdtMemoCtrl.text,
+            paymentQrData: _paymentQrDataCtrl.text,
             phoneDescription: _phoneDescriptionCtrl.text,
             usdtDescription: _usdtDescriptionCtrl.text,
             qrDescription: _qrDescriptionCtrl.text,
@@ -303,6 +306,17 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   controller: _paymentUsdtMemoCtrl,
                   decoration: const InputDecoration(
                     labelText: 'USDT memo/tag (optional)',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _paymentQrDataCtrl,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'PAYMENT_QR_DATA',
+                    hintText:
+                        'order:{order_id};event:{event_id};amount:{amount}',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -514,6 +528,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _paymentUsdtNetworkCtrl.text =
         settings.usdtNetwork.trim().isEmpty ? 'TRC20' : settings.usdtNetwork;
     _paymentUsdtMemoCtrl.text = settings.usdtMemo;
+    _paymentQrDataCtrl.text = settings.paymentQrData;
     _phoneDescriptionCtrl.text = settings.phoneDescription;
     _usdtDescriptionCtrl.text = settings.usdtDescription;
     _qrDescriptionCtrl.text = settings.qrDescription;
