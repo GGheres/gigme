@@ -43,13 +43,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text('Профиль'),
         actions: [
           if (isAdmin)
             IconButton(
               onPressed: () => context.push(AppRoutes.admin),
               icon: const Icon(Icons.admin_panel_settings_outlined),
-              tooltip: 'Admin panel',
+              tooltip: 'Админ-панель',
             ),
           IconButton(
             onPressed: () => ref.read(profileControllerProvider).load(),
@@ -96,7 +96,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   FilledButton.icon(
                     onPressed: () => context.push(AppRoutes.myTickets),
                     icon: const Icon(Icons.qr_code_rounded),
-                    label: const Text('My tickets'),
+                    label: const Text('Мои билеты'),
                   ),
                   if (isAdmin) ...[
                     const SizedBox(height: 10),
@@ -104,26 +104,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        OutlinedButton(
+                        AppButton(
+                          label: 'Заказы',
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () => context.push(AppRoutes.adminOrders),
-                          child: const Text('Admin orders'),
                         ),
-                        OutlinedButton(
+                        AppButton(
+                          label: 'QR-сканер',
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () => context.push(AppRoutes.adminScanner),
-                          child: const Text('QR scanner'),
                         ),
-                        OutlinedButton(
+                        AppButton(
+                          label: 'Продукты',
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () =>
                               context.push(AppRoutes.adminProducts),
-                          child: const Text('Products'),
                         ),
-                        OutlinedButton(
+                        AppButton(
+                          label: 'Промокоды',
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () => context.push(AppRoutes.adminPromos),
-                          child: const Text('Promo codes'),
                         ),
-                        OutlinedButton(
+                        AppButton(
+                          label: 'Статистика',
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () => context.push(AppRoutes.adminStats),
-                          child: const Text('Stats'),
                         ),
                       ],
                     ),
@@ -131,10 +141,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text('My events',
+                      Text('Мои события',
                           style: Theme.of(context).textTheme.titleMedium),
                       const Spacer(),
-                      Text('${state.total} total'),
+                      Text('${state.total} всего'),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -142,7 +152,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const Card(
                       child: Padding(
                         padding: EdgeInsets.all(16),
-                        child: Text('No events created yet'),
+                        child: Text('Событий пока нет'),
                       ),
                     )
                   else
@@ -205,7 +215,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                             title: Text(event.title),
                             subtitle: Text(
-                                '${formatDateTime(event.startsAt)} • ${event.participantsCount} going'),
+                                '${formatDateTime(event.startsAt)} • ${event.participantsCount} участников'),
                             trailing: const Icon(Icons.chevron_right_rounded),
                           ),
                         );
@@ -223,20 +233,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final result = await showAppDialog<int>(
       context: context,
       builder: (context) => AppModal(
-        title: 'Topup GigTokens',
-        subtitle: 'Enter an amount between 1 and 1,000,000.',
+        title: 'Пополнение GigTokens',
+        subtitle: 'Введите сумму от 1 до 1 000 000.',
         onClose: () => Navigator.pop(context),
         body: Form(
           key: formKey,
           child: AppTextField(
             controller: ctrl,
             keyboardType: TextInputType.number,
-            label: 'Amount',
+            label: 'Сумма',
             hint: '100',
             validator: (value) {
               final parsed = int.tryParse((value ?? '').trim());
               if (parsed == null || parsed < 1 || parsed > 1000000) {
-                return 'Enter a value from 1 to 1,000,000';
+                return 'Введите значение от 1 до 1 000 000';
               }
               return null;
             },
@@ -244,12 +254,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         actions: [
           AppButton(
-            label: 'Cancel',
+            label: 'Отмена',
             variant: AppButtonVariant.ghost,
             onPressed: () => Navigator.pop(context),
           ),
           AppButton(
-            label: 'Apply',
+            label: 'Применить',
             variant: AppButtonVariant.secondary,
             onPressed: () {
               if (!(formKey.currentState?.validate() ?? false)) return;

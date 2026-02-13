@@ -186,21 +186,21 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
     if (_accessDenied) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Admin')),
-        body: const Center(child: Text('Access denied (401/403).')),
+        appBar: AppBar(title: const Text('Админка')),
+        body: const Center(child: Text('Доступ запрещен (401/403).')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin panel'),
+        title: const Text('Панель администратора'),
         leading: IconButton(
           onPressed: () => context.go(AppRoutes.profile),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         actions: [
           IconButton(
-            tooltip: 'Refresh all',
+            tooltip: 'Обновить всё',
             onPressed: _bootstrapLoads,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -209,14 +209,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           controller: _tabController,
           isScrollable: true,
           tabs: const [
-            Tab(text: 'Users'),
-            Tab(text: 'Broadcasts'),
-            Tab(text: 'Parser'),
-            Tab(text: 'Orders'),
-            Tab(text: 'Scanner'),
-            Tab(text: 'Products'),
-            Tab(text: 'Stats'),
-            Tab(text: 'Landing'),
+            Tab(text: 'Пользователи'),
+            Tab(text: 'Рассылки'),
+            Tab(text: 'Парсер'),
+            Tab(text: 'Заказы'),
+            Tab(text: 'Сканер'),
+            Tab(text: 'Продукты'),
+            Tab(text: 'Статистика'),
+            Tab(text: 'Лендинг'),
           ],
         ),
       ),
@@ -238,7 +238,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
   Widget _buildAdminLogin() {
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin login')),
+      appBar: AppBar(title: const Text('Вход в админку')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -248,25 +248,25 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             children: [
               TextField(
                 controller: _adminLoginCtrl,
-                decoration: const InputDecoration(labelText: 'Username'),
+                decoration: const InputDecoration(labelText: 'Логин'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _adminPasswordCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(labelText: 'Пароль'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _adminTelegramIdCtrl,
                 keyboardType: TextInputType.number,
-                decoration:
-                    const InputDecoration(labelText: 'Telegram ID (optional)'),
+                decoration: const InputDecoration(
+                    labelText: 'Telegram ID (необязательно)'),
               ),
               const SizedBox(height: 14),
               FilledButton(
                 onPressed: _adminLoginBusy ? null : _handleAdminLogin,
-                child: Text(_adminLoginBusy ? 'Signing in…' : 'Sign in'),
+                child: Text(_adminLoginBusy ? 'Вход…' : 'Войти'),
               ),
               if ((_adminLoginError ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -292,7 +292,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               child: TextField(
                 controller: _usersSearchCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Search by name/username/TG ID',
+                  labelText: 'Поиск по имени / username / TG ID',
                 ),
               ),
             ),
@@ -300,9 +300,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             DropdownButton<String>(
               value: _usersBlockedFilter,
               items: const [
-                DropdownMenuItem(value: 'all', child: Text('All')),
-                DropdownMenuItem(value: 'active', child: Text('Active')),
-                DropdownMenuItem(value: 'blocked', child: Text('Blocked')),
+                DropdownMenuItem(value: 'all', child: Text('Все')),
+                DropdownMenuItem(value: 'active', child: Text('Активные')),
+                DropdownMenuItem(
+                    value: 'blocked', child: Text('Заблокированные')),
               ],
               onChanged: (value) {
                 if (value == null) return;
@@ -313,7 +314,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             const SizedBox(width: 8),
             FilledButton(
               onPressed: _usersLoading ? null : _loadUsers,
-              child: Text(_usersLoading ? 'Loading…' : 'Load'),
+              child: Text(_usersLoading ? 'Загрузка…' : 'Загрузить'),
             ),
           ],
         ),

@@ -194,13 +194,14 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
         const SizedBox(height: 8),
         TextField(
           controller: _ticketIdCtrl,
-          decoration: const InputDecoration(labelText: 'Ticket ID'),
+          decoration: const InputDecoration(labelText: 'ID билета'),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _payloadCtrl,
           maxLines: 3,
-          decoration: const InputDecoration(labelText: 'QR payload (optional)'),
+          decoration:
+              const InputDecoration(labelText: 'QR payload (необязательно)'),
         ),
         const SizedBox(height: 8),
         Row(
@@ -217,7 +218,7 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
               ),
             ),
             const SizedBox(width: 8),
-            OutlinedButton(
+            FilledButton.tonal(
               onPressed: _busy ? null : _clearForm,
               child: const Text('Сбросить'),
             ),
@@ -242,7 +243,7 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin QR scanner'),
+        title: const Text('Админ QR-сканер'),
       ),
       body: body,
     );

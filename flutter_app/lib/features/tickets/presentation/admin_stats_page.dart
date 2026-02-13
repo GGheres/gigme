@@ -43,7 +43,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -84,26 +84,29 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
               TextField(
                 controller: _eventIdCtrl,
                 keyboardType: TextInputType.number,
-                decoration:
-                    const InputDecoration(labelText: 'Event ID (optional)'),
+                decoration: const InputDecoration(
+                    labelText: 'ID события (необязательно)'),
               ),
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: _load, child: const Text('Load stats')),
+              FilledButton.tonal(
+                onPressed: _load,
+                child: const Text('Загрузить статистику'),
+              ),
               if ((_error ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(_error!, style: const TextStyle(color: Colors.red)),
               ],
               if (stats != null) ...[
                 const SizedBox(height: 12),
-                Text('Global totals',
+                Text('Общая статистика',
                     style: Theme.of(context).textTheme.titleMedium),
                 _statsCard(stats.global),
                 const SizedBox(height: 10),
-                Text('Per-event totals',
+                Text('Статистика по событиям',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 6),
                 if (stats.events.isEmpty)
-                  const Text('No per-event data')
+                  const Text('Нет данных по событиям')
                 else
                   ...stats.events.map(_statsCard),
               ],
@@ -113,7 +116,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin stats'),
+        title: const Text('Админ-статистика'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
         ],
@@ -130,16 +133,16 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(item.eventId == null
-                ? 'Global'
-                : 'Event ${item.eventId}: ${item.eventTitle}'),
+                ? 'Общий итог'
+                : 'Событие ${item.eventId}: ${item.eventTitle}'),
             const SizedBox(height: 6),
-            Text('Purchased amount: ${formatMoney(item.purchasedAmountCents)}'),
-            Text('Redeemed amount: ${formatMoney(item.redeemedAmountCents)}'),
-            Text('Checked-in tickets: ${item.checkedInTickets}'),
-            Text('Checked-in people: ${item.checkedInPeople}'),
+            Text('Куплено: ${formatMoney(item.purchasedAmountCents)}'),
+            Text('Погашено: ${formatMoney(item.redeemedAmountCents)}'),
+            Text('Проверено билетов: ${item.checkedInTickets}'),
+            Text('Проверено людей: ${item.checkedInPeople}'),
             const SizedBox(height: 6),
-            Text('Ticket counts: ${item.ticketTypeCounts}'),
-            Text('Transfer counts: ${item.transferDirectionCounts}'),
+            Text('Типы билетов: ${item.ticketTypeCounts}'),
+            Text('Направления трансфера: ${item.transferDirectionCounts}'),
           ],
         ),
       ),

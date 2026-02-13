@@ -89,7 +89,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -131,7 +131,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     final name = _ticketNameCtrl.text.trim();
     final price = int.tryParse(_ticketPriceCtrl.text.trim()) ?? -1;
     if (token.isEmpty || eventId <= 0 || price < 0) {
-      _showMessage('Event ID and valid ticket price are required');
+      _showMessage('Нужны ID события и корректная цена билета');
       return;
     }
 
@@ -144,7 +144,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             type: _ticketType,
             priceCents: price,
           );
-      _showMessage('Ticket product created');
+      _showMessage('Билетный продукт создан');
       await _load();
     } catch (error) {
       _showMessage('$error');
@@ -159,7 +159,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     final name = _transferNameCtrl.text.trim();
     final price = int.tryParse(_transferPriceCtrl.text.trim()) ?? -1;
     if (token.isEmpty || eventId <= 0 || price < 0) {
-      _showMessage('Event ID and valid transfer price are required');
+      _showMessage('Нужны ID события и корректная цена трансфера');
       return;
     }
 
@@ -177,7 +177,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           'notes': _transferNotesCtrl.text.trim(),
         },
       );
-      _showMessage('Transfer product created');
+      _showMessage('Трансферный продукт создан');
       await _load();
     } catch (error) {
       _showMessage('$error');
@@ -239,7 +239,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           );
       if (!mounted) return;
       setState(() => _applyPaymentSettings(saved));
-      _showMessage('Payment settings saved');
+      _showMessage('Платежные настройки сохранены');
     } catch (error) {
       _showMessage('$error');
     } finally {
@@ -254,7 +254,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin products'),
+        title: const Text('Админ-продукты'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
         ],
@@ -283,7 +283,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Payment settings',
+                  'Платежные настройки',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 10),
@@ -298,7 +298,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   controller: _paymentUsdtWalletCtrl,
                   decoration: const InputDecoration(
                     labelText: 'USDT TRC wallet',
-                    hintText: 'TRC20 wallet address',
+                    hintText: 'Адрес кошелька TRC20',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -333,9 +333,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Description for PHONE payment',
+                    labelText: 'Описание для оплаты по телефону',
                     hintText:
-                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -344,9 +344,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Description for USDT payment',
+                    labelText: 'Описание для оплаты USDT',
                     hintText:
-                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -355,9 +355,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Description for PAYMENT_QR',
+                    labelText: 'Описание для PAYMENT_QR',
                     hintText:
-                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -366,16 +366,17 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Description for TOCHKA_SBP_QR',
+                    labelText: 'Описание для TOCHKA_SBP_QR',
                     hintText:
-                        'Placeholders: {amount}, {order_id}, {event_id}, {amount_cents}',
+                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
                   ),
                 ),
                 const SizedBox(height: 10),
                 FilledButton.icon(
                   onPressed: _busy ? null : _savePaymentSettings,
                   icon: const Icon(Icons.save_outlined),
-                  label: Text(_busy ? 'Please wait…' : 'Save payment settings'),
+                  label: Text(
+                      _busy ? 'Подождите…' : 'Сохранить платежные настройки'),
                 ),
               ],
             ),
@@ -386,29 +387,29 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           controller: _eventCtrl,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
-            labelText: 'Event ID (required for create/filter)',
+            labelText: 'ID события (обязателен для создания/фильтрации)',
           ),
         ),
         const SizedBox(height: 8),
         const Text(
-          'How to find Event ID: Parser tab after import (event #ID), Landing tab list shows title (#ID), or event URL /space_app/events/<id>.',
+          'Где взять ID события: вкладка Парсер после импорта (событие #ID), список на вкладке Лендинг (#ID), либо URL события /space_app/events/<id>.',
         ),
         const SizedBox(height: 8),
-        OutlinedButton(
+        FilledButton.tonal(
           onPressed: _load,
-          child: const Text('Apply event filter'),
+          child: const Text('Применить фильтр события'),
         ),
         const SizedBox(height: 14),
         Text(
-          'Create ticket product',
+          'Создать билетный продукт',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _ticketNameCtrl,
           decoration: const InputDecoration(
-            labelText: 'Product name (custom)',
-            hintText: 'Example: VIP zone ticket',
+            labelText: 'Название продукта (кастом)',
+            hintText: 'Пример: VIP-билет',
           ),
         ),
         const SizedBox(height: 8),
@@ -425,7 +426,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                 ],
                 onChanged: (value) =>
                     setState(() => _ticketType = value ?? 'SINGLE'),
-                decoration: const InputDecoration(labelText: 'Type'),
+                decoration: const InputDecoration(labelText: 'Тип'),
               ),
             ),
             const SizedBox(width: 8),
@@ -433,7 +434,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
               child: TextField(
                 controller: _ticketPriceCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Price cents'),
+                decoration: const InputDecoration(labelText: 'Цена в центах'),
               ),
             ),
           ],
@@ -441,26 +442,26 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         const SizedBox(height: 8),
         FilledButton(
           onPressed: _busy ? null : _createTicketProduct,
-          child: Text(_busy ? 'Please wait…' : 'Create ticket product'),
+          child: Text(_busy ? 'Подождите…' : 'Создать билетный продукт'),
         ),
         const SizedBox(height: 14),
         Text(
-          'Create transfer product',
+          'Создать трансферный продукт',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _transferNameCtrl,
           decoration: const InputDecoration(
-            labelText: 'Product name (custom)',
-            hintText: 'Example: Bus to venue',
+            labelText: 'Название продукта (кастом)',
+            hintText: 'Пример: Трансфер до площадки',
           ),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           // ignore: deprecated_member_use
           value: _transferDirection,
-          decoration: const InputDecoration(labelText: 'Direction'),
+          decoration: const InputDecoration(labelText: 'Направление'),
           items: const [
             DropdownMenuItem(value: 'THERE', child: Text('THERE')),
             DropdownMenuItem(value: 'BACK', child: Text('BACK')),
@@ -473,31 +474,31 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         TextField(
           controller: _transferPriceCtrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Price cents'),
+          decoration: const InputDecoration(labelText: 'Цена в центах'),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _transferTimeCtrl,
-          decoration: const InputDecoration(labelText: 'Transfer time'),
+          decoration: const InputDecoration(labelText: 'Время трансфера'),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _transferPickupCtrl,
-          decoration: const InputDecoration(labelText: 'Pickup point'),
+          decoration: const InputDecoration(labelText: 'Точка посадки'),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _transferNotesCtrl,
-          decoration: const InputDecoration(labelText: 'Notes'),
+          decoration: const InputDecoration(labelText: 'Примечания'),
         ),
         const SizedBox(height: 8),
         FilledButton(
           onPressed: _busy ? null : _createTransferProduct,
-          child: Text(_busy ? 'Please wait…' : 'Create transfer product'),
+          child: Text(_busy ? 'Подождите…' : 'Создать трансферный продукт'),
         ),
         const SizedBox(height: 16),
         Text(
-          'Ticket products (${_ticketProducts.length})',
+          'Билетные продукты (${_ticketProducts.length})',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
@@ -517,7 +518,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Transfer products (${_transferProducts.length})',
+          'Трансферные продукты (${_transferProducts.length})',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),

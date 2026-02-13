@@ -35,7 +35,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -76,7 +76,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           );
       if (!mounted) return;
       setState(() => _detail = response);
-      _showMessage('Order confirmed');
+      _showMessage('Заказ подтвержден');
     } catch (error) {
       _showMessage('$error');
     } finally {
@@ -95,19 +95,20 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Cancel order'),
+          title: const Text('Отмена заказа'),
           content: TextField(
             controller: reasonCtrl,
             maxLines: 3,
-            decoration: const InputDecoration(hintText: 'Reason (optional)'),
+            decoration:
+                const InputDecoration(hintText: 'Причина (необязательно)'),
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Close')),
+                child: const Text('Закрыть')),
             FilledButton(
               onPressed: () => Navigator.pop(context, reasonCtrl.text.trim()),
-              child: const Text('Cancel order'),
+              child: const Text('Отменить заказ'),
             ),
           ],
         );
@@ -125,7 +126,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           );
       if (!mounted) return;
       setState(() => _detail = response);
-      _showMessage('Order canceled');
+      _showMessage('Заказ отменен');
     } catch (error) {
       _showMessage('$error');
     } finally {
@@ -142,14 +143,14 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     }
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Order details')),
+        appBar: AppBar(title: const Text('Детали заказа')),
         body: Center(child: Text(_error!)),
       );
     }
 
     final detail = _detail;
     if (detail == null) {
-      return const Scaffold(body: Center(child: Text('Order not found')));
+      return const Scaffold(body: Center(child: Text('Заказ не найден')));
     }
 
     final order = detail.order;
@@ -157,7 +158,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order ${order.id}'),
+        title: Text('Заказ ${order.id}'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
@@ -173,7 +174,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
             ),
             child: Row(
               children: [
-                Text('Status: ',
+                Text('Статус: ',
                     style: Theme.of(context).textTheme.titleMedium),
                 Chip(
                   label: Text(status),
@@ -189,36 +190,38 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           ),
           const SizedBox(height: 10),
           Text(
-              'Event: ${order.eventTitle.isEmpty ? order.eventId : order.eventTitle}'),
-          Text('User: ${detail.user?.displayName ?? '#${order.userId}'}'),
-          Text('Payment: ${order.paymentMethod}'),
+              'Событие: ${order.eventTitle.isEmpty ? order.eventId : order.eventTitle}'),
+          Text(
+              'Пользователь: ${detail.user?.displayName ?? '#${order.userId}'}'),
+          Text('Оплата: ${order.paymentMethod}'),
           if (order.paymentReference.trim().isNotEmpty)
-            Text('Payment reference: ${order.paymentReference}'),
+            Text('Референс платежа: ${order.paymentReference}'),
           if (detail.paymentInstructions.paymentQrCId.trim().isNotEmpty)
             Text('SBP qrcId: ${detail.paymentInstructions.paymentQrCId}'),
-          Text('Subtotal: ${formatMoney(order.subtotalCents)}'),
-          Text('Discount: ${formatMoney(order.discountCents)}'),
-          Text('Total: ${formatMoney(order.totalCents)}'),
+          Text('Сумма без скидки: ${formatMoney(order.subtotalCents)}'),
+          Text('Скидка: ${formatMoney(order.discountCents)}'),
+          Text('Итого: ${formatMoney(order.totalCents)}'),
           const SizedBox(height: 12),
-          Text('Items', style: Theme.of(context).textTheme.titleMedium),
+          Text('Позиции', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
           ...detail.items.map(
             (item) => ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('${item.itemType} · ${item.productRef}'),
               subtitle: Text(
-                  'Qty ${item.quantity}  ×  ${formatMoney(item.unitPriceCents)}'),
+                  'Кол-во ${item.quantity}  ×  ${formatMoney(item.unitPriceCents)}'),
               trailing: Text(formatMoney(item.lineTotalCents)),
             ),
           ),
           const SizedBox(height: 12),
-          Text('Tickets', style: Theme.of(context).textTheme.titleMedium),
+          Text('Билеты', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
           ...detail.tickets.map(
             (ticket) => ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('Ticket ${ticket.id}'),
-              subtitle: Text('${ticket.ticketType} · qty ${ticket.quantity}'),
+              title: Text('Билет ${ticket.id}'),
+              subtitle:
+                  Text('${ticket.ticketType} · кол-во ${ticket.quantity}'),
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -247,17 +250,17 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           if (status == 'PENDING') ...[
             FilledButton(
               onPressed: _busy ? null : _confirm,
-              child: Text(_busy ? 'Please wait…' : 'Confirm payment'),
+              child: Text(_busy ? 'Подождите…' : 'Подтвердить оплату'),
             ),
             const SizedBox(height: 8),
-            OutlinedButton(
+            FilledButton.tonal(
               onPressed: _busy ? null : _cancel,
-              child: const Text('Cancel order'),
+              child: const Text('Отменить заказ'),
             ),
           ] else if (status == 'PAID' || status == 'CONFIRMED') ...[
-            OutlinedButton(
+            FilledButton.tonal(
               onPressed: _busy ? null : _cancel,
-              child: const Text('Cancel order'),
+              child: const Text('Отменить заказ'),
             ),
           ],
         ],

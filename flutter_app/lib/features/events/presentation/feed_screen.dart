@@ -49,11 +49,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final featuredCount = state.feed.where((event) => event.isFeatured).length;
 
     return AppScaffold(
-      title: 'Nearby feed',
-      subtitle: 'Landing-style discovery around your current location',
+      title: 'Лента',
       showBackgroundDecor: true,
       titleColor: Colors.white,
-      subtitleColor: Colors.white70,
+      subtitleColor: Colors.white.withValues(alpha: 0.76),
       child: Column(
         children: [
           _FeedHeroPanel(
@@ -106,7 +105,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
-                      'Location denied. Using a default map center.',
+                      'Доступ к геолокации запрещен. Используется центр по умолчанию.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.white.withValues(alpha: 0.86),
                           ),
@@ -123,7 +122,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               child: Row(
                 children: [
                   const AppBadge(
-                    label: 'Error',
+                    label: 'Ошибка',
                     variant: AppBadgeVariant.danger,
                   ),
                   const SizedBox(width: AppSpacing.xs),
@@ -146,10 +145,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               padding: const EdgeInsets.all(AppSpacing.xs),
               child: showLoader
                   ? const PremiumLoadingView(
-                      text: 'NEARBY FEED • LOADING • ',
+                      text: 'ЛЕНТА • ЗАГРУЗКА • ',
                       subtitle: 'Загружаем события рядом',
                     )
                   : AppCard(
+                      variant: AppCardVariant.panel,
                       padding: EdgeInsets.zero,
                       child: RefreshIndicator(
                         onRefresh: () => ref
@@ -209,7 +209,7 @@ class _FeedHeroPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'City Pulse',
+            'События рядом',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Colors.white,
                   letterSpacing: 0.4,
@@ -217,7 +217,7 @@ class _FeedHeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
-            'Подборка ближайших событий с динамикой как на лендинге.',
+            'Быстрый доступ к афише в твоем районе.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: infoTextColor,
                 ),
@@ -227,11 +227,11 @@ class _FeedHeroPanel extends StatelessWidget {
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
             children: [
-              _HeroStatPill(label: 'Events', value: '$feedCount'),
-              _HeroStatPill(label: 'Featured', value: '$featuredCount'),
+              _HeroStatPill(label: 'События', value: '$feedCount'),
+              _HeroStatPill(label: 'Рекомендуемые', value: '$featuredCount'),
               _HeroStatPill(
-                label: 'Mode',
-                value: nearbyOnly ? 'Nearby' : 'All',
+                label: 'Режим',
+                value: nearbyOnly ? 'Рядом' : 'Везде',
               ),
             ],
           ),
@@ -241,19 +241,19 @@ class _FeedHeroPanel extends StatelessWidget {
             runSpacing: AppSpacing.xs,
             children: [
               AppButton(
-                label: 'Location',
+                label: 'Гео',
                 size: AppButtonSize.sm,
                 variant: AppButtonVariant.secondary,
                 icon: const Icon(Icons.my_location_outlined),
-                tooltip: 'Refresh location',
+                tooltip: 'Обновить геопозицию',
                 onPressed: onRefreshLocation,
               ),
               AppButton(
-                label: 'Refresh',
+                label: 'Обновить',
                 size: AppButtonSize.sm,
                 variant: AppButtonVariant.primary,
                 icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'Refresh feed',
+                tooltip: 'Обновить ленту',
                 onPressed: onRefreshFeed,
               ),
             ],
@@ -351,13 +351,13 @@ class _FilterBar extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.xs),
               AppBadge(
-                label: '${activeFilters.length}/$kMaxEventFilters active',
+                label: '${activeFilters.length}/$kMaxEventFilters фильтров',
                 variant: AppBadgeVariant.neutral,
               ),
               const Spacer(),
               if (activeFilters.isNotEmpty || nearbyOnly)
                 AppButton(
-                  label: 'Clear',
+                  label: 'Сбросить',
                   variant: AppButtonVariant.secondary,
                   size: AppButtonSize.sm,
                   onPressed: onClearFilters,
@@ -368,11 +368,13 @@ class _FilterBar extends StatelessWidget {
           Theme(
             data: theme.copyWith(
               chipTheme: theme.chipTheme.copyWith(
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                selectedColor: AppColors.secondary.withValues(alpha: 0.34),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                backgroundColor: Colors.white.withValues(alpha: 0.16),
+                selectedColor: AppColors.secondary.withValues(alpha: 0.52),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.36)),
+                checkmarkColor: Colors.white,
                 labelStyle: theme.textTheme.bodySmall?.copyWith(
                   color: Colors.white,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -382,7 +384,7 @@ class _FilterBar extends StatelessWidget {
                 children: [
                   FilterChip(
                     selected: nearbyOnly,
-                    label: const Text('Nearby 100 km'),
+                    label: const Text('Радиус 100 км'),
                     onSelected: (_) => onToggleNearby(),
                   ),
                   const SizedBox(width: AppSpacing.xs),

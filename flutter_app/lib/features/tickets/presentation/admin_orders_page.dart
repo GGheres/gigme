@@ -46,7 +46,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -87,7 +87,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin orders'),
+        title: const Text('Админ-заказы'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
@@ -107,7 +107,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                 child: TextField(
                   controller: _eventIdCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Event ID'),
+                  decoration: const InputDecoration(labelText: 'ID события'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -115,9 +115,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                 child: DropdownButtonFormField<String>(
                   // ignore: deprecated_member_use
                   value: _status,
-                  decoration: const InputDecoration(labelText: 'Status'),
+                  decoration: const InputDecoration(labelText: 'Статус'),
                   items: const [
-                    DropdownMenuItem(value: '', child: Text('All')),
+                    DropdownMenuItem(value: '', child: Text('Все')),
                     DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
                     DropdownMenuItem(value: 'PAID', child: Text('PAID')),
                     DropdownMenuItem(
@@ -131,7 +131,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton(onPressed: _load, child: const Text('Load')),
+              FilledButton(onPressed: _load, child: const Text('Загрузить')),
             ],
           ),
         ),
@@ -141,7 +141,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
               : (_error != null)
                   ? Center(child: Text(_error!))
                   : items.isEmpty
-                      ? const Center(child: Text('No orders'))
+                      ? const Center(child: Text('Заказов нет'))
                       : ListView.builder(
                           padding: const EdgeInsets.all(12),
                           itemCount: items.length,
@@ -160,10 +160,10 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                                 onTap: () => context
                                     .push(AppRoutes.adminOrderDetail(order.id)),
                                 title: Text(order.eventTitle.isEmpty
-                                    ? 'Event #${order.eventId}'
+                                    ? 'Событие #${order.eventId}'
                                     : order.eventTitle),
                                 subtitle: Text(
-                                    'Order ${order.id}\n${item.user?.displayName ?? 'User #${order.userId}'}'),
+                                    'Заказ ${order.id}\n${item.user?.displayName ?? 'Пользователь #${order.userId}'}'),
                                 trailing: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   mainAxisAlignment: MainAxisAlignment.center,

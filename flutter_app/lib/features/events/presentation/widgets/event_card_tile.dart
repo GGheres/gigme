@@ -38,8 +38,14 @@ class EventCardTile extends StatelessWidget {
     const descriptionMaxLines = isMobileUi ? 3 : 2;
     final startsAt = formatDateTime(event.startsAt);
     final distanceText = _distanceText();
+    const titleTextColor = Colors.white;
+    final secondaryTextColor = Colors.white.withValues(alpha: 0.78);
+    final badgeTextStyle = theme.textTheme.labelSmall?.copyWith(
+      color: Colors.white,
+    );
 
     return AppCard(
+      variant: AppCardVariant.panel,
       onTap: onTap,
       padding: const EdgeInsets.all(cardPadding),
       child: Row(
@@ -63,18 +69,21 @@ class EventCardTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         event.title,
-                        style: titleStyle,
+                        style: titleStyle?.copyWith(color: titleTextColor),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (event.isFeatured) ...[
                       const SizedBox(width: AppSpacing.xs),
-                      const AppBadge(
+                      AppBadge(
                         label: 'Featured',
                         variant: AppBadgeVariant.accent,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        textStyle: badgeTextStyle,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                       ),
                     ],
                   ],
@@ -82,16 +91,18 @@ class EventCardTile extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   startsAt,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.textSecondary),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: secondaryTextColor,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   event.description,
                   maxLines: descriptionMaxLines,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.textSecondary),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: secondaryTextColor,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Wrap(
@@ -100,20 +111,24 @@ class EventCardTile extends StatelessWidget {
                   children: [
                     AppBadge(
                       label: '${event.participantsCount} going',
-                      variant: AppBadgeVariant.ghost,
+                      variant: AppBadgeVariant.info,
+                      textStyle: badgeTextStyle,
                     ),
                     AppBadge(
                       label: '${event.likesCount} likes',
-                      variant: AppBadgeVariant.ghost,
+                      variant: AppBadgeVariant.info,
+                      textStyle: badgeTextStyle,
                     ),
                     AppBadge(
                       label: '${event.commentsCount} comments',
-                      variant: AppBadgeVariant.ghost,
+                      variant: AppBadgeVariant.info,
+                      textStyle: badgeTextStyle,
                     ),
                     if (distanceText != null)
                       AppBadge(
                         label: distanceText,
-                        variant: AppBadgeVariant.info,
+                        variant: AppBadgeVariant.success,
+                        textStyle: badgeTextStyle,
                       ),
                   ],
                 ),
@@ -225,9 +240,12 @@ class _PlaceholderImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surfaceMuted,
+      color: const Color(0xFF1A2643),
       alignment: Alignment.center,
-      child: const Icon(Icons.image_not_supported_outlined),
+      child: const Icon(
+        Icons.image_not_supported_outlined,
+        color: Colors.white70,
+      ),
     );
   }
 }

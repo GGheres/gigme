@@ -53,7 +53,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -90,7 +90,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
     final code = _codeCtrl.text.trim();
     final value = int.tryParse(_valueCtrl.text.trim()) ?? -1;
     if (token.isEmpty || code.isEmpty || value < 0) {
-      _showMessage('Code and valid value are required');
+      _showMessage('Нужны код и корректное значение скидки');
       return;
     }
 
@@ -111,7 +111,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                 : _activeToCtrl.text.trim(),
             isActive: true,
           );
-      _showMessage('Promo created');
+      _showMessage('Промокод создан');
       _codeCtrl.clear();
       await _load();
     } catch (error) {
@@ -141,7 +141,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin promo codes'),
+        title: const Text('Админ-промокоды'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
         ],
@@ -161,7 +161,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                   controller: _eventIdCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                      labelText: 'Event ID (optional scope/filter)'),
+                      labelText: 'ID события (необязательный фильтр)'),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -169,7 +169,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                     Expanded(
                       child: TextField(
                         controller: _codeCtrl,
-                        decoration: const InputDecoration(labelText: 'Code'),
+                        decoration: const InputDecoration(labelText: 'Код'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -186,7 +186,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                         onChanged: (value) =>
                             setState(() => _discountType = value ?? 'PERCENT'),
                         decoration:
-                            const InputDecoration(labelText: 'Discount type'),
+                            const InputDecoration(labelText: 'Тип скидки'),
                       ),
                     ),
                   ],
@@ -198,7 +198,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                       child: TextField(
                         controller: _valueCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Value'),
+                        decoration:
+                            const InputDecoration(labelText: 'Значение'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -206,8 +207,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                       child: TextField(
                         controller: _usageLimitCtrl,
                         keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: 'Usage limit'),
+                        decoration: const InputDecoration(
+                            labelText: 'Лимит использований'),
                       ),
                     ),
                   ],
@@ -215,14 +216,14 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _activeFromCtrl,
-                  decoration: const InputDecoration(
-                      labelText: 'Active from (ISO-8601)'),
+                  decoration:
+                      const InputDecoration(labelText: 'Активен с (ISO-8601)'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _activeToCtrl,
                   decoration:
-                      const InputDecoration(labelText: 'Active to (ISO-8601)'),
+                      const InputDecoration(labelText: 'Активен до (ISO-8601)'),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -230,7 +231,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                     Expanded(
                       child: FilledButton(
                         onPressed: _busy ? null : _createPromo,
-                        child: Text(_busy ? 'Please wait…' : 'Create promo'),
+                        child: Text(_busy ? 'Подождите…' : 'Создать промокод'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -242,17 +243,19 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                             onChanged: (value) =>
                                 setState(() => _activeOnly = value ?? false),
                           ),
-                          const Expanded(child: Text('Active only')),
+                          const Expanded(child: Text('Только активные')),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton(
-                    onPressed: _load, child: const Text('Reload list')),
+                FilledButton.tonal(
+                  onPressed: _load,
+                  child: const Text('Обновить список'),
+                ),
                 const SizedBox(height: 14),
-                Text('Promo codes (${_items.length})',
+                Text('Промокоды (${_items.length})',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 ..._items.map(
@@ -261,7 +264,7 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
                       title: Text(
                           '${item.code} · ${item.discountType} ${item.value}'),
                       subtitle: Text(
-                        'Used ${item.usedCount}/${item.usageLimit ?? '∞'} · Event ${item.eventId ?? 'ALL'} · Active ${item.isActive}',
+                        'Использовано ${item.usedCount}/${item.usageLimit ?? '∞'} · Событие ${item.eventId ?? 'ALL'} · Активен: ${item.isActive}',
                       ),
                       trailing: IconButton(
                         onPressed: _busy ? null : () => _deletePromo(item.id),
