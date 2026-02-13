@@ -535,7 +535,6 @@ class _LandingForeground extends StatelessWidget {
                 total: total,
                 apiUrl: apiUrl,
                 onOpenEvent: onOpenEvent,
-                onBuy: onBuy,
                 onShowEventDetails: onShowEventDetails,
                 onOpenTelegram: onOpenTelegram,
                 onOpenEmail: onOpenEmail,
@@ -971,7 +970,6 @@ class _PartnersContactsSection extends StatelessWidget {
     required this.total,
     required this.apiUrl,
     required this.onOpenEvent,
-    required this.onBuy,
     required this.onShowEventDetails,
     required this.onOpenTelegram,
     required this.onOpenEmail,
@@ -984,7 +982,6 @@ class _PartnersContactsSection extends StatelessWidget {
   final int total;
   final String apiUrl;
   final ValueChanged<LandingEvent> onOpenEvent;
-  final ValueChanged<LandingEvent> onBuy;
   final ValueChanged<LandingEvent> onShowEventDetails;
   final VoidCallback onOpenTelegram;
   final VoidCallback onOpenEmail;
@@ -1075,7 +1072,6 @@ class _PartnersContactsSection extends StatelessWidget {
                 event: event,
                 apiUrl: apiUrl,
                 onOpenEvent: () => onOpenEvent(event),
-                onBuy: () => onBuy(event),
                 onShowDetails: () => onShowEventDetails(event),
               ),
             ),
@@ -1101,14 +1097,12 @@ class _LandingEventCompactCard extends StatelessWidget {
     required this.event,
     required this.apiUrl,
     required this.onOpenEvent,
-    required this.onBuy,
     required this.onShowDetails,
   });
 
   final LandingEvent event;
   final String apiUrl;
   final VoidCallback onOpenEvent;
-  final VoidCallback onBuy;
   final VoidCallback onShowDetails;
 
   @override
@@ -1236,13 +1230,6 @@ class _LandingEventCompactCard extends StatelessWidget {
                   size: AppButtonSize.sm,
                   icon: const Icon(Icons.info_outline_rounded),
                   onPressed: onShowDetails,
-                ),
-                AppButton(
-                  label: 'Билет',
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.sm,
-                  icon: const Icon(Icons.confirmation_number_outlined),
-                  onPressed: onBuy,
                 ),
                 AppButton(
                   label: 'Открыть в app',
