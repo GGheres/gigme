@@ -13,7 +13,6 @@ import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
-import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/data/ticketing_repository.dart';
@@ -155,11 +154,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         ],
       ),
       body: _loading
-          ? const PremiumLoadingView(
-              blackBackdrop: true,
-              text: 'EVENT DETAILS • LOADING • ',
-              subtitle: 'Загружаем карточку события',
-            )
+          ? const SizedBox.shrink()
           : (_error != null)
               ? Center(child: Text(_error!))
               : (detail == null)

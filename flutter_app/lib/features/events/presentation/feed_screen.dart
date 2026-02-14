@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
 import '../../../core/network/providers.dart';
-import '../../../core/widgets/premium_loading_view.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_card.dart';
@@ -45,8 +44,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     }
 
     final state = events.state;
-    final showLoader = state.loading && state.feed.isEmpty;
-
     return AppScaffold(
       title: 'Лента Событий',
       subtitle: 'Исследуй, создавай, присоединяйся.',
@@ -128,38 +125,32 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             child: AppCard(
               variant: AppCardVariant.panel,
               padding: const EdgeInsets.all(AppSpacing.xs),
-              child: showLoader
-                  ? const PremiumLoadingView(
-                      blackBackdrop: true,
-                      text: 'ЛЕНТА • ЗАГРУЗКА • ',
-                      subtitle: 'Загружаем события рядом',
-                    )
-                  : AppCard(
-                      variant: AppCardVariant.panel,
-                      padding: EdgeInsets.zero,
-                      child: RefreshIndicator(
-                        onRefresh: () => ref
-                            .read(eventsControllerProvider)
-                            .refresh(center: location.state.center),
-                        child: FeedList(
-                          items: state.feed,
-                          referencePoint: location.state.userLocation,
-                          apiUrl: config.apiUrl,
-                          eventAccessKeys: events.eventAccessKeys,
-                          onTap: (event) {
-                            final key = events.accessKeyFor(event.id,
-                                fallback: event.accessKey);
-                            final uri = Uri(
-                              path: AppRoutes.event(event.id),
-                              queryParameters: {
-                                if (key.isNotEmpty) 'key': key,
-                              },
-                            );
-                            context.push(uri.toString());
-                          },
-                        ),
-                      ),
-                    ),
+              child: AppCard(
+                variant: AppCardVariant.panel,
+                padding: EdgeInsets.zero,
+                child: RefreshIndicator(
+                  onRefresh: () => ref
+                      .read(eventsControllerProvider)
+                      .refresh(center: location.state.center),
+                  child: FeedList(
+                    items: state.feed,
+                    referencePoint: location.state.userLocation,
+                    apiUrl: config.apiUrl,
+                    eventAccessKeys: events.eventAccessKeys,
+                    onTap: (event) {
+                      final key = events.accessKeyFor(event.id,
+                          fallback: event.accessKey);
+                      final uri = Uri(
+                        path: AppRoutes.event(event.id),
+                        queryParameters: {
+                          if (key.isNotEmpty) 'key': key,
+                        },
+                      );
+                      context.push(uri.toString());
+                    },
+                  ),
+                ),
+              ),
             ),
           ),
         ],

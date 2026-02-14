@@ -10,7 +10,6 @@ import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
-import '../../../core/widgets/premium_loading_view.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
 import '../../../ui/components/app_text_field.dart';
@@ -72,11 +71,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
       body: state.loading && state.user == null
-          ? const PremiumLoadingView(
-              blackBackdrop: true,
-              text: 'PROFILE • LOADING • ',
-              subtitle: 'Загружаем профиль',
-            )
+          ? const SizedBox.shrink()
           : RefreshIndicator(
               onRefresh: () => ref.read(profileControllerProvider).load(),
               child: ListView(

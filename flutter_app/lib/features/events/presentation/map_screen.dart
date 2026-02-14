@@ -10,7 +10,6 @@ import '../../../app/routes.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_card.dart';
-import '../../../ui/components/app_states.dart';
 import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
@@ -148,20 +147,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ],
                     ),
-                    if (state.loading)
-                      const Positioned(
-                        top: 12,
-                        right: 12,
-                        left: 12,
-                        child: AppCard(
-                          variant: AppCardVariant.surface,
-                          child: LoadingState(
-                            compact: true,
-                            title: 'Загрузка',
-                            subtitle: 'Обновляем карту',
-                          ),
-                        ),
-                      ),
                     if ((state.error ?? '').isNotEmpty)
                       Positioned(
                         left: 12,
