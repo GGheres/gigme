@@ -120,6 +120,9 @@ class _AppBottomDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -139,11 +142,17 @@ class _AppBottomDock extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: <Color>[
-                    AppColors.surfaceStrong.withValues(alpha: 0.9),
-                    AppColors.surface.withValues(alpha: 0.86),
+                    (isDark ? AppColors.darkSurfaceStrong : AppColors.surfaceStrong)
+                        .withValues(alpha: isDark ? 0.92 : 0.9),
+                    (isDark ? AppColors.darkSurface : AppColors.surface)
+                        .withValues(alpha: isDark ? 0.9 : 0.86),
                   ],
                 ),
-                border: Border.all(color: AppColors.borderStrong),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(
+                    alpha: isDark ? 0.8 : 1,
+                  ),
+                ),
                 borderRadius: BorderRadius.circular(AppRadii.xxl),
               ),
               child: NavigationBar(
@@ -181,13 +190,18 @@ class _AppNavigationRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: 96,
       margin: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.xxl),
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.66),
-        border: Border.all(color: AppColors.borderStrong),
+        color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 0.66),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: isDark ? 0.8 : 1),
+        ),
       ),
       child: NavigationRail(
         selectedIndex: selectedIndex,

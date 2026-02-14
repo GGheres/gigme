@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -69,7 +70,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.landing,
-        builder: (context, state) => const LandingScreen(),
+        pageBuilder: (context, state) =>
+            _noTransitionPage(state, const LandingScreen()),
       ),
       GoRoute(
         path: AppRoutes.appRoot,
@@ -83,17 +85,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.auth,
-        builder: (context, state) => const AuthScreen(),
+        pageBuilder: (context, state) =>
+            _noTransitionPage(state, const AuthScreen()),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AppShell(navigationShell: navigationShell),
+        pageBuilder: (context, state, navigationShell) => _noTransitionPage(
+          state,
+          AppShell(navigationShell: navigationShell),
+        ),
         branches: [
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppRoutes.feed,
-                builder: (context, state) => const FeedScreen(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const FeedScreen()),
               ),
             ],
           ),
@@ -101,7 +107,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.map,
-                builder: (context, state) => const MapScreen(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const MapScreen()),
               ),
             ],
           ),
@@ -109,7 +116,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.create,
-                builder: (context, state) => const CreateEventScreen(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const CreateEventScreen()),
               ),
             ],
           ),
@@ -117,45 +125,57 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.profile,
-                builder: (context, state) => const ProfileScreen(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const ProfileScreen()),
               ),
               GoRoute(
                 path: AppRoutes.uiPreview,
-                builder: (context, state) => const UiPreviewScreen(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const UiPreviewScreen()),
               ),
               GoRoute(
                 path: AppRoutes.myTickets,
-                builder: (context, state) => const MyTicketsPage(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const MyTicketsPage()),
               ),
               GoRoute(
                 path: AppRoutes.admin,
-                builder: (context, state) => const AdminScreen(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminScreen()),
               ),
               GoRoute(
                 path: AppRoutes.adminOrders,
-                builder: (context, state) => const AdminOrdersPage(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminOrdersPage()),
               ),
               GoRoute(
                 path: '/space_app/admin/orders/:id',
-                builder: (context, state) => AdminOrderDetailPage(
-                  orderId: state.pathParameters['id'] ?? '',
+                pageBuilder: (context, state) => _noTransitionPage(
+                  state,
+                  AdminOrderDetailPage(
+                    orderId: state.pathParameters['id'] ?? '',
+                  ),
                 ),
               ),
               GoRoute(
                 path: AppRoutes.adminScanner,
-                builder: (context, state) => const AdminQrScannerPage(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminQrScannerPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminProducts,
-                builder: (context, state) => const AdminProductsPage(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminProductsPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminPromos,
-                builder: (context, state) => const AdminPromoCodesPage(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminPromoCodesPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminStats,
-                builder: (context, state) => const AdminStatsPage(),
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminStatsPage()),
               ),
             ],
           ),
@@ -163,23 +183,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/space_app/event/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final eventId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-          return EventDetailsScreen(
-            eventId: eventId,
-            eventKey: state.uri.queryParameters['key'] ??
-                state.uri.queryParameters['eventKey'],
+          return _noTransitionPage(
+            state,
+            EventDetailsScreen(
+              eventId: eventId,
+              eventKey: state.uri.queryParameters['key'] ??
+                  state.uri.queryParameters['eventKey'],
+            ),
           );
         },
       ),
       GoRoute(
         path: '/space_app/admin/event/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final eventId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-          return EventDetailsScreen(
-            eventId: eventId,
-            eventKey: state.uri.queryParameters['key'] ??
-                state.uri.queryParameters['eventKey'],
+          return _noTransitionPage(
+            state,
+            EventDetailsScreen(
+              eventId: eventId,
+              eventKey: state.uri.queryParameters['key'] ??
+                  state.uri.queryParameters['eventKey'],
+            ),
           );
         },
       ),
@@ -231,4 +257,14 @@ String? _normalizeAppLocation(Uri uri) {
     out = '$out#${uri.fragment}';
   }
   return out;
+}
+
+Page<void> _noTransitionPage(
+  GoRouterState state,
+  Widget child,
+) {
+  return NoTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+  );
 }

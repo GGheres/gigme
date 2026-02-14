@@ -44,6 +44,10 @@ ThemeData buildAppTheme({
       isDark ? AppColors.darkBorderStrong : AppColors.borderStrong;
   final outlineButtonForeground =
       isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  final navUnselectedColor = isDark
+      ? AppColors.darkTextPrimary.withValues(alpha: 0.78)
+      : textSecondary.withValues(alpha: 0.86);
+  final navSelectedColor = isDark ? AppColors.darkTextPrimary : textPrimary;
 
   return base.copyWith(
     appBarTheme: AppBarTheme(
@@ -154,6 +158,18 @@ ThemeData buildAppTheme({
       elevation: 0,
       shadowColor: Colors.transparent,
     ),
+    tabBarTheme: TabBarThemeData(
+      labelColor: navSelectedColor,
+      unselectedLabelColor: navUnselectedColor,
+      indicatorColor: colorScheme.primary,
+      dividerColor: borderStrong,
+      labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      unselectedLabelStyle:
+          textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+      overlayColor: WidgetStateProperty.all(
+        colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.1),
+      ),
+    ),
     navigationBarTheme: NavigationBarThemeData(
       height: 72,
       elevation: 0,
@@ -161,19 +177,19 @@ ThemeData buildAppTheme({
       labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
         final selected = states.contains(WidgetState.selected);
         return textTheme.labelSmall?.copyWith(
-          color: selected ? textPrimary : textSecondary,
+          color: selected ? navSelectedColor : navUnselectedColor,
         );
       }),
       iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
         if (states.contains(WidgetState.selected)) {
-          return IconThemeData(color: colorScheme.primary);
+          return IconThemeData(color: navSelectedColor);
         }
-        return IconThemeData(color: textSecondary.withValues(alpha: 0.86));
+        return IconThemeData(color: navUnselectedColor);
       }),
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.pill),
       ),
-      indicatorColor: colorScheme.primary.withValues(alpha: 0.16),
+      indicatorColor: colorScheme.primary.withValues(alpha: isDark ? 0.26 : 0.16),
     ),
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: Colors.transparent,
