@@ -668,7 +668,7 @@ class PurchaseStatusPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: statusTint(order.status),
+              color: statusTint(order.status, context),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

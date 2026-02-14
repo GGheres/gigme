@@ -169,7 +169,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: statusTint(status),
+              color: statusTint(status, context),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

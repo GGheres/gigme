@@ -798,8 +798,6 @@ class _HeroSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             description,
-            maxLines: 5,
-            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
                 ),

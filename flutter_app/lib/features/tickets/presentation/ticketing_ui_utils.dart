@@ -26,7 +26,25 @@ Color statusColor(String status, BuildContext context) {
   }
 }
 
-Color statusTint(String status) {
+Color statusTint(String status, BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  if (isDark) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return const Color(0xFF5E4A13);
+      case 'PAID':
+      case 'CONFIRMED':
+        return const Color(0xFF1F4D2B);
+      case 'CANCELED':
+        return const Color(0xFF5C2025);
+      case 'REDEEMED':
+        return const Color(0xFF24465A);
+      default:
+        return const Color(0xFF2B3445);
+    }
+  }
+
   switch (status.toUpperCase()) {
     case 'PENDING':
       return const Color(0xFFFFF8E1);
