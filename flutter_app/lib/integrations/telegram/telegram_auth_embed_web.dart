@@ -38,6 +38,7 @@ class _TelegramAuthEmbedFrame extends StatefulWidget {
 class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
   late final String _viewType;
   late final html.IFrameElement _iframe;
+  late final String _expectedOrigin;
   StreamSubscription<html.MessageEvent>? _messageSub;
   bool _completed = false;
 
@@ -58,6 +59,7 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
         'sandbox',
         'allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts',
       );
+    _expectedOrigin = frameUri.origin;
 
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
@@ -81,8 +83,11 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
 
   void _handleMessage(html.MessageEvent event) {
     if (_completed || !mounted) return;
-    if (event.origin != Uri.base.origin) return;
-    if (event.source != _iframe.contentWindow) return;
+    if (event.origin.isNotEmpty &&
+        event.origin != 'null' &&
+        event.origin != _expectedOrigin) {
+      return;
+    }
 
     final initData = _parseInitDataFromMessage(event.data);
     if (initData == null) return;
@@ -114,6 +119,18 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
       }
     } else if (messageData is Map) {
       payload = messageData.map((key, value) => MapEntry('$key', value));
+    } else {
+      final serialized = '$messageData'.trim();
+      if (serialized.startsWith('{') && serialized.endsWith('}')) {
+        try {
+          final decoded = jsonDecode(serialized);
+          if (decoded is Map<String, dynamic>) {
+            payload = decoded;
+          }
+        } catch (_) {
+          return null;
+        }
+      }
     }
 
     if (payload == null) return null;

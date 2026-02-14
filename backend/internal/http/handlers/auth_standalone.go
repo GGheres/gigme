@@ -234,6 +234,11 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         if (!isEmbedded) return false;
         if (!window.parent || window.parent === window) return false;
 
+        const payload = JSON.stringify({
+          type: 'space.telegram.auth',
+          initData: initData,
+        });
+
         let targetOrigin = window.location.origin;
         if (redirectUriParam) {
           try {
@@ -242,10 +247,10 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         }
 
         try {
-          window.parent.postMessage(JSON.stringify({
-            type: 'space.telegram.auth',
-            initData: initData,
-          }), targetOrigin);
+          window.parent.postMessage(payload, targetOrigin);
+          if (targetOrigin !== '*') {
+            window.parent.postMessage(payload, '*');
+          }
           setStatus('Authorized. Returning to app…', false);
           return true;
         } catch (_) {
