@@ -168,6 +168,10 @@ type PaymentSettings struct {
 	USDTNetwork      string     `json:"usdtNetwork"`
 	USDTMemo         string     `json:"usdtMemo"`
 	PaymentQRData    string     `json:"paymentQrData"`
+	PhoneEnabled     bool       `json:"phoneEnabled"`
+	USDTEnabled      bool       `json:"usdtEnabled"`
+	PaymentQREnabled bool       `json:"paymentQrEnabled"`
+	SBPEnabled       bool       `json:"sbpEnabled"`
 	PhoneDescription string     `json:"phoneDescription"`
 	USDTDescription  string     `json:"usdtDescription"`
 	QRDescription    string     `json:"qrDescription"`
@@ -183,6 +187,10 @@ type PaymentSettingsPatch struct {
 	USDTNetwork      *string `json:"usdtNetwork,omitempty"`
 	USDTMemo         *string `json:"usdtMemo,omitempty"`
 	PaymentQRData    *string `json:"paymentQrData,omitempty"`
+	PhoneEnabled     *bool   `json:"phoneEnabled,omitempty"`
+	USDTEnabled      *bool   `json:"usdtEnabled,omitempty"`
+	PaymentQREnabled *bool   `json:"paymentQrEnabled,omitempty"`
+	SBPEnabled       *bool   `json:"sbpEnabled,omitempty"`
 	PhoneDescription *string `json:"phoneDescription,omitempty"`
 	USDTDescription  *string `json:"usdtDescription,omitempty"`
 	QRDescription    *string `json:"qrDescription,omitempty"`

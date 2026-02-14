@@ -56,8 +56,12 @@ func TestMergePaymentSettingsDefaultsNetwork(t *testing.T) {
 	t.Parallel()
 
 	current := models.PaymentSettings{
-		PhoneNumber: "1",
-		USDTNetwork: "TRC20",
+		PhoneNumber:      "1",
+		USDTNetwork:      "TRC20",
+		PhoneEnabled:     true,
+		USDTEnabled:      true,
+		PaymentQREnabled: true,
+		SBPEnabled:       true,
 	}
 	empty := ""
 	merged := mergePaymentSettings(current, upsertPaymentSettingsRequest{
@@ -65,5 +69,57 @@ func TestMergePaymentSettingsDefaultsNetwork(t *testing.T) {
 	})
 	if merged.USDTNetwork != "TRC20" {
 		t.Fatalf("USDTNetwork = %q, want TRC20", merged.USDTNetwork)
+	}
+}
+
+func TestMergePaymentSettingsUpdatesMethodVisibility(t *testing.T) {
+	t.Parallel()
+
+	current := models.PaymentSettings{
+		PhoneEnabled:     true,
+		USDTEnabled:      true,
+		PaymentQREnabled: true,
+		SBPEnabled:       true,
+	}
+	disable := false
+	merged := mergePaymentSettings(current, upsertPaymentSettingsRequest{
+		PhoneEnabled:     &disable,
+		PaymentQREnabled: &disable,
+	})
+	if merged.PhoneEnabled {
+		t.Fatal("PhoneEnabled should be false")
+	}
+	if merged.PaymentQREnabled {
+		t.Fatal("PaymentQREnabled should be false")
+	}
+	if !merged.USDTEnabled {
+		t.Fatal("USDTEnabled should remain true")
+	}
+	if !merged.SBPEnabled {
+		t.Fatal("SBPEnabled should remain true")
+	}
+}
+
+func TestIsPaymentMethodEnabled(t *testing.T) {
+	t.Parallel()
+
+	settings := models.PaymentSettings{
+		PhoneEnabled:     true,
+		USDTEnabled:      false,
+		PaymentQREnabled: true,
+		SBPEnabled:       false,
+	}
+
+	if !isPaymentMethodEnabled(models.PaymentMethodPhone, settings) {
+		t.Fatal("phone method should be enabled")
+	}
+	if isPaymentMethodEnabled(models.PaymentMethodUSDT, settings) {
+		t.Fatal("USDT method should be disabled")
+	}
+	if !isPaymentMethodEnabled(models.PaymentMethodQR, settings) {
+		t.Fatal("QR method should be enabled")
+	}
+	if isPaymentMethodEnabled(models.PaymentMethodTochkaSBPQR, settings) {
+		t.Fatal("SBP method should be disabled")
 	}
 }

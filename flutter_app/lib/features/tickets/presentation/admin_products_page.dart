@@ -49,6 +49,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   String? _error;
   List<TicketProductModel> _ticketProducts = <TicketProductModel>[];
   List<TransferProductModel> _transferProducts = <TransferProductModel>[];
+  bool _phoneEnabled = true;
+  bool _usdtEnabled = true;
+  bool _paymentQrEnabled = true;
+  bool _sbpEnabled = true;
 
   @override
   void initState() {
@@ -218,6 +222,53 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  Future<void> _toggleTicketProductVisibility(TicketProductModel item) async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(ticketingRepositoryProvider).patchAdminTicketProduct(
+            token: token,
+            productId: item.id,
+            isActive: !item.isActive,
+          );
+      _showMessage(
+        !item.isActive
+            ? 'Билетный продукт снова в показе'
+            : 'Билетный продукт скрыт',
+      );
+      await _load();
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _toggleTransferProductVisibility(
+      TransferProductModel item) async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(ticketingRepositoryProvider).patchAdminTransferProduct(
+            token: token,
+            productId: item.id,
+            isActive: !item.isActive,
+          );
+      _showMessage(
+        !item.isActive
+            ? 'Трансферный продукт снова в показе'
+            : 'Трансферный продукт скрыт',
+      );
+      await _load();
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _savePaymentSettings() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
@@ -232,6 +283,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             usdtNetwork: _paymentUsdtNetworkCtrl.text,
             usdtMemo: _paymentUsdtMemoCtrl.text,
             paymentQrData: _paymentQrDataCtrl.text,
+            phoneEnabled: _phoneEnabled,
+            usdtEnabled: _usdtEnabled,
+            paymentQrEnabled: _paymentQrEnabled,
+            sbpEnabled: _sbpEnabled,
             phoneDescription: _phoneDescriptionCtrl.text,
             usdtDescription: _usdtDescriptionCtrl.text,
             qrDescription: _qrDescriptionCtrl.text,
@@ -287,6 +342,39 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 10),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _phoneEnabled,
+                  title: const Text('Показывать оплату по номеру'),
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _phoneEnabled = value),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _usdtEnabled,
+                  title: const Text('Показывать оплату USDT'),
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _usdtEnabled = value),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _paymentQrEnabled,
+                  title: const Text('Показывать оплату по QR'),
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _paymentQrEnabled = value),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _sbpEnabled,
+                  title: const Text('Показывать оплату СБП (Точка)'),
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _sbpEnabled = value),
+                ),
+                const SizedBox(height: 6),
                 TextField(
                   controller: _paymentPhoneCtrl,
                   decoration: const InputDecoration(
@@ -507,11 +595,27 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             child: ListTile(
               title: Text('${item.label} · ${formatMoney(item.priceCents)}'),
               subtitle: Text(
-                'Event ${item.eventId} · code ${item.type} · sold ${item.soldCount} · active ${item.isActive}',
+                'Event ${item.eventId} · code ${item.type} · sold ${item.soldCount} · ${item.isActive ? 'visible' : 'hidden'}',
               ),
-              trailing: IconButton(
-                onPressed: _busy ? null : () => _deleteTicketProduct(item.id),
-                icon: const Icon(Icons.delete_outline),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _toggleTicketProductVisibility(item),
+                    icon: Icon(
+                      item.isActive
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed:
+                        _busy ? null : () => _deleteTicketProduct(item.id),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
               ),
             ),
           ),
@@ -527,11 +631,27 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             child: ListTile(
               title: Text('${item.label} · ${formatMoney(item.priceCents)}'),
               subtitle: Text(
-                'Event ${item.eventId} · code ${item.direction} · ${item.infoLabel} · active ${item.isActive}',
+                'Event ${item.eventId} · code ${item.direction} · ${item.infoLabel} · ${item.isActive ? 'visible' : 'hidden'}',
               ),
-              trailing: IconButton(
-                onPressed: _busy ? null : () => _deleteTransferProduct(item.id),
-                icon: const Icon(Icons.delete_outline),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _toggleTransferProductVisibility(item),
+                    icon: Icon(
+                      item.isActive
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed:
+                        _busy ? null : () => _deleteTransferProduct(item.id),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
               ),
             ),
           ),
@@ -553,6 +673,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         settings.usdtNetwork.trim().isEmpty ? 'TRC20' : settings.usdtNetwork;
     _paymentUsdtMemoCtrl.text = settings.usdtMemo;
     _paymentQrDataCtrl.text = settings.paymentQrData;
+    _phoneEnabled = settings.phoneEnabled;
+    _usdtEnabled = settings.usdtEnabled;
+    _paymentQrEnabled = settings.paymentQrEnabled;
+    _sbpEnabled = settings.sbpEnabled;
     _phoneDescriptionCtrl.text = settings.phoneDescription;
     _usdtDescriptionCtrl.text = settings.usdtDescription;
     _qrDescriptionCtrl.text = settings.qrDescription;

@@ -246,6 +246,21 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  Future<void> setFeedPriorityAsAdmin({
+    required int eventId,
+    required bool enabled,
+  }) async {
+    final token = _token;
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
+    await repository.setFeedPriorityAsAdmin(
+      token: token,
+      eventId: eventId,
+      enabled: enabled,
+    );
+  }
+
   Future<List<EventComment>> loadComments({
     required int eventId,
     String? accessKey,

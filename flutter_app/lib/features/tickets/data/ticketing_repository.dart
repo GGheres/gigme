@@ -114,6 +114,10 @@ class TicketingRepository {
     String? usdtNetwork,
     String? usdtMemo,
     String? paymentQrData,
+    bool? phoneEnabled,
+    bool? usdtEnabled,
+    bool? paymentQrEnabled,
+    bool? sbpEnabled,
     String? phoneDescription,
     String? usdtDescription,
     String? qrDescription,
@@ -128,6 +132,10 @@ class TicketingRepository {
             if (usdtNetwork != null) 'usdtNetwork': usdtNetwork.trim(),
             if (usdtMemo != null) 'usdtMemo': usdtMemo.trim(),
             if (paymentQrData != null) 'paymentQrData': paymentQrData.trim(),
+            if (phoneEnabled != null) 'phoneEnabled': phoneEnabled,
+            if (usdtEnabled != null) 'usdtEnabled': usdtEnabled,
+            if (paymentQrEnabled != null) 'paymentQrEnabled': paymentQrEnabled,
+            if (sbpEnabled != null) 'sbpEnabled': sbpEnabled,
             if (phoneDescription != null)
               'phoneDescription': phoneDescription.trim(),
             if (usdtDescription != null)

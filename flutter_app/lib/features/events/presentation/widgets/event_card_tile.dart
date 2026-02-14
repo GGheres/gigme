@@ -31,12 +31,23 @@ class EventCardTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isBestEvent = event.isFeatured;
     const isMobileUi = !kIsWeb;
-    const cardPadding = isMobileUi ? AppSpacing.md : AppSpacing.sm;
-    const mediaSize = isMobileUi ? 142.0 : 110.0;
-    final titleStyle =
-        isMobileUi ? theme.textTheme.titleLarge : theme.textTheme.titleMedium;
-    const descriptionMaxLines = isMobileUi ? 3 : 2;
+    final cardPadding = isMobileUi
+        ? (isBestEvent ? AppSpacing.lg : AppSpacing.md)
+        : (isBestEvent ? AppSpacing.md : AppSpacing.sm);
+    final mediaSize = isMobileUi
+        ? (isBestEvent ? 164.0 : 142.0)
+        : (isBestEvent ? 128.0 : 110.0);
+    final titleStyle = isBestEvent
+        ? (isMobileUi
+            ? theme.textTheme.headlineSmall
+            : theme.textTheme.titleLarge)
+        : (isMobileUi
+            ? theme.textTheme.titleLarge
+            : theme.textTheme.titleMedium);
+    final descriptionMaxLines =
+        isBestEvent ? (isMobileUi ? 4 : 3) : (isMobileUi ? 3 : 2);
     final startsAt = formatDateTime(event.startsAt);
     final distanceText = _distanceText();
     final titleTextColor =
@@ -46,11 +57,10 @@ class EventCardTile extends StatelessWidget {
     final badgeTextStyle = theme.textTheme.labelSmall?.copyWith(
       color: titleTextColor,
     );
-
-    return AppCard(
-      variant: AppCardVariant.panel,
+    final contentCard = AppCard(
+      variant: isBestEvent ? AppCardVariant.surface : AppCardVariant.panel,
       onTap: onTap,
-      padding: const EdgeInsets.all(cardPadding),
+      padding: EdgeInsets.all(cardPadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -66,30 +76,29 @@ class EventCardTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        event.title,
-                        style: titleStyle?.copyWith(color: titleTextColor),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                if (isBestEvent) ...[
+                  AppBadge(
+                    label: 'ЛУЧШЕЕ СОБЫТИЕ',
+                    variant: AppBadgeVariant.accent,
+                    textStyle: badgeTextStyle?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
                     ),
-                    if (event.isFeatured) ...[
-                      const SizedBox(width: AppSpacing.xs),
-                      AppBadge(
-                        label: 'Рекомендуем',
-                        variant: AppBadgeVariant.accent,
-                        textStyle: badgeTextStyle,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                      ),
-                    ],
-                  ],
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
+                Text(
+                  event.title,
+                  style: titleStyle?.copyWith(
+                    color: titleTextColor,
+                    fontWeight: isBestEvent ? FontWeight.w700 : null,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
@@ -139,6 +148,44 @@ class EventCardTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+
+    if (!isBestEvent) return contentCard;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.xl + 2),
+        gradient: isDark
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  Color(0xFF214C9A),
+                  Color(0xFF123061),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  Color(0xFFFFF8D9),
+                  Color(0xFFFFEEC2),
+                ],
+              ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? AppColors.secondary.withValues(alpha: 0.36)
+                : AppColors.warning.withValues(alpha: 0.28),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(1.5),
+        child: contentCard,
       ),
     );
   }

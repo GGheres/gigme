@@ -245,6 +245,10 @@ class PaymentSettingsModel {
       usdtNetwork: asString(map['usdtNetwork']),
       usdtMemo: asString(map['usdtMemo']),
       paymentQrData: asString(map['paymentQrData']),
+      phoneEnabled: asBool(map['phoneEnabled'], fallback: true),
+      usdtEnabled: asBool(map['usdtEnabled'], fallback: true),
+      paymentQrEnabled: asBool(map['paymentQrEnabled'], fallback: true),
+      sbpEnabled: asBool(map['sbpEnabled'], fallback: true),
       phoneDescription: asString(map['phoneDescription']),
       usdtDescription: asString(map['usdtDescription']),
       qrDescription: asString(map['qrDescription']),
@@ -257,6 +261,10 @@ class PaymentSettingsModel {
     required this.usdtNetwork,
     required this.usdtMemo,
     required this.paymentQrData,
+    required this.phoneEnabled,
+    required this.usdtEnabled,
+    required this.paymentQrEnabled,
+    required this.sbpEnabled,
     required this.phoneDescription,
     required this.usdtDescription,
     required this.qrDescription,
@@ -268,6 +276,10 @@ class PaymentSettingsModel {
   final String usdtNetwork;
   final String usdtMemo;
   final String paymentQrData;
+  final bool phoneEnabled;
+  final bool usdtEnabled;
+  final bool paymentQrEnabled;
+  final bool sbpEnabled;
   final String phoneDescription;
   final String usdtDescription;
   final String qrDescription;
@@ -285,6 +297,21 @@ class PaymentSettingsModel {
         return sbpDescription;
       default:
         return '';
+    }
+  }
+
+  bool isMethodEnabled(String method) {
+    switch (method.toUpperCase()) {
+      case 'PHONE':
+        return phoneEnabled;
+      case 'USDT':
+        return usdtEnabled;
+      case 'PAYMENT_QR':
+        return paymentQrEnabled;
+      case 'TOCHKA_SBP_QR':
+        return sbpEnabled;
+      default:
+        return false;
     }
   }
 }

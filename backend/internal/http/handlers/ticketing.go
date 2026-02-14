@@ -68,6 +68,10 @@ type upsertPaymentSettingsRequest struct {
 	USDTNetwork      *string `json:"usdtNetwork"`
 	USDTMemo         *string `json:"usdtMemo"`
 	PaymentQRData    *string `json:"paymentQrData"`
+	PhoneEnabled     *bool   `json:"phoneEnabled"`
+	USDTEnabled      *bool   `json:"usdtEnabled"`
+	PaymentQREnabled *bool   `json:"paymentQrEnabled"`
+	SBPEnabled       *bool   `json:"sbpEnabled"`
 	PhoneDescription *string `json:"phoneDescription"`
 	USDTDescription  *string `json:"usdtDescription"`
 	QRDescription    *string `json:"qrDescription"`
@@ -132,13 +136,20 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	paymentMethod := strings.ToUpper(strings.TrimSpace(req.PaymentMethod))
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
+	paymentSettings := h.loadPaymentSettings(ctx)
+	if !isPaymentMethodEnabled(paymentMethod, paymentSettings) {
+		writeError(w, http.StatusBadRequest, "payment method is unavailable")
+		return
+	}
+
 	detail, err := h.repo.CreateOrder(ctx, models.CreateOrderParams{
 		UserID:           userID,
 		EventID:          req.EventID,
-		PaymentMethod:    strings.ToUpper(strings.TrimSpace(req.PaymentMethod)),
+		PaymentMethod:    paymentMethod,
 		PaymentReference: strings.TrimSpace(req.PaymentReference),
 		TicketItems:      mapSelections(req.TicketItems),
 		TransferItems:    mapSelections(req.TransferItems),
@@ -148,7 +159,6 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "create_order", err)
 		return
 	}
-	paymentSettings := h.loadPaymentSettings(ctx)
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	writeJSON(w, http.StatusCreated, detail)
 }
@@ -174,6 +184,11 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
+	paymentSettings := h.loadPaymentSettings(ctx)
+	if !isPaymentMethodEnabled(models.PaymentMethodTochkaSBPQR, paymentSettings) {
+		writeError(w, http.StatusBadRequest, "sbp payment is unavailable")
+		return
+	}
 
 	detail, err := h.repo.CreateOrder(ctx, models.CreateOrderParams{
 		UserID:           userID,
@@ -242,7 +257,6 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 		logger.Warn("create_sbp_qr", "status", "payment_upsert_failed", "order_id", detail.Order.ID, "error", err)
 	}
 
-	paymentSettings := h.loadPaymentSettings(ctx)
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	h.attachSBPInstructions(&detail, &sbpQR)
 	writeJSON(w, http.StatusCreated, createSbpQRCodeResponse{
@@ -1208,11 +1222,15 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 
 func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSettings {
 	settings := models.PaymentSettings{
-		PhoneNumber:   strings.TrimSpace(h.cfg.PhoneNumber),
-		USDTWallet:    strings.TrimSpace(h.cfg.USDTWallet),
-		USDTNetwork:   strings.TrimSpace(h.cfg.USDTNetwork),
-		USDTMemo:      strings.TrimSpace(h.cfg.USDTMemo),
-		PaymentQRData: strings.TrimSpace(h.cfg.PaymentQRData),
+		PhoneNumber:      strings.TrimSpace(h.cfg.PhoneNumber),
+		USDTWallet:       strings.TrimSpace(h.cfg.USDTWallet),
+		USDTNetwork:      strings.TrimSpace(h.cfg.USDTNetwork),
+		USDTMemo:         strings.TrimSpace(h.cfg.USDTMemo),
+		PaymentQRData:    strings.TrimSpace(h.cfg.PaymentQRData),
+		PhoneEnabled:     true,
+		USDTEnabled:      true,
+		PaymentQREnabled: true,
+		SBPEnabled:       true,
 	}
 	if strings.TrimSpace(settings.USDTNetwork) == "" {
 		settings.USDTNetwork = "TRC20"
@@ -1243,6 +1261,10 @@ func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSetting
 	if strings.TrimSpace(stored.PaymentQRData) != "" {
 		settings.PaymentQRData = strings.TrimSpace(stored.PaymentQRData)
 	}
+	settings.PhoneEnabled = stored.PhoneEnabled
+	settings.USDTEnabled = stored.USDTEnabled
+	settings.PaymentQREnabled = stored.PaymentQREnabled
+	settings.SBPEnabled = stored.SBPEnabled
 	settings.PhoneDescription = strings.TrimSpace(stored.PhoneDescription)
 	settings.USDTDescription = strings.TrimSpace(stored.USDTDescription)
 	settings.QRDescription = strings.TrimSpace(stored.QRDescription)
@@ -1270,6 +1292,18 @@ func mergePaymentSettings(current models.PaymentSettings, req upsertPaymentSetti
 	if req.PaymentQRData != nil {
 		merged.PaymentQRData = strings.TrimSpace(*req.PaymentQRData)
 	}
+	if req.PhoneEnabled != nil {
+		merged.PhoneEnabled = *req.PhoneEnabled
+	}
+	if req.USDTEnabled != nil {
+		merged.USDTEnabled = *req.USDTEnabled
+	}
+	if req.PaymentQREnabled != nil {
+		merged.PaymentQREnabled = *req.PaymentQREnabled
+	}
+	if req.SBPEnabled != nil {
+		merged.SBPEnabled = *req.SBPEnabled
+	}
 	if req.PhoneDescription != nil {
 		merged.PhoneDescription = strings.TrimSpace(*req.PhoneDescription)
 	}
@@ -1294,10 +1328,29 @@ func (r upsertPaymentSettingsRequest) hasAny() bool {
 		r.USDTNetwork != nil ||
 		r.USDTMemo != nil ||
 		r.PaymentQRData != nil ||
+		r.PhoneEnabled != nil ||
+		r.USDTEnabled != nil ||
+		r.PaymentQREnabled != nil ||
+		r.SBPEnabled != nil ||
 		r.PhoneDescription != nil ||
 		r.USDTDescription != nil ||
 		r.QRDescription != nil ||
 		r.SBPDescription != nil
+}
+
+func isPaymentMethodEnabled(method string, settings models.PaymentSettings) bool {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case models.PaymentMethodPhone:
+		return settings.PhoneEnabled
+	case models.PaymentMethodUSDT:
+		return settings.USDTEnabled
+	case models.PaymentMethodQR:
+		return settings.PaymentQREnabled
+	case models.PaymentMethodTochkaSBPQR:
+		return settings.SBPEnabled
+	default:
+		return false
+	}
 }
 
 func applyPaymentTextTemplate(template string, order models.Order, amountText string, fallback string) string {

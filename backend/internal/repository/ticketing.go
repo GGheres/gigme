@@ -37,6 +37,7 @@ func (r *Repository) GetPaymentSettings(ctx context.Context) (models.PaymentSett
 	row := r.pool.QueryRow(ctx, `
 SELECT phone_number, usdt_wallet, usdt_network, usdt_memo,
 	payment_qr_data,
+	phone_enabled, usdt_enabled, payment_qr_enabled, sbp_enabled,
 	phone_description, usdt_description, qr_description, sbp_description,
 	updated_by, created_at, updated_at
 FROM payment_settings
@@ -50,9 +51,10 @@ func (r *Repository) UpsertPaymentSettings(ctx context.Context, in models.Paymen
 INSERT INTO payment_settings (
 	id, phone_number, usdt_wallet, usdt_network, usdt_memo,
 	payment_qr_data,
+	phone_enabled, usdt_enabled, payment_qr_enabled, sbp_enabled,
 	phone_description, usdt_description, qr_description, sbp_description, updated_by
 ) VALUES (
-	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 )
 ON CONFLICT (id) DO UPDATE SET
 	phone_number = EXCLUDED.phone_number,
@@ -60,6 +62,10 @@ ON CONFLICT (id) DO UPDATE SET
 	usdt_network = EXCLUDED.usdt_network,
 	usdt_memo = EXCLUDED.usdt_memo,
 	payment_qr_data = EXCLUDED.payment_qr_data,
+	phone_enabled = EXCLUDED.phone_enabled,
+	usdt_enabled = EXCLUDED.usdt_enabled,
+	payment_qr_enabled = EXCLUDED.payment_qr_enabled,
+	sbp_enabled = EXCLUDED.sbp_enabled,
 	phone_description = EXCLUDED.phone_description,
 	usdt_description = EXCLUDED.usdt_description,
 	qr_description = EXCLUDED.qr_description,
@@ -68,6 +74,7 @@ ON CONFLICT (id) DO UPDATE SET
 	updated_at = now()
 RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
 	payment_qr_data,
+	phone_enabled, usdt_enabled, payment_qr_enabled, sbp_enabled,
 	phone_description, usdt_description, qr_description, sbp_description,
 	updated_by, created_at, updated_at;`,
 		strings.TrimSpace(in.PhoneNumber),
@@ -75,6 +82,10 @@ RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
 		strings.TrimSpace(in.USDTNetwork),
 		strings.TrimSpace(in.USDTMemo),
 		strings.TrimSpace(in.PaymentQRData),
+		in.PhoneEnabled,
+		in.USDTEnabled,
+		in.PaymentQREnabled,
+		in.SBPEnabled,
 		strings.TrimSpace(in.PhoneDescription),
 		strings.TrimSpace(in.USDTDescription),
 		strings.TrimSpace(in.QRDescription),
@@ -1857,6 +1868,10 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 		&out.USDTNetwork,
 		&out.USDTMemo,
 		&out.PaymentQRData,
+		&out.PhoneEnabled,
+		&out.USDTEnabled,
+		&out.PaymentQREnabled,
+		&out.SBPEnabled,
 		&out.PhoneDescription,
 		&out.USDTDescription,
 		&out.QRDescription,
@@ -1867,6 +1882,10 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			out.USDTNetwork = "TRC20"
+			out.PhoneEnabled = true
+			out.USDTEnabled = true
+			out.PaymentQREnabled = true
+			out.SBPEnabled = true
 			return out, nil
 		}
 		return out, err

@@ -205,6 +205,25 @@ class EventsRepository {
         );
   }
 
+  Future<void> setFeedPriorityAsAdmin({
+    required String token,
+    required int eventId,
+    required bool enabled,
+  }) {
+    return _ref.read(apiClientProvider).post<void>(
+          ApiPaths.eventPromote(eventId),
+          token: token,
+          body: enabled
+              ? <String, dynamic>{
+                  'promotedUntil': '2099-12-31T23:59:59Z',
+                }
+              : <String, dynamic>{
+                  'clear': true,
+                },
+          decoder: (_) {},
+        );
+  }
+
   Future<List<EventComment>> getComments({
     required String token,
     required int eventId,

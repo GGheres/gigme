@@ -53,6 +53,13 @@ class PurchaseTicketFlow extends ConsumerStatefulWidget {
 }
 
 class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
+  static const List<String> _allPaymentMethods = <String>[
+    'PHONE',
+    'USDT',
+    'PAYMENT_QR',
+    'TOCHKA_SBP_QR',
+  ];
+
   EventProductsModel? _products;
   PaymentSettingsModel? _paymentSettings;
   final Map<String, int> _ticketQuantities = <String, int>{};
@@ -86,6 +93,14 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
     return ref.read(authControllerProvider).state.token;
   }
 
+  List<String> get _availablePaymentMethods {
+    final settings = _paymentSettings;
+    if (settings == null) return _allPaymentMethods;
+    return _allPaymentMethods
+        .where((method) => settings.isMethodEnabled(method))
+        .toList();
+  }
+
   Future<void> _loadProducts() async {
     final token = _token?.trim() ?? '';
     if (token.isEmpty) {
@@ -117,6 +132,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       setState(() {
         _products = products;
         _paymentSettings = paymentSettings;
+        final availableMethods = _availablePaymentMethods;
+        if (availableMethods.isNotEmpty &&
+            !availableMethods.contains(_paymentMethod)) {
+          _paymentMethod = availableMethods.first;
+        }
         for (final ticket in products.tickets) {
           _ticketQuantities.putIfAbsent(ticket.id, () => 0);
         }
@@ -207,6 +227,15 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
   Future<void> _submitOrder() async {
     final token = _token?.trim() ?? '';
     if (token.isEmpty) return;
+    final availableMethods = _availablePaymentMethods;
+    if (availableMethods.isEmpty) {
+      _showMessage('Сейчас нет доступных способов оплаты');
+      return;
+    }
+    if (!availableMethods.contains(_paymentMethod)) {
+      _showMessage('Выбранный способ оплаты недоступен');
+      return;
+    }
 
     final ticketItems = <OrderSelectionModel>[];
     for (final entry in _ticketQuantities.entries) {
@@ -266,6 +295,14 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       _showMessage('Сначала выберите хотя бы один билет');
       return;
     }
+    final availableMethods = _availablePaymentMethods;
+    if (availableMethods.isEmpty) {
+      _showMessage('Сейчас нет доступных способов оплаты');
+      return;
+    }
+    if (!availableMethods.contains(_paymentMethod)) {
+      setState(() => _paymentMethod = availableMethods.first);
+    }
     setState(() => _showPaymentCheckout = true);
   }
 
@@ -320,6 +357,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
     }
 
     final products = _products;
+    final availablePaymentMethods = _availablePaymentMethods;
     if (products == null) {
       return const Center(child: Text('Products unavailable'));
     }
@@ -458,18 +496,25 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          ...['PHONE', 'USDT', 'PAYMENT_QR', 'TOCHKA_SBP_QR'].map(
-            (method) => _PaymentMethodTile(
-              title: _paymentLabel(method),
-              subtitle: _paymentSubtitle(method),
-              selected: _paymentMethod == method,
-              onTap: () => setState(() => _paymentMethod = method),
+          if (availablePaymentMethods.isEmpty)
+            const _InfoCard(
+              text:
+                  'Способы оплаты временно скрыты администратором. Попробуйте позже.',
+            )
+          else
+            ...availablePaymentMethods.map(
+              (method) => _PaymentMethodTile(
+                title: _paymentLabel(method),
+                subtitle: _paymentSubtitle(method),
+                selected: _paymentMethod == method,
+                onTap: () => setState(() => _paymentMethod = method),
+              ),
             ),
-          ),
-          PaymentMethodPage(
-            method: _paymentMethod,
-            amountCents: _totalCents,
-          ),
+          if (availablePaymentMethods.isNotEmpty)
+            PaymentMethodPage(
+              method: _paymentMethod,
+              amountCents: _totalCents,
+            ),
           const SizedBox(height: 16),
           Text(
             '5) Итог заказа',
@@ -488,16 +533,20 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: _submitting || !_hasSelectedTickets
+            onPressed: _submitting ||
+                    !_hasSelectedTickets ||
+                    availablePaymentMethods.isEmpty
                 ? null
                 : _openPaymentCheckout,
             child: const Text('Перейти к оплате'),
           ),
           const SizedBox(height: 10),
           Text(
-            _hasSelectedTickets
-                ? 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».'
-                : 'Сначала выберите хотя бы один билет.',
+            !_hasSelectedTickets
+                ? 'Сначала выберите хотя бы один билет.'
+                : availablePaymentMethods.isEmpty
+                    ? 'Сейчас нет доступных способов оплаты для этого события.'
+                    : 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 20),

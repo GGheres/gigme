@@ -44,6 +44,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _sharing = false;
   bool _sendingComment = false;
   bool _deletingEvent = false;
+  bool _updatingPriority = false;
   bool _hasAnyProducts = true;
   final Set<int> _deletingCommentIds = <int>{};
   String? _error;
@@ -133,6 +134,26 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       appBar: AppBar(
         title: const Text('Детали события'),
         actions: [
+          if (isAdmin && detail != null)
+            IconButton(
+              tooltip: detail.event.isFeatured
+                  ? 'Снять приоритет'
+                  : 'Закрепить как ЛУЧШЕЕ СОБЫТИЕ',
+              onPressed: _updatingPriority
+                  ? null
+                  : () => _togglePriority(detail: detail),
+              icon: _updatingPriority
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      detail.event.isFeatured
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                    ),
+            ),
           if (isAdmin && detail != null)
             IconButton(
               tooltip: 'Удалить событие',
@@ -491,6 +512,30 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     } finally {
       if (mounted) {
         setState(() => _sharing = false);
+      }
+    }
+  }
+
+  Future<void> _togglePriority({required EventDetail detail}) async {
+    final enable = !detail.event.isFeatured;
+    setState(() => _updatingPriority = true);
+    try {
+      await ref.read(eventsControllerProvider).setFeedPriorityAsAdmin(
+            eventId: detail.event.id,
+            enabled: enable,
+          );
+      await _load();
+      if (!mounted) return;
+      _showMessage(
+        enable
+            ? 'Событие закреплено как ЛУЧШЕЕ СОБЫТИЕ'
+            : 'Приоритет события снят',
+      );
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() => _updatingPriority = false);
       }
     }
   }
