@@ -56,6 +56,22 @@ void openLink(String url) {
   );
 }
 
+bool openPopup(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return false;
+
+  final popup = globalContext.callMethodVarArgs<JSAny?>(
+    'open'.toJS,
+    <JSAny?>[
+      trimmed.toJS,
+      'space_telegram_auth'.toJS,
+      'popup=yes,width=480,height=760,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
+          .toJS,
+    ],
+  );
+  return popup != null;
+}
+
 void redirect(String url) {
   final trimmed = url.trim();
   if (trimmed.isEmpty) return;

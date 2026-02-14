@@ -33,6 +33,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final status = auth.state.status;
       final location = state.matchedLocation;
 
+      if (location == AppRoutes.landing && status != AuthStatus.loading) {
+        final startup = auth.consumeStartupLink();
+        final startupLocation = _startupEventLocation(
+          eventId: startup?.eventId,
+          eventKey: startup?.eventKey,
+          refCode: startup?.refCode,
+        );
+        if (startupLocation != null) {
+          if (status == AuthStatus.authenticated) {
+            return startupLocation;
+          }
+          return _authRouteWithNext(
+            targetUri: Uri.parse(startupLocation),
+            alreadyInAuth: false,
+          );
+        }
+      }
+
       if (!AppRoutes.isAppPath(location)) {
         return null;
       }
@@ -257,6 +275,26 @@ String? _normalizeAppLocation(Uri uri) {
     out = '$out#${uri.fragment}';
   }
   return out;
+}
+
+String? _startupEventLocation({
+  required int? eventId,
+  required String? eventKey,
+  required String? refCode,
+}) {
+  if (eventId == null || eventId <= 0) return null;
+
+  final safeKey = (eventKey ?? '').trim();
+  final safeRef = (refCode ?? '').trim();
+
+  final uri = Uri(
+    path: AppRoutes.event(eventId),
+    queryParameters: {
+      if (safeKey.isNotEmpty) 'key': safeKey,
+      if (safeRef.isNotEmpty) 'ref': safeRef,
+    },
+  );
+  return uri.toString();
 }
 
 Page<void> _noTransitionPage(

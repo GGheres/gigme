@@ -120,13 +120,16 @@ class AppConfig {
       pathSegments.addAll(const ['api', 'auth', 'standalone']);
     }
 
-    return apiUri
-        .replace(
-          pathSegments: pathSegments,
-          queryParameters: const <String, String>{},
-          fragment: '',
-        )
-        .toString();
+    final resolved = apiUri.replace(
+      pathSegments: pathSegments,
+      queryParameters: const <String, String>{},
+    );
+    final raw = resolved.toString();
+    final hashIndex = raw.indexOf('#');
+    if (hashIndex < 0) {
+      return raw;
+    }
+    return raw.substring(0, hashIndex);
   }
 
   static String _normalizeApiUrl(String value) {

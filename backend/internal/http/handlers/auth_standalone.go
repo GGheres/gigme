@@ -102,7 +102,7 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GigMe Mobile Login</title>
+  <title>SPACE Telegram Login</title>
   <style>
     body {
       margin: 0;
@@ -229,6 +229,23 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         }, 2600);
       }
 
+      function redirectCurrentWindow(targetUrl) {
+        setStatus('Redirecting back to app…', false);
+        window.location.href = targetUrl;
+      }
+
+      function redirectOpener(targetUrl) {
+        if (!window.opener || window.opener.closed) return false;
+        try {
+          window.opener.location.href = targetUrl;
+          setStatus('Returning to app…', false);
+          window.close();
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+
       async function exchange(user) {
         const response = await fetch(buildExchangeUrl(), {
           method: 'POST',
@@ -257,8 +274,10 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
           setStatus('Authorizing…', false);
           const initData = await exchange(user);
           if (redirectUriParam) {
-            setStatus('Redirecting back to app…', false);
-            window.location.href = buildRedirectUrl(redirectUriParam, initData);
+            const targetUrl = buildRedirectUrl(redirectUriParam, initData);
+            if (!redirectOpener(targetUrl)) {
+              redirectCurrentWindow(targetUrl);
+            }
             return;
           }
 
@@ -292,8 +311,8 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
 </head>
 <body>
   <div class="card">
-    <h1>GigMe Mobile Login</h1>
-    <p>Authorize with Telegram and return back to the app.</p>
+    <h1>SPACE Telegram Login</h1>
+    <p>Authorize with Telegram and return back to SPACE.</p>
     <div id="status" class="status"></div>
     <div class="widget">
       <script async src="https://telegram.org/js/telegram-widget.js?22"

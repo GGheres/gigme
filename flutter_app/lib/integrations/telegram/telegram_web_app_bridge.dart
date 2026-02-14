@@ -10,6 +10,8 @@ class TelegramWebAppBridge {
 
   static void openLink(String url) => bridge.openLink(url);
 
+  static bool openPopup(String url) => bridge.openPopup(url);
+
   static void redirect(String url) => bridge.redirect(url);
 
   static void showToast(String message) => bridge.showToast(message);

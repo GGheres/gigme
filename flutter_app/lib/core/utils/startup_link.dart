@@ -29,6 +29,13 @@ class StartupLink {
 }
 
 class StartupLinkParser {
+  @visibleForTesting
+  static StartupLink parseFromUriForTesting(Uri uri) => _fromUri(uri);
+
+  @visibleForTesting
+  static StartupLink parseStartParamForTesting(String? value) =>
+      _fromStartParam(value);
+
   static StartupLink parse() {
     final fromLocation = _fromUri(Uri.base);
     if (fromLocation.hasEvent) {
@@ -49,13 +56,28 @@ class StartupLinkParser {
   static StartupLink _fromUri(Uri uri) {
     final params = _mergeLocationParams(uri);
     final eventId = _parseEventId(params['eventId'] ?? params['event']);
-    if (eventId == null) return const StartupLink();
+    if (eventId != null) {
+      return StartupLink(
+        eventId: eventId,
+        eventKey: _sanitizeKey(params['eventKey'] ?? params['key']),
+        refCode: _sanitizeRef(params['refCode'] ?? params['ref']),
+      );
+    }
 
-    return StartupLink(
-      eventId: eventId,
-      eventKey: _sanitizeKey(params['eventKey'] ?? params['key']),
-      refCode: _sanitizeRef(params['refCode'] ?? params['ref']),
-    );
+    final directStartParam = _extractStartParam(params);
+    final fromDirectStartParam = _fromStartParam(directStartParam);
+    if (fromDirectStartParam.hasEvent) {
+      return fromDirectStartParam;
+    }
+
+    final initDataStartParam =
+        _extractStartParamFromInitData(params['tgWebAppData']);
+    final fromInitDataStartParam = _fromStartParam(initDataStartParam);
+    if (fromInitDataStartParam.hasEvent) {
+      return fromInitDataStartParam;
+    }
+
+    return const StartupLink();
   }
 
   static Map<String, String> _mergeLocationParams(Uri uri) {
@@ -108,22 +130,50 @@ class StartupLinkParser {
     }
   }
 
+  static String? _extractStartParam(Map<String, String> params) {
+    const keys = <String>[
+      'startapp',
+      'startApp',
+      'start_param',
+      'startParam',
+      'tgWebAppStartParam',
+      'tgwebappstartparam',
+    ];
+    for (final key in keys) {
+      final value = (params[key] ?? '').trim();
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  static String? _extractStartParamFromInitData(String? rawInitData) {
+    final value = (rawInitData ?? '').trim();
+    if (value.isEmpty) return null;
+
+    Map<String, String>? parsed;
+    try {
+      parsed = Uri.splitQueryString(value);
+    } catch (_) {
+      try {
+        final decoded = Uri.decodeQueryComponent(value);
+        parsed = Uri.splitQueryString(decoded);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (parsed.isEmpty) return null;
+    return _extractStartParam(parsed);
+  }
+
   static StartupLink _fromStartParam(String? value) {
     final raw = value?.trim() ?? '';
     if (raw.isEmpty) return const StartupLink();
 
-    final referralMatch = RegExp(
-            r'^e_(\d+)(?:_([a-zA-Z0-9_-]+))?(?:__r_([a-zA-Z0-9_-]+))?$',
-            caseSensitive: false)
-        .firstMatch(raw);
-    if (referralMatch != null) {
-      final eventId = _parseEventId(referralMatch.group(1));
-      if (eventId == null) return const StartupLink();
-      return StartupLink(
-        eventId: eventId,
-        eventKey: _sanitizeKey(referralMatch.group(2)),
-        refCode: _sanitizeRef(referralMatch.group(3)),
-      );
+    final parsedEventStartParam = _parseEventStartParam(raw);
+    if (parsedEventStartParam.hasEvent) {
+      return parsedEventStartParam;
     }
 
     final legacy =
@@ -140,6 +190,46 @@ class StartupLinkParser {
     final eventId = _parseEventId(fallback?.group(0));
     if (eventId == null) return const StartupLink();
     return StartupLink(eventId: eventId);
+  }
+
+  static StartupLink _parseEventStartParam(String raw) {
+    if (!raw.toLowerCase().startsWith('e_')) {
+      return const StartupLink();
+    }
+
+    final payload = raw.substring(2);
+    if (payload.isEmpty) {
+      return const StartupLink();
+    }
+
+    String? refCodeRaw;
+    var eventAndKey = payload;
+    final refSeparatorIndex = payload.indexOf('__r_');
+    if (refSeparatorIndex >= 0) {
+      refCodeRaw = payload.substring(refSeparatorIndex + 4);
+      eventAndKey = payload.substring(0, refSeparatorIndex);
+    }
+
+    final keySeparatorIndex = eventAndKey.indexOf('_');
+    late final String eventIdRaw;
+    String? eventKeyRaw;
+    if (keySeparatorIndex < 0) {
+      eventIdRaw = eventAndKey;
+    } else {
+      eventIdRaw = eventAndKey.substring(0, keySeparatorIndex);
+      eventKeyRaw = eventAndKey.substring(keySeparatorIndex + 1);
+    }
+
+    final eventId = _parseEventId(eventIdRaw);
+    if (eventId == null) {
+      return const StartupLink();
+    }
+
+    return StartupLink(
+      eventId: eventId,
+      eventKey: _sanitizeKey(eventKeyRaw),
+      refCode: _sanitizeRef(refCodeRaw),
+    );
   }
 
   static int? _parseEventId(String? raw) {

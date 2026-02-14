@@ -322,10 +322,11 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         queryParameters: {'next': nextLocation},
         fragment: '',
       );
+      final redirectValue = _withoutFragment(redirect);
       return helperBase.replace(
         queryParameters: {
           ...helperBase.queryParameters,
-          'redirect_uri': redirect.toString(),
+          'redirect_uri': redirectValue,
         },
       );
     }
@@ -402,6 +403,15 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     return true;
   }
 
+  String _withoutFragment(Uri uri) {
+    final raw = uri.toString();
+    final hashIndex = raw.indexOf('#');
+    if (hashIndex < 0) {
+      return raw;
+    }
+    return raw.substring(0, hashIndex);
+  }
+
   String? _startAppFromNext(String nextLocation) {
     final uri = Uri.tryParse(nextLocation);
     if (uri == null) return null;
@@ -415,7 +425,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
   Future<void> _openTelegramLogin(Uri uri) async {
     if (kIsWeb) {
-      TelegramWebAppBridge.redirect(uri.toString());
+      final opened = TelegramWebAppBridge.openPopup(uri.toString());
+      if (!opened) {
+        TelegramWebAppBridge.redirect(uri.toString());
+      }
       return;
     }
     final opened = await launchUrl(

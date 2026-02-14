@@ -136,9 +136,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           outline: true,
                           onPressed: () async {
                             if (kIsWeb) {
-                              TelegramWebAppBridge.redirect(
+                              final opened = TelegramWebAppBridge.openPopup(
                                 standaloneHelperUri.toString(),
                               );
+                              if (!opened) {
+                                TelegramWebAppBridge.redirect(
+                                  standaloneHelperUri.toString(),
+                                );
+                              }
                               return;
                             }
                             await launchUrl(
@@ -328,7 +333,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (kIsWeb && config.authMode == AuthMode.telegramWeb) {
       final current = Uri.base;
       if (current.path == AppRoutes.auth) {
-        return current.replace(fragment: '').toString();
+        return _withoutFragment(current);
       }
       return Uri(
         path: AppRoutes.auth,
@@ -336,6 +341,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ).toString();
     }
     return config.standaloneRedirectUri.trim();
+  }
+
+  String _withoutFragment(Uri uri) {
+    final raw = uri.toString();
+    final hashIndex = raw.indexOf('#');
+    if (hashIndex < 0) {
+      return raw;
+    }
+    return raw.substring(0, hashIndex);
   }
 
   void _scheduleStandaloneHelperAutoLaunch({
