@@ -13,11 +13,11 @@ import 'routes.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({
-    required this.child,
+    required this.navigationShell,
     super.key,
   });
 
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -28,22 +28,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     _ShellDestination(
       label: 'Лента',
       icon: Icons.view_list_rounded,
-      route: AppRoutes.feed,
     ),
     _ShellDestination(
       label: 'Карта',
       icon: Icons.map_rounded,
-      route: AppRoutes.map,
     ),
     _ShellDestination(
       label: 'Создать',
       icon: Icons.add_circle_outline_rounded,
-      route: AppRoutes.create,
     ),
     _ShellDestination(
       label: 'Профиль',
       icon: Icons.person_outline_rounded,
-      route: AppRoutes.profile,
     ),
   ];
 
@@ -69,7 +65,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final currentIndex = _indexFromLocation(location);
+    final currentIndex = widget.navigationShell.currentIndex;
     final isAdminRoute = location.startsWith(AppRoutes.admin);
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = width >= AppBreakpoints.smMax;
@@ -86,14 +82,14 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: widget.child),
+            Expanded(child: widget.navigationShell),
           ],
         ),
       );
     }
 
     return Scaffold(
-      body: widget.child,
+      body: widget.navigationShell,
       bottomNavigationBar: isAdminRoute
           ? null
           : _AppBottomDock(
@@ -106,14 +102,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _onDestinationSelected(int index) {
     if (index < 0 || index >= _destinations.length) return;
-    context.go(_destinations[index].route);
-  }
-
-  int _indexFromLocation(String location) {
-    if (location.startsWith(AppRoutes.map)) return 1;
-    if (location.startsWith(AppRoutes.create)) return 2;
-    if (location.startsWith(AppRoutes.profile)) return 3;
-    return 0;
+    if (index == widget.navigationShell.currentIndex) return;
+    widget.navigationShell.goBranch(index);
   }
 }
 
@@ -159,6 +149,7 @@ class _AppBottomDock extends StatelessWidget {
               child: NavigationBar(
                 height: 68,
                 backgroundColor: Colors.transparent,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 selectedIndex: selectedIndex,
                 destinations: [
                   for (final item in destinations)
@@ -231,10 +222,8 @@ class _ShellDestination {
   const _ShellDestination({
     required this.label,
     required this.icon,
-    required this.route,
   });
 
   final String label;
   final IconData icon;
-  final String route;
 }

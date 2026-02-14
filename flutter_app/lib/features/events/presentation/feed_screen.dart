@@ -46,7 +46,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     final state = events.state;
     final showLoader = state.loading && state.feed.isEmpty;
-    final featuredCount = state.feed.where((event) => event.isFeatured).length;
 
     return AppScaffold(
       title: 'Лента Событий',
@@ -57,22 +56,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
       child: Column(
         children: [
-          _FeedHeroPanel(
-            feedCount: state.feed.length,
-            featuredCount: featuredCount,
-            nearbyOnly: state.nearbyOnly,
-            loading: state.loading,
-            onRefreshLocation: () =>
-                ref.read(locationControllerProvider).refresh(),
-            onRefreshFeed: () {
-              unawaited(
-                ref.read(eventsControllerProvider).refresh(
-                      center: location.state.center,
-                    ),
-              );
-            },
-          ),
-          const SizedBox(height: AppSpacing.sm),
           _FilterBar(
             activeFilters: state.activeFilters,
             nearbyOnly: state.nearbyOnly,
@@ -179,171 +162,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FeedHeroPanel extends StatelessWidget {
-  const _FeedHeroPanel({
-    required this.feedCount,
-    required this.featuredCount,
-    required this.nearbyOnly,
-    required this.loading,
-    required this.onRefreshLocation,
-    required this.onRefreshFeed,
-  });
-
-  final int feedCount;
-  final int featuredCount;
-  final bool nearbyOnly;
-  final bool loading;
-  final VoidCallback onRefreshLocation;
-  final VoidCallback onRefreshFeed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final titleColor =
-        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final pillBackground = isDark
-        ? Colors.white.withValues(alpha: 0.12)
-        : Colors.black.withValues(alpha: 0.04);
-    final pillBorder = isDark
-        ? Colors.white.withValues(alpha: 0.2)
-        : Colors.black.withValues(alpha: 0.08);
-    final pillValueColor = titleColor;
-
-    return AppCard(
-      variant: AppCardVariant.panel,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              _HeroStatPill(
-                icon: Icons.event_outlined,
-                semanticsLabel: 'События',
-                value: '$feedCount',
-              ),
-              _HeroStatPill(
-                icon: Icons.star_outline_rounded,
-                semanticsLabel: 'Рекомендуемые',
-                value: '$featuredCount',
-              ),
-              _HeroStatPill(
-                icon: nearbyOnly ? Icons.near_me_rounded : Icons.public_rounded,
-                semanticsLabel: 'Режим',
-                value: nearbyOnly ? '100км' : '∞',
-                backgroundColor: pillBackground,
-                borderColor: pillBorder,
-                valueColor: pillValueColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              AppButton(
-                label: 'Гео',
-                size: AppButtonSize.sm,
-                variant: AppButtonVariant.secondary,
-                icon: const Icon(Icons.my_location_outlined),
-                tooltip: 'Обновить геопозицию',
-                onPressed: onRefreshLocation,
-              ),
-              AppButton(
-                label: 'Обновить',
-                size: AppButtonSize.sm,
-                variant: AppButtonVariant.primary,
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'Обновить ленту',
-                onPressed: onRefreshFeed,
-              ),
-            ],
-          ),
-          if (loading) ...[
-            const SizedBox(height: AppSpacing.sm),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: const LinearProgressIndicator(minHeight: 3),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroStatPill extends StatelessWidget {
-  const _HeroStatPill({
-    required this.icon,
-    required this.semanticsLabel,
-    required this.value,
-    this.backgroundColor,
-    this.borderColor,
-    this.valueColor,
-  });
-
-  final IconData icon;
-  final String semanticsLabel;
-  final String value;
-  final Color? backgroundColor;
-  final Color? borderColor;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final resolvedBackground = backgroundColor ??
-        (isDark
-            ? Colors.white.withValues(alpha: 0.12)
-            : Colors.black.withValues(alpha: 0.04));
-    final resolvedBorder = borderColor ??
-        (isDark
-            ? Colors.white.withValues(alpha: 0.2)
-            : Colors.black.withValues(alpha: 0.08));
-    final resolvedValueColor = valueColor ??
-        (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
-
-    return Semantics(
-      label: '$semanticsLabel: $value',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: resolvedBackground,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: resolvedBorder),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xs,
-            vertical: AppSpacing.xxs,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: resolvedValueColor.withValues(alpha: 0.86),
-              ),
-              const SizedBox(width: AppSpacing.xxs),
-              Text(
-                value,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: resolvedValueColor,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

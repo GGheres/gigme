@@ -85,62 +85,79 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.auth,
         builder: (context, state) => const AuthScreen(),
       ),
-      ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
-        routes: [
-          GoRoute(
-            path: AppRoutes.feed,
-            builder: (context, state) => const FeedScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.feed,
+                builder: (context, state) => const FeedScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: AppRoutes.map,
-            builder: (context, state) => const MapScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.map,
+                builder: (context, state) => const MapScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: AppRoutes.create,
-            builder: (context, state) => const CreateEventScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.create,
+                builder: (context, state) => const CreateEventScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: AppRoutes.profile,
-            builder: (context, state) => const ProfileScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.uiPreview,
-            builder: (context, state) => const UiPreviewScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.admin,
-            builder: (context, state) => const AdminScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.myTickets,
-            builder: (context, state) => const MyTicketsPage(),
-          ),
-          GoRoute(
-            path: AppRoutes.adminOrders,
-            builder: (context, state) => const AdminOrdersPage(),
-          ),
-          GoRoute(
-            path: '/space_app/admin/orders/:id',
-            builder: (context, state) => AdminOrderDetailPage(
-              orderId: state.pathParameters['id'] ?? '',
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.adminScanner,
-            builder: (context, state) => const AdminQrScannerPage(),
-          ),
-          GoRoute(
-            path: AppRoutes.adminProducts,
-            builder: (context, state) => const AdminProductsPage(),
-          ),
-          GoRoute(
-            path: AppRoutes.adminPromos,
-            builder: (context, state) => const AdminPromoCodesPage(),
-          ),
-          GoRoute(
-            path: AppRoutes.adminStats,
-            builder: (context, state) => const AdminStatsPage(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                builder: (context, state) => const ProfileScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.uiPreview,
+                builder: (context, state) => const UiPreviewScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.myTickets,
+                builder: (context, state) => const MyTicketsPage(),
+              ),
+              GoRoute(
+                path: AppRoutes.admin,
+                builder: (context, state) => const AdminScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.adminOrders,
+                builder: (context, state) => const AdminOrdersPage(),
+              ),
+              GoRoute(
+                path: '/space_app/admin/orders/:id',
+                builder: (context, state) => AdminOrderDetailPage(
+                  orderId: state.pathParameters['id'] ?? '',
+                ),
+              ),
+              GoRoute(
+                path: AppRoutes.adminScanner,
+                builder: (context, state) => const AdminQrScannerPage(),
+              ),
+              GoRoute(
+                path: AppRoutes.adminProducts,
+                builder: (context, state) => const AdminProductsPage(),
+              ),
+              GoRoute(
+                path: AppRoutes.adminPromos,
+                builder: (context, state) => const AdminPromoCodesPage(),
+              ),
+              GoRoute(
+                path: AppRoutes.adminStats,
+                builder: (context, state) => const AdminStatsPage(),
+              ),
+            ],
           ),
         ],
       ),
