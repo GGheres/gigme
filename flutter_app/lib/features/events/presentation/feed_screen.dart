@@ -49,7 +49,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final featuredCount = state.feed.where((event) => event.isFeatured).length;
 
     return AppScaffold(
-      title: 'Лента',
+      title: 'Лента Событий',
+      subtitle: 'Исследуй, создавай, присоединяйся.',
       showBackgroundDecor: true,
       titleColor: Theme.of(context).colorScheme.onSurface,
       subtitleColor:
@@ -206,55 +207,45 @@ class _FeedHeroPanel extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final titleColor =
         isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final infoTextColor =
-        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
     final pillBackground = isDark
         ? Colors.white.withValues(alpha: 0.12)
         : Colors.black.withValues(alpha: 0.04);
     final pillBorder = isDark
         ? Colors.white.withValues(alpha: 0.2)
         : Colors.black.withValues(alpha: 0.08);
-    final pillLabelColor =
-        isDark ? Colors.white.withValues(alpha: 0.78) : AppColors.textSecondary;
     final pillValueColor = titleColor;
 
     return AppCard(
       variant: AppCardVariant.panel,
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'События рядом',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: titleColor,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            'Быстрый доступ к афише в твоем районе.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: infoTextColor,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
             children: [
-              _HeroStatPill(label: 'События', value: '$feedCount'),
-              _HeroStatPill(label: 'Рекомендуемые', value: '$featuredCount'),
               _HeroStatPill(
-                label: 'Режим',
-                value: nearbyOnly ? 'Рядом' : 'Везде',
+                icon: Icons.event_outlined,
+                semanticsLabel: 'События',
+                value: '$feedCount',
+              ),
+              _HeroStatPill(
+                icon: Icons.star_outline_rounded,
+                semanticsLabel: 'Рекомендуемые',
+                value: '$featuredCount',
+              ),
+              _HeroStatPill(
+                icon: nearbyOnly ? Icons.near_me_rounded : Icons.public_rounded,
+                semanticsLabel: 'Режим',
+                value: nearbyOnly ? '100км' : '∞',
                 backgroundColor: pillBackground,
                 borderColor: pillBorder,
-                labelColor: pillLabelColor,
                 valueColor: pillValueColor,
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           Wrap(
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
@@ -292,19 +283,19 @@ class _FeedHeroPanel extends StatelessWidget {
 
 class _HeroStatPill extends StatelessWidget {
   const _HeroStatPill({
-    required this.label,
+    required this.icon,
+    required this.semanticsLabel,
     required this.value,
     this.backgroundColor,
     this.borderColor,
-    this.labelColor,
     this.valueColor,
   });
 
-  final String label;
+  final IconData icon;
+  final String semanticsLabel;
   final String value;
   final Color? backgroundColor;
   final Color? borderColor;
-  final Color? labelColor;
   final Color? valueColor;
 
   @override
@@ -319,41 +310,39 @@ class _HeroStatPill extends StatelessWidget {
         (isDark
             ? Colors.white.withValues(alpha: 0.2)
             : Colors.black.withValues(alpha: 0.08));
-    final resolvedLabelColor = labelColor ??
-        (isDark
-            ? Colors.white.withValues(alpha: 0.78)
-            : AppColors.textSecondary);
     final resolvedValueColor = valueColor ??
         (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: resolvedBackground,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: resolvedBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
+    return Semantics(
+      label: '$semanticsLabel: $value',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: resolvedBackground,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: resolvedBorder),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: resolvedLabelColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xs,
+            vertical: AppSpacing.xxs,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: resolvedValueColor.withValues(alpha: 0.86),
               ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              value,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: resolvedValueColor,
+              const SizedBox(width: AppSpacing.xxs),
+              Text(
+                value,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: resolvedValueColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
