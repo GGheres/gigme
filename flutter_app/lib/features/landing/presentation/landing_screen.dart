@@ -23,6 +23,7 @@ import '../../../ui/components/app_section_header.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
+import '../../../integrations/telegram/telegram_auth_embed.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
@@ -48,6 +49,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   List<LandingEvent> _events = <LandingEvent>[];
   int _total = 0;
   LandingContent _content = LandingContent.defaults();
+  bool _telegramModalAuthInProgress = false;
 
   @override
   void initState() {
@@ -275,6 +277,20 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       return;
     }
 
+    final embeddedAuth = kIsWeb
+        ? buildTelegramAuthEmbed(
+            helperUri: loginUri,
+            onInitData: (initData) {
+              unawaited(
+                _completeTelegramModalLogin(
+                  initData: initData,
+                  nextLocation: nextLocation,
+                ),
+              );
+            },
+          )
+        : null;
+
     await showAppDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -283,20 +299,54 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
           subtitle:
               'Чтобы продолжить, войдите через Telegram. После входа вы вернетесь в приложение.',
           onClose: () => Navigator.of(dialogContext).pop(),
-          body: Text(
-            'Нажмите кнопку ниже, завершите вход и вы вернетесь в SPACE уже авторизованным пользователем.',
-            style: Theme.of(dialogContext).textTheme.bodyMedium,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                embeddedAuth == null
+                    ? 'Нажмите кнопку ниже, завершите вход и вы вернетесь в SPACE уже авторизованным пользователем.'
+                    : 'Войдите через Telegram прямо в этом окне. После успешного входа модалка закроется автоматически.',
+                style: Theme.of(dialogContext).textTheme.bodyMedium,
+              ),
+              if (embeddedAuth != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  height: 460,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: AppColors.textPrimary.withValues(alpha: 0.14),
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: embeddedAuth,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           actions: [
-            AppButton(
-              label: 'Login via Telegram',
-              variant: AppButtonVariant.primary,
-              icon: const Icon(Icons.telegram_rounded),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                unawaited(_openTelegramLogin(loginUri));
-              },
-            ),
+            if (embeddedAuth == null)
+              AppButton(
+                label: 'Login via Telegram',
+                variant: AppButtonVariant.primary,
+                icon: const Icon(Icons.telegram_rounded),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  unawaited(_openTelegramLogin(loginUri));
+                },
+              )
+            else
+              AppButton(
+                label: 'Открыть в popup',
+                variant: AppButtonVariant.secondary,
+                icon: const Icon(Icons.open_in_new_rounded),
+                onPressed: () => unawaited(_openTelegramLogin(loginUri)),
+              ),
             AppButton(
               label: 'Отмена',
               variant: AppButtonVariant.ghost,
@@ -306,6 +356,44 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         );
       },
     );
+  }
+
+  Future<void> _completeTelegramModalLogin({
+    required String initData,
+    required String nextLocation,
+  }) async {
+    if (_telegramModalAuthInProgress) return;
+    _telegramModalAuthInProgress = true;
+
+    try {
+      final auth = ref.read(authControllerProvider);
+      await auth.loginWithTelegram(initData);
+      if (!mounted) return;
+
+      final state = auth.state;
+      if (state.status != AuthStatus.authenticated) {
+        final message = (state.error ?? '').trim();
+        _showMessage(
+          message.isEmpty
+              ? 'Не удалось завершить Telegram login. Попробуйте снова.'
+              : message,
+        );
+        return;
+      }
+
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      if (rootNavigator.canPop()) {
+        rootNavigator.pop();
+      }
+
+      if (nextLocation == AppRoutes.appRoot) {
+        context.go(AppRoutes.appRoot);
+        return;
+      }
+      context.push(nextLocation);
+    } finally {
+      _telegramModalAuthInProgress = false;
+    }
   }
 
   Uri? _telegramLoginUri({

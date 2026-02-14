@@ -130,6 +130,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               padding: const EdgeInsets.all(AppSpacing.xs),
               child: showLoader
                   ? const PremiumLoadingView(
+                      blackBackdrop: true,
                       text: 'ЛЕНТА • ЗАГРУЗКА • ',
                       subtitle: 'Загружаем события рядом',
                     )

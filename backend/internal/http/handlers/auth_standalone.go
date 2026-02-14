@@ -173,6 +173,7 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
     (() => {
       const params = new URLSearchParams(window.location.search);
       const redirectUriParam = params.get('redirect_uri') || params.get('redirectUri') || '';
+      const isEmbedded = params.get('embed') === '1' || window.parent !== window;
       const nativeRedirectUri = 'gigme://auth';
       let fallbackTimerId = null;
 
@@ -229,6 +230,29 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         }, 2600);
       }
 
+      function postAuthToParent(initData) {
+        if (!isEmbedded) return false;
+        if (!window.parent || window.parent === window) return false;
+
+        let targetOrigin = window.location.origin;
+        if (redirectUriParam) {
+          try {
+            targetOrigin = new URL(redirectUriParam, window.location.origin).origin;
+          } catch (_) {}
+        }
+
+        try {
+          window.parent.postMessage(JSON.stringify({
+            type: 'space.telegram.auth',
+            initData: initData,
+          }), targetOrigin);
+          setStatus('Authorized. Returning to app…', false);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+
       async function exchange(user) {
         const response = await fetch(buildExchangeUrl(), {
           method: 'POST',
@@ -256,6 +280,9 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
         try {
           setStatus('Authorizing…', false);
           const initData = await exchange(user);
+          if (postAuthToParent(initData)) {
+            return;
+          }
           if (redirectUriParam) {
             setStatus('Redirecting back to app…', false);
             window.location.href = buildRedirectUrl(redirectUriParam, initData);

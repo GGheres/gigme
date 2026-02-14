@@ -16,6 +16,7 @@ import '../../../core/utils/share_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../tickets/data/ticketing_repository.dart';
 import '../../tickets/presentation/purchase_ticket_flow.dart';
 import '../application/events_controller.dart';
 
@@ -44,6 +45,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _sharing = false;
   bool _sendingComment = false;
   bool _deletingEvent = false;
+  bool _hasAnyProducts = true;
   final Set<int> _deletingCommentIds = <int>{};
   String? _error;
 
@@ -61,19 +63,25 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
     try {
       final events = ref.read(eventsControllerProvider);
-      final detail = await events.loadEventDetail(
+      final detailFuture = events.loadEventDetail(
         eventId: widget.eventId,
         accessKey: widget.eventKey,
       );
-      final comments = await events.loadComments(
+      final commentsFuture = events.loadComments(
         eventId: widget.eventId,
         accessKey: widget.eventKey,
       );
+      final hasAnyProductsFuture = _loadProductsAvailability(widget.eventId);
+
+      final detail = await detailFuture;
+      final comments = await commentsFuture;
+      final hasAnyProducts = await hasAnyProductsFuture;
 
       if (!mounted) return;
       setState(() {
         _detail = detail;
         _comments = comments;
+        _hasAnyProducts = hasAnyProducts;
       });
     } catch (error) {
       if (!mounted) return;
@@ -82,6 +90,24 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<bool> _loadProductsAvailability(int eventId) async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) {
+      return true;
+    }
+
+    try {
+      final products =
+          await ref.read(ticketingRepositoryProvider).getEventProducts(
+                token: token,
+                eventId: eventId,
+              );
+      return products.tickets.isNotEmpty || products.transfers.isNotEmpty;
+    } catch (_) {
+      return true;
     }
   }
 
@@ -130,6 +156,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       ),
       body: _loading
           ? const PremiumLoadingView(
+              blackBackdrop: true,
               text: 'EVENT DETAILS • LOADING • ',
               subtitle: 'Загружаем карточку события',
             )
@@ -238,10 +265,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           children: [
                             Expanded(
                               child: FilledButton(
-                                onPressed: () => showPurchaseTicketFlow(
-                                  context,
-                                  eventId: detail.event.id,
-                                ),
+                                onPressed: _hasAnyProducts
+                                    ? () => showPurchaseTicketFlow(
+                                          context,
+                                          eventId: detail.event.id,
+                                        )
+                                    : null,
                                 child: const Text('КУПИТЬ билет'),
                               ),
                             ),

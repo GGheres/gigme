@@ -73,6 +73,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       body: state.loading && state.user == null
           ? const PremiumLoadingView(
+              blackBackdrop: true,
               text: 'PROFILE • LOADING • ',
               subtitle: 'Загружаем профиль',
             )

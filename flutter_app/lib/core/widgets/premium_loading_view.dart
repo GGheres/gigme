@@ -11,11 +11,13 @@ class PremiumLoadingView extends StatefulWidget {
     this.text = 'SPACE • LOADING • ',
     this.subtitle,
     this.compact = false,
+    this.blackBackdrop = false,
   });
 
   final String text;
   final String? subtitle;
   final bool compact;
+  final bool blackBackdrop;
 
   @override
   State<PremiumLoadingView> createState() => _PremiumLoadingViewState();
@@ -64,7 +66,7 @@ class _PremiumLoadingViewState extends State<PremiumLoadingView>
           : _PremiumLoadingTuning.orbitMax,
     );
 
-    return SizedBox.expand(
+    Widget content = SizedBox.expand(
       child: Center(
         child: SizedBox.square(
           dimension: orbitSize,
@@ -77,6 +79,15 @@ class _PremiumLoadingViewState extends State<PremiumLoadingView>
         ),
       ),
     );
+
+    if (widget.blackBackdrop) {
+      content = ColoredBox(
+        color: Colors.black,
+        child: content,
+      );
+    }
+
+    return content;
   }
 }
 
