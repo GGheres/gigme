@@ -24,7 +24,7 @@ class EventsState {
         feed: <EventCard>[],
         markers: <EventMarker>[],
         activeFilters: <String>[],
-        nearbyOnly: true,
+        nearbyOnly: false,
         radiusMeters: kNearbyRadiusMeters,
         lastCenter: null,
       );
@@ -176,7 +176,11 @@ class EventsController extends ChangeNotifier {
   }
 
   void clearFilters() {
-    _state = _state.copyWith(activeFilters: <String>[], error: null);
+    _state = _state.copyWith(
+      activeFilters: <String>[],
+      nearbyOnly: false,
+      error: null,
+    );
     notifyListeners();
   }
 

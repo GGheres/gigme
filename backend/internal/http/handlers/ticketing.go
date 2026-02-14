@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -43,6 +44,10 @@ type validatePromoRequest struct {
 
 type cancelOrderRequest struct {
 	Reason string `json:"reason"`
+}
+
+type deleteAdminOrderRequest struct {
+	Password string `json:"password"`
 }
 
 type redeemTicketRequest struct {
@@ -94,7 +99,10 @@ type sbpQRStatusResponse struct {
 	Detail        *models.OrderDetail `json:"detail,omitempty"`
 }
 
-const paymentProviderTochkaSBP = "tochka_sbp"
+const (
+	paymentProviderTochkaSBP = "tochka_sbp"
+	adminOrderDeletePassword = "FUCKSHIT"
+)
 
 type listOrdersResponse struct {
 	Items []models.OrderSummary `json:"items"`
@@ -640,6 +648,38 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, detail)
+}
+
+func (h *Handler) DeleteAdminOrder(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_order"); !ok {
+		return
+	}
+	orderID := resolveOrderIDParam(r)
+	if orderID == "" {
+		writeError(w, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	var req deleteAdminOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if !isAdminOrderDeletePasswordValid(req.Password) {
+		logger.Warn("admin_delete_order", "status", "forbidden", "order_id", orderID)
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	if err := h.repo.DeleteOrder(ctx, orderID); err != nil {
+		h.handleTicketingError(logger, w, "admin_delete_order", err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
@@ -1401,6 +1441,10 @@ func (h *Handler) handleTicketingError(logger interface {
 		logger.Error(action, "status", "internal_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 	}
+}
+
+func isAdminOrderDeletePasswordValid(password string) bool {
+	return strings.TrimSpace(password) == adminOrderDeletePassword
 }
 
 func mapSelections(items []orderSelectionRequest) []models.OrderProductSelection {

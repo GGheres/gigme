@@ -1242,6 +1242,86 @@ WHERE id = $1::uuid;`, orderID, models.OrderStatusCanceled, adminID, nullString(
 	return detail, nil
 }
 
+func (r *Repository) DeleteOrder(ctx context.Context, orderID string) error {
+	return r.WithTx(ctx, func(tx pgx.Tx) error {
+		var status string
+		var promoCodeID sql.NullString
+		if err := tx.QueryRow(ctx, `
+SELECT status, promo_code_id::text
+FROM orders
+WHERE id = $1::uuid
+FOR UPDATE;`, orderID).Scan(&status, &promoCodeID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrOrderNotFound
+			}
+			return err
+		}
+
+		if isPaidOrderStatus(status) || isRedeemedOrderStatus(status) {
+			rows, err := tx.Query(ctx, `
+SELECT item_type, product_id::text, quantity
+FROM order_items
+WHERE order_id = $1::uuid
+ORDER BY id ASC
+FOR UPDATE;`, orderID)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var itemType string
+				var productID string
+				var quantity int
+				if err := rows.Scan(&itemType, &productID, &quantity); err != nil {
+					return err
+				}
+				switch itemType {
+				case models.ItemTypeTicket:
+					if _, err := tx.Exec(ctx, `
+UPDATE ticket_products
+SET sold_count = GREATEST(0, sold_count - $2),
+	updated_at = now()
+WHERE id = $1::uuid;`, productID, quantity); err != nil {
+						return err
+					}
+				case models.ItemTypeTransfer:
+					if _, err := tx.Exec(ctx, `
+UPDATE transfer_products
+SET sold_count = GREATEST(0, sold_count - $2),
+	updated_at = now()
+WHERE id = $1::uuid;`, productID, quantity); err != nil {
+						return err
+					}
+				}
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
+		}
+
+		if promoCodeID.Valid && promoCodeID.String != "" && !strings.EqualFold(strings.TrimSpace(status), models.OrderStatusCanceled) {
+			if _, err := tx.Exec(ctx, `
+UPDATE promo_codes
+SET used_count = GREATEST(0, used_count - 1),
+	updated_at = now()
+WHERE id = $1::uuid;`, promoCodeID.String); err != nil {
+				return err
+			}
+		}
+
+		cmd, err := tx.Exec(ctx, `DELETE FROM orders WHERE id = $1::uuid;`, orderID)
+		if err != nil {
+			return err
+		}
+		if cmd.RowsAffected() == 0 {
+			return ErrOrderNotFound
+		}
+
+		return nil
+	})
+}
+
 func (r *Repository) RedeemTicket(ctx context.Context, ticketID string, adminID int64, qrPayload string, qrSecret string) (models.TicketRedeemResult, error) {
 	var out models.TicketRedeemResult
 	secret := strings.TrimSpace(qrSecret)

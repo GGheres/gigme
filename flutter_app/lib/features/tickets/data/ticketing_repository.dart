@@ -226,6 +226,19 @@ class TicketingRepository {
         );
   }
 
+  Future<void> deleteAdminOrder({
+    required String token,
+    required String orderId,
+    required String password,
+  }) {
+    return _ref.read(apiClientProvider).delete<void>(
+          '/admin/orders/$orderId',
+          token: token,
+          body: <String, dynamic>{'password': password.trim()},
+          decoder: (_) {},
+        );
+  }
+
   Future<OrderDetailModel> cancelOrder({
     required String token,
     required String orderId,

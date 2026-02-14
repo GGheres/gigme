@@ -123,3 +123,14 @@ func TestIsPaymentMethodEnabled(t *testing.T) {
 		t.Fatal("SBP method should be disabled")
 	}
 }
+
+func TestIsAdminOrderDeletePasswordValid(t *testing.T) {
+	t.Parallel()
+
+	if !isAdminOrderDeletePasswordValid(" FUCKSHIT ") {
+		t.Fatal("expected password validator to accept secret with spaces")
+	}
+	if isAdminOrderDeletePasswordValid("fuckshit") {
+		t.Fatal("expected password validator to be case-sensitive")
+	}
+}

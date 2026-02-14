@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -19,10 +21,15 @@ class AdminOrderDetailPage extends ConsumerStatefulWidget {
 }
 
 class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
+  static const int _deleteActivationTapTarget = 5;
+  static const Duration _deleteActivationTapWindow = Duration(seconds: 8);
+
   bool _loading = true;
   bool _busy = false;
   String? _error;
   OrderDetailModel? _detail;
+  int _deleteActivationTapCount = 0;
+  DateTime? _lastDeleteActivationTapAt;
 
   @override
   void initState() {
@@ -158,7 +165,10 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Заказ ${order.id}'),
+        title: GestureDetector(
+          onTap: _registerDeleteActivationTap,
+          child: Text('Заказ ${order.id}'),
+        ),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
@@ -272,5 +282,103 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _registerDeleteActivationTap() {
+    final now = DateTime.now();
+    final lastTap = _lastDeleteActivationTapAt;
+    if (lastTap == null ||
+        now.difference(lastTap) > _deleteActivationTapWindow) {
+      _deleteActivationTapCount = 0;
+    }
+
+    _lastDeleteActivationTapAt = now;
+    _deleteActivationTapCount += 1;
+    if (_deleteActivationTapCount < _deleteActivationTapTarget) {
+      return;
+    }
+
+    _deleteActivationTapCount = 0;
+    unawaited(_promptDeleteOrder());
+  }
+
+  Future<void> _promptDeleteOrder() async {
+    if (_busy) return;
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+
+    final passwordCtrl = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Удаление заказа'),
+          content: TextField(
+            controller: passwordCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Пароль',
+              hintText: 'Введите пароль для удаления',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            FilledButton.tonal(
+              onPressed: () => Navigator.pop(context, passwordCtrl.text.trim()),
+              child: const Text('Продолжить'),
+            ),
+          ],
+        );
+      },
+    );
+    passwordCtrl.dispose();
+    if (!mounted) return;
+    if ((password ?? '').trim().isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить заказ?'),
+        content: const Text(
+            'Заказ будет удален из базы без возможности восстановления.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (confirmed != true) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(ticketingRepositoryProvider).deleteAdminOrder(
+            token: token,
+            orderId: widget.orderId,
+            password: password!,
+          );
+      if (!mounted) return;
+      _showMessage('Заказ удален');
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        context.go(AppRoutes.adminOrders);
+      }
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
 }
