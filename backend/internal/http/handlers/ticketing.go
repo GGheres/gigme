@@ -160,6 +160,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
+	h.notifyAdmins(logger, buildAdminOrderNotificationText(detail.Order, userID))
 	writeJSON(w, http.StatusCreated, detail)
 }
 
@@ -203,6 +204,7 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 		h.handleTicketingError(logger, w, "create_sbp_qr", err)
 		return
 	}
+	h.notifyAdmins(logger, buildAdminOrderNotificationText(detail.Order, userID))
 
 	amount := detail.Order.TotalCents
 	if amount <= 0 {

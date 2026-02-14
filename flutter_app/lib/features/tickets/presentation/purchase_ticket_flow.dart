@@ -132,6 +132,17 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       setState(() {
         _products = products;
         _paymentSettings = paymentSettings;
+        final selectedTransferId = _selectedTransferId;
+        if ((selectedTransferId ?? '').trim().isNotEmpty) {
+          final hasSelectedActiveTransfer = products.transfers.any(
+            (item) => item.isActive && item.id == selectedTransferId,
+          );
+          if (!hasSelectedActiveTransfer) {
+            _selectedTransferId = null;
+            _transferQty = 1;
+            _promoResult = null;
+          }
+        }
         final availableMethods = _availablePaymentMethods;
         if (availableMethods.isNotEmpty &&
             !availableMethods.contains(_paymentMethod)) {
@@ -362,6 +373,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       return const Center(child: Text('Products unavailable'));
     }
 
+    final activeTransfers = _activeTransfers(products);
     final selectedTransfer = _selectedTransfer(products);
     final hasTicketProducts = products.tickets.isNotEmpty;
 
@@ -406,7 +418,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (products.transfers.isEmpty)
+          if (activeTransfers.isEmpty)
             const _InfoCard(text: 'Трансфер для этого события недоступен.')
           else
             Wrap(
@@ -415,7 +427,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
               children: [
                 ChoiceChip(
                   label: const Text('Без трансфера'),
-                  selected: _selectedTransferId == null,
+                  selected:
+                      _selectedTransferId == null || selectedTransfer == null,
                   onSelected: (_) {
                     setState(() {
                       _selectedTransferId = null;
@@ -423,7 +436,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                     });
                   },
                 ),
-                ...products.transfers.map(
+                ...activeTransfers.map(
                   (transfer) => ChoiceChip(
                     label: Text(
                         '${transfer.label} · ${formatMoney(transfer.priceCents)}'),
@@ -589,9 +602,14 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
     final selectedId = _selectedTransferId;
     if ((selectedId ?? '').trim().isEmpty) return null;
     for (final item in products.transfers) {
+      if (!item.isActive) continue;
       if (item.id == selectedId) return item;
     }
     return null;
+  }
+
+  List<TransferProductModel> _activeTransfers(EventProductsModel products) {
+    return products.transfers.where((item) => item.isActive).toList();
   }
 
   void _showMessage(String text) {

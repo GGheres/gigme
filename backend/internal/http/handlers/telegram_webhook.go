@@ -24,11 +24,20 @@ type telegramUpdate struct {
 type telegramMessage struct {
 	MessageID int          `json:"message_id"`
 	Text      string       `json:"text"`
+	Caption   string       `json:"caption"`
 	Chat      telegramChat `json:"chat"`
+	From      telegramFrom `json:"from"`
 }
 
 type telegramChat struct {
 	ID int64 `json:"id"`
+}
+
+type telegramFrom struct {
+	ID        int64  `json:"id"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 var startEventPayloadRe = regexp.MustCompile(`(?i)event_(\d+)(?:_([a-z0-9_-]+))?`)
@@ -69,9 +78,10 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text := strings.TrimSpace(update.Message.Text)
+	text := incomingTelegramMessageText(update.Message)
 	fields := strings.Fields(text)
 	if len(fields) == 0 || !strings.HasPrefix(fields[0], "/start") {
+		h.notifyAdmins(logger, buildAdminBotMessageNotificationText(*update.Message))
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
