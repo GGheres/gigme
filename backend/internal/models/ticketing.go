@@ -130,6 +130,7 @@ type OrderItem struct {
 type Ticket struct {
 	ID            string     `json:"id"`
 	OrderID       string     `json:"orderId"`
+	OrderStatus   string     `json:"orderStatus,omitempty"`
 	UserID        int64      `json:"userId"`
 	EventID       int64      `json:"eventId"`
 	TicketType    string     `json:"ticketType"`

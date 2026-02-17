@@ -115,6 +115,7 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                             itemBuilder: (context, index) {
                               final ticket = _tickets[index];
                               final status = ticket.status;
+                              final isCanceled = status == 'CANCELED';
                               return Padding(
                                 padding: const EdgeInsets.only(
                                     bottom: AppSpacing.sm),
@@ -160,7 +161,13 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                                           'Погашен: ${ticket.redeemedAt!.toLocal()}',
                                         ),
                                       const SizedBox(height: AppSpacing.sm),
-                                      if (ticket.qrPayload.trim().isNotEmpty)
+                                      if (isCanceled)
+                                        const Text(
+                                          'Заказ отменен. Билет недействителен.',
+                                        )
+                                      else if (ticket.qrPayload
+                                          .trim()
+                                          .isNotEmpty)
                                         Center(
                                           child: Container(
                                             padding: const EdgeInsets.all(8),

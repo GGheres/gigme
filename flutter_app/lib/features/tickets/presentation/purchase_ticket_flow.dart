@@ -107,7 +107,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       setState(() {
         _loading = false;
         _error = 'Authorization required';
-      });
+      }); 
       return;
     }
 

@@ -1446,11 +1446,25 @@ WHERE id = $1::uuid
 
 func (r *Repository) ListMyTickets(ctx context.Context, userID int64, eventID *int64) ([]models.Ticket, error) {
 	rows, err := r.pool.Query(ctx, `
-SELECT id::text, order_id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at, redeemed_at, redeemed_by, created_at
-FROM tickets
-WHERE user_id = $1
-	AND ($2::bigint IS NULL OR event_id = $2)
-ORDER BY created_at DESC;`, userID, nullInt64Ptr(eventID))
+SELECT
+	t.id::text,
+	t.order_id::text,
+	t.user_id,
+	t.event_id,
+	t.ticket_type,
+	t.quantity,
+	t.qr_payload,
+	t.qr_payload_hash,
+	t.qr_issued_at,
+	t.redeemed_at,
+	t.redeemed_by,
+	t.created_at,
+	o.status
+FROM tickets t
+JOIN orders o ON o.id = t.order_id
+WHERE t.user_id = $1
+	AND ($2::bigint IS NULL OR t.event_id = $2)
+ORDER BY t.created_at DESC;`, userID, nullInt64Ptr(eventID))
 	if err != nil {
 		return nil, err
 	}
@@ -1458,13 +1472,56 @@ ORDER BY created_at DESC;`, userID, nullInt64Ptr(eventID))
 
 	items := make([]models.Ticket, 0)
 	for rows.Next() {
-		ticket, err := scanTicket(rows)
+		ticket, err := scanMyTicketWithOrderStatus(rows)
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, ticket)
 	}
 	return items, rows.Err()
+}
+
+func scanMyTicketWithOrderStatus(row pgx.Row) (models.Ticket, error) {
+	var out models.Ticket
+	var qrPayload sql.NullString
+	var qrPayloadHash sql.NullString
+	var qrIssuedAt sql.NullTime
+	var redeemedAt sql.NullTime
+	var redeemedBy sql.NullInt64
+	var orderStatus sql.NullString
+	if err := row.Scan(
+		&out.ID,
+		&out.OrderID,
+		&out.UserID,
+		&out.EventID,
+		&out.TicketType,
+		&out.Quantity,
+		&qrPayload,
+		&qrPayloadHash,
+		&qrIssuedAt,
+		&redeemedAt,
+		&redeemedBy,
+		&out.CreatedAt,
+		&orderStatus,
+	); err != nil {
+		return out, err
+	}
+	if qrPayload.Valid {
+		out.QRPayload = qrPayload.String
+	}
+	if qrPayloadHash.Valid {
+		out.QRPayloadHash = qrPayloadHash.String
+	}
+	out.QRIssuedAt = nullTimeToPtr(qrIssuedAt)
+	out.RedeemedAt = nullTimeToPtr(redeemedAt)
+	if redeemedBy.Valid {
+		value := redeemedBy.Int64
+		out.RedeemedBy = &value
+	}
+	if orderStatus.Valid {
+		out.OrderStatus = strings.ToUpper(strings.TrimSpace(orderStatus.String))
+	}
+	return out, nil
 }
 
 func (r *Repository) GetTicketStats(ctx context.Context, eventID *int64) (models.TicketStats, error) {

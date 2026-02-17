@@ -458,6 +458,7 @@ class TicketModel {
     return TicketModel(
       id: asString(map['id']),
       orderId: asString(map['orderId']),
+      orderStatus: asString(map['orderStatus']).toUpperCase(),
       userId: asInt(map['userId']),
       eventId: asInt(map['eventId']),
       ticketType: asString(map['ticketType']).toUpperCase(),
@@ -470,6 +471,7 @@ class TicketModel {
   TicketModel({
     required this.id,
     required this.orderId,
+    required this.orderStatus,
     required this.userId,
     required this.eventId,
     required this.ticketType,
@@ -481,6 +483,7 @@ class TicketModel {
 
   final String id;
   final String orderId;
+  final String orderStatus;
   final int userId;
   final int eventId;
   final String ticketType;
@@ -489,7 +492,10 @@ class TicketModel {
   final DateTime? redeemedAt;
   final DateTime? createdAt;
 
-  String get status => redeemedAt == null ? 'PAID' : 'REDEEMED';
+  String get status {
+    if (orderStatus.trim().isNotEmpty) return orderStatus;
+    return redeemedAt == null ? 'PAID' : 'REDEEMED';
+  }
 }
 
 class OrderDetailModel {
