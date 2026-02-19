@@ -13,6 +13,7 @@ import 'package:video_player/video_player.dart';
 import '../../../app/routes.dart';
 import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
@@ -785,8 +786,30 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
           );
       await _openVkLogin(authorizeUri);
     } catch (error) {
-      _showMessage('VK login error: $error');
+      _showMessage(_vkLoginErrorMessage(error));
     }
+  }
+
+  String _vkLoginErrorMessage(Object error) {
+    if (error is AppException) {
+      final statusCode = error.statusCode ?? 0;
+      final apiMessage = error.message.trim();
+      final normalizedMessage = apiMessage.toLowerCase();
+
+      if (statusCode == 503 && normalizedMessage == 'vk auth is disabled') {
+        return 'VK вход отключен на сервере. Добавьте VK_APP_ID/VK_APP_SECRET в backend и перезапустите API.';
+      }
+
+      if (statusCode == 503) {
+        return 'VK сервис временно недоступен (503). Попробуйте позже.';
+      }
+
+      if (apiMessage.isNotEmpty) {
+        return 'Ошибка VK входа: $apiMessage';
+      }
+    }
+
+    return 'Ошибка VK входа: $error';
   }
 
   void _showMessage(String message) {

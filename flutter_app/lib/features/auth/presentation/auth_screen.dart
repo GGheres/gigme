@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/network/providers.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/action_buttons.dart';
@@ -324,9 +325,31 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('VK login error: $error')),
+        SnackBar(content: Text(_vkLoginErrorMessage(error))),
       );
     }
+  }
+
+  String _vkLoginErrorMessage(Object error) {
+    if (error is AppException) {
+      final statusCode = error.statusCode ?? 0;
+      final apiMessage = error.message.trim();
+      final normalizedMessage = apiMessage.toLowerCase();
+
+      if (statusCode == 503 && normalizedMessage == 'vk auth is disabled') {
+        return 'VK вход отключен на сервере. Добавьте VK_APP_ID/VK_APP_SECRET в backend и перезапустите API.';
+      }
+
+      if (statusCode == 503) {
+        return 'VK сервис временно недоступен (503). Попробуйте позже.';
+      }
+
+      if (apiMessage.isNotEmpty) {
+        return 'Ошибка VK входа: $apiMessage';
+      }
+    }
+
+    return 'Ошибка VK входа: $error';
   }
 
   Uri? _standaloneHelperUri(AppConfig config) {
