@@ -68,28 +68,38 @@ func (c *VKIDClient) ExchangeCode(
 	codeVerifier string,
 	deviceID string,
 	redirectURI string,
+	state string,
 ) (VKIDToken, error) {
 	client, endpoint, appID, err := c.resolveAuthRequest("/oauth2/auth")
 	if err != nil {
 		return VKIDToken{}, err
 	}
 
-	values := url.Values{}
-	values.Set("grant_type", "authorization_code")
-	values.Set("client_id", appID)
-	values.Set("code", strings.TrimSpace(code))
-	values.Set("code_verifier", strings.TrimSpace(codeVerifier))
-	values.Set("device_id", strings.TrimSpace(deviceID))
-	values.Set("redirect_uri", strings.TrimSpace(redirectURI))
+	query := url.Values{}
+	query.Set("grant_type", "authorization_code")
+	query.Set("client_id", appID)
+	query.Set("code_verifier", strings.TrimSpace(codeVerifier))
+	query.Set("device_id", strings.TrimSpace(deviceID))
+	query.Set("redirect_uri", strings.TrimSpace(redirectURI))
+	query.Set("state", strings.TrimSpace(state))
 
-	if values.Get("code") == "" ||
-		values.Get("code_verifier") == "" ||
-		values.Get("device_id") == "" ||
-		values.Get("redirect_uri") == "" {
+	body := url.Values{}
+	body.Set("code", strings.TrimSpace(code))
+
+	if body.Get("code") == "" ||
+		query.Get("code_verifier") == "" ||
+		query.Get("device_id") == "" ||
+		query.Get("redirect_uri") == "" ||
+		query.Get("state") == "" {
 		return VKIDToken{}, fmt.Errorf("vk id exchange params are invalid")
 	}
 
-	payload, err := postVKIDForm(ctx, client, endpoint, values)
+	endpoint, err = withQueryParams(endpoint, query)
+	if err != nil {
+		return VKIDToken{}, err
+	}
+
+	payload, err := postVKIDForm(ctx, client, endpoint, body)
 	if err != nil {
 		return VKIDToken{}, err
 	}
@@ -125,18 +135,26 @@ func (c *VKIDClient) ExchangeCode(
 }
 
 func (c *VKIDClient) GetUserInfo(ctx context.Context, accessToken string) (VKIDUserInfo, error) {
-	client, endpoint, _, err := c.resolveAuthRequest("/oauth2/user_info")
+	client, endpoint, appID, err := c.resolveAuthRequest("/oauth2/user_info")
 	if err != nil {
 		return VKIDUserInfo{}, err
 	}
 
-	values := url.Values{}
-	values.Set("access_token", strings.TrimSpace(accessToken))
-	if values.Get("access_token") == "" {
+	query := url.Values{}
+	query.Set("client_id", appID)
+
+	body := url.Values{}
+	body.Set("access_token", strings.TrimSpace(accessToken))
+	if body.Get("access_token") == "" {
 		return VKIDUserInfo{}, fmt.Errorf("vk id access token is empty")
 	}
 
-	payload, err := postVKIDForm(ctx, client, endpoint, values)
+	endpoint, err = withQueryParams(endpoint, query)
+	if err != nil {
+		return VKIDUserInfo{}, err
+	}
+
+	payload, err := postVKIDForm(ctx, client, endpoint, body)
 	if err != nil {
 		return VKIDUserInfo{}, err
 	}
@@ -238,6 +256,22 @@ func postVKIDForm(
 	}
 
 	return body, nil
+}
+
+func withQueryParams(endpoint string, params url.Values) (string, error) {
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid vk id endpoint: %w", err)
+	}
+
+	query := parsed.Query()
+	for key, values := range params {
+		for _, value := range values {
+			query.Set(key, value)
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String(), nil
 }
 
 func parseVKIDUserID(raw json.RawMessage) (int64, error) {

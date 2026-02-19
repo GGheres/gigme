@@ -263,6 +263,7 @@ func (h *Handler) authVKCodeFlow(
 		state.CodeVerifier,
 		req.DeviceID,
 		state.RedirectURI,
+		req.State,
 	)
 	if err != nil {
 		var vkIDAuthErr *integrations.VKIDAuthError
