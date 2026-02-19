@@ -51,6 +51,34 @@ func TestParseAdminReplyCommand(t *testing.T) {
 	}
 }
 
+func TestParseAdminReplyTargetCommand(t *testing.T) {
+	chatID, ok := parseAdminReplyTargetCommand("/reply 54321")
+	if !ok {
+		t.Fatalf("expected target command to be parsed")
+	}
+	if chatID != 54321 {
+		t.Fatalf("expected chat id 54321, got %d", chatID)
+	}
+}
+
+func TestParseAdminReplyCallbackData(t *testing.T) {
+	chatID, isHint, ok := parseAdminReplyCallbackData("reply:111")
+	if !ok || isHint {
+		t.Fatalf("expected reply callback data to be parsed")
+	}
+	if chatID != 111 {
+		t.Fatalf("expected chat id 111, got %d", chatID)
+	}
+
+	chatID, isHint, ok = parseAdminReplyCallbackData("reply_hint:222")
+	if !ok || !isHint {
+		t.Fatalf("expected reply_hint callback data to be parsed")
+	}
+	if chatID != 222 {
+		t.Fatalf("expected chat id 222, got %d", chatID)
+	}
+}
+
 func TestParseAdminReplyPayload(t *testing.T) {
 	chatID, ok := parseAdminReplyPayload("reply_998877")
 	if !ok {

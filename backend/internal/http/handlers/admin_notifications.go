@@ -190,18 +190,20 @@ func buildAdminReplyMarkup(botUsername string, chatID int64) *integrations.Reply
 	}
 
 	buttons := make([]integrations.InlineKeyboardButton, 0, 2)
+	buttons = append(buttons, integrations.InlineKeyboardButton{
+		Text:         "Ответить",
+		CallbackData: fmt.Sprintf("reply:%d", chatID),
+	})
+	buttons = append(buttons, integrations.InlineKeyboardButton{
+		Text:         "Шаблон /reply",
+		CallbackData: fmt.Sprintf("reply_hint:%d", chatID),
+	})
 	if link := buildTelegramBotReplyLink(botUsername, chatID); link != "" {
 		buttons = append(buttons, integrations.InlineKeyboardButton{
-			Text: "Ответить",
+			Text: "Открыть чат",
 			URL:  link,
 		})
 	}
-	buttons = append(buttons, integrations.InlineKeyboardButton{
-		Text: "Шаблон /reply",
-		CopyText: &integrations.CopyTextButton{
-			Text: fmt.Sprintf("/reply %d ", chatID),
-		},
-	})
 
 	return &integrations.ReplyMarkup{
 		InlineKeyboard: [][]integrations.InlineKeyboardButton{buttons},

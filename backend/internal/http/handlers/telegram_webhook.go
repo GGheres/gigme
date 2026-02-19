@@ -20,7 +20,8 @@ import (
 )
 
 type telegramUpdate struct {
-	Message *telegramMessage `json:"message"`
+	Message       *telegramMessage       `json:"message"`
+	CallbackQuery *telegramCallbackQuery `json:"callback_query"`
 }
 
 type telegramMessage struct {
@@ -42,9 +43,18 @@ type telegramFrom struct {
 	LastName  string `json:"last_name"`
 }
 
+type telegramCallbackQuery struct {
+	ID      string           `json:"id"`
+	From    telegramFrom     `json:"from"`
+	Message *telegramMessage `json:"message"`
+	Data    string           `json:"data"`
+}
+
 var startEventPayloadRe = regexp.MustCompile(`(?i)event_(\d+)(?:_([a-z0-9_-]+))?`)
 var startEventIDRe = regexp.MustCompile(`\d+`)
 var adminReplyPayloadRe = regexp.MustCompile(`(?i)(?:reply|chat)_(\d+)`)
+var adminReplyCallbackDataRe = regexp.MustCompile(`(?i)^reply:(\d+)$`)
+var adminReplyHintCallbackDataRe = regexp.MustCompile(`(?i)^reply_hint:(\d+)$`)
 
 func parseStartPayload(payload string) (int64, string) {
 	payload = strings.TrimSpace(payload)
@@ -78,6 +88,11 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		logger.Warn("action", "action", "telegram_webhook", "status", "invalid_json")
 		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if update.CallbackQuery != nil {
+		h.handleTelegramCallbackQuery(logger, update.CallbackQuery)
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
 	if update.Message == nil || update.Message.Chat.ID == 0 {
@@ -188,6 +203,49 @@ func (h *Handler) isAdminTelegramID(telegramID int64) bool {
 	return ok
 }
 
+func (h *Handler) handleTelegramCallbackQuery(logger *slog.Logger, query *telegramCallbackQuery) {
+	if h == nil || h.telegram == nil || query == nil {
+		return
+	}
+
+	_ = h.telegram.AnswerCallbackQuery(query.ID, "")
+
+	adminTelegramID := query.From.ID
+	if !h.isAdminTelegramID(adminTelegramID) {
+		return
+	}
+
+	chatID, isHint, ok := parseAdminReplyCallbackData(query.Data)
+	if !ok || chatID <= 0 {
+		return
+	}
+
+	h.setAdminReplyTarget(adminTelegramID, chatID)
+
+	replyChatID := adminTelegramID
+	if query.Message != nil && query.Message.Chat.ID > 0 {
+		replyChatID = query.Message.Chat.ID
+	}
+
+	text := fmt.Sprintf(
+		"Режим ответа включен для %d\nОтправьте текст одним сообщением\nОтключить: /cancelreply",
+		chatID,
+	)
+	if isHint {
+		text = fmt.Sprintf("%s\nШаблон: /reply %d <текст>", text, chatID)
+	}
+	if err := h.telegram.SendMessage(replyChatID, text); err != nil {
+		logger.Warn(
+			"action", "action", "telegram_webhook_admin_reply_callback",
+			"status", "send_failed",
+			"admin_telegram_id", adminTelegramID,
+			"chat_id", chatID,
+			"error", err,
+		)
+	}
+
+}
+
 func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.Logger, message *telegramMessage, text string) bool {
 	if h == nil || h.telegram == nil || message == nil {
 		return false
@@ -221,6 +279,14 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 	if strings.HasPrefix(lower, "/cancelreply") {
 		h.clearAdminReplyTarget(message.From.ID)
 		_ = h.telegram.SendMessage(message.Chat.ID, "Режим ответа выключен")
+		return true
+	}
+	if chatID, ok := parseAdminReplyTargetCommand(text); ok {
+		h.setAdminReplyTarget(message.From.ID, chatID)
+		_ = h.telegram.SendMessage(
+			message.Chat.ID,
+			fmt.Sprintf("Режим ответа включен для %d\nОтправьте текст одним сообщением\nОтключить: /cancelreply", chatID),
+		)
 		return true
 	}
 	if strings.HasPrefix(lower, "/reply") {
@@ -323,6 +389,22 @@ func parseAdminReplyCommand(text string) (int64, string, bool) {
 	return chatID, replyText, true
 }
 
+func parseAdminReplyTargetCommand(text string) (int64, bool) {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) < 2 {
+		return 0, false
+	}
+	command := strings.ToLower(strings.TrimSpace(fields[0]))
+	if !strings.HasPrefix(command, "/reply") {
+		return 0, false
+	}
+	chatID, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil || chatID <= 0 {
+		return 0, false
+	}
+	return chatID, true
+}
+
 func parseAdminReplyPayload(payload string) (int64, bool) {
 	match := adminReplyPayloadRe.FindStringSubmatch(strings.TrimSpace(payload))
 	if len(match) < 2 {
@@ -333,6 +415,29 @@ func parseAdminReplyPayload(payload string) (int64, bool) {
 		return 0, false
 	}
 	return chatID, true
+}
+
+func parseAdminReplyCallbackData(data string) (int64, bool, bool) {
+	raw := strings.TrimSpace(data)
+	match := adminReplyCallbackDataRe.FindStringSubmatch(raw)
+	if len(match) >= 2 {
+		chatID, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil || chatID <= 0 {
+			return 0, false, false
+		}
+		return chatID, false, true
+	}
+
+	match = adminReplyHintCallbackDataRe.FindStringSubmatch(raw)
+	if len(match) >= 2 {
+		chatID, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil || chatID <= 0 {
+			return 0, false, false
+		}
+		return chatID, true, true
+	}
+
+	return 0, false, false
 }
 
 func adminReplyUsageText(chatID int64, botUsername string) string {

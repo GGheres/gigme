@@ -122,30 +122,41 @@ func TestBuildAdminReplyMarkup(t *testing.T) {
 		t.Fatalf("expected one row, got %d", len(markup.InlineKeyboard))
 	}
 	row := markup.InlineKeyboard[0]
-	if len(row) != 2 {
-		t.Fatalf("expected two buttons, got %d", len(row))
+	if len(row) != 3 {
+		t.Fatalf("expected three buttons, got %d", len(row))
 	}
 
 	openButton := row[0]
 	if openButton.Text != "Ответить" {
 		t.Fatalf("unexpected open button text: %q", openButton.Text)
 	}
-	if openButton.URL != "https://t.me/my_bot?start=reply_123456" {
-		t.Fatalf("unexpected reply link: %q", openButton.URL)
+	if openButton.CallbackData != "reply:123456" {
+		t.Fatalf("unexpected callback data: %q", openButton.CallbackData)
+	}
+	if openButton.URL != "" {
+		t.Fatalf("unexpected URL for callback button: %q", openButton.URL)
 	}
 
 	templateButton := row[1]
 	if templateButton.Text != "Шаблон /reply" {
 		t.Fatalf("unexpected template button text: %q", templateButton.Text)
 	}
-	if templateButton.CopyText == nil {
-		t.Fatalf("expected copy_text button")
+	if templateButton.CallbackData != "reply_hint:123456" {
+		t.Fatalf("unexpected template callback data: %q", templateButton.CallbackData)
 	}
-	if templateButton.CopyText.Text != "/reply 123456 " {
-		t.Fatalf("unexpected template text: %q", templateButton.CopyText.Text)
+	if templateButton.CopyText != nil {
+		t.Fatalf("unexpected copy_text payload: %+v", templateButton.CopyText)
 	}
 	if templateButton.URL != "" {
 		t.Fatalf("unexpected template button URL: %q", templateButton.URL)
+	}
+
+	openChatButton := row[2]
+	if openChatButton.Text != "Открыть чат" {
+		t.Fatalf("unexpected open chat button text: %q", openChatButton.Text)
+	}
+	if openChatButton.URL != "https://t.me/my_bot?start=reply_123456" {
+		t.Fatalf("unexpected open chat url: %q", openChatButton.URL)
 	}
 }
 
@@ -154,17 +165,17 @@ func TestBuildAdminReplyMarkupWithoutBotUsername(t *testing.T) {
 	if markup == nil {
 		t.Fatalf("expected markup with copy button")
 	}
-	if len(markup.InlineKeyboard) != 1 || len(markup.InlineKeyboard[0]) != 1 {
-		t.Fatalf("expected one copy button row, got %+v", markup.InlineKeyboard)
+	if len(markup.InlineKeyboard) != 1 || len(markup.InlineKeyboard[0]) != 2 {
+		t.Fatalf("expected two callback buttons row, got %+v", markup.InlineKeyboard)
 	}
 	button := markup.InlineKeyboard[0][0]
-	if button.Text != "Шаблон /reply" {
+	if button.Text != "Ответить" {
 		t.Fatalf("unexpected button text: %q", button.Text)
 	}
-	if button.CopyText == nil || button.CopyText.Text != "/reply 123 " {
-		t.Fatalf("unexpected copy_text payload: %+v", button.CopyText)
+	if button.CallbackData != "reply:123" {
+		t.Fatalf("unexpected callback data: %q", button.CallbackData)
 	}
-	if button.URL != "" || button.WebApp != nil {
+	if button.URL != "" || button.WebApp != nil || button.CopyText != nil {
 		t.Fatalf("unexpected extra button fields: %+v", button)
 	}
 }

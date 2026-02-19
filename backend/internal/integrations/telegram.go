@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,10 +22,11 @@ type WebAppInfo struct {
 }
 
 type InlineKeyboardButton struct {
-	Text     string          `json:"text"`
-	URL      string          `json:"url,omitempty"`
-	WebApp   *WebAppInfo     `json:"web_app,omitempty"`
-	CopyText *CopyTextButton `json:"copy_text,omitempty"`
+	Text         string          `json:"text"`
+	URL          string          `json:"url,omitempty"`
+	WebApp       *WebAppInfo     `json:"web_app,omitempty"`
+	CallbackData string          `json:"callback_data,omitempty"`
+	CopyText     *CopyTextButton `json:"copy_text,omitempty"`
 }
 
 type CopyTextButton struct {
@@ -125,6 +127,21 @@ func (t *TelegramClient) SendPhotoBytes(chatID int64, filename string, photo []b
 		return fmt.Errorf("telegram sendPhoto status %d", resp.StatusCode)
 	}
 	return nil
+}
+
+func (t *TelegramClient) AnswerCallbackQuery(callbackQueryID string, text string) error {
+	callbackQueryID = strings.TrimSpace(callbackQueryID)
+	if callbackQueryID == "" {
+		return nil
+	}
+
+	payload := map[string]interface{}{
+		"callback_query_id": callbackQueryID,
+	}
+	if strings.TrimSpace(text) != "" {
+		payload["text"] = strings.TrimSpace(text)
+	}
+	return t.post("answerCallbackQuery", payload)
 }
 
 func (t *TelegramClient) post(method string, payload map[string]interface{}) error {
