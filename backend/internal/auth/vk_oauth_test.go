@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -143,6 +145,51 @@ func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob(t *testing.T) {
 	if parsed.Next != payload.Next {
 		t.Fatalf("Next = %q", parsed.Next)
 	}
+}
+
+func TestParseVKOAuthStateLegacyRawSignatureWithDotAndBraceBytes(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	const secret = "secret"
+
+	for i := 0; i < 5000; i++ {
+		payload := vkOAuthStatePayload{
+			CodeVerifier: fmt.Sprintf("verifier-%d", i),
+			RedirectURI:  "https://spacefestival.fun/space_app/auth",
+			Next:         fmt.Sprintf("/space_app/%d", i),
+			ExpiresAt:    now.Add(10 * time.Minute).Unix(),
+		}
+
+		rawPayload, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("json.Marshal(payload) error = %v", err)
+		}
+
+		signatureRaw := signVKOAuthStateRaw(secret, rawPayload)
+		if bytes.IndexByte(signatureRaw, '.') < 0 ||
+			bytes.IndexByte(signatureRaw, '}') < 0 {
+			continue
+		}
+
+		legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+		legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
+
+		parsed, err := ParseVKOAuthState(legacyState, secret, now.Add(2*time.Minute))
+		if err != nil {
+			t.Fatalf("ParseVKOAuthState() error = %v", err)
+		}
+		if parsed.CodeVerifier != payload.CodeVerifier {
+			t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+		}
+		if parsed.RedirectURI != payload.RedirectURI {
+			t.Fatalf("RedirectURI = %q", parsed.RedirectURI)
+		}
+		if parsed.Next != payload.Next {
+			t.Fatalf("Next = %q", parsed.Next)
+		}
+		return
+	}
+
+	t.Fatal("could not generate legacy signature containing both '.' and '}'")
 }
 
 func TestBuildPKCECodeChallenge(t *testing.T) {

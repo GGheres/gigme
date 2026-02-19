@@ -165,13 +165,21 @@ func parseVKOAuthStateLegacy(
 	}
 
 	// Legacy format: base64url(payload_json + "." + raw_hmac_sha256(payload_json)).
-	payloadEnd := bytes.LastIndexByte(decoded, '}')
-	if payloadEnd <= 0 || payloadEnd+2 > len(decoded) || decoded[payloadEnd+1] != '.' {
+	// Do not search for '}' by bytes value because raw signature bytes may contain
+	// arbitrary characters including '}' and '.'.
+	decoder := json.NewDecoder(bytes.NewReader(decoded))
+	var rawPayloadMessage json.RawMessage
+	if err := decoder.Decode(&rawPayloadMessage); err != nil {
 		return VKOAuthState{}, false
 	}
 
-	payloadBytes := decoded[:payloadEnd+1]
-	signatureRaw := decoded[payloadEnd+2:]
+	payloadEnd := int(decoder.InputOffset())
+	if payloadEnd <= 0 || payloadEnd >= len(decoded) || decoded[payloadEnd] != '.' {
+		return VKOAuthState{}, false
+	}
+
+	payloadBytes := decoded[:payloadEnd]
+	signatureRaw := decoded[payloadEnd+1:]
 	if len(signatureRaw) == 0 {
 		return VKOAuthState{}, false
 	}
