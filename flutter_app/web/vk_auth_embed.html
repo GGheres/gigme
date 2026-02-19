@@ -202,7 +202,9 @@
                   : '';
               const stateFromPayload =
                 payload && typeof payload.state === 'string' ? payload.state.trim() : '';
-              const state = stateFromPayload || signedState;
+              // Backend signs PKCE verifier into signedState at /auth/vk/start.
+              // Use this exact state for /auth/vk exchange to avoid SDK-side state rewrites.
+              const state = signedState || stateFromPayload;
 
               if (!code || !deviceId || !state) {
                 reportError('VK returned incomplete auth payload');
