@@ -44,6 +44,8 @@ class AppModal extends StatelessWidget {
     this.subtitle,
     this.actions = const <Widget>[],
     this.onClose,
+    this.constraints,
+    this.scrollBody = false,
     super.key,
   });
 
@@ -52,61 +54,115 @@ class AppModal extends StatelessWidget {
   final Widget body;
   final List<Widget> actions;
   final VoidCallback? onClose;
+  final BoxConstraints? constraints;
+  final bool scrollBody;
 
   @override
   Widget build(BuildContext context) {
+    final dialogContent = Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: scrollBody
+          ? Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ModalHeader(
+                  title: title,
+                  subtitle: subtitle,
+                  onClose: onClose,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: SingleChildScrollView(child: body),
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: actions,
+                  ),
+                ],
+              ],
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ModalHeader(
+                  title: title,
+                  subtitle: subtitle,
+                  onClose: onClose,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                body,
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: actions,
+                  ),
+                ],
+              ],
+            ),
+    );
+
     return Dialog(
       insetPadding: const EdgeInsets.all(AppSpacing.lg),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.xxl),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: Theme.of(context).textTheme.titleLarge),
-                      if ((subtitle ?? '').trim().isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          subtitle!,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (onClose != null)
-                  AppButton(
-                    label: 'Закрыть',
-                    size: AppButtonSize.sm,
-                    variant: AppButtonVariant.ghost,
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: onClose,
-                  ),
-              ],
+      child: constraints == null
+          ? dialogContent
+          : ConstrainedBox(
+              constraints: constraints!,
+              child: dialogContent,
             ),
-            const SizedBox(height: AppSpacing.md),
-            body,
-            if (actions.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: actions),
+    );
+  }
+}
+
+class _ModalHeader extends StatelessWidget {
+  const _ModalHeader({
+    required this.title,
+    required this.subtitle,
+    required this.onClose,
+  });
+
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              if ((subtitle ?? '').trim().isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  subtitle!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
+        if (onClose != null)
+          AppButton(
+            label: 'Закрыть',
+            size: AppButtonSize.sm,
+            variant: AppButtonVariant.ghost,
+            icon: const Icon(Icons.close_rounded),
+            onPressed: onClose,
+          ),
+      ],
     );
   }
 }

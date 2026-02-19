@@ -284,6 +284,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }) async {
     final telegramLoginUri = _telegramLoginUri(nextLocation: nextLocation);
     final vkAvailable = _canUseVkLogin();
+    const isCompactWebModal = kIsWeb;
+    const compactWebModalSize = 300.0;
+    const allowEmbeddedAuth = kIsWeb && !isCompactWebModal;
     if (telegramLoginUri == null && !vkAvailable) {
       _showMessage(
         'Авторизация недоступна. Проверьте настройки Telegram helper и VK_APP_ID.',
@@ -291,7 +294,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       return;
     }
 
-    final embeddedTelegramAuth = kIsWeb && telegramLoginUri != null
+    final embeddedTelegramAuth = allowEmbeddedAuth && telegramLoginUri != null
         ? buildTelegramAuthEmbed(
             helperUri: telegramLoginUri,
             onInitData: (initData) {
@@ -305,7 +308,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
           )
         : null;
     final vkEmbedUri = _vkAuthEmbedUri(nextLocation: nextLocation);
-    final embeddedVkAuth = kIsWeb && vkEmbedUri != null
+    final embeddedVkAuth = allowEmbeddedAuth && vkEmbedUri != null
         ? buildVkAuthEmbed(
             helperUri: vkEmbedUri,
             onAuthCode: (code, state, deviceId) {
@@ -338,9 +341,17 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
             return AppModal(
               title: 'Вход в SPACE',
-              subtitle:
-                  'Выберите удобный способ авторизации. После входа вы вернетесь в приложение.',
+              subtitle: isCompactWebModal
+                  ? 'Выберите способ авторизации.'
+                  : 'Выберите удобный способ авторизации. После входа вы вернетесь в приложение.',
               onClose: () => Navigator.of(dialogContext).pop(),
+              constraints: isCompactWebModal
+                  ? const BoxConstraints.tightFor(
+                      width: compactWebModalSize,
+                      height: compactWebModalSize,
+                    )
+                  : null,
+              scrollBody: isCompactWebModal,
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -381,11 +392,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                   if (isTelegramSelected) ...[
                     Text(
                       embeddedTelegramAuth == null
-                          ? 'Нажмите кнопку ниже, завершите Telegram login и вернитесь в SPACE.'
+                          ? isCompactWebModal
+                              ? 'Нажмите кнопку ниже и завершите вход в Telegram.'
+                              : 'Нажмите кнопку ниже, завершите Telegram login и вернитесь в SPACE.'
                           : 'Войдите через Telegram прямо в этом окне. После успешного входа модалка закроется автоматически.',
                       style: Theme.of(modalContext).textTheme.bodyMedium,
                     ),
-                    if (embeddedTelegramAuth != null) ...[
+                    if (!isCompactWebModal && embeddedTelegramAuth != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
@@ -408,11 +421,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                   ] else ...[
                     Text(
                       embeddedVkAuth == null
-                          ? 'Мы перенаправим вас на страницу VK ID в этой вкладке. После подтверждения входа вы автоматически вернетесь в SPACE.'
+                          ? isCompactWebModal
+                              ? 'Нажмите кнопку ниже и продолжите вход через VK.'
+                              : 'Мы перенаправим вас на страницу VK ID в этой вкладке. После подтверждения входа вы автоматически вернетесь в SPACE.'
                           : 'Войдите через VK ID прямо в этом окне. После успешного входа модалка закроется автоматически.',
                       style: Theme.of(modalContext).textTheme.bodyMedium,
                     ),
-                    if (embeddedVkAuth != null) ...[
+                    if (!isCompactWebModal && embeddedVkAuth != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
@@ -439,7 +454,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                 if (isTelegramSelected && telegramAvailable)
                   if (embeddedTelegramAuth == null)
                     AppButton(
-                      label: 'Login via Telegram',
+                      label: isCompactWebModal
+                          ? 'Войти через Telegram'
+                          : 'Login via Telegram',
                       variant: AppButtonVariant.primary,
                       icon: const Icon(Icons.telegram_rounded),
                       onPressed: () {
@@ -458,7 +475,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                 if (!isTelegramSelected && vkAvailable)
                   if (embeddedVkAuth == null)
                     AppButton(
-                      label: 'Login via VK',
+                      label:
+                          isCompactWebModal ? 'Войти через VK' : 'Login via VK',
                       variant: AppButtonVariant.primary,
                       icon: const Icon(Icons.open_in_new_rounded),
                       onPressed: () {
