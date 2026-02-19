@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/routes.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/providers.dart';
-import '../../../core/utils/vk_auth.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_states.dart';
@@ -16,6 +15,7 @@ import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
+import '../data/auth_repository.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -40,7 +40,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final state = authController.state;
     final config = ref.watch(appConfigProvider);
     final standaloneHelperUri = _standaloneHelperUri(config);
-    final vkLoginUri = _vkLoginUri(config);
+    final canUseVkLogin = _canUseVkLogin(config);
     _scheduleStandaloneHelperAutoLaunch(
       state: state,
       config: config,
@@ -52,13 +52,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         state: state,
         config: config,
         standaloneHelperUri: standaloneHelperUri,
-        vkLoginUri: vkLoginUri,
+        canUseVkLogin: canUseVkLogin,
       );
     }
 
     return AppScaffold(
       title: 'Вход',
-      subtitle: vkLoginUri == null
+      subtitle: !canUseVkLogin
           ? 'Авторизация в SPACE через Telegram'
           : 'Авторизация в SPACE через Telegram или VK',
       showBackgroundDecor: true,
@@ -72,13 +72,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           child: ListView(
             children: [
               SectionCard(
-                title: vkLoginUri == null ? 'Telegram Login' : 'Web Login',
+                title: !canUseVkLogin ? 'Telegram Login' : 'Web Login',
                 subtitle: _subtitleForMode(config.authMode),
                 child: _buildStandaloneContent(
                   state: state,
                   config: config,
                   standaloneHelperUri: standaloneHelperUri,
-                  vkLoginUri: vkLoginUri,
+                  canUseVkLogin: canUseVkLogin,
                 ),
               ),
             ],
@@ -92,11 +92,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required AuthState state,
     required AppConfig config,
     required Uri? standaloneHelperUri,
-    required Uri? vkLoginUri,
+    required bool canUseVkLogin,
   }) {
     final error = (state.error ?? '').trim();
     final canUseStandaloneHelper = standaloneHelperUri != null;
-    final canUseVkLogin = vkLoginUri != null;
 
     return AppScaffold(
       title: 'Вход',
@@ -170,7 +169,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           outline: true,
                           icon: const Icon(Icons.open_in_new_rounded),
                           onPressed: () async {
-                            await _openWebAuthUri(vkLoginUri);
+                            await _startVkLogin(config: config);
                           },
                         ),
                       ],
@@ -189,7 +188,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required AuthState state,
     required AppConfig config,
     required Uri? standaloneHelperUri,
-    required Uri? vkLoginUri,
+    required bool canUseVkLogin,
   }) {
     final error = (state.error ?? '').trim();
 
@@ -221,14 +220,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           onPressed: () => ref.read(authControllerProvider).retryAuth(),
           icon: const Icon(Icons.telegram_rounded),
         ),
-        if (vkLoginUri != null) ...[
+        if (canUseVkLogin) ...[
           const SizedBox(height: AppSpacing.xs),
           SecondaryButton(
             label: 'Войти через VK',
             outline: true,
             icon: const Icon(Icons.open_in_new_rounded),
             onPressed: () async {
-              await _openWebAuthUri(vkLoginUri);
+              await _startVkLogin(config: config);
             },
           ),
         ],
@@ -284,30 +283,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  Uri? _vkLoginUri(AppConfig config) {
-    if (!kIsWeb) return null;
-    final appId = config.vkAppId.trim();
-    if (appId.isEmpty) return null;
-
-    final current = Uri.base;
-    final next = (current.queryParameters['next'] ?? '').trim();
-    final state = next.isEmpty ? AppRoutes.appRoot : next;
-    final redirect = current.replace(
-      path: AppRoutes.auth,
-      queryParameters: const <String, String>{},
-      fragment: '',
-    );
-    final redirectUri = Uri.parse(_withoutFragment(redirect));
-    return buildVkOAuthAuthorizeUri(
-      appId: appId,
-      redirectUri: redirectUri,
-      state: state,
-    );
+  bool _canUseVkLogin(AppConfig config) {
+    if (!kIsWeb) return false;
+    return config.vkAppId.trim().isNotEmpty;
   }
 
-  Future<void> _openWebAuthUri(Uri? uri) async {
-    if (uri == null) return;
-
+  Future<void> _openWebAuthUri(Uri uri) async {
     if (kIsWeb) {
       TelegramWebAppBridge.redirect(uri.toString());
       return;
@@ -317,6 +298,35 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       uri,
       mode: LaunchMode.externalApplication,
     );
+  }
+
+  Future<void> _startVkLogin({
+    required AppConfig config,
+    String? nextLocation,
+  }) async {
+    if (!_canUseVkLogin(config)) return;
+
+    final current = Uri.base;
+    final next = (nextLocation ?? current.queryParameters['next'] ?? '').trim();
+    final normalizedNext = next.isEmpty ? AppRoutes.appRoot : next;
+    final redirect = current.replace(
+      path: AppRoutes.auth,
+      queryParameters: const <String, String>{},
+      fragment: '',
+    );
+
+    try {
+      final authorizeUri = await ref.read(authRepositoryProvider).startVkAuth(
+            redirectUri: _withoutFragment(redirect),
+            next: normalizedNext,
+          );
+      await _openWebAuthUri(authorizeUri);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('VK login error: $error')),
+      );
+    }
   }
 
   Uri? _standaloneHelperUri(AppConfig config) {

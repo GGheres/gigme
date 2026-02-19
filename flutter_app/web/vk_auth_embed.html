@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SPACE VK Login</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100%;
+        background: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      .vk-auth-wrap {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+      }
+      .vk-auth-title {
+        margin: 0 0 8px;
+        font-size: 14px;
+        line-height: 1.3;
+        color: #f1f5f9;
+      }
+      .vk-auth-status {
+        margin: 0 0 10px;
+        min-height: 18px;
+        font-size: 12px;
+        line-height: 1.35;
+        color: #94a3b8;
+      }
+      .vk-auth-status.vk-auth-status--error {
+        color: #fca5a5;
+      }
+      #vkid_oauth {
+        width: 100%;
+      }
+    </style>
+    <script src="https://unpkg.com/@vkid/sdk@2/dist-sdk/umd/index.js"></script>
+  </head>
+  <body>
+    <div class="vk-auth-wrap">
+      <p class="vk-auth-title">Вход через VK ID</p>
+      <p id="status" class="vk-auth-status">Загрузка виджета...</p>
+      <div id="vkid_oauth"></div>
+    </div>
+
+    <script>
+      (function () {
+        const statusEl = document.getElementById('status');
+        const container = document.getElementById('vkid_oauth');
+        const params = new URLSearchParams(window.location.search);
+
+        const apiBaseRaw = (params.get('api') || '/api').trim();
+        const nextRaw = (params.get('next') || '').trim();
+        const redirectUriRaw = (params.get('redirect_uri') || '').trim();
+        const redirectUri =
+          redirectUriRaw || new URL('/space_app/auth', window.location.origin).toString();
+
+        let signedState = '';
+
+        function setStatus(message, isError) {
+          statusEl.textContent = message || '';
+          statusEl.classList.toggle('vk-auth-status--error', !!isError);
+        }
+
+        function toApiUrl(path) {
+          const normalizedBase = apiBaseRaw.endsWith('/') ? apiBaseRaw : apiBaseRaw + '/';
+          const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+          return new URL(normalizedPath, normalizedBase).toString();
+        }
+
+        function normalizeError(error) {
+          if (!error) return 'Unknown VK auth error';
+          if (typeof error === 'string') return error;
+          if (typeof error.error_description === 'string' && error.error_description.trim()) {
+            return error.error_description.trim();
+          }
+          if (typeof error.message === 'string' && error.message.trim()) {
+            return error.message.trim();
+          }
+          try {
+            return JSON.stringify(error);
+          } catch (_) {
+            return 'Unknown VK auth error';
+          }
+        }
+
+        function postMessageToParent(payload) {
+          if (!window.parent || window.parent === window) return;
+          const serialized = JSON.stringify(payload);
+          try {
+            window.parent.postMessage(serialized, window.location.origin);
+          } catch (_) {}
+          try {
+            window.parent.postMessage(serialized, '*');
+          } catch (_) {}
+        }
+
+        function reportError(error) {
+          const message = normalizeError(error);
+          setStatus(message, true);
+          postMessageToParent({
+            type: 'space.vk.auth.error',
+            error: message,
+          });
+        }
+
+        async function requestStart() {
+          const body = { redirectUri: redirectUri };
+          if (nextRaw) {
+            body.next = nextRaw;
+          }
+
+          const response = await fetch(toApiUrl('/auth/vk/start'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+
+          let payload = null;
+          try {
+            payload = await response.json();
+          } catch (_) {}
+
+          if (!response.ok) {
+            const errorMessage =
+              payload && typeof payload.error === 'string' && payload.error.trim()
+                ? payload.error.trim()
+                : 'Could not start VK login';
+            throw new Error(errorMessage);
+          }
+
+          const authorizeUrl =
+            payload && typeof payload.authorizeUrl === 'string'
+              ? payload.authorizeUrl.trim()
+              : '';
+          if (!authorizeUrl) {
+            throw new Error('Backend returned empty authorizeUrl');
+          }
+
+          return authorizeUrl;
+        }
+
+        async function initWidget() {
+          if (!('VKIDSDK' in window)) {
+            throw new Error('VKID SDK script is unavailable');
+          }
+          if (!container) {
+            throw new Error('VKID container is missing');
+          }
+
+          const authorizeUrl = await requestStart();
+          const authorize = new URL(authorizeUrl);
+
+          const appId = Number(authorize.searchParams.get('client_id') || '');
+          if (!Number.isFinite(appId) || appId <= 0) {
+            throw new Error('VK app id is invalid');
+          }
+
+          const codeChallenge = (authorize.searchParams.get('code_challenge') || '').trim();
+          signedState = (authorize.searchParams.get('state') || '').trim();
+          const authorizeRedirectUri =
+            (authorize.searchParams.get('redirect_uri') || '').trim() || redirectUri;
+
+          if (!codeChallenge || !signedState) {
+            throw new Error('VK start payload is incomplete');
+          }
+
+          const VKID = window.VKIDSDK;
+          VKID.Config.init({
+            app: appId,
+            redirectUrl: authorizeRedirectUri,
+            responseMode: VKID.ConfigResponseMode.Callback,
+            source: VKID.ConfigSource.LOWCODE,
+            state: signedState,
+            codeChallenge: codeChallenge,
+            scope: '',
+          });
+
+          const oAuth = new VKID.OAuthList();
+          oAuth
+            .render({
+              container: container,
+              scheme: 'dark',
+              styles: {
+                borderRadius: 50,
+                height: 40,
+              },
+              oauthList: ['vkid'],
+            })
+            .on(VKID.WidgetEvents.ERROR, reportError)
+            .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS, function (payload) {
+              const code =
+                payload && typeof payload.code === 'string' ? payload.code.trim() : '';
+              const deviceId =
+                payload && typeof payload.device_id === 'string'
+                  ? payload.device_id.trim()
+                  : '';
+              const stateFromPayload =
+                payload && typeof payload.state === 'string' ? payload.state.trim() : '';
+              const state = stateFromPayload || signedState;
+
+              if (!code || !deviceId || !state) {
+                reportError('VK returned incomplete auth payload');
+                return;
+              }
+
+              setStatus('Вход выполнен, возвращаем в приложение...', false);
+              postMessageToParent({
+                type: 'space.vk.auth',
+                code: code,
+                state: state,
+                deviceId: deviceId,
+              });
+            });
+
+          setStatus('Подтвердите вход через VK ID', false);
+        }
+
+        initWidget().catch(reportError);
+      })();
+    </script>
+  </body>
+</html>

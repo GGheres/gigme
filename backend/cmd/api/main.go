@@ -92,6 +92,7 @@ func main() {
 	r.Get("/landing/content", h.LandingContent)
 
 	r.Post("/auth/telegram", h.AuthTelegram)
+	r.Post("/auth/vk/start", h.AuthVKStart)
 	r.Post("/auth/vk", h.AuthVK)
 	r.Post("/auth/vk/miniapp", h.AuthVKMiniApp)
 	r.Post("/auth/admin", h.AuthAdmin)

@@ -26,21 +26,32 @@ void main() {
     });
   });
 
-  group('buildVkOAuthAuthorizeUri', () {
-    test('strips query parameters and fragment from redirect uri', () {
-      final uri = buildVkOAuthAuthorizeUri(
-        appId: '51887851',
-        redirectUri: Uri.parse(
-          'https://spacefestival.fun/space_app/auth?vk_auth=1#fragment',
-        ),
-        state: '/space_app',
+  group('parseVkAuthCodeCredentialsFromUri', () {
+    test('parses code flow params from query string', () {
+      final uri = Uri.parse(
+        'https://spacefestival.fun/space_app/auth?code=abc&state=signed.device&device_id=device-1',
       );
 
-      expect(uri, isNotNull);
-      expect(
-        uri!.queryParameters['redirect_uri'],
-        'https://spacefestival.fun/space_app/auth',
+      final credentials = parseVkAuthCodeCredentialsFromUri(uri);
+      expect(credentials, isNotNull);
+      expect(credentials!.code, 'abc');
+      expect(credentials.state, 'signed.device');
+      expect(credentials.deviceId, 'device-1');
+    });
+
+    test('parses code flow params from payload json', () {
+      final payload = Uri.encodeQueryComponent(
+        '{"code":"abc","state":"signed.device","device_id":"device-1"}',
       );
+      final uri = Uri.parse(
+        'https://spacefestival.fun/space_app/auth?payload=$payload',
+      );
+
+      final credentials = parseVkAuthCodeCredentialsFromUri(uri);
+      expect(credentials, isNotNull);
+      expect(credentials!.code, 'abc');
+      expect(credentials.state, 'signed.device');
+      expect(credentials.deviceId, 'device-1');
     });
   });
 

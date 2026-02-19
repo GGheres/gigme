@@ -5,6 +5,22 @@ import '../../../core/models/referral.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
+import '../../../core/utils/json_utils.dart';
+
+class VkAuthStartResponse {
+  VkAuthStartResponse({
+    required this.authorizeUrl,
+  });
+
+  factory VkAuthStartResponse.fromJson(dynamic json) {
+    final map = asMap(json);
+    return VkAuthStartResponse(
+      authorizeUrl: asString(map['authorizeUrl']),
+    );
+  }
+
+  final String authorizeUrl;
+}
 
 class AuthRepository {
   AuthRepository(this._ref);
@@ -31,6 +47,43 @@ class AuthRepository {
           },
           decoder: AuthSession.fromJson,
         );
+  }
+
+  Future<AuthSession> loginWithVkCode({
+    required String code,
+    required String state,
+    required String deviceId,
+  }) {
+    return _ref.read(apiClientProvider).post<AuthSession>(
+          ApiPaths.authVk,
+          body: <String, dynamic>{
+            'code': code,
+            'state': state,
+            'deviceId': deviceId,
+          },
+          decoder: AuthSession.fromJson,
+        );
+  }
+
+  Future<Uri> startVkAuth({
+    required String redirectUri,
+    String? next,
+  }) async {
+    final response =
+        await _ref.read(apiClientProvider).post<VkAuthStartResponse>(
+              ApiPaths.authVkStart,
+              body: <String, dynamic>{
+                'redirectUri': redirectUri,
+                if (next != null && next.trim().isNotEmpty) 'next': next.trim(),
+              },
+              decoder: VkAuthStartResponse.fromJson,
+            );
+
+    final uri = Uri.tryParse(response.authorizeUrl.trim());
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw StateError('Backend returned invalid VK authorize URL');
+    }
+    return uri;
   }
 
   Future<AuthSession> loginWithVkMiniApp({

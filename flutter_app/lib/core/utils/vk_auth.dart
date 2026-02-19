@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class VkAuthCredentials {
   const VkAuthCredentials({
     required this.accessToken,
@@ -6,6 +8,18 @@ class VkAuthCredentials {
 
   final String accessToken;
   final int? userId;
+}
+
+class VkAuthCodeCredentials {
+  const VkAuthCodeCredentials({
+    required this.code,
+    required this.state,
+    required this.deviceId,
+  });
+
+  final String code;
+  final String state;
+  final String deviceId;
 }
 
 String? extractVkMiniAppLaunchParams(Uri? uri) {
@@ -24,36 +38,6 @@ String? extractVkMiniAppLaunchParams(Uri? uri) {
   return raw;
 }
 
-Uri? buildVkOAuthAuthorizeUri({
-  required String appId,
-  required Uri redirectUri,
-  String? state,
-}) {
-  final clientId = appId.trim();
-  if (clientId.isEmpty) return null;
-  final normalizedRedirectUri = Uri(
-    scheme: redirectUri.scheme,
-    userInfo: redirectUri.userInfo,
-    host: redirectUri.host,
-    port: redirectUri.hasPort ? redirectUri.port : null,
-    path: redirectUri.path,
-  );
-
-  final queryParameters = <String, String>{
-    'client_id': clientId,
-    'redirect_uri': normalizedRedirectUri.toString(),
-    'response_type': 'token',
-    'display': 'popup',
-    'v': '5.199',
-  };
-  final stateValue = (state ?? '').trim();
-  if (stateValue.isNotEmpty) {
-    queryParameters['state'] = stateValue;
-  }
-
-  return Uri.https('oauth.vk.com', '/authorize', queryParameters);
-}
-
 VkAuthCredentials? parseVkAuthCredentialsFromUri(Uri? uri) {
   if (uri == null) return null;
   final params = _collectUriAuthParams(uri);
@@ -70,6 +54,36 @@ VkAuthCredentials? parseVkAuthCredentialsFromUri(Uri? uri) {
   );
 }
 
+VkAuthCodeCredentials? parseVkAuthCodeCredentialsFromUri(Uri? uri) {
+  if (uri == null) return null;
+  final params = _collectUriAuthParams(uri);
+
+  var code = (params['code'] ?? '').trim();
+  var state = (params['state'] ?? '').trim();
+  var deviceId = (params['device_id'] ?? params['deviceId'] ?? '').trim();
+
+  final payloadRaw = (params['payload'] ?? '').trim();
+  if (payloadRaw.isNotEmpty &&
+      (code.isEmpty || state.isEmpty || deviceId.isEmpty)) {
+    final payload = _parseVkAuthPayload(payloadRaw);
+    code = code.isEmpty ? (payload['code'] ?? '').trim() : code;
+    state = state.isEmpty ? (payload['state'] ?? '').trim() : state;
+    deviceId = deviceId.isEmpty
+        ? (payload['device_id'] ?? payload['deviceId'] ?? '').trim()
+        : deviceId;
+  }
+
+  if (code.isEmpty || state.isEmpty || deviceId.isEmpty) {
+    return null;
+  }
+
+  return VkAuthCodeCredentials(
+    code: code,
+    state: state,
+    deviceId: deviceId,
+  );
+}
+
 String? parseVkAuthErrorFromUri(Uri? uri) {
   if (uri == null) return null;
   final params = _collectUriAuthParams(uri);
@@ -79,8 +93,11 @@ String? parseVkAuthErrorFromUri(Uri? uri) {
   final hasVkMarker = (params['vk_auth'] ?? '').trim() == '1' ||
       params.containsKey('access_token') ||
       params.containsKey('vk_access_token') ||
+      params.containsKey('code') ||
+      params.containsKey('device_id') ||
       params.containsKey('user_id') ||
       params.containsKey('vk_user_id') ||
+      params.containsKey('payload') ||
       params.containsKey('state');
   if (!hasVkMarker) return null;
 
@@ -113,4 +130,58 @@ Map<String, String> _collectUriAuthParams(Uri uri) {
   }
 
   return out;
+}
+
+Map<String, String> _parseVkAuthPayload(String payloadRaw) {
+  final raw = payloadRaw.trim();
+  if (raw.isEmpty) return const <String, String>{};
+
+  final direct = _decodePayloadMap(raw);
+  if (direct.isNotEmpty) return direct;
+
+  try {
+    final decoded = Uri.decodeComponent(raw).trim();
+    if (decoded == raw || decoded.isEmpty) {
+      return const <String, String>{};
+    }
+    return _decodePayloadMap(decoded);
+  } catch (_) {
+    return const <String, String>{};
+  }
+}
+
+Map<String, String> _decodePayloadMap(String source) {
+  final asJson = _decodeJsonMap(source);
+  if (asJson.isNotEmpty) return asJson;
+
+  final normalized = source.replaceAll('-', '+').replaceAll('_', '/');
+  final remainder = normalized.length % 4;
+  final withPadding = remainder == 0
+      ? normalized
+      : '$normalized${''.padRight(4 - remainder, '=')}';
+  try {
+    final decoded = utf8.decode(base64.decode(withPadding));
+    return _decodeJsonMap(decoded);
+  } catch (_) {
+    return const <String, String>{};
+  }
+}
+
+Map<String, String> _decodeJsonMap(String source) {
+  try {
+    final decoded = jsonDecode(source);
+    if (decoded is! Map) return const <String, String>{};
+
+    final out = <String, String>{};
+    for (final entry in decoded.entries) {
+      final key = entry.key.toString().trim();
+      if (key.isEmpty) continue;
+      final value = entry.value?.toString().trim() ?? '';
+      if (value.isEmpty) continue;
+      out[key] = value;
+    }
+    return out;
+  } catch (_) {
+    return const <String, String>{};
+  }
 }

@@ -73,6 +73,16 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
+      final vkCodeCredentials = _resolveVkAuthCodeCredentials();
+      if (vkCodeCredentials != null) {
+        await loginWithVkCode(
+          code: vkCodeCredentials.code,
+          state: vkCodeCredentials.state,
+          deviceId: vkCodeCredentials.deviceId,
+        );
+        return;
+      }
+
       final vkCredentials = _resolveVkAuthCredentials();
       if (vkCredentials != null) {
         await loginWithVk(
@@ -162,6 +172,33 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  Future<void> loginWithVkCode({
+    required String code,
+    required String state,
+    required String deviceId,
+  }) async {
+    _state = AuthState.loading();
+    notifyListeners();
+
+    try {
+      final session = await repository.loginWithVkCode(
+        code: code,
+        state: state,
+        deviceId: deviceId,
+      );
+      await tokenStorage.writeToken(session.accessToken);
+      _state = AuthState.authenticated(
+        token: session.accessToken,
+        user: session.user,
+      );
+      notifyListeners();
+      await _claimPendingReferralIfNeeded(token: session.accessToken);
+    } catch (error) {
+      _state = AuthState.unauthenticated(error: error.toString());
+      notifyListeners();
+    }
+  }
+
   Future<void> loginWithVkMiniApp({
     required String launchParams,
   }) async {
@@ -218,6 +255,16 @@ class AuthController extends ChangeNotifier {
       final vkLaunchParams = _resolveVkMiniAppLaunchParams();
       if (vkLaunchParams != null && vkLaunchParams.isNotEmpty) {
         await loginWithVkMiniApp(launchParams: vkLaunchParams);
+        return;
+      }
+
+      final vkCodeCredentials = _resolveVkAuthCodeCredentials();
+      if (vkCodeCredentials != null) {
+        await loginWithVkCode(
+          code: vkCodeCredentials.code,
+          state: vkCodeCredentials.state,
+          deviceId: vkCodeCredentials.deviceId,
+        );
         return;
       }
 
@@ -297,6 +344,12 @@ class AuthController extends ChangeNotifier {
     final fromLaunchUri = parseVkAuthCredentialsFromUri(_launchUri);
     if (fromLaunchUri != null) return fromLaunchUri;
     return parseVkAuthCredentialsFromUri(Uri.base);
+  }
+
+  VkAuthCodeCredentials? _resolveVkAuthCodeCredentials() {
+    final fromLaunchUri = parseVkAuthCodeCredentialsFromUri(_launchUri);
+    if (fromLaunchUri != null) return fromLaunchUri;
+    return parseVkAuthCodeCredentialsFromUri(Uri.base);
   }
 
   String? _resolveVkMiniAppLaunchParams() {

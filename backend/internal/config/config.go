@@ -16,6 +16,7 @@ type Config struct {
 	HMACSecret    string
 	TelegramToken string
 	TelegramUser  string
+	VKAppID       string
 	VKAppSecret   string
 	BaseURL       string
 	APIPublicURL  string
@@ -75,6 +76,7 @@ func Load() (*Config, error) {
 		HMACSecret:    hmacSecret,
 		TelegramToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramUser:  os.Getenv("TELEGRAM_BOT_USERNAME"),
+		VKAppID:       strings.TrimSpace(os.Getenv("VK_APP_ID")),
 		VKAppSecret:   strings.TrimSpace(os.Getenv("VK_APP_SECRET")),
 		BaseURL:       getenv("BASE_URL", ""),
 		APIPublicURL:  getenv("API_PUBLIC_URL", ""),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -259,8 +261,11 @@ String? _authRouteWithNext({
 
 String? _readAuthNext(Uri authUri) {
   final rawQueryNext = authUri.queryParameters['next']?.trim() ?? '';
-  final rawStateNext = _extractStateFromAuthUri(authUri) ?? '';
-  final raw = rawQueryNext.isNotEmpty ? rawQueryNext : rawStateNext;
+  final rawState = _extractStateFromAuthUri(authUri)?.trim() ?? '';
+  final rawStateNext = _extractNextFromSignedVKState(rawState) ?? '';
+  final raw = rawQueryNext.isNotEmpty
+      ? rawQueryNext
+      : (rawStateNext.isNotEmpty ? rawStateNext : rawState);
   if (raw.isEmpty) return null;
   final parsed = Uri.tryParse(raw);
   if (parsed == null) return null;
@@ -302,6 +307,38 @@ String? _extractStateFromAuthUri(Uri authUri) {
   }
 
   return null;
+}
+
+String? _extractNextFromSignedVKState(String state) {
+  final raw = state.trim();
+  if (raw.isEmpty) return null;
+
+  final parts = raw.split('.');
+  if (parts.length != 2 || parts.first.isEmpty) {
+    return null;
+  }
+
+  try {
+    final normalized = _normalizeBase64(parts.first);
+    final payloadRaw = utf8.decode(base64.decode(normalized));
+    final payload = jsonDecode(payloadRaw);
+    if (payload is! Map) return null;
+
+    final next = payload['n']?.toString().trim() ?? '';
+    if (next.isEmpty) return null;
+    return next;
+  } catch (_) {
+    return null;
+  }
+}
+
+String _normalizeBase64(String source) {
+  final normalized = source.replaceAll('-', '+').replaceAll('_', '/');
+  final remainder = normalized.length % 4;
+  if (remainder == 0) {
+    return normalized;
+  }
+  return normalized.padRight(normalized.length + (4 - remainder), '=');
 }
 
 String? _normalizeAppLocation(Uri uri) {

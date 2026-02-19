@@ -16,7 +16,6 @@ import '../../../core/models/landing_event.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
-import '../../../core/utils/vk_auth.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
@@ -25,8 +24,10 @@ import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../../integrations/telegram/telegram_auth_embed.dart';
+import '../../../integrations/vk/vk_auth_embed.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../data/landing_repository.dart';
 
@@ -56,6 +57,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   int _total = 0;
   LandingContent _content = LandingContent.defaults();
   bool _telegramModalAuthInProgress = false;
+  bool _vkModalAuthInProgress = false;
 
   @override
   void initState() {
@@ -281,8 +283,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     required String nextLocation,
   }) async {
     final telegramLoginUri = _telegramLoginUri(nextLocation: nextLocation);
-    final vkLoginUri = _vkLoginUri(nextLocation: nextLocation);
-    if (telegramLoginUri == null && vkLoginUri == null) {
+    final vkAvailable = _canUseVkLogin();
+    if (telegramLoginUri == null && !vkAvailable) {
       _showMessage(
         'Авторизация недоступна. Проверьте настройки Telegram helper и VK_APP_ID.',
       );
@@ -302,6 +304,25 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
             },
           )
         : null;
+    final vkEmbedUri = _vkAuthEmbedUri(nextLocation: nextLocation);
+    final embeddedVkAuth = kIsWeb && vkEmbedUri != null
+        ? buildVkAuthEmbed(
+            helperUri: vkEmbedUri,
+            onAuthCode: (code, state, deviceId) {
+              unawaited(
+                _completeVkModalLogin(
+                  code: code,
+                  state: state,
+                  deviceId: deviceId,
+                  nextLocation: nextLocation,
+                ),
+              );
+            },
+            onError: (message) {
+              _showMessage(message);
+            },
+          )
+        : null;
     var selectedProvider = telegramLoginUri != null
         ? _WebLoginProvider.telegram
         : _WebLoginProvider.vk;
@@ -314,7 +335,6 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
             final isTelegramSelected =
                 selectedProvider == _WebLoginProvider.telegram;
             final telegramAvailable = telegramLoginUri != null;
-            final vkAvailable = vkLoginUri != null;
 
             return AppModal(
               title: 'Вход в SPACE',
@@ -387,9 +407,31 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                     ],
                   ] else ...[
                     Text(
-                      'Мы перенаправим вас на страницу VK OAuth в этой вкладке. После подтверждения входа вы автоматически вернетесь в SPACE.',
+                      embeddedVkAuth == null
+                          ? 'Мы перенаправим вас на страницу VK ID в этой вкладке. После подтверждения входа вы автоматически вернетесь в SPACE.'
+                          : 'Войдите через VK ID прямо в этом окне. После успешного входа модалка закроется автоматически.',
                       style: Theme.of(modalContext).textTheme.bodyMedium,
                     ),
+                    if (embeddedVkAuth != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 132,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.14),
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: embeddedVkAuth,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -414,15 +456,24 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                           unawaited(_openTelegramLogin(telegramLoginUri)),
                     ),
                 if (!isTelegramSelected && vkAvailable)
-                  AppButton(
-                    label: 'Login via VK',
-                    variant: AppButtonVariant.primary,
-                    icon: const Icon(Icons.open_in_new_rounded),
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      unawaited(_openVkLogin(vkLoginUri));
-                    },
-                  ),
+                  if (embeddedVkAuth == null)
+                    AppButton(
+                      label: 'Login via VK',
+                      variant: AppButtonVariant.primary,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        unawaited(_startVkLogin(nextLocation: nextLocation));
+                      },
+                    )
+                  else
+                    AppButton(
+                      label: 'Открыть в новой вкладке',
+                      variant: AppButtonVariant.secondary,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      onPressed: () =>
+                          unawaited(_startVkLogin(nextLocation: nextLocation)),
+                    ),
                 AppButton(
                   label: 'Отмена',
                   variant: AppButtonVariant.ghost,
@@ -474,6 +525,50 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
   }
 
+  Future<void> _completeVkModalLogin({
+    required String code,
+    required String state,
+    required String deviceId,
+    required String nextLocation,
+  }) async {
+    if (_vkModalAuthInProgress) return;
+    _vkModalAuthInProgress = true;
+
+    try {
+      final auth = ref.read(authControllerProvider);
+      await auth.loginWithVkCode(
+        code: code,
+        state: state,
+        deviceId: deviceId,
+      );
+      if (!mounted) return;
+
+      final authState = auth.state;
+      if (authState.status != AuthStatus.authenticated) {
+        final message = (authState.error ?? '').trim();
+        _showMessage(
+          message.isEmpty
+              ? 'Не удалось завершить VK login. Попробуйте снова.'
+              : message,
+        );
+        return;
+      }
+
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      if (rootNavigator.canPop()) {
+        rootNavigator.pop();
+      }
+
+      if (nextLocation == AppRoutes.appRoot) {
+        context.go(AppRoutes.appRoot);
+        return;
+      }
+      context.push(nextLocation);
+    } finally {
+      _vkModalAuthInProgress = false;
+    }
+  }
+
   Uri? _telegramLoginUri({
     required String nextLocation,
   }) {
@@ -508,27 +603,6 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     );
   }
 
-  Uri? _vkLoginUri({
-    required String nextLocation,
-  }) {
-    if (!kIsWeb) return null;
-    final config = ref.read(appConfigProvider);
-    final appId = config.vkAppId.trim();
-    if (appId.isEmpty) return null;
-
-    final redirect = Uri.base.replace(
-      path: AppRoutes.auth,
-      queryParameters: const <String, String>{},
-      fragment: '',
-    );
-    final redirectUri = Uri.parse(_withoutFragment(redirect));
-    return buildVkOAuthAuthorizeUri(
-      appId: appId,
-      redirectUri: redirectUri,
-      state: nextLocation,
-    );
-  }
-
   Uri? _resolveStandaloneHelperBaseUri({
     required String rawStandaloneAuthUrl,
     required String apiUrl,
@@ -539,6 +613,31 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     if (parsed == null) return null;
     final absolute = parsed.hasScheme ? parsed : Uri.base.resolveUri(parsed);
     return _applyApiPrefixIfNeeded(helperUri: absolute, apiUrl: apiUrl);
+  }
+
+  Uri? _vkAuthEmbedUri({
+    required String nextLocation,
+  }) {
+    if (!kIsWeb || !_canUseVkLogin()) {
+      return null;
+    }
+
+    final config = ref.read(appConfigProvider);
+    final redirect = Uri.base.replace(
+      path: AppRoutes.auth,
+      queryParameters: const <String, String>{},
+      fragment: '',
+    );
+    final redirectValue = _withoutFragment(redirect);
+    return Uri.base.replace(
+      path: '${AppRoutes.appRoot}/vk_auth_embed.html',
+      queryParameters: <String, String>{
+        'api': config.apiUrl,
+        'redirect_uri': redirectValue,
+        'next': nextLocation,
+      },
+      fragment: '',
+    );
   }
 
   Uri _applyApiPrefixIfNeeded({
@@ -638,6 +737,37 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     );
     if (!opened) {
       _showMessage('Could not open VK login');
+    }
+  }
+
+  bool _canUseVkLogin() {
+    if (!kIsWeb) return false;
+    final config = ref.read(appConfigProvider);
+    return config.vkAppId.trim().isNotEmpty;
+  }
+
+  Future<void> _startVkLogin({
+    required String nextLocation,
+  }) async {
+    if (!_canUseVkLogin()) {
+      _showMessage('VK login is disabled (VK_APP_ID is missing).');
+      return;
+    }
+
+    final redirect = Uri.base.replace(
+      path: AppRoutes.auth,
+      queryParameters: const <String, String>{},
+      fragment: '',
+    );
+
+    try {
+      final authorizeUri = await ref.read(authRepositoryProvider).startVkAuth(
+            redirectUri: _withoutFragment(redirect),
+            next: nextLocation,
+          );
+      await _openVkLogin(authorizeUri);
+    } catch (error) {
+      _showMessage('VK login error: $error');
     }
   }
 
