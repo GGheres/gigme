@@ -518,7 +518,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
     final redirect = Uri.base.replace(
       path: AppRoutes.auth,
-      queryParameters: const <String, String>{'vk_auth': '1'},
+      queryParameters: const <String, String>{},
       fragment: '',
     );
     final redirectUri = Uri.parse(_withoutFragment(redirect));

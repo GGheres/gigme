@@ -291,16 +291,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     final current = Uri.base;
     final next = (current.queryParameters['next'] ?? '').trim();
+    final state = next.isEmpty ? AppRoutes.appRoot : next;
     final redirect = current.replace(
       path: AppRoutes.auth,
-      queryParameters: const <String, String>{'vk_auth': '1'},
+      queryParameters: const <String, String>{},
       fragment: '',
     );
     final redirectUri = Uri.parse(_withoutFragment(redirect));
     return buildVkOAuthAuthorizeUri(
       appId: appId,
       redirectUri: redirectUri,
-      state: next,
+      state: state,
     );
   }
 

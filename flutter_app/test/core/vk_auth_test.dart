@@ -25,4 +25,33 @@ void main() {
       expect(raw, isNull);
     });
   });
+
+  group('buildVkOAuthAuthorizeUri', () {
+    test('strips query parameters and fragment from redirect uri', () {
+      final uri = buildVkOAuthAuthorizeUri(
+        appId: '51887851',
+        redirectUri: Uri.parse(
+          'https://spacefestival.fun/space_app/auth?vk_auth=1#fragment',
+        ),
+        state: '/space_app',
+      );
+
+      expect(uri, isNotNull);
+      expect(
+        uri!.queryParameters['redirect_uri'],
+        'https://spacefestival.fun/space_app/auth',
+      );
+    });
+  });
+
+  group('parseVkAuthErrorFromUri', () {
+    test('parses vk error when state marker is present', () {
+      final uri = Uri.parse(
+        'https://spacefestival.fun/space_app/auth?error=invalid_request&error_description=redirect_uri+is+incorrect&state=%2Fspace_app',
+      );
+
+      final error = parseVkAuthErrorFromUri(uri);
+      expect(error, 'invalid_request: redirect_uri is incorrect');
+    });
+  });
 }

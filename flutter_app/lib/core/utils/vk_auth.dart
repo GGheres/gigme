@@ -31,10 +31,17 @@ Uri? buildVkOAuthAuthorizeUri({
 }) {
   final clientId = appId.trim();
   if (clientId.isEmpty) return null;
+  final normalizedRedirectUri = Uri(
+    scheme: redirectUri.scheme,
+    userInfo: redirectUri.userInfo,
+    host: redirectUri.host,
+    port: redirectUri.hasPort ? redirectUri.port : null,
+    path: redirectUri.path,
+  );
 
   final queryParameters = <String, String>{
     'client_id': clientId,
-    'redirect_uri': redirectUri.toString(),
+    'redirect_uri': normalizedRedirectUri.toString(),
     'response_type': 'token',
     'display': 'popup',
     'v': '5.199',
@@ -66,16 +73,17 @@ VkAuthCredentials? parseVkAuthCredentialsFromUri(Uri? uri) {
 String? parseVkAuthErrorFromUri(Uri? uri) {
   if (uri == null) return null;
   final params = _collectUriAuthParams(uri);
+  final error = (params['error'] ?? '').trim();
+  if (error.isEmpty) return null;
 
   final hasVkMarker = (params['vk_auth'] ?? '').trim() == '1' ||
       params.containsKey('access_token') ||
       params.containsKey('vk_access_token') ||
       params.containsKey('user_id') ||
-      params.containsKey('vk_user_id');
+      params.containsKey('vk_user_id') ||
+      params.containsKey('state');
   if (!hasVkMarker) return null;
 
-  final error = (params['error'] ?? '').trim();
-  if (error.isEmpty) return null;
   final description = (params['error_description'] ?? '').trim();
   if (description.isEmpty) return error;
   return '$error: $description';
