@@ -21,6 +21,7 @@ ARG FLUTTER_PAYMENT_USDT_MEMO=
 ARG FLUTTER_PAYMENT_QR_DATA=
 
 RUN flutter build web --release \
+  --pwa-strategy=none \
   --base-href / \
   --dart-define=API_URL=${FLUTTER_API_URL} \
   --dart-define=BOT_USERNAME=${FLUTTER_BOT_USERNAME} \

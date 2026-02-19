@@ -15,6 +15,7 @@ import '../features/events/presentation/event_details_screen.dart';
 import '../features/events/presentation/feed_screen.dart';
 import '../features/events/presentation/map_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/profile/presentation/settings_screen.dart';
 import '../features/tickets/presentation/admin_order_detail_page.dart';
 import '../features/tickets/presentation/admin_orders_page.dart';
 import '../features/tickets/presentation/admin_bot_messages_page.dart';
@@ -148,6 +149,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.profile,
                 pageBuilder: (context, state) =>
                     _noTransitionPage(state, const ProfileScreen()),
+              ),
+              GoRoute(
+                path: AppRoutes.settings,
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const SettingsScreen()),
               ),
               GoRoute(
                 path: AppRoutes.uiPreview,

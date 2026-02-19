@@ -57,6 +57,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             icon: const Icon(Icons.refresh_rounded),
           ),
           IconButton(
+            tooltip: 'Настройки',
+            onPressed: () => context.push(AppRoutes.settings),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          IconButton(
             tooltip: 'Тема',
             onPressed: () =>
                 ref.read(appThemeModeProvider.notifier).cycleMode(),
@@ -107,6 +112,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onPressed: () => context.push(AppRoutes.myTickets),
                     icon: const Icon(Icons.qr_code_rounded),
                     label: const Text('Мои билеты'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () => context.push(AppRoutes.settings),
+                    icon: const Icon(Icons.settings_outlined),
+                    label: const Text('Настройки'),
                   ),
                   if (kDebugMode) ...[
                     const SizedBox(height: 10),

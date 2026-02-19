@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
+import '../../../core/notifications/providers.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/input_field.dart';
@@ -21,6 +22,7 @@ import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
+import '../data/create_event_draft_store.dart';
 import '../data/events_repository.dart';
 
 class CreateEventScreen extends ConsumerStatefulWidget {
@@ -30,9 +32,11 @@ class CreateEventScreen extends ConsumerStatefulWidget {
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
-class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
+class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _picker = ImagePicker();
+  final _draftStore = CreateEventDraftStore();
 
   final _titleCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
@@ -49,12 +53,56 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   bool _isPrivate = false;
   bool _submitting = false;
   bool _uploading = false;
+  bool _restoringDraft = false;
+  bool _submissionCompleted = false;
+  bool _showResumeReminder = false;
+  Timer? _draftSaveDebounce;
 
   final List<String> _selectedFilters = <String>[];
   final List<_UploadedMedia> _uploadedMedia = <_UploadedMedia>[];
 
+  List<TextEditingController> get _draftControllers => [
+        _titleCtrl,
+        _descriptionCtrl,
+        _capacityCtrl,
+        _contactTelegramCtrl,
+        _contactWhatsappCtrl,
+        _contactWechatCtrl,
+        _contactMessengerCtrl,
+        _contactSnapchatCtrl,
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(
+        ref.read(localReminderServiceProvider).cancelCreateEventReminder());
+    for (final controller in _draftControllers) {
+      controller.addListener(_onDraftChanged);
+    }
+    unawaited(_restoreDraft());
+  }
+
   @override
   void dispose() {
+    final draftBeforeDispose = _snapshotDraft();
+    WidgetsBinding.instance.removeObserver(this);
+    for (final controller in _draftControllers) {
+      controller.removeListener(_onDraftChanged);
+    }
+    _draftSaveDebounce?.cancel();
+    if (!_submissionCompleted) {
+      if (draftBeforeDispose.hasMeaningfulData) {
+        unawaited(
+          ref.read(localReminderServiceProvider).scheduleCreateEventReminder(),
+        );
+      } else {
+        unawaited(
+            ref.read(localReminderServiceProvider).cancelCreateEventReminder());
+      }
+      unawaited(_persistDraft());
+    }
     _titleCtrl.dispose();
     _descriptionCtrl.dispose();
     _capacityCtrl.dispose();
@@ -64,6 +112,128 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     _contactMessengerCtrl.dispose();
     _contactSnapchatCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive) {
+      unawaited(_persistDraft());
+      return;
+    }
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      final draft = _snapshotDraft();
+      if (draft.hasMeaningfulData) {
+        _showResumeReminder = true;
+        unawaited(
+          ref.read(localReminderServiceProvider).scheduleCreateEventReminder(),
+        );
+      } else {
+        unawaited(
+            ref.read(localReminderServiceProvider).cancelCreateEventReminder());
+      }
+      unawaited(_persistDraft());
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+          ref.read(localReminderServiceProvider).cancelCreateEventReminder());
+      if (_showResumeReminder) {
+        _showResumeReminder = false;
+        if (!mounted) return;
+        AppToast.show(
+          context,
+          message:
+              'Черновик события сохранен. Завершите публикацию, когда будете готовы.',
+          tone: AppToastTone.warning,
+        );
+      }
+    }
+  }
+
+  void _onDraftChanged() {
+    if (_restoringDraft) return;
+    _scheduleDraftSave();
+  }
+
+  void _scheduleDraftSave() {
+    if (_restoringDraft || _submissionCompleted) return;
+    _draftSaveDebounce?.cancel();
+    _draftSaveDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_persistDraft());
+    });
+  }
+
+  Future<void> _restoreDraft() async {
+    _restoringDraft = true;
+    try {
+      final draft = await _draftStore.load();
+      if (!mounted || draft == null) return;
+
+      setState(() {
+        _titleCtrl.text = draft.title;
+        _descriptionCtrl.text = draft.description;
+        _capacityCtrl.text = draft.capacity;
+        _contactTelegramCtrl.text = draft.contactTelegram;
+        _contactWhatsappCtrl.text = draft.contactWhatsapp;
+        _contactWechatCtrl.text = draft.contactWechat;
+        _contactMessengerCtrl.text = draft.contactMessenger;
+        _contactSnapchatCtrl.text = draft.contactSnapchat;
+        _startsAt = draft.startsAt;
+        _endsAt = draft.endsAt;
+        _selectedPoint = draft.selectedPoint;
+        _isPrivate = draft.isPrivate;
+        _selectedFilters
+          ..clear()
+          ..addAll(draft.filters);
+        _uploadedMedia
+          ..clear()
+          ..addAll(
+            draft.mediaUrls.map(_UploadedMedia.fromStoredUrl),
+          );
+      });
+
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        message: 'Восстановили черновик события. Завершите публикацию.',
+        tone: AppToastTone.warning,
+      );
+    } finally {
+      _restoringDraft = false;
+    }
+  }
+
+  CreateEventDraft _snapshotDraft() {
+    return CreateEventDraft(
+      title: _titleCtrl.text,
+      description: _descriptionCtrl.text,
+      capacity: _capacityCtrl.text,
+      contactTelegram: _contactTelegramCtrl.text,
+      contactWhatsapp: _contactWhatsappCtrl.text,
+      contactWechat: _contactWechatCtrl.text,
+      contactMessenger: _contactMessengerCtrl.text,
+      contactSnapchat: _contactSnapchatCtrl.text,
+      startsAt: _startsAt,
+      endsAt: _endsAt,
+      selectedPoint: _selectedPoint,
+      isPrivate: _isPrivate,
+      filters: List<String>.from(_selectedFilters),
+      mediaUrls: _uploadedMedia.map((item) => item.fileUrl).toList(),
+    );
+  }
+
+  Future<void> _persistDraft() async {
+    if (_restoringDraft || _submissionCompleted) return;
+    _draftSaveDebounce?.cancel();
+    await _draftStore.save(_snapshotDraft());
+  }
+
+  void _updateStateAndSave(VoidCallback updateState) {
+    setState(updateState);
+    _scheduleDraftSave();
   }
 
   @override
@@ -127,13 +297,15 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                   _DateTimeField(
                     label: 'Начало',
                     value: _startsAt,
-                    onChanged: (value) => setState(() => _startsAt = value),
+                    onChanged: (value) =>
+                        _updateStateAndSave(() => _startsAt = value),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   _DateTimeField(
                     label: 'Окончание (необязательно)',
                     value: _endsAt,
-                    onChanged: (value) => setState(() => _endsAt = value),
+                    onChanged: (value) =>
+                        _updateStateAndSave(() => _endsAt = value),
                     clearable: true,
                   ),
                   const SizedBox(height: AppSpacing.xs),
@@ -180,7 +352,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Приватное событие (по ссылке)'),
                     value: _isPrivate,
-                    onChanged: (value) => setState(() => _isPrivate = value),
+                    onChanged: (value) =>
+                        _updateStateAndSave(() => _isPrivate = value),
                   ),
                 ],
               ),
@@ -201,7 +374,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                           initialCenter: _selectedPoint ?? location.center,
                           initialZoom: 12,
                           onTap: (_, point) =>
-                              setState(() => _selectedPoint = point),
+                              _updateStateAndSave(() => _selectedPoint = point),
                         ),
                         children: [
                           TileLayer(
@@ -269,18 +442,37 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                child: Image.memory(
-                                  item.previewBytes,
-                                  width: 90,
-                                  height: 90,
-                                  fit: BoxFit.cover,
-                                ),
+                                child: item.previewBytes == null
+                                    ? Image.network(
+                                        item.fileUrl,
+                                        width: 90,
+                                        height: 90,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) {
+                                          return Container(
+                                            width: 90,
+                                            height: 90,
+                                            color: Colors.black12,
+                                            alignment: Alignment.center,
+                                            child: const Icon(
+                                              Icons
+                                                  .image_not_supported_outlined,
+                                            ),
+                                          );
+                                        },
+                                      )
+                                    : Image.memory(
+                                        item.previewBytes!,
+                                        width: 90,
+                                        height: 90,
+                                        fit: BoxFit.cover,
+                                      ),
                               ),
                               Positioned(
                                 right: 2,
                                 top: 2,
                                 child: InkWell(
-                                  onTap: () => setState(
+                                  onTap: () => _updateStateAndSave(
                                       () => _uploadedMedia.removeAt(index)),
                                   child: Container(
                                     decoration: const BoxDecoration(
@@ -343,7 +535,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                 onSelected: limitReached
                     ? null
                     : (_) {
-                        setState(() {
+                        _updateStateAndSave(() {
                           if (active) {
                             _selectedFilters.remove(filter.id);
                           } else {
@@ -406,7 +598,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         );
 
         if (!mounted) return;
-        setState(() {
+        _updateStateAndSave(() {
           _uploadedMedia.add(_UploadedMedia(
             fileUrl: uploadedUrl,
             previewBytes: bytes,
@@ -489,6 +681,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
       final events = ref.read(eventsControllerProvider);
       final eventId = await events.createEvent(payload);
+      await _draftStore.clear();
+      await ref.read(localReminderServiceProvider).cancelCreateEventReminder();
+      _submissionCompleted = true;
 
       final center = ref.read(locationControllerProvider).state.center;
       unawaited(events.refresh(center: center));
@@ -513,11 +708,15 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 class _UploadedMedia {
   _UploadedMedia({
     required this.fileUrl,
-    required this.previewBytes,
+    this.previewBytes,
   });
 
+  factory _UploadedMedia.fromStoredUrl(String fileUrl) {
+    return _UploadedMedia(fileUrl: fileUrl);
+  }
+
   final String fileUrl;
-  final Uint8List previewBytes;
+  final Uint8List? previewBytes;
 }
 
 class _ContactField extends StatelessWidget {

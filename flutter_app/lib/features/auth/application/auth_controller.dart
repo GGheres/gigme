@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/models/auth_session.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/storage/token_storage.dart';
@@ -142,7 +143,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       await _claimPendingReferralIfNeeded(token: session.accessToken);
     } catch (error) {
-      _state = AuthState.unauthenticated(error: error.toString());
+      _state = AuthState.unauthenticated(error: _mapVkAuthError(error));
       notifyListeners();
     }
   }
@@ -167,7 +168,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       await _claimPendingReferralIfNeeded(token: session.accessToken);
     } catch (error) {
-      _state = AuthState.unauthenticated(error: error.toString());
+      _state = AuthState.unauthenticated(error: _mapVkAuthError(error));
       notifyListeners();
     }
   }
@@ -194,7 +195,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       await _claimPendingReferralIfNeeded(token: session.accessToken);
     } catch (error) {
-      _state = AuthState.unauthenticated(error: error.toString());
+      _state = AuthState.unauthenticated(error: _mapVkAuthError(error));
       notifyListeners();
     }
   }
@@ -366,6 +367,41 @@ class AuthController extends ChangeNotifier {
       return fromLaunchUri;
     }
     return parseVkAuthErrorFromUri(Uri.base);
+  }
+
+  String _mapVkAuthError(Object error) {
+    if (error is AppException) {
+      final statusCode = error.statusCode ?? 0;
+      final apiMessage = error.message.trim();
+      final normalizedMessage = apiMessage.toLowerCase();
+
+      if (statusCode == 401 && normalizedMessage == 'invalid vk auth state') {
+        return 'Сессия VK входа истекла или недействительна. Нажмите "Войти через VK" снова.';
+      }
+
+      if (statusCode == 401 &&
+          normalizedMessage == 'invalid vk authorization code') {
+        return 'Код VK недействителен или уже использован. Запустите вход через VK заново.';
+      }
+
+      if (statusCode == 401 && normalizedMessage == 'vk user id is missing') {
+        return 'VK не вернул ID пользователя. Попробуйте вход через VK еще раз.';
+      }
+
+      if (statusCode == 503 && normalizedMessage == 'vk auth is disabled') {
+        return 'VK вход отключен на сервере. Добавьте VK_APP_ID/VK_APP_SECRET в backend и перезапустите API.';
+      }
+
+      if (statusCode >= 500) {
+        return 'VK сервис временно недоступен. Попробуйте позже.';
+      }
+
+      if (apiMessage.isNotEmpty) {
+        return apiMessage;
+      }
+    }
+
+    return error.toString();
   }
 
   String? _extractInitDataFromUri(Uri? uri) {

@@ -8,7 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/network/providers.dart';
+import '../../../core/notifications/providers.dart';
+import '../../../ui/components/app_toast.dart';
 import '../../auth/application/auth_controller.dart';
+import '../data/purchase_ticket_draft_store.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
@@ -52,7 +55,8 @@ class PurchaseTicketFlow extends ConsumerStatefulWidget {
   ConsumerState<PurchaseTicketFlow> createState() => _PurchaseTicketFlowState();
 }
 
-class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
+class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
+    with WidgetsBindingObserver {
   static const List<String> _allPaymentMethods = <String>[
     'PHONE',
     'USDT',
@@ -60,6 +64,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
     'TOCHKA_SBP_QR',
   ];
 
+  final _draftStore = PurchaseTicketDraftStore();
   EventProductsModel? _products;
   PaymentSettingsModel? _paymentSettings;
   final Map<String, int> _ticketQuantities = <String, int>{};
@@ -76,17 +81,174 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
   String? _error;
   OrderDetailModel? _createdOrder;
   CreateSbpQrOrderResponseModel? _createdSbpOrder;
+  bool _restoringDraft = false;
+  bool _orderCompleted = false;
+  bool _showResumeReminder = false;
+  Timer? _draftSaveDebounce;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadProducts());
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(
+      ref.read(localReminderServiceProvider).cancelPurchaseReminder(
+            eventId: widget.eventId,
+          ),
+    );
+    _promoCtrl.addListener(_onDraftChanged);
+    unawaited(_bootstrapFlow());
   }
 
   @override
   void dispose() {
+    final draftBeforeDispose = _snapshotDraft();
+    WidgetsBinding.instance.removeObserver(this);
+    _promoCtrl.removeListener(_onDraftChanged);
+    _draftSaveDebounce?.cancel();
+    if (!_orderCompleted) {
+      if (draftBeforeDispose.hasMeaningfulData) {
+        unawaited(
+          ref.read(localReminderServiceProvider).schedulePurchaseReminder(
+                eventId: widget.eventId,
+              ),
+        );
+      } else {
+        unawaited(
+          ref.read(localReminderServiceProvider).cancelPurchaseReminder(
+                eventId: widget.eventId,
+              ),
+        );
+      }
+      unawaited(_persistDraft());
+    }
     _promoCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive) {
+      unawaited(_persistDraft());
+      return;
+    }
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      final draft = _snapshotDraft();
+      if (draft.hasMeaningfulData) {
+        _showResumeReminder = true;
+        unawaited(
+          ref.read(localReminderServiceProvider).schedulePurchaseReminder(
+                eventId: widget.eventId,
+              ),
+        );
+      } else {
+        unawaited(
+          ref.read(localReminderServiceProvider).cancelPurchaseReminder(
+                eventId: widget.eventId,
+              ),
+        );
+      }
+      unawaited(_persistDraft());
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(localReminderServiceProvider).cancelPurchaseReminder(
+              eventId: widget.eventId,
+            ),
+      );
+      if (_showResumeReminder) {
+        _showResumeReminder = false;
+        final draft = _snapshotDraft();
+        if (!draft.hasMeaningfulData || !mounted) return;
+        AppToast.show(
+          context,
+          message:
+              'Черновик покупки сохранен. Завершите заказ, когда будете готовы.',
+          tone: AppToastTone.warning,
+        );
+      }
+    }
+  }
+
+  Future<void> _bootstrapFlow() async {
+    await _restoreDraft();
+    await _loadProducts();
+  }
+
+  void _onDraftChanged() {
+    if (_restoringDraft) return;
+    _scheduleDraftSave();
+  }
+
+  void _scheduleDraftSave() {
+    if (_restoringDraft || _orderCompleted) return;
+    _draftSaveDebounce?.cancel();
+    _draftSaveDebounce = Timer(const Duration(milliseconds: 300), () {
+      unawaited(_persistDraft());
+    });
+  }
+
+  Future<void> _restoreDraft() async {
+    _restoringDraft = true;
+    try {
+      final draft = await _draftStore.load(eventId: widget.eventId);
+      if (!mounted || draft == null) return;
+
+      setState(() {
+        _ticketQuantities
+          ..clear()
+          ..addAll(draft.ticketQuantities);
+        _selectedTransferId = draft.selectedTransferId;
+        _transferQty = draft.transferQty;
+        _paymentMethod = draft.paymentMethod;
+        _promoCtrl.text = draft.promoCode;
+        _showPaymentCheckout = draft.showPaymentCheckout;
+        _promoResult = null;
+      });
+
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        message: 'Восстановили незавершенный заказ. Продолжите покупку.',
+        tone: AppToastTone.warning,
+      );
+    } finally {
+      _restoringDraft = false;
+    }
+  }
+
+  PurchaseTicketDraft _snapshotDraft() {
+    final cleanQuantities = <String, int>{};
+    _ticketQuantities.forEach((key, value) {
+      if (value <= 0) return;
+      cleanQuantities[key] = value.clamp(1, 20).toInt();
+    });
+
+    return PurchaseTicketDraft(
+      ticketQuantities: cleanQuantities,
+      selectedTransferId: _selectedTransferId,
+      transferQty: _transferQty,
+      paymentMethod: _paymentMethod,
+      promoCode: _promoCtrl.text,
+      showPaymentCheckout: _showPaymentCheckout,
+    );
+  }
+
+  Future<void> _persistDraft() async {
+    if (_restoringDraft || _orderCompleted) return;
+    _draftSaveDebounce?.cancel();
+    await _draftStore.save(
+      eventId: widget.eventId,
+      draft: _snapshotDraft(),
+    );
+  }
+
+  void _updateStateAndSave(VoidCallback updateState) {
+    setState(updateState);
+    _scheduleDraftSave();
   }
 
   String? get _token {
@@ -132,6 +294,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       setState(() {
         _products = products;
         _paymentSettings = paymentSettings;
+        final activeTicketIds =
+            products.tickets.map((ticket) => ticket.id).toSet();
+        _ticketQuantities.removeWhere(
+          (ticketId, _) => !activeTicketIds.contains(ticketId),
+        );
         final selectedTransferId = _selectedTransferId;
         if ((selectedTransferId ?? '').trim().isNotEmpty) {
           final hasSelectedActiveTransfer = products.transfers.any(
@@ -149,7 +316,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
           _paymentMethod = availableMethods.first;
         }
         for (final ticket in products.tickets) {
-          _ticketQuantities.putIfAbsent(ticket.id, () => 0);
+          final current = _ticketQuantities[ticket.id] ?? 0;
+          _ticketQuantities[ticket.id] = current.clamp(0, 20).toInt();
         }
         _loading = false;
       });
@@ -281,6 +449,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                   token: token,
                   payload: payload,
                 );
+        await _draftStore.clear(eventId: widget.eventId);
+        await ref
+            .read(localReminderServiceProvider)
+            .cancelPurchaseReminder(eventId: widget.eventId);
+        _orderCompleted = true;
         if (!mounted) return;
         setState(() => _createdSbpOrder = created);
       } else {
@@ -288,6 +461,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
               token: token,
               payload: payload,
             );
+        await _draftStore.clear(eventId: widget.eventId);
+        await ref
+            .read(localReminderServiceProvider)
+            .cancelPurchaseReminder(eventId: widget.eventId);
+        _orderCompleted = true;
         if (!mounted) return;
         setState(() => _createdOrder = created);
       }
@@ -311,10 +489,12 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       _showMessage('Сейчас нет доступных способов оплаты');
       return;
     }
-    if (!availableMethods.contains(_paymentMethod)) {
-      setState(() => _paymentMethod = availableMethods.first);
-    }
-    setState(() => _showPaymentCheckout = true);
+    _updateStateAndSave(() {
+      if (!availableMethods.contains(_paymentMethod)) {
+        _paymentMethod = availableMethods.first;
+      }
+      _showPaymentCheckout = true;
+    });
   }
 
   @override
@@ -361,7 +541,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
         paymentMethod: _paymentMethod,
         amountCents: _totalCents,
         paymentSettings: _paymentSettings,
-        onBack: () => setState(() => _showPaymentCheckout = false),
+        onBack: () => _updateStateAndSave(() => _showPaymentCheckout = false),
         onPaid: _submitting ? null : _submitOrder,
         submitting: _submitting,
       );
@@ -406,8 +586,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                 subtitle: formatMoney(ticket.priceCents),
                 quantity: _ticketQuantities[ticket.id] ?? 0,
                 onChanged: (value) {
-                  setState(() {
-                    _ticketQuantities[ticket.id] = value.clamp(0, 20);
+                  _updateStateAndSave(() {
+                    _ticketQuantities[ticket.id] = value.clamp(0, 20).toInt();
                     _promoResult = null;
                   });
                 },
@@ -431,7 +611,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                   selected:
                       _selectedTransferId == null || selectedTransfer == null,
                   onSelected: (_) {
-                    setState(() {
+                    _updateStateAndSave(() {
                       _selectedTransferId = null;
                       _promoResult = null;
                     });
@@ -443,7 +623,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                         '${transfer.label} · ${formatMoney(transfer.priceCents)}'),
                     selected: _selectedTransferId == transfer.id,
                     onSelected: (_) {
-                      setState(() {
+                      _updateStateAndSave(() {
                         _selectedTransferId = transfer.id;
                         _promoResult = null;
                       });
@@ -461,8 +641,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
               subtitle: formatMoney(selectedTransfer.priceCents),
               quantity: _transferQty,
               onChanged: (value) {
-                setState(() {
-                  _transferQty = value.clamp(1, 20);
+                _updateStateAndSave(() {
+                  _transferQty = value.clamp(1, 20).toInt();
                   _promoResult = null;
                 });
               },
@@ -521,7 +701,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                 title: _paymentLabel(method),
                 subtitle: _paymentSubtitle(method),
                 selected: _paymentMethod == method,
-                onTap: () => setState(() => _paymentMethod = method),
+                onTap: () => _updateStateAndSave(() => _paymentMethod = method),
               ),
             ),
           if (availablePaymentMethods.isNotEmpty)

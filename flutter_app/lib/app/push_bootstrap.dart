@@ -21,6 +21,8 @@ class PushBootstrap extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider).state;
     final config = ref.watch(appConfigProvider);
 
+    unawaited(ref.read(localReminderServiceProvider).initialize());
+
     if (auth.status == AuthStatus.authenticated &&
         (auth.token ?? '').trim().isNotEmpty) {
       unawaited(

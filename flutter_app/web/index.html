@@ -88,6 +88,25 @@
     </style>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      (function () {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            const activeUrl = registration.active?.scriptURL ?? '';
+            const waitingUrl = registration.waiting?.scriptURL ?? '';
+            const installingUrl = registration.installing?.scriptURL ?? '';
+            const looksLikeFlutterWorker =
+              activeUrl.includes('flutter_service_worker.js') ||
+              waitingUrl.includes('flutter_service_worker.js') ||
+              installingUrl.includes('flutter_service_worker.js');
+            if (looksLikeFlutterWorker) {
+              registration.unregister();
+            }
+          }
+        }).catch(() => {});
+      })();
+    </script>
     <script src="flutter_bootstrap.js" async></script>
   </head>
   <body>
