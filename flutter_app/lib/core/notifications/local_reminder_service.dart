@@ -131,12 +131,12 @@ class LocalReminderService {
 
     final now = tz.TZDateTime.now(tz.local);
     await _plugin.zonedSchedule(
-      id: id,
-      title: title,
-      body: body,
+      id,
+      title,
+      body,
+      now.add(delay),
+      details,
       payload: payload,
-      scheduledDate: now.add(delay),
-      notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
@@ -148,7 +148,7 @@ class LocalReminderService {
       requestPermissions: false,
     );
     if (!_initialized) return;
-    await _plugin.cancel(id: id);
+    await _plugin.cancel(id);
   }
 
   Future<void> _ensureInitialized({
@@ -162,7 +162,7 @@ class LocalReminderService {
       _initializing = true;
       try {
         timezone_data.initializeTimeZones();
-        await _plugin.initialize(settings: _initializationSettings);
+        await _plugin.initialize(_initializationSettings);
         _initialized = true;
       } catch (error) {
         debugPrint('Local reminder init skipped: $error');
@@ -175,19 +175,19 @@ class LocalReminderService {
     if (!requestPermissions || _permissionsRequested) return;
 
     try {
-        await _plugin
-            .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
-            ?.requestNotificationsPermission();
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
 
-        await _plugin
-            .resolvePlatformSpecificImplementation<
-                IOSFlutterLocalNotificationsPlugin>()
-            ?.requestPermissions(
-              alert: true,
-              badge: false,
-              sound: true,
-            );
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: false,
+            sound: true,
+          );
       _permissionsRequested = true;
     } catch (error) {
       debugPrint('Local reminder permission request skipped: $error');
