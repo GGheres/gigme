@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -92,45 +94,132 @@ func ParseVKOAuthState(
 		return VKOAuthState{}, errors.New("vk oauth secret is empty")
 	}
 
+	trimmedState := strings.TrimSpace(state)
+	if trimmedState == "" {
+		return VKOAuthState{}, ErrInvalidVKOAuthState
+	}
+
+	if parsed, ok := parseVKOAuthStateCurrent(trimmedState, secret, now); ok {
+		return parsed, nil
+	}
+
+	if parsed, ok := parseVKOAuthStateLegacy(trimmedState, secret, now); ok {
+		return parsed, nil
+	}
+
+	unescaped, err := url.QueryUnescape(trimmedState)
+	if err == nil {
+		unescaped = strings.TrimSpace(unescaped)
+		if unescaped != "" && unescaped != trimmedState {
+			if parsed, ok := parseVKOAuthStateCurrent(unescaped, secret, now); ok {
+				return parsed, nil
+			}
+			if parsed, ok := parseVKOAuthStateLegacy(unescaped, secret, now); ok {
+				return parsed, nil
+			}
+		}
+	}
+
+	return VKOAuthState{}, ErrInvalidVKOAuthState
+}
+
+func parseVKOAuthStateCurrent(
+	state string,
+	secret string,
+	now time.Time,
+) (VKOAuthState, bool) {
 	parts := strings.Split(strings.TrimSpace(state), ".")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return VKOAuthState{}, ErrInvalidVKOAuthState
+		return VKOAuthState{}, false
 	}
 
 	expected := signVKOAuthState(secret, parts[0])
 	if !hmac.Equal([]byte(expected), []byte(parts[1])) {
-		return VKOAuthState{}, ErrInvalidVKOAuthState
+		return VKOAuthState{}, false
 	}
 
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return VKOAuthState{}, ErrInvalidVKOAuthState
+		return VKOAuthState{}, false
 	}
 
+	parsed, ok := parseVKOAuthPayload(payloadBytes, now)
+	if !ok {
+		return VKOAuthState{}, false
+	}
+	return parsed, true
+}
+
+func parseVKOAuthStateLegacy(
+	state string,
+	secret string,
+	now time.Time,
+) (VKOAuthState, bool) {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(state))
+	if err != nil || len(decoded) == 0 {
+		return VKOAuthState{}, false
+	}
+
+	if parsed, ok := parseVKOAuthStateCurrent(string(decoded), secret, now); ok {
+		return parsed, true
+	}
+
+	// Legacy format: base64url(payload_json + "." + raw_hmac_sha256(payload_json)).
+	payloadEnd := bytes.LastIndexByte(decoded, '}')
+	if payloadEnd <= 0 || payloadEnd+2 > len(decoded) || decoded[payloadEnd+1] != '.' {
+		return VKOAuthState{}, false
+	}
+
+	payloadBytes := decoded[:payloadEnd+1]
+	signatureRaw := decoded[payloadEnd+2:]
+	if len(signatureRaw) == 0 {
+		return VKOAuthState{}, false
+	}
+
+	expectedRaw := signVKOAuthStateRaw(secret, payloadBytes)
+	if !hmac.Equal(expectedRaw, signatureRaw) {
+		return VKOAuthState{}, false
+	}
+
+	parsed, ok := parseVKOAuthPayload(payloadBytes, now)
+	if !ok {
+		return VKOAuthState{}, false
+	}
+	return parsed, true
+}
+
+func parseVKOAuthPayload(payloadBytes []byte, now time.Time) (VKOAuthState, bool) {
 	var payload vkOAuthStatePayload
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
-		return VKOAuthState{}, ErrInvalidVKOAuthState
+		return VKOAuthState{}, false
 	}
 
-	if payload.CodeVerifier == "" || payload.RedirectURI == "" || payload.ExpiresAt <= 0 {
-		return VKOAuthState{}, ErrInvalidVKOAuthState
+	codeVerifier := strings.TrimSpace(payload.CodeVerifier)
+	redirectURI := strings.TrimSpace(payload.RedirectURI)
+	next := strings.TrimSpace(payload.Next)
+	if codeVerifier == "" || redirectURI == "" || payload.ExpiresAt <= 0 {
+		return VKOAuthState{}, false
 	}
 
 	expiresAt := time.Unix(payload.ExpiresAt, 0).UTC()
 	if !expiresAt.After(now.UTC()) {
-		return VKOAuthState{}, ErrInvalidVKOAuthState
+		return VKOAuthState{}, false
 	}
 
 	return VKOAuthState{
-		CodeVerifier: payload.CodeVerifier,
-		RedirectURI:  payload.RedirectURI,
-		Next:         payload.Next,
+		CodeVerifier: codeVerifier,
+		RedirectURI:  redirectURI,
+		Next:         next,
 		ExpiresAt:    expiresAt,
-	}, nil
+	}, true
 }
 
 func signVKOAuthState(secret string, encodedPayload string) string {
+	return base64.RawURLEncoding.EncodeToString(signVKOAuthStateRaw(secret, []byte(encodedPayload)))
+}
+
+func signVKOAuthStateRaw(secret string, payload []byte) []byte {
 	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write([]byte(encodedPayload))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	_, _ = mac.Write(payload)
+	return mac.Sum(nil)
 }

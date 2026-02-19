@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -85,6 +87,61 @@ func TestParseVKOAuthStateRejectsExpiredState(t *testing.T) {
 
 	if _, err := ParseVKOAuthState(state, "secret", now.Add(11*time.Minute)); err == nil {
 		t.Fatal("expected ParseVKOAuthState() error for expired token")
+	}
+}
+
+func TestParseVKOAuthStateAcceptsDoubleEncodedState(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	state, err := BuildVKOAuthState(
+		"secret",
+		"abc123-verifier",
+		"https://spacefestival.fun/space_app/auth",
+		"/space_app",
+		now,
+	)
+	if err != nil {
+		t.Fatalf("BuildVKOAuthState() error = %v", err)
+	}
+
+	doubleEncoded := base64.RawURLEncoding.EncodeToString([]byte(state))
+	parsed, err := ParseVKOAuthState(doubleEncoded, "secret", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != "abc123-verifier" {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+	}
+}
+
+func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	payload := vkOAuthStatePayload{
+		CodeVerifier: "abc123-verifier",
+		RedirectURI:  "https://spacefestival.fun/space_app/auth",
+		Next:         "/space_app",
+		ExpiresAt:    now.Add(10 * time.Minute).Unix(),
+	}
+
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json.Marshal(payload) error = %v", err)
+	}
+	signatureRaw := signVKOAuthStateRaw("secret", rawPayload)
+	legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+	legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
+
+	parsed, err := ParseVKOAuthState(legacyState, "secret", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != payload.CodeVerifier {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+	}
+	if parsed.RedirectURI != payload.RedirectURI {
+		t.Fatalf("RedirectURI = %q", parsed.RedirectURI)
+	}
+	if parsed.Next != payload.Next {
+		t.Fatalf("Next = %q", parsed.Next)
 	}
 }
 
