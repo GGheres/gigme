@@ -30,6 +30,10 @@ func (h *Handler) notifyAdminsWithMarkup(logger *slog.Logger, text string, marku
 	}
 	for _, adminID := range adminIDs {
 		err := h.telegram.SendMessageWithMarkup(adminID, message, markup)
+		if err != nil && markup != nil {
+			// Fallback to plain text when client/API rejects advanced markup buttons.
+			err = h.telegram.SendMessage(adminID, message)
+		}
 		if err != nil && logger != nil {
 			logger.Warn("admin_notification", "status", "send_failed", "admin_telegram_id", adminID, "error", err)
 		}

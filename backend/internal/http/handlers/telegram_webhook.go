@@ -98,17 +98,15 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 
 	if !isAdmin {
 		h.storeIncomingBotMessage(r.Context(), logger, update.Message, trimmedText)
+		h.notifyAdminsWithMarkup(
+			logger,
+			buildAdminBotMessageNotificationText(*update.Message, h.cfg.TelegramUser),
+			buildAdminReplyMarkup(h.cfg.TelegramUser, update.Message.Chat.ID),
+		)
 	}
 
 	fields := strings.Fields(trimmedText)
 	if len(fields) == 0 || !strings.HasPrefix(fields[0], "/start") {
-		if !isAdmin {
-			h.notifyAdminsWithMarkup(
-				logger,
-				buildAdminBotMessageNotificationText(*update.Message, h.cfg.TelegramUser),
-				buildAdminReplyMarkup(h.cfg.TelegramUser, update.Message.Chat.ID),
-			)
-		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
@@ -210,6 +208,7 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 			)
 			return true
 		}
+		h.setAdminReplyTarget(message.From.ID, chatID)
 		h.storeOutgoingBotMessage(ctx, logger, chatID, message.From.ID, replyText)
 		_ = h.telegram.SendMessage(
 			message.Chat.ID,
@@ -219,6 +218,11 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 	}
 
 	lower := strings.ToLower(strings.TrimSpace(text))
+	if strings.HasPrefix(lower, "/cancelreply") {
+		h.clearAdminReplyTarget(message.From.ID)
+		_ = h.telegram.SendMessage(message.Chat.ID, "Режим ответа выключен")
+		return true
+	}
 	if strings.HasPrefix(lower, "/reply") {
 		_ = h.telegram.SendMessage(message.Chat.ID, adminReplyUsageText(0, h.cfg.TelegramUser))
 		return true
@@ -227,7 +231,11 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 	if strings.HasPrefix(lower, "/start") {
 		startPayload := strings.TrimSpace(strings.TrimPrefix(text, "/start"))
 		if chatID, ok := parseAdminReplyPayload(startPayload); ok {
-			_ = h.telegram.SendMessage(message.Chat.ID, adminReplyUsageText(chatID, h.cfg.TelegramUser))
+			h.setAdminReplyTarget(message.From.ID, chatID)
+			_ = h.telegram.SendMessage(
+				message.Chat.ID,
+				fmt.Sprintf("Режим ответа включен для %d\nОтправьте текст одним сообщением\n%s\nОтключить: /cancelreply", chatID, adminReplyUsageText(chatID, h.cfg.TelegramUser)),
+			)
 			return true
 		}
 		return false
@@ -238,7 +246,61 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 		return true
 	}
 
+	replyText := strings.TrimSpace(text)
+	if replyText != "" {
+		if chatID, ok := h.adminReplyTargetFor(message.From.ID); ok && chatID > 0 {
+			if err := h.telegram.SendMessage(chatID, replyText); err != nil {
+				logger.Warn(
+					"action", "action", "telegram_webhook_admin_reply_session",
+					"status", "send_failed",
+					"admin_telegram_id", message.From.ID,
+					"chat_id", chatID,
+					"error", err,
+				)
+				_ = h.telegram.SendMessage(
+					message.Chat.ID,
+					fmt.Sprintf("Не удалось отправить сообщение пользователю %d", chatID),
+				)
+				return true
+			}
+			h.storeOutgoingBotMessage(ctx, logger, chatID, message.From.ID, replyText)
+			_ = h.telegram.SendMessage(
+				message.Chat.ID,
+				fmt.Sprintf("Сообщение отправлено пользователю %d", chatID),
+			)
+			return true
+		}
+	}
+
 	return false
+}
+
+func (h *Handler) setAdminReplyTarget(adminTelegramID int64, chatID int64) {
+	if h == nil || adminTelegramID <= 0 || chatID <= 0 {
+		return
+	}
+	h.replyTargetsMu.Lock()
+	defer h.replyTargetsMu.Unlock()
+	h.adminReplyTarget[adminTelegramID] = chatID
+}
+
+func (h *Handler) clearAdminReplyTarget(adminTelegramID int64) {
+	if h == nil || adminTelegramID <= 0 {
+		return
+	}
+	h.replyTargetsMu.Lock()
+	defer h.replyTargetsMu.Unlock()
+	delete(h.adminReplyTarget, adminTelegramID)
+}
+
+func (h *Handler) adminReplyTargetFor(adminTelegramID int64) (int64, bool) {
+	if h == nil || adminTelegramID <= 0 {
+		return 0, false
+	}
+	h.replyTargetsMu.RLock()
+	defer h.replyTargetsMu.RUnlock()
+	chatID, ok := h.adminReplyTarget[adminTelegramID]
+	return chatID, ok
 }
 
 func parseAdminReplyCommand(text string) (int64, string, bool) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"gigme/backend/internal/config"
@@ -31,6 +32,8 @@ type Handler struct {
 	logger           *slog.Logger
 	validator        *validator.Validate
 	joinLeaveLimiter *rate.WindowLimiter
+	replyTargetsMu   sync.RWMutex
+	adminReplyTarget map[int64]int64
 }
 
 func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integrations.TelegramClient, tochka *tochkaapi.Client, cfg *config.Config, logger *slog.Logger) *Handler {
@@ -48,6 +51,7 @@ func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integ
 		logger:           logger,
 		validator:        validator.New(),
 		joinLeaveLimiter: rate.NewWindowLimiter(10, time.Minute),
+		adminReplyTarget: make(map[int64]int64),
 	}
 }
 
