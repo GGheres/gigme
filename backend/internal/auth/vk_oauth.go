@@ -165,8 +165,9 @@ func parseVKOAuthStateLegacy(
 	}
 
 	// Legacy format: base64url(payload_json + "." + raw_hmac_sha256(payload_json)).
-	// Do not search for '}' by bytes value because raw signature bytes may contain
-	// arbitrary characters including '}' and '.'.
+	// In practice VK may repack state as base64url(payload_json + raw_signature)
+	// without explicit separator. Keep compatibility with optional "." separator.
+	// Do not search for '}' by byte value because raw signature is arbitrary binary.
 	decoder := json.NewDecoder(bytes.NewReader(decoded))
 	var rawPayloadMessage json.RawMessage
 	if err := decoder.Decode(&rawPayloadMessage); err != nil {
@@ -174,25 +175,38 @@ func parseVKOAuthStateLegacy(
 	}
 
 	payloadEnd := int(decoder.InputOffset())
-	if payloadEnd <= 0 || payloadEnd >= len(decoded) || decoded[payloadEnd] != '.' {
+	if payloadEnd <= 0 || payloadEnd >= len(decoded) {
 		return VKOAuthState{}, false
 	}
 
 	payloadBytes := decoded[:payloadEnd]
-	signatureRaw := decoded[payloadEnd+1:]
-	if len(signatureRaw) == 0 {
-		return VKOAuthState{}, false
+	signatures := [][]byte{decoded[payloadEnd:]}
+	if decoded[payloadEnd] == '.' && payloadEnd+1 < len(decoded) {
+		signatures = append(signatures, decoded[payloadEnd+1:])
 	}
 
-	expectedRaw := signVKOAuthStateRaw(secret, payloadBytes)
-	if !hmac.Equal(expectedRaw, signatureRaw) {
-		// VK code_v2 may return state as:
-		// base64url(payload_json + "." + raw_hmac_sha256(base64url(payload_json))).
+	verified := false
+	for _, signatureRaw := range signatures {
+		if len(signatureRaw) == 0 {
+			continue
+		}
+
+		expectedRaw := signVKOAuthStateRaw(secret, payloadBytes)
+		if hmac.Equal(expectedRaw, signatureRaw) {
+			verified = true
+			break
+		}
+
+		// VK code_v2 may return repacked signature over base64url(payload_json).
 		encodedPayload := base64.RawURLEncoding.EncodeToString(payloadBytes)
 		repackedExpectedRaw := signVKOAuthStateRaw(secret, []byte(encodedPayload))
-		if !hmac.Equal(repackedExpectedRaw, signatureRaw) {
-			return VKOAuthState{}, false
+		if hmac.Equal(repackedExpectedRaw, signatureRaw) {
+			verified = true
+			break
 		}
+	}
+	if !verified {
+		return VKOAuthState{}, false
 	}
 
 	parsed, ok := parseVKOAuthPayload(payloadBytes, now)

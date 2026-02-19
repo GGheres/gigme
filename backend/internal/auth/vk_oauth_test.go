@@ -129,7 +129,7 @@ func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob(t *testing.T) {
 		t.Fatalf("json.Marshal(payload) error = %v", err)
 	}
 	signatureRaw := signVKOAuthStateRaw("secret", rawPayload)
-	legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+	legacyBytes := append(rawPayload, signatureRaw...)
 	legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
 
 	parsed, err := ParseVKOAuthState(legacyState, "secret", now.Add(2*time.Minute))
@@ -144,6 +144,32 @@ func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob(t *testing.T) {
 	}
 	if parsed.Next != payload.Next {
 		t.Fatalf("Next = %q", parsed.Next)
+	}
+}
+
+func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlobWithSeparator(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	payload := vkOAuthStatePayload{
+		CodeVerifier: "abc123-verifier",
+		RedirectURI:  "https://spacefestival.fun/space_app/auth",
+		Next:         "/space_app",
+		ExpiresAt:    now.Add(10 * time.Minute).Unix(),
+	}
+
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json.Marshal(payload) error = %v", err)
+	}
+	signatureRaw := signVKOAuthStateRaw("secret", rawPayload)
+	legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+	legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
+
+	parsed, err := ParseVKOAuthState(legacyState, "secret", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != payload.CodeVerifier {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
 	}
 }
 
@@ -170,7 +196,7 @@ func TestParseVKOAuthStateLegacyRawSignatureWithDotAndBraceBytes(t *testing.T) {
 			continue
 		}
 
-		legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+		legacyBytes := append(rawPayload, signatureRaw...)
 		legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
 
 		parsed, err := ParseVKOAuthState(legacyState, secret, now.Add(2*time.Minute))
@@ -210,7 +236,7 @@ func TestParseVKOAuthStateAcceptsVKRepackedLegacyState(t *testing.T) {
 
 	encodedPayload := base64.RawURLEncoding.EncodeToString(rawPayload)
 	signatureRaw := signVKOAuthStateRaw(secret, []byte(encodedPayload))
-	legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+	legacyBytes := append(rawPayload, signatureRaw...)
 	legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
 
 	parsed, err := ParseVKOAuthState(legacyState, secret, now.Add(2*time.Minute))
