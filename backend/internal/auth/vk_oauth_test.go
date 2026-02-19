@@ -192,6 +192,42 @@ func TestParseVKOAuthStateLegacyRawSignatureWithDotAndBraceBytes(t *testing.T) {
 	t.Fatal("could not generate legacy signature containing both '.' and '}'")
 }
 
+func TestParseVKOAuthStateAcceptsVKRepackedLegacyState(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	const secret = "secret"
+
+	payload := vkOAuthStatePayload{
+		CodeVerifier: "abc123-verifier",
+		RedirectURI:  "https://spacefestival.fun/space_app/auth",
+		Next:         "/space_app",
+		ExpiresAt:    now.Add(10 * time.Minute).Unix(),
+	}
+
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json.Marshal(payload) error = %v", err)
+	}
+
+	encodedPayload := base64.RawURLEncoding.EncodeToString(rawPayload)
+	signatureRaw := signVKOAuthStateRaw(secret, []byte(encodedPayload))
+	legacyBytes := append(append(rawPayload, byte('.')), signatureRaw...)
+	legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
+
+	parsed, err := ParseVKOAuthState(legacyState, secret, now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != payload.CodeVerifier {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+	}
+	if parsed.RedirectURI != payload.RedirectURI {
+		t.Fatalf("RedirectURI = %q", parsed.RedirectURI)
+	}
+	if parsed.Next != payload.Next {
+		t.Fatalf("Next = %q", parsed.Next)
+	}
+}
+
 func TestBuildPKCECodeChallenge(t *testing.T) {
 	const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 	const expected = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"

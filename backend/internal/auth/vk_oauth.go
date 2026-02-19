@@ -186,7 +186,13 @@ func parseVKOAuthStateLegacy(
 
 	expectedRaw := signVKOAuthStateRaw(secret, payloadBytes)
 	if !hmac.Equal(expectedRaw, signatureRaw) {
-		return VKOAuthState{}, false
+		// VK code_v2 may return state as:
+		// base64url(payload_json + "." + raw_hmac_sha256(base64url(payload_json))).
+		encodedPayload := base64.RawURLEncoding.EncodeToString(payloadBytes)
+		repackedExpectedRaw := signVKOAuthStateRaw(secret, []byte(encodedPayload))
+		if !hmac.Equal(repackedExpectedRaw, signatureRaw) {
+			return VKOAuthState{}, false
+		}
 	}
 
 	parsed, ok := parseVKOAuthPayload(payloadBytes, now)
