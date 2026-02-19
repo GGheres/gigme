@@ -47,7 +47,10 @@ class AuthController extends ChangeNotifier {
     _startupLink = StartupLinkParser.parse();
 
     if (kIsWeb && config.isTelegramWebMode) {
-      TelegramWebAppBridge.readyAndExpand();
+      final telegramInitData = TelegramWebAppBridge.getInitData();
+      if (telegramInitData != null && telegramInitData.isNotEmpty) {
+        TelegramWebAppBridge.readyAndExpand();
+      }
     }
 
     final persistedToken = await tokenStorage.readToken();

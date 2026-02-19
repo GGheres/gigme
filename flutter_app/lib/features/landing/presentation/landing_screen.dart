@@ -67,7 +67,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       ),
     )..repeat();
     if (kIsWeb) {
-      TelegramWebAppBridge.readyAndExpand();
+      final telegramInitData = TelegramWebAppBridge.getInitData();
+      if (telegramInitData != null && telegramInitData.isNotEmpty) {
+        TelegramWebAppBridge.readyAndExpand();
+      }
     }
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -163,7 +166,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 
   ScrollPhysics _scrollPhysicsForContext(BuildContext context) {
-    final isTelegramWeb = kIsWeb && TelegramWebAppBridge.isAvailable();
+    final isTelegramWeb =
+        kIsWeb && (TelegramWebAppBridge.getInitData()?.isNotEmpty ?? false);
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     if (isTelegramWeb && isIOS) {
       return const AlwaysScrollableScrollPhysics(
