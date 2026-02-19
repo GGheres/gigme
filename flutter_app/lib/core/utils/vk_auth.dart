@@ -20,7 +20,6 @@ Uri? buildVkOAuthAuthorizeUri({
     'client_id': clientId,
     'redirect_uri': redirectUri.toString(),
     'response_type': 'token',
-    'scope': 'email',
     'display': 'popup',
     'v': '5.199',
   };
