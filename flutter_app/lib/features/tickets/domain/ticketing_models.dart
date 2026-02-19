@@ -553,6 +553,105 @@ class OrdersListModel {
   final int total;
 }
 
+class AdminBotMessageModel {
+  factory AdminBotMessageModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminBotMessageModel(
+      id: asInt(map['id']),
+      chatId: asInt(map['chatId']),
+      direction: asString(map['direction']).toUpperCase(),
+      text: asString(map['text']),
+      telegramMessageId: map['telegramMessageId'] == null
+          ? null
+          : asInt(map['telegramMessageId']),
+      senderTelegramId: map['senderTelegramId'] == null
+          ? null
+          : asInt(map['senderTelegramId']),
+      senderUsername: asString(map['senderUsername']),
+      senderFirstName: asString(map['senderFirstName']),
+      senderLastName: asString(map['senderLastName']),
+      adminTelegramId:
+          map['adminTelegramId'] == null ? null : asInt(map['adminTelegramId']),
+      userId: map['userId'] == null ? null : asInt(map['userId']),
+      userUsername: asString(map['userUsername']),
+      userFirstName: asString(map['userFirstName']),
+      userLastName: asString(map['userLastName']),
+      createdAt: asDateTime(map['createdAt']),
+    );
+  }
+
+  AdminBotMessageModel({
+    required this.id,
+    required this.chatId,
+    required this.direction,
+    required this.text,
+    required this.telegramMessageId,
+    required this.senderTelegramId,
+    required this.senderUsername,
+    required this.senderFirstName,
+    required this.senderLastName,
+    required this.adminTelegramId,
+    required this.userId,
+    required this.userUsername,
+    required this.userFirstName,
+    required this.userLastName,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int chatId;
+  final String direction;
+  final String text;
+  final int? telegramMessageId;
+  final int? senderTelegramId;
+  final String senderUsername;
+  final String senderFirstName;
+  final String senderLastName;
+  final int? adminTelegramId;
+  final int? userId;
+  final String userUsername;
+  final String userFirstName;
+  final String userLastName;
+  final DateTime? createdAt;
+
+  bool get isIncoming => direction == 'INCOMING';
+
+  String get contactLabel {
+    final userFullName = [userFirstName, userLastName]
+        .where((item) => item.trim().isNotEmpty)
+        .join(' ')
+        .trim();
+    if (userFullName.isNotEmpty) return userFullName;
+    if (userUsername.trim().isNotEmpty) return '@${userUsername.trim()}';
+
+    final senderFullName = [senderFirstName, senderLastName]
+        .where((item) => item.trim().isNotEmpty)
+        .join(' ')
+        .trim();
+    if (senderFullName.isNotEmpty) return senderFullName;
+    if (senderUsername.trim().isNotEmpty) return '@${senderUsername.trim()}';
+    if (senderTelegramId != null && senderTelegramId! > 0) {
+      return 'TG ${senderTelegramId!}';
+    }
+    return 'TG $chatId';
+  }
+}
+
+class AdminBotMessagesListModel {
+  factory AdminBotMessagesListModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminBotMessagesListModel(
+      items: asList(map['items']).map(AdminBotMessageModel.fromJson).toList(),
+      total: asInt(map['total']),
+    );
+  }
+
+  AdminBotMessagesListModel({required this.items, required this.total});
+
+  final List<AdminBotMessageModel> items;
+  final int total;
+}
+
 class MyTicketsModel {
   factory MyTicketsModel.fromJson(dynamic json) {
     final map = asMap(json);

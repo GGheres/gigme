@@ -107,7 +107,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
       setState(() {
         _loading = false;
         _error = 'Authorization required';
-      }); 
+      });
       return;
     }
 
@@ -376,6 +376,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
     final activeTransfers = _activeTransfers(products);
     final selectedTransfer = _selectedTransfer(products);
     final hasTicketProducts = products.tickets.isNotEmpty;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -498,8 +499,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow> {
                   : 'Promo invalid: ${_promoResult!.reason}',
               style: TextStyle(
                 color: _promoResult!.valid
-                    ? Colors.green.shade700
-                    : Colors.red.shade700,
+                    ? colorScheme.tertiary
+                    : colorScheme.error,
               ),
             ),
           ],
@@ -836,6 +837,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final detail = _status?.detail ?? widget.created.order;
     final order = detail.order;
     final paymentStatus = (_status?.paymentStatus.trim().isNotEmpty ?? false)
@@ -848,6 +851,9 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     final qrPayload = widget.created.sbpQr.payload.trim().isNotEmpty
         ? widget.created.sbpQr.payload.trim()
         : detail.paymentInstructions.paymentQrData.trim();
+    final statusAccent = isPaid ? colorScheme.tertiary : colorScheme.primary;
+    final statusBackgroundAlpha = isDark ? 0.28 : 0.14;
+    final statusBorderAlpha = isDark ? 0.62 : 0.42;
 
     return Scaffold(
       appBar: AppBar(
@@ -871,17 +877,19 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isPaid ? const Color(0xFFE8F5E9) : const Color(0xFFFFF8E1),
+              color: statusAccent.withValues(alpha: statusBackgroundAlpha),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isPaid ? Colors.green.shade400 : Colors.amber.shade500,
+                color: statusAccent.withValues(alpha: statusBorderAlpha),
               ),
             ),
             child: Row(
               children: [
-                Icon(isPaid
-                    ? Icons.check_circle_rounded
-                    : Icons.hourglass_top_rounded),
+                Icon(
+                    isPaid
+                        ? Icons.check_circle_rounded
+                        : Icons.hourglass_top_rounded,
+                    color: statusAccent),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -907,7 +915,7 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
           ],
           if ((_error ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(color: Colors.red.shade700)),
+            Text(_error!, style: TextStyle(color: colorScheme.error)),
           ],
           const SizedBox(height: 14),
           if (qrPayload.isNotEmpty)
@@ -915,13 +923,14 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black12),
+                  border: Border.all(color: colorScheme.outline),
                 ),
                 child: QrImageView(
                   data: qrPayload,
                   size: 260,
+                  // White background improves scanner reliability in all themes.
                   backgroundColor: Colors.white,
                 ),
               ),
@@ -968,6 +977,7 @@ class _TicketQuantityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -987,7 +997,7 @@ class _TicketQuantityRow extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.black12),
+                border: Border.all(color: colorScheme.outline),
               ),
               child: Row(
                 children: [
@@ -1045,7 +1055,7 @@ class _PaymentMethodTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? colorScheme.primary : Colors.black12,
+              color: selected ? colorScheme.primary : colorScheme.outline,
               width: selected ? 1.6 : 1,
             ),
             color:
@@ -1087,12 +1097,13 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: const Color(0xFFF5F7FA),
-        border: Border.all(color: Colors.black12),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Text(text),
     );
@@ -1118,6 +1129,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
     final config = ref.watch(appConfigProvider);
     final title = _methodTitle(paymentMethod);
     final customSubtitle = paymentSettings?.descriptionForMethod(paymentMethod);
@@ -1159,8 +1171,8 @@ class _PaymentCheckoutPage extends ConsumerWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black12),
-              color: const Color(0xFFF8FAFC),
+              border: Border.all(color: colorScheme.outline),
+              color: colorScheme.surface,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1307,11 +1319,13 @@ class _CopyDataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

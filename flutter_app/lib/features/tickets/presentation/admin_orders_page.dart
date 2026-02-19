@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/network/providers.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -149,6 +151,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                             final item = items[index];
                             final order = item.order;
                             final status = order.status;
+                            final userTelegramId = item.user?.telegramId ?? 0;
                             return Container(
                               margin: const EdgeInsets.only(bottom: 10),
                               decoration: BoxDecoration(
@@ -163,23 +166,52 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                                     ? 'Событие #${order.eventId}'
                                     : order.eventTitle),
                                 subtitle: Text(
-                                    'Заказ ${order.id}\n${item.user?.displayName ?? 'Пользователь #${order.userId}'}'),
-                                trailing: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  'Заказ ${order.id}\n${item.user?.displayName ?? 'Пользователь #${order.userId}'}${userTelegramId > 0 ? '\nTG $userTelegramId' : ''}',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Chip(
-                                      label: Text(status),
-                                      backgroundColor:
-                                          statusColor(status, context)
-                                              .withValues(alpha: 0.12),
-                                      side: BorderSide(
-                                          color: statusColor(status, context)),
-                                      labelStyle: TextStyle(
-                                          color: statusColor(status, context),
-                                          fontWeight: FontWeight.w600),
+                                    if (userTelegramId > 0)
+                                      IconButton(
+                                        tooltip: 'Диалог',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => context.push(
+                                          AppRoutes.adminBotMessagesForChat(
+                                              userTelegramId),
+                                        ),
+                                        icon: const Icon(Icons.forum_outlined),
+                                      ),
+                                    if (userTelegramId > 0)
+                                      IconButton(
+                                        tooltip: 'Открыть бота',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () =>
+                                            _openBotForUser(userTelegramId),
+                                        icon: const Icon(
+                                            Icons.open_in_new_rounded),
+                                      ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Chip(
+                                          label: Text(status),
+                                          backgroundColor:
+                                              statusColor(status, context)
+                                                  .withValues(alpha: 0.12),
+                                          side: BorderSide(
+                                            color: statusColor(status, context),
+                                          ),
+                                          labelStyle: TextStyle(
+                                            color: statusColor(status, context),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(formatMoney(order.totalCents)),
+                                      ],
                                     ),
-                                    Text(formatMoney(order.totalCents)),
                                   ],
                                 ),
                               ),
@@ -189,5 +221,31 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _openBotForUser(int telegramId) async {
+    final config = ref.read(appConfigProvider);
+    final link = buildBotReplyDeepLink(
+      botUsername: config.botUsername,
+      telegramId: telegramId,
+    );
+    if (link.isEmpty) {
+      _showMessage('BOT_USERNAME не настроен');
+      return;
+    }
+
+    final opened = await launchUrl(
+      Uri.parse(link),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      _showMessage('Не удалось открыть Telegram');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }

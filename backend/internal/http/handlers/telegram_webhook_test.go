@@ -37,3 +37,33 @@ func TestBuildEventURLUsesSpaceAppPath(t *testing.T) {
 		t.Fatalf("expected fragment eventId=42, got %q", parsed.Fragment)
 	}
 }
+
+func TestParseAdminReplyCommand(t *testing.T) {
+	chatID, replyText, ok := parseAdminReplyCommand("/reply 12345 спасибо за сообщение")
+	if !ok {
+		t.Fatalf("expected command to be parsed")
+	}
+	if chatID != 12345 {
+		t.Fatalf("expected chat id 12345, got %d", chatID)
+	}
+	if replyText != "спасибо за сообщение" {
+		t.Fatalf("unexpected reply text: %q", replyText)
+	}
+}
+
+func TestParseAdminReplyPayload(t *testing.T) {
+	chatID, ok := parseAdminReplyPayload("reply_998877")
+	if !ok {
+		t.Fatalf("expected payload to be parsed")
+	}
+	if chatID != 998877 {
+		t.Fatalf("expected chat id 998877, got %d", chatID)
+	}
+}
+
+func TestParseStartPayloadSkipsReplyPayload(t *testing.T) {
+	eventID, key := parseStartPayload("reply_123")
+	if eventID != 0 || key != "" {
+		t.Fatalf("expected reply payload to be skipped, got eventID=%d key=%q", eventID, key)
+	}
+}

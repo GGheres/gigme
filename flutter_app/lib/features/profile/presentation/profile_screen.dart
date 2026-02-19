@@ -129,6 +129,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           onPressed: () => context.push(AppRoutes.adminOrders),
                         ),
                         AppButton(
+                          label: 'Сообщения',
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.secondary,
+                          onPressed: () =>
+                              context.push(AppRoutes.adminBotMessages),
+                        ),
+                        AppButton(
                           label: 'QR-сканер',
                           size: AppButtonSize.sm,
                           variant: AppButtonVariant.secondary,

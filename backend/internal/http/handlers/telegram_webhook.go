@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -42,10 +44,15 @@ type telegramFrom struct {
 
 var startEventPayloadRe = regexp.MustCompile(`(?i)event_(\d+)(?:_([a-z0-9_-]+))?`)
 var startEventIDRe = regexp.MustCompile(`\d+`)
+var adminReplyPayloadRe = regexp.MustCompile(`(?i)(?:reply|chat)_(\d+)`)
 
 func parseStartPayload(payload string) (int64, string) {
 	payload = strings.TrimSpace(payload)
 	if payload == "" {
+		return 0, ""
+	}
+	lower := strings.ToLower(payload)
+	if strings.HasPrefix(lower, "reply_") || strings.HasPrefix(lower, "chat_") {
 		return 0, ""
 	}
 	if match := startEventPayloadRe.FindStringSubmatch(payload); len(match) >= 2 {
@@ -79,15 +86,35 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	text := incomingTelegramMessageText(update.Message)
-	fields := strings.Fields(text)
+	trimmedText := strings.TrimSpace(text)
+	isAdmin := h.isAdminTelegramID(update.Message.From.ID)
+
+	if isAdmin {
+		if h.handleAdminTelegramMessage(r.Context(), logger, update.Message, trimmedText) {
+			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			return
+		}
+	}
+
+	if !isAdmin {
+		h.storeIncomingBotMessage(r.Context(), logger, update.Message, trimmedText)
+	}
+
+	fields := strings.Fields(trimmedText)
 	if len(fields) == 0 || !strings.HasPrefix(fields[0], "/start") {
-		h.notifyAdmins(logger, buildAdminBotMessageNotificationText(*update.Message))
+		if !isAdmin {
+			h.notifyAdminsWithMarkup(
+				logger,
+				buildAdminBotMessageNotificationText(*update.Message, h.cfg.TelegramUser),
+				buildAdminReplyMarkup(h.cfg.TelegramUser, update.Message.Chat.ID),
+			)
+		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
 
 	webAppURL := normalizeWebAppBaseURL(h.cfg.BaseURL)
-	startPayload := strings.TrimSpace(strings.TrimPrefix(text, "/start"))
+	startPayload := strings.TrimSpace(strings.TrimPrefix(trimmedText, "/start"))
 	eventID, accessKey := parseStartPayload(startPayload)
 
 	if eventID > 0 {
@@ -153,6 +180,155 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (h *Handler) isAdminTelegramID(telegramID int64) bool {
+	if h == nil || h.cfg == nil || telegramID <= 0 {
+		return false
+	}
+	_, ok := h.cfg.AdminTGIDs[telegramID]
+	return ok
+}
+
+func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.Logger, message *telegramMessage, text string) bool {
+	if h == nil || h.telegram == nil || message == nil {
+		return false
+	}
+
+	if chatID, replyText, ok := parseAdminReplyCommand(text); ok {
+		if err := h.telegram.SendMessage(chatID, replyText); err != nil {
+			logger.Warn(
+				"action", "action", "telegram_webhook_admin_reply",
+				"status", "send_failed",
+				"admin_telegram_id", message.From.ID,
+				"chat_id", chatID,
+				"error", err,
+			)
+			_ = h.telegram.SendMessage(
+				message.Chat.ID,
+				fmt.Sprintf("Не удалось отправить сообщение пользователю %d", chatID),
+			)
+			return true
+		}
+		h.storeOutgoingBotMessage(ctx, logger, chatID, message.From.ID, replyText)
+		_ = h.telegram.SendMessage(
+			message.Chat.ID,
+			fmt.Sprintf("Сообщение отправлено пользователю %d", chatID),
+		)
+		return true
+	}
+
+	lower := strings.ToLower(strings.TrimSpace(text))
+	if strings.HasPrefix(lower, "/reply") {
+		_ = h.telegram.SendMessage(message.Chat.ID, adminReplyUsageText(0, h.cfg.TelegramUser))
+		return true
+	}
+
+	if strings.HasPrefix(lower, "/start") {
+		startPayload := strings.TrimSpace(strings.TrimPrefix(text, "/start"))
+		if chatID, ok := parseAdminReplyPayload(startPayload); ok {
+			_ = h.telegram.SendMessage(message.Chat.ID, adminReplyUsageText(chatID, h.cfg.TelegramUser))
+			return true
+		}
+		return false
+	}
+
+	if strings.HasPrefix(lower, "/help") {
+		_ = h.telegram.SendMessage(message.Chat.ID, adminReplyUsageText(0, h.cfg.TelegramUser))
+		return true
+	}
+
+	return false
+}
+
+func parseAdminReplyCommand(text string) (int64, string, bool) {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) < 3 {
+		return 0, "", false
+	}
+	command := strings.ToLower(strings.TrimSpace(fields[0]))
+	if !strings.HasPrefix(command, "/reply") {
+		return 0, "", false
+	}
+	chatID, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil || chatID <= 0 {
+		return 0, "", false
+	}
+	replyText := strings.TrimSpace(strings.Join(fields[2:], " "))
+	if replyText == "" {
+		return 0, "", false
+	}
+	return chatID, replyText, true
+}
+
+func parseAdminReplyPayload(payload string) (int64, bool) {
+	match := adminReplyPayloadRe.FindStringSubmatch(strings.TrimSpace(payload))
+	if len(match) < 2 {
+		return 0, false
+	}
+	chatID, err := strconv.ParseInt(match[1], 10, 64)
+	if err != nil || chatID <= 0 {
+		return 0, false
+	}
+	return chatID, true
+}
+
+func adminReplyUsageText(chatID int64, botUsername string) string {
+	lines := []string{
+		"Команда ответа пользователю:",
+	}
+	if chatID > 0 {
+		lines = append(lines, fmt.Sprintf("/reply %d <текст>", chatID))
+		if link := buildTelegramBotReplyLink(botUsername, chatID); link != "" {
+			lines = append(lines, fmt.Sprintf("Ссылка: %s", link))
+		}
+	} else {
+		lines = append(lines, "/reply <chat_id> <текст>")
+	}
+	lines = append(lines, "Пример: /reply 123456789 Спасибо за сообщение")
+	return strings.Join(lines, "\n")
+}
+
+func (h *Handler) storeIncomingBotMessage(ctx context.Context, logger *slog.Logger, message *telegramMessage, text string) {
+	if h == nil || h.repo == nil || message == nil || message.Chat.ID <= 0 {
+		return
+	}
+	saveCtx, cancel := h.withTimeout(ctx)
+	defer cancel()
+	if err := h.repo.StoreAdminBotIncomingMessage(
+		saveCtx,
+		message.Chat.ID,
+		int64(message.MessageID),
+		message.From.ID,
+		message.From.Username,
+		message.From.FirstName,
+		message.From.LastName,
+		text,
+	); err != nil {
+		logger.Warn(
+			"action", "action", "telegram_webhook_store_incoming",
+			"status", "db_error",
+			"chat_id", message.Chat.ID,
+			"error", err,
+		)
+	}
+}
+
+func (h *Handler) storeOutgoingBotMessage(ctx context.Context, logger *slog.Logger, chatID int64, adminTelegramID int64, text string) {
+	if h == nil || h.repo == nil || chatID <= 0 {
+		return
+	}
+	saveCtx, cancel := h.withTimeout(ctx)
+	defer cancel()
+	if err := h.repo.StoreAdminBotOutgoingMessage(saveCtx, chatID, adminTelegramID, text); err != nil {
+		logger.Warn(
+			"action", "action", "telegram_webhook_store_outgoing",
+			"status", "db_error",
+			"chat_id", chatID,
+			"admin_telegram_id", adminTelegramID,
+			"error", err,
+		)
+	}
 }
 
 func buildEventCardText(event models.Event) string {

@@ -59,3 +59,13 @@ Color statusTint(String status, BuildContext context) {
       return const Color(0xFFF5F5F5);
   }
 }
+
+String buildBotReplyDeepLink({
+  required String botUsername,
+  required int telegramId,
+}) {
+  if (telegramId <= 0) return '';
+  final username = botUsername.trim().replaceFirst(RegExp(r'^@'), '').trim();
+  if (username.isEmpty) return '';
+  return 'https://t.me/$username?start=reply_$telegramId';
+}

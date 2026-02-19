@@ -165,6 +165,8 @@ func main() {
 		r.Get("/admin/orders/{id}", h.GetAdminOrder)
 		r.Post("/admin/orders/{orderId}/confirm", h.ConfirmOrder)
 		r.Delete("/admin/orders/{id}", h.DeleteAdminOrder)
+		r.Get("/admin/bot/messages", h.ListAdminBotMessages)
+		r.Post("/admin/bot/messages/reply", h.ReplyAdminBotMessage)
 		r.Post("/admin/tickets/redeem", h.AdminRedeemTicket)
 		r.Get("/admin/stats", h.AdminStats)
 		r.Get("/admin/payment-settings", h.GetAdminPaymentSettings)

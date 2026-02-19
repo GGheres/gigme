@@ -21,9 +21,14 @@ type WebAppInfo struct {
 }
 
 type InlineKeyboardButton struct {
-	Text   string      `json:"text"`
-	URL    string      `json:"url,omitempty"`
-	WebApp *WebAppInfo `json:"web_app,omitempty"`
+	Text     string          `json:"text"`
+	URL      string          `json:"url,omitempty"`
+	WebApp   *WebAppInfo     `json:"web_app,omitempty"`
+	CopyText *CopyTextButton `json:"copy_text,omitempty"`
+}
+
+type CopyTextButton struct {
+	Text string `json:"text"`
 }
 
 type ReplyMarkup struct {

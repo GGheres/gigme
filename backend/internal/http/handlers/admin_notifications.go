@@ -6,12 +6,17 @@ import (
 	"sort"
 	"strings"
 
+	"gigme/backend/internal/integrations"
 	"gigme/backend/internal/models"
 )
 
 const adminMessageMaxRunes = 1500
 
 func (h *Handler) notifyAdmins(logger *slog.Logger, text string) {
+	h.notifyAdminsWithMarkup(logger, text, nil)
+}
+
+func (h *Handler) notifyAdminsWithMarkup(logger *slog.Logger, text string, markup *integrations.ReplyMarkup) {
 	if h == nil || h.telegram == nil || h.cfg == nil {
 		return
 	}
@@ -24,7 +29,8 @@ func (h *Handler) notifyAdmins(logger *slog.Logger, text string) {
 		return
 	}
 	for _, adminID := range adminIDs {
-		if err := h.telegram.SendMessage(adminID, message); err != nil && logger != nil {
+		err := h.telegram.SendMessageWithMarkup(adminID, message, markup)
+		if err != nil && logger != nil {
 			logger.Warn("admin_notification", "status", "send_failed", "admin_telegram_id", adminID, "error", err)
 		}
 	}
@@ -44,7 +50,7 @@ func adminTelegramIDs(ids map[int64]struct{}) []int64 {
 	return result
 }
 
-func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64) string {
+func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64, userTelegramID int64, botUsername string) string {
 	lines := []string{"Новый заказ"}
 
 	if orderID := strings.TrimSpace(order.ID); orderID != "" {
@@ -57,6 +63,13 @@ func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64) s
 	}
 	if userID > 0 {
 		lines = append(lines, fmt.Sprintf("Пользователь ID: %d", userID))
+	}
+	if userTelegramID > 0 {
+		lines = append(lines, fmt.Sprintf("Пользователь TG: %d", userTelegramID))
+		lines = append(lines, fmt.Sprintf("Команда ответа: /reply %d <текст>", userTelegramID))
+		if link := buildTelegramBotReplyLink(botUsername, userTelegramID); link != "" {
+			lines = append(lines, fmt.Sprintf("Ответить в боте: %s", link))
+		}
 	}
 
 	if title := strings.TrimSpace(order.EventTitle); title != "" {
@@ -84,7 +97,7 @@ func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64) s
 	return strings.Join(lines, "\n")
 }
 
-func buildAdminBotMessageNotificationText(message telegramMessage) string {
+func buildAdminBotMessageNotificationText(message telegramMessage, botUsername string) string {
 	text := incomingTelegramMessageText(&message)
 	if text == "" {
 		return ""
@@ -96,6 +109,10 @@ func buildAdminBotMessageNotificationText(message telegramMessage) string {
 	}
 	if message.Chat.ID > 0 {
 		lines = append(lines, fmt.Sprintf("Chat ID: %d", message.Chat.ID))
+		lines = append(lines, fmt.Sprintf("Ответ: /reply %d <текст>", message.Chat.ID))
+		if link := buildTelegramBotReplyLink(botUsername, message.Chat.ID); link != "" {
+			lines = append(lines, fmt.Sprintf("Открыть бота: %s", link))
+		}
 	}
 	if message.MessageID > 0 {
 		lines = append(lines, fmt.Sprintf("Message ID: %d", message.MessageID))
@@ -150,4 +167,45 @@ func trimMessageForAdmin(text string) string {
 		return string(runes[:adminMessageMaxRunes])
 	}
 	return string(runes[:adminMessageMaxRunes-3]) + "..."
+}
+
+func buildTelegramBotReplyLink(botUsername string, chatID int64) string {
+	if chatID <= 0 {
+		return ""
+	}
+	username := normalizeTelegramBotUsername(botUsername)
+	if username == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://t.me/%s?start=reply_%d", username, chatID)
+}
+
+func buildAdminReplyMarkup(botUsername string, chatID int64) *integrations.ReplyMarkup {
+	if chatID <= 0 {
+		return nil
+	}
+
+	buttons := make([]integrations.InlineKeyboardButton, 0, 2)
+	if link := buildTelegramBotReplyLink(botUsername, chatID); link != "" {
+		buttons = append(buttons, integrations.InlineKeyboardButton{
+			Text: "Ответить",
+			URL:  link,
+		})
+	}
+	buttons = append(buttons, integrations.InlineKeyboardButton{
+		Text: "Шаблон /reply",
+		CopyText: &integrations.CopyTextButton{
+			Text: fmt.Sprintf("/reply %d ", chatID),
+		},
+	})
+
+	return &integrations.ReplyMarkup{
+		InlineKeyboard: [][]integrations.InlineKeyboardButton{buttons},
+	}
+}
+
+func normalizeTelegramBotUsername(value string) string {
+	username := strings.TrimSpace(value)
+	username = strings.TrimPrefix(username, "@")
+	return strings.TrimSpace(username)
 }

@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/network/providers.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -162,6 +164,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
 
     final order = detail.order;
     final status = order.status;
+    final userTelegramId = detail.user?.telegramId ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -203,6 +206,27 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
               'Событие: ${order.eventTitle.isEmpty ? order.eventId : order.eventTitle}'),
           Text(
               'Пользователь: ${detail.user?.displayName ?? '#${order.userId}'}'),
+          if (userTelegramId > 0) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => context.push(
+                    AppRoutes.adminBotMessagesForChat(userTelegramId),
+                  ),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Диалог'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: () => _openBotForUser(userTelegramId),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('Открыть бота'),
+                ),
+              ],
+            ),
+          ],
           Text('Оплата: ${order.paymentMethod}'),
           if (order.paymentReference.trim().isNotEmpty)
             Text('Референс платежа: ${order.paymentReference}'),
@@ -282,6 +306,26 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _openBotForUser(int telegramId) async {
+    final config = ref.read(appConfigProvider);
+    final link = buildBotReplyDeepLink(
+      botUsername: config.botUsername,
+      telegramId: telegramId,
+    );
+    if (link.isEmpty) {
+      _showMessage('BOT_USERNAME не настроен');
+      return;
+    }
+
+    final opened = await launchUrl(
+      Uri.parse(link),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      _showMessage('Не удалось открыть Telegram');
+    }
   }
 
   void _registerDeleteActivationTap() {

@@ -137,6 +137,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	userTelegramID, _ := middleware.TelegramIDFromContext(r.Context())
 
 	var req createOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -168,7 +169,11 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
-	h.notifyAdmins(logger, buildAdminOrderNotificationText(detail.Order, userID))
+	h.notifyAdminsWithMarkup(
+		logger,
+		buildAdminOrderNotificationText(detail.Order, userID, userTelegramID, h.cfg.TelegramUser),
+		buildAdminReplyMarkup(h.cfg.TelegramUser, userTelegramID),
+	)
 	writeJSON(w, http.StatusCreated, detail)
 }
 
@@ -179,6 +184,7 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	userTelegramID, _ := middleware.TelegramIDFromContext(r.Context())
 	if !h.hasTochkaSBPConfig() {
 		writeError(w, http.StatusServiceUnavailable, "sbp payment is not configured")
 		return
@@ -212,7 +218,11 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 		h.handleTicketingError(logger, w, "create_sbp_qr", err)
 		return
 	}
-	h.notifyAdmins(logger, buildAdminOrderNotificationText(detail.Order, userID))
+	h.notifyAdminsWithMarkup(
+		logger,
+		buildAdminOrderNotificationText(detail.Order, userID, userTelegramID, h.cfg.TelegramUser),
+		buildAdminReplyMarkup(h.cfg.TelegramUser, userTelegramID),
+	)
 
 	amount := detail.Order.TotalCents
 	if amount <= 0 {

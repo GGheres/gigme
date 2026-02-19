@@ -163,6 +163,24 @@ type AdminBroadcastJob struct {
 	LastError    string `json:"lastError,omitempty"`
 }
 
+type AdminBotMessage struct {
+	ID                int64     `json:"id"`
+	ChatID            int64     `json:"chatId"`
+	Direction         string    `json:"direction"`
+	Text              string    `json:"text"`
+	TelegramMessageID *int64    `json:"telegramMessageId,omitempty"`
+	SenderTelegramID  *int64    `json:"senderTelegramId,omitempty"`
+	SenderUsername    string    `json:"senderUsername,omitempty"`
+	SenderFirstName   string    `json:"senderFirstName,omitempty"`
+	SenderLastName    string    `json:"senderLastName,omitempty"`
+	AdminTelegramID   *int64    `json:"adminTelegramId,omitempty"`
+	UserID            *int64    `json:"userId,omitempty"`
+	UserUsername      string    `json:"userUsername,omitempty"`
+	UserFirstName     string    `json:"userFirstName,omitempty"`
+	UserLastName      string    `json:"userLastName,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
+}
+
 type AdminParserSource struct {
 	ID           int64      `json:"id"`
 	SourceType   string     `json:"sourceType"`

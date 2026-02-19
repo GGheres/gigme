@@ -202,6 +202,40 @@ class TicketingRepository {
         );
   }
 
+  Future<AdminBotMessagesListModel> listAdminBotMessages({
+    required String token,
+    int? chatId,
+    int limit = 100,
+    int offset = 0,
+  }) {
+    return _ref.read(apiClientProvider).get<AdminBotMessagesListModel>(
+          '/admin/bot/messages',
+          token: token,
+          query: <String, dynamic>{
+            if (chatId != null && chatId > 0) 'chat_id': chatId,
+            'limit': limit,
+            'offset': offset,
+          },
+          decoder: AdminBotMessagesListModel.fromJson,
+        );
+  }
+
+  Future<void> replyAdminBotMessage({
+    required String token,
+    required int chatId,
+    required String text,
+  }) {
+    return _ref.read(apiClientProvider).post<void>(
+          '/admin/bot/messages/reply',
+          token: token,
+          body: <String, dynamic>{
+            'chatId': chatId,
+            'text': text.trim(),
+          },
+          decoder: (_) {},
+        );
+  }
+
   Future<OrderDetailModel> getAdminOrder({
     required String token,
     required String orderId,

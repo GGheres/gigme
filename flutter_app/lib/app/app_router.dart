@@ -15,6 +15,7 @@ import '../features/events/presentation/map_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/tickets/presentation/admin_order_detail_page.dart';
 import '../features/tickets/presentation/admin_orders_page.dart';
+import '../features/tickets/presentation/admin_bot_messages_page.dart';
 import '../features/tickets/presentation/admin_products_page.dart';
 import '../features/tickets/presentation/admin_promo_codes_page.dart';
 import '../features/tickets/presentation/admin_qr_scanner_page.dart';
@@ -165,6 +166,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.adminOrders,
                 pageBuilder: (context, state) =>
                     _noTransitionPage(state, const AdminOrdersPage()),
+              ),
+              GoRoute(
+                path: AppRoutes.adminBotMessages,
+                pageBuilder: (context, state) => _noTransitionPage(
+                  state,
+                  AdminBotMessagesPage(
+                    initialChatId: int.tryParse(
+                      state.uri.queryParameters['chatId'] ??
+                          state.uri.queryParameters['chat_id'] ??
+                          '',
+                    ),
+                  ),
+                ),
               ),
               GoRoute(
                 path: '/space_app/admin/orders/:id',

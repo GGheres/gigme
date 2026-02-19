@@ -34,11 +34,14 @@ func TestBuildAdminOrderNotificationText(t *testing.T) {
 		Currency:      "RUB",
 	}
 
-	got := buildAdminOrderNotificationText(order, 0)
+	got := buildAdminOrderNotificationText(order, 0, 777001, "@my_bot")
 	parts := []string{
 		"Новый заказ",
 		"Заказ: ord-1",
 		"Пользователь ID: 555",
+		"Пользователь TG: 777001",
+		"Команда ответа: /reply 777001 <текст>",
+		"Ответить в боте: https://t.me/my_bot?start=reply_777001",
 		"Событие: Techno Night",
 		"Оплата: PAYMENT_QR",
 		"Сумма: 1599.00 RUB",
@@ -56,7 +59,7 @@ func TestBuildAdminOrderNotificationTextUsesFallbackUserID(t *testing.T) {
 		ID:      "ord-2",
 		EventID: 8,
 	}
-	got := buildAdminOrderNotificationText(order, 999)
+	got := buildAdminOrderNotificationText(order, 999, 0, "")
 	if !strings.Contains(got, "Пользователь ID: 999") {
 		t.Fatalf("expected fallback user id in %q", got)
 	}
@@ -85,11 +88,13 @@ func TestBuildAdminBotMessageNotificationText(t *testing.T) {
 		},
 	}
 
-	got := buildAdminBotMessageNotificationText(msg)
+	got := buildAdminBotMessageNotificationText(msg, "my_bot")
 	parts := []string{
 		"Новое сообщение в боте",
 		"От: Alex Doe (@alex_user)",
 		"Chat ID: 123456",
+		"Ответ: /reply 123456 <текст>",
+		"Открыть бота: https://t.me/my_bot?start=reply_123456",
 		"Message ID: 77",
 		"Текст:",
 		"Нужна помощь с заказом",
@@ -103,7 +108,69 @@ func TestBuildAdminBotMessageNotificationText(t *testing.T) {
 
 func TestBuildAdminBotMessageNotificationTextEmpty(t *testing.T) {
 	msg := telegramMessage{}
-	if got := buildAdminBotMessageNotificationText(msg); got != "" {
+	if got := buildAdminBotMessageNotificationText(msg, ""); got != "" {
 		t.Fatalf("expected empty text, got %q", got)
+	}
+}
+
+func TestBuildAdminReplyMarkup(t *testing.T) {
+	markup := buildAdminReplyMarkup("@my_bot", 123456)
+	if markup == nil {
+		t.Fatalf("expected markup")
+	}
+	if len(markup.InlineKeyboard) != 1 {
+		t.Fatalf("expected one row, got %d", len(markup.InlineKeyboard))
+	}
+	row := markup.InlineKeyboard[0]
+	if len(row) != 2 {
+		t.Fatalf("expected two buttons, got %d", len(row))
+	}
+
+	openButton := row[0]
+	if openButton.Text != "Ответить" {
+		t.Fatalf("unexpected open button text: %q", openButton.Text)
+	}
+	if openButton.URL != "https://t.me/my_bot?start=reply_123456" {
+		t.Fatalf("unexpected reply link: %q", openButton.URL)
+	}
+
+	templateButton := row[1]
+	if templateButton.Text != "Шаблон /reply" {
+		t.Fatalf("unexpected template button text: %q", templateButton.Text)
+	}
+	if templateButton.CopyText == nil {
+		t.Fatalf("expected copy_text button")
+	}
+	if templateButton.CopyText.Text != "/reply 123456 " {
+		t.Fatalf("unexpected template text: %q", templateButton.CopyText.Text)
+	}
+	if templateButton.URL != "" {
+		t.Fatalf("unexpected template button URL: %q", templateButton.URL)
+	}
+}
+
+func TestBuildAdminReplyMarkupWithoutBotUsername(t *testing.T) {
+	markup := buildAdminReplyMarkup("", 123)
+	if markup == nil {
+		t.Fatalf("expected markup with copy button")
+	}
+	if len(markup.InlineKeyboard) != 1 || len(markup.InlineKeyboard[0]) != 1 {
+		t.Fatalf("expected one copy button row, got %+v", markup.InlineKeyboard)
+	}
+	button := markup.InlineKeyboard[0][0]
+	if button.Text != "Шаблон /reply" {
+		t.Fatalf("unexpected button text: %q", button.Text)
+	}
+	if button.CopyText == nil || button.CopyText.Text != "/reply 123 " {
+		t.Fatalf("unexpected copy_text payload: %+v", button.CopyText)
+	}
+	if button.URL != "" || button.WebApp != nil {
+		t.Fatalf("unexpected extra button fields: %+v", button)
+	}
+}
+
+func TestBuildAdminReplyMarkupInvalidChat(t *testing.T) {
+	if markup := buildAdminReplyMarkup("my_bot", 0); markup != nil {
+		t.Fatalf("expected nil markup, got %+v", markup)
 	}
 }
