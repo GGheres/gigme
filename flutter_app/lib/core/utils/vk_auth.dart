@@ -8,6 +8,22 @@ class VkAuthCredentials {
   final int? userId;
 }
 
+String? extractVkMiniAppLaunchParams(Uri? uri) {
+  if (uri == null) return null;
+
+  final hasViewerId =
+      uri.queryParameters['vk_user_id']?.trim().isNotEmpty ?? false;
+  final hasAppId = uri.queryParameters['vk_app_id']?.trim().isNotEmpty ?? false;
+  final hasSign = uri.queryParameters['sign']?.trim().isNotEmpty ?? false;
+  if (!hasViewerId || !hasAppId || !hasSign) {
+    return null;
+  }
+
+  final raw = uri.query.trim();
+  if (raw.isEmpty) return null;
+  return raw;
+}
+
 Uri? buildVkOAuthAuthorizeUri({
   required String appId,
   required Uri redirectUri,

@@ -7,6 +7,7 @@ Flutter migration of GigMe frontend with unchanged Go backend contracts.
 - `Mode A (current MVP)`: Flutter Web inside Telegram WebView (`initData` -> `POST /auth/telegram`).
 - `Mode B (implemented scaffold)`: standalone Android/iOS auth via deep-link/helper URL returning `initData`, then same `POST /auth/telegram` backend contract.
 - `Web OAuth (optional)`: VK web login (`access_token` callback -> `POST /auth/vk`) for web users.
+- `VK Mini Apps (optional)`: auth via VK launch params (`window.location.search` with `sign`) -> `POST /auth/vk/miniapp`.
 
 ## Project structure
 

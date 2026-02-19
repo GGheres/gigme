@@ -93,6 +93,7 @@ func main() {
 
 	r.Post("/auth/telegram", h.AuthTelegram)
 	r.Post("/auth/vk", h.AuthVK)
+	r.Post("/auth/vk/miniapp", h.AuthVKMiniApp)
 	r.Post("/auth/admin", h.AuthAdmin)
 	r.Get("/auth/standalone", h.StandaloneAuthPage)
 	r.Post("/auth/standalone/exchange", h.StandaloneAuthExchange)

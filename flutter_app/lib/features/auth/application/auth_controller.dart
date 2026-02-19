@@ -64,6 +64,12 @@ class AuthController extends ChangeNotifier {
     }
 
     if (kIsWeb) {
+      final vkLaunchParams = _resolveVkMiniAppLaunchParams();
+      if (vkLaunchParams != null && vkLaunchParams.isNotEmpty) {
+        await loginWithVkMiniApp(launchParams: vkLaunchParams);
+        return;
+      }
+
       final vkCredentials = _resolveVkAuthCredentials();
       if (vkCredentials != null) {
         await loginWithVk(
@@ -153,6 +159,29 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  Future<void> loginWithVkMiniApp({
+    required String launchParams,
+  }) async {
+    _state = AuthState.loading();
+    notifyListeners();
+
+    try {
+      final session = await repository.loginWithVkMiniApp(
+        launchParams: launchParams,
+      );
+      await tokenStorage.writeToken(session.accessToken);
+      _state = AuthState.authenticated(
+        token: session.accessToken,
+        user: session.user,
+      );
+      notifyListeners();
+      await _claimPendingReferralIfNeeded(token: session.accessToken);
+    } catch (error) {
+      _state = AuthState.unauthenticated(error: error.toString());
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshMe() async {
     final token = _state.token;
     if (token == null || token.isEmpty) return;
@@ -183,6 +212,12 @@ class AuthController extends ChangeNotifier {
 
   Future<void> retryAuth() async {
     if (kIsWeb) {
+      final vkLaunchParams = _resolveVkMiniAppLaunchParams();
+      if (vkLaunchParams != null && vkLaunchParams.isNotEmpty) {
+        await loginWithVkMiniApp(launchParams: vkLaunchParams);
+        return;
+      }
+
       final vkCredentials = _resolveVkAuthCredentials();
       if (vkCredentials != null) {
         await loginWithVk(
@@ -259,6 +294,14 @@ class AuthController extends ChangeNotifier {
     final fromLaunchUri = parseVkAuthCredentialsFromUri(_launchUri);
     if (fromLaunchUri != null) return fromLaunchUri;
     return parseVkAuthCredentialsFromUri(Uri.base);
+  }
+
+  String? _resolveVkMiniAppLaunchParams() {
+    final fromLaunchUri = extractVkMiniAppLaunchParams(_launchUri);
+    if (fromLaunchUri != null && fromLaunchUri.isNotEmpty) {
+      return fromLaunchUri;
+    }
+    return extractVkMiniAppLaunchParams(Uri.base);
   }
 
   String? _resolveVkAuthError() {

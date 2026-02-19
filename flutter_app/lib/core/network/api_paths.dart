@@ -1,6 +1,7 @@
 class ApiPaths {
   static const authTelegram = '/auth/telegram';
   static const authVk = '/auth/vk';
+  static const authVkMiniApp = '/auth/vk/miniapp';
   static const me = '/me';
   static const meLocation = '/me/location';
   static const mePushToken = '/me/push-token';

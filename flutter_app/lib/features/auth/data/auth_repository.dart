@@ -33,6 +33,16 @@ class AuthRepository {
         );
   }
 
+  Future<AuthSession> loginWithVkMiniApp({
+    required String launchParams,
+  }) {
+    return _ref.read(apiClientProvider).post<AuthSession>(
+          ApiPaths.authVkMiniApp,
+          body: <String, dynamic>{'launchParams': launchParams},
+          decoder: AuthSession.fromJson,
+        );
+  }
+
   Future<User> getMe(String token) {
     return _ref.read(apiClientProvider).get<User>(
           ApiPaths.me,
