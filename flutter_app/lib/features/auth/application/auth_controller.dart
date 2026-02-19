@@ -9,6 +9,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/models/auth_session.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/storage/token_storage.dart';
+import '../../../core/storage/vk_oauth_state_storage.dart';
 import '../../../core/utils/startup_link.dart';
 import '../../../core/utils/vk_auth.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
@@ -20,6 +21,7 @@ class AuthController extends ChangeNotifier {
     required this.config,
     required this.repository,
     required this.tokenStorage,
+    required this.vkOAuthStateStorage,
   }) {
     unawaited(initialize());
   }
@@ -27,6 +29,7 @@ class AuthController extends ChangeNotifier {
   final AppConfig config;
   final AuthRepository repository;
   final TokenStorage tokenStorage;
+  final VkOAuthStateStorage vkOAuthStateStorage;
 
   AuthState _state = AuthState.loading();
   AuthState get state => _state;
@@ -74,7 +77,7 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      final vkCodeCredentials = _resolveVkAuthCodeCredentials();
+      final vkCodeCredentials = await _resolveVkAuthCodeCredentials();
       if (vkCodeCredentials != null) {
         await loginWithVkCode(
           code: vkCodeCredentials.code,
@@ -197,6 +200,8 @@ class AuthController extends ChangeNotifier {
     } catch (error) {
       _state = AuthState.unauthenticated(error: _mapVkAuthError(error));
       notifyListeners();
+    } finally {
+      await vkOAuthStateStorage.clearState();
     }
   }
 
@@ -259,7 +264,7 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      final vkCodeCredentials = _resolveVkAuthCodeCredentials();
+      final vkCodeCredentials = await _resolveVkAuthCodeCredentials();
       if (vkCodeCredentials != null) {
         await loginWithVkCode(
           code: vkCodeCredentials.code,
@@ -347,10 +352,22 @@ class AuthController extends ChangeNotifier {
     return parseVkAuthCredentialsFromUri(Uri.base);
   }
 
-  VkAuthCodeCredentials? _resolveVkAuthCodeCredentials() {
+  Future<VkAuthCodeCredentials?> _resolveVkAuthCodeCredentials() async {
     final fromLaunchUri = parseVkAuthCodeCredentialsFromUri(_launchUri);
-    if (fromLaunchUri != null) return fromLaunchUri;
-    return parseVkAuthCodeCredentialsFromUri(Uri.base);
+    final parsedFromUri =
+        fromLaunchUri ?? parseVkAuthCodeCredentialsFromUri(Uri.base);
+    if (parsedFromUri == null) return null;
+
+    final persistedState = (await vkOAuthStateStorage.readState() ?? '').trim();
+    if (persistedState.isEmpty) {
+      return parsedFromUri;
+    }
+
+    return VkAuthCodeCredentials(
+      code: parsedFromUri.code,
+      state: persistedState,
+      deviceId: parsedFromUri.deviceId,
+    );
   }
 
   String? _resolveVkMiniAppLaunchParams() {
@@ -469,6 +486,7 @@ final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
     config: ref.watch(appConfigProvider),
     repository: ref.watch(authRepositoryProvider),
     tokenStorage: ref.watch(tokenStorageProvider),
+    vkOAuthStateStorage: ref.watch(vkOAuthStateStorageProvider),
   );
   ref.onDispose(controller.dispose);
   return controller;

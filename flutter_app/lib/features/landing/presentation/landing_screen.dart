@@ -15,6 +15,7 @@ import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/network/providers.dart';
+import '../../../core/storage/vk_oauth_state_storage.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/app_badge.dart';
@@ -784,6 +785,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
             redirectUri: _withoutFragment(redirect),
             next: nextLocation,
           );
+      final signedState = (authorizeUri.queryParameters['state'] ?? '').trim();
+      await ref.read(vkOAuthStateStorageProvider).writeState(signedState);
       await _openVkLogin(authorizeUri);
     } catch (error) {
       _showMessage(_vkLoginErrorMessage(error));

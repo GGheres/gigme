@@ -7,6 +7,7 @@ import '../../../app/routes.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/network/providers.dart';
+import '../../../core/storage/vk_oauth_state_storage.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_states.dart';
@@ -321,6 +322,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             redirectUri: _withoutFragment(redirect),
             next: normalizedNext,
           );
+      final signedState = (authorizeUri.queryParameters['state'] ?? '').trim();
+      await ref.read(vkOAuthStateStorageProvider).writeState(signedState);
       await _openWebAuthUri(authorizeUri);
     } catch (error) {
       if (!mounted) return;
