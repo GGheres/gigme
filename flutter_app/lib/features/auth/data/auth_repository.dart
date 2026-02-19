@@ -19,6 +19,20 @@ class AuthRepository {
         );
   }
 
+  Future<AuthSession> loginWithVk({
+    required String accessToken,
+    int? userId,
+  }) {
+    return _ref.read(apiClientProvider).post<AuthSession>(
+          ApiPaths.authVk,
+          body: <String, dynamic>{
+            'accessToken': accessToken,
+            if (userId != null && userId > 0) 'userId': userId,
+          },
+          decoder: AuthSession.fromJson,
+        );
+  }
+
   Future<User> getMe(String token) {
     return _ref.read(apiClientProvider).get<User>(
           ApiPaths.me,
@@ -45,4 +59,5 @@ class AuthRepository {
   }
 }
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(ref));
+final authRepositoryProvider =
+    Provider<AuthRepository>((ref) => AuthRepository(ref));

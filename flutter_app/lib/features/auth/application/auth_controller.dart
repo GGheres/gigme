@@ -9,6 +9,7 @@ import '../../../core/models/auth_session.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/utils/startup_link.dart';
+import '../../../core/utils/vk_auth.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../data/auth_repository.dart';
 import 'auth_state.dart';
@@ -62,11 +63,30 @@ class AuthController extends ChangeNotifier {
       }
     }
 
+    if (kIsWeb) {
+      final vkCredentials = _resolveVkAuthCredentials();
+      if (vkCredentials != null) {
+        await loginWithVk(
+          accessToken: vkCredentials.accessToken,
+          userId: vkCredentials.userId,
+        );
+        return;
+      }
+
+      final vkError = _resolveVkAuthError();
+      if (vkError != null && vkError.isNotEmpty) {
+        _state = AuthState.unauthenticated(error: 'VK auth failed: $vkError');
+        notifyListeners();
+        return;
+      }
+    }
+
     if (config.isTelegramWebMode) {
       final initData = _resolveTelegramInitData();
       if (initData == null || initData.isEmpty) {
         _state = AuthState.unauthenticated(
-          error: 'Open this app inside Telegram WebApp or pass initData for debug.',
+          error:
+              'Open this app inside Telegram WebApp or pass initData for debug.',
         );
         notifyListeners();
         return;
@@ -95,6 +115,31 @@ class AuthController extends ChangeNotifier {
 
     try {
       final session = await repository.loginWithTelegram(initData);
+      await tokenStorage.writeToken(session.accessToken);
+      _state = AuthState.authenticated(
+        token: session.accessToken,
+        user: session.user,
+      );
+      notifyListeners();
+      await _claimPendingReferralIfNeeded(token: session.accessToken);
+    } catch (error) {
+      _state = AuthState.unauthenticated(error: error.toString());
+      notifyListeners();
+    }
+  }
+
+  Future<void> loginWithVk({
+    required String accessToken,
+    int? userId,
+  }) async {
+    _state = AuthState.loading();
+    notifyListeners();
+
+    try {
+      final session = await repository.loginWithVk(
+        accessToken: accessToken,
+        userId: userId,
+      );
       await tokenStorage.writeToken(session.accessToken);
       _state = AuthState.authenticated(
         token: session.accessToken,
@@ -137,6 +182,24 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> retryAuth() async {
+    if (kIsWeb) {
+      final vkCredentials = _resolveVkAuthCredentials();
+      if (vkCredentials != null) {
+        await loginWithVk(
+          accessToken: vkCredentials.accessToken,
+          userId: vkCredentials.userId,
+        );
+        return;
+      }
+
+      final vkError = _resolveVkAuthError();
+      if (vkError != null && vkError.isNotEmpty) {
+        _state = AuthState.unauthenticated(error: 'VK auth failed: $vkError');
+        notifyListeners();
+        return;
+      }
+    }
+
     final initData = _resolveTelegramInitData();
     if (initData == null || initData.isEmpty) {
       _state = AuthState.unauthenticated(
@@ -153,7 +216,9 @@ class AuthController extends ChangeNotifier {
   Future<void> _claimPendingReferralIfNeeded({required String token}) async {
     final eventId = _startupLink.eventId;
     final refCode = _startupLink.refCode;
-    if (eventId == null || eventId <= 0 || refCode == null || refCode.isEmpty) return;
+    if (eventId == null || eventId <= 0 || refCode == null || refCode.isEmpty) {
+      return;
+    }
 
     try {
       final claim = await repository.claimReferral(
@@ -161,8 +226,11 @@ class AuthController extends ChangeNotifier {
         eventId: eventId,
         refCode: refCode,
       );
-      if (claim.awarded && _state.user != null && claim.inviteeBalanceTokens > 0) {
-        final updatedUser = _state.user!.copyWith(balanceTokens: claim.inviteeBalanceTokens);
+      if (claim.awarded &&
+          _state.user != null &&
+          claim.inviteeBalanceTokens > 0) {
+        final updatedUser =
+            _state.user!.copyWith(balanceTokens: claim.inviteeBalanceTokens);
         _state = AuthState.authenticated(token: token, user: updatedUser);
         notifyListeners();
       }
@@ -187,10 +255,25 @@ class AuthController extends ChangeNotifier {
     return _extractInitDataFromUri(Uri.base);
   }
 
+  VkAuthCredentials? _resolveVkAuthCredentials() {
+    final fromLaunchUri = parseVkAuthCredentialsFromUri(_launchUri);
+    if (fromLaunchUri != null) return fromLaunchUri;
+    return parseVkAuthCredentialsFromUri(Uri.base);
+  }
+
+  String? _resolveVkAuthError() {
+    final fromLaunchUri = parseVkAuthErrorFromUri(_launchUri);
+    if (fromLaunchUri != null && fromLaunchUri.isNotEmpty) {
+      return fromLaunchUri;
+    }
+    return parseVkAuthErrorFromUri(Uri.base);
+  }
+
   String? _extractInitDataFromUri(Uri? uri) {
     if (uri == null) return null;
 
-    final fromQuery = uri.queryParameters['initData'] ?? uri.queryParameters['tgWebAppData'];
+    final fromQuery =
+        uri.queryParameters['initData'] ?? uri.queryParameters['tgWebAppData'];
     if ((fromQuery ?? '').trim().isNotEmpty) return fromQuery!.trim();
 
     final fragment = uri.fragment.trim();

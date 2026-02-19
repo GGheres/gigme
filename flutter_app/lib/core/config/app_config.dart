@@ -9,6 +9,7 @@ class AppConfig {
   AppConfig({
     required this.apiUrl,
     required this.botUsername,
+    required this.vkAppId,
     required this.authMode,
     required this.standaloneAuthUrl,
     required this.standaloneRedirectUri,
@@ -23,6 +24,7 @@ class AppConfig {
 
   final String apiUrl;
   final String botUsername;
+  final String vkAppId;
   final AuthMode authMode;
   final String standaloneAuthUrl;
   final String standaloneRedirectUri;
@@ -40,6 +42,7 @@ class AppConfig {
     const envApiUrl = String.fromEnvironment('API_URL', defaultValue: '');
     const rawBotUsername =
         String.fromEnvironment('BOT_USERNAME', defaultValue: '');
+    const rawVkAppId = String.fromEnvironment('VK_APP_ID', defaultValue: '');
     const rawAuthMode = String.fromEnvironment('AUTH_MODE', defaultValue: '');
     const rawStandaloneAuthUrl =
         String.fromEnvironment('STANDALONE_AUTH_URL', defaultValue: '');
@@ -70,6 +73,7 @@ class AppConfig {
     return AppConfig(
       apiUrl: apiUrl,
       botUsername: rawBotUsername.trim(),
+      vkAppId: rawVkAppId.trim(),
       authMode: _resolveAuthMode(rawAuthMode),
       standaloneAuthUrl: _resolveStandaloneAuthUrl(
         rawStandaloneAuthUrl: rawStandaloneAuthUrl,

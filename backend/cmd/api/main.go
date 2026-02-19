@@ -92,6 +92,7 @@ func main() {
 	r.Get("/landing/content", h.LandingContent)
 
 	r.Post("/auth/telegram", h.AuthTelegram)
+	r.Post("/auth/vk", h.AuthVK)
 	r.Post("/auth/admin", h.AuthAdmin)
 	r.Get("/auth/standalone", h.StandaloneAuthPage)
 	r.Post("/auth/standalone/exchange", h.StandaloneAuthExchange)

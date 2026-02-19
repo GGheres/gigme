@@ -16,6 +16,7 @@ import '../../../core/models/landing_event.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
+import '../../../core/utils/vk_auth.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
@@ -28,6 +29,11 @@ import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../data/landing_repository.dart';
+
+enum _WebLoginProvider {
+  telegram,
+  vk,
+}
 
 class LandingScreen extends ConsumerStatefulWidget {
   const LandingScreen({super.key});
@@ -214,8 +220,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       _showMessage('Проверяем сессию. Попробуйте еще раз через секунду.');
       return;
     }
-    if (_shouldPromptTelegramLogin(authState)) {
-      await _showTelegramLoginModal(nextLocation: nextLocation);
+    if (_shouldPromptWebLogin(authState)) {
+      await _showWebLoginModal(nextLocation: nextLocation);
       return;
     }
     context.push(nextLocation);
@@ -228,14 +234,14 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       _showMessage('Проверяем сессию. Попробуйте еще раз через секунду.');
       return;
     }
-    if (_shouldPromptTelegramLogin(authState)) {
-      await _showTelegramLoginModal(nextLocation: AppRoutes.appRoot);
+    if (_shouldPromptWebLogin(authState)) {
+      await _showWebLoginModal(nextLocation: AppRoutes.appRoot);
       return;
     }
     context.go(AppRoutes.appRoot);
   }
 
-  bool _shouldPromptTelegramLogin(AuthState authState) {
+  bool _shouldPromptWebLogin(AuthState authState) {
     if (!kIsWeb) return false;
     return authState.status == AuthStatus.unauthenticated;
   }
@@ -267,19 +273,21 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
   }
 
-  Future<void> _showTelegramLoginModal({
+  Future<void> _showWebLoginModal({
     required String nextLocation,
   }) async {
-    final loginUri = _telegramLoginUri(nextLocation: nextLocation);
-    if (loginUri == null) {
+    final telegramLoginUri = _telegramLoginUri(nextLocation: nextLocation);
+    final vkLoginUri = _vkLoginUri(nextLocation: nextLocation);
+    if (telegramLoginUri == null && vkLoginUri == null) {
       _showMessage(
-          'Telegram login недоступен. Проверьте настройки BOT_USERNAME/STANDALONE_AUTH_URL.');
+        'Авторизация недоступна. Проверьте настройки Telegram helper и VK_APP_ID.',
+      );
       return;
     }
 
-    final embeddedAuth = kIsWeb
+    final embeddedTelegramAuth = kIsWeb && telegramLoginUri != null
         ? buildTelegramAuthEmbed(
-            helperUri: loginUri,
+            helperUri: telegramLoginUri,
             onInitData: (initData) {
               unawaited(
                 _completeTelegramModalLogin(
@@ -290,69 +298,135 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
             },
           )
         : null;
+    var selectedProvider = telegramLoginUri != null
+        ? _WebLoginProvider.telegram
+        : _WebLoginProvider.vk;
 
     await showAppDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AppModal(
-          title: 'Login via Telegram',
-          subtitle:
-              'Чтобы продолжить, войдите через Telegram. После входа вы вернетесь в приложение.',
-          onClose: () => Navigator.of(dialogContext).pop(),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                embeddedAuth == null
-                    ? 'Нажмите кнопку ниже, завершите вход и вы вернетесь в SPACE уже авторизованным пользователем.'
-                    : 'Войдите через Telegram прямо в этом окне. После успешного входа модалка закроется автоматически.',
-                style: Theme.of(dialogContext).textTheme.bodyMedium,
-              ),
-              if (embeddedAuth != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  height: 460,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: AppColors.textPrimary.withValues(alpha: 0.14),
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            final isTelegramSelected =
+                selectedProvider == _WebLoginProvider.telegram;
+            final telegramAvailable = telegramLoginUri != null;
+            final vkAvailable = vkLoginUri != null;
+
+            return AppModal(
+              title: 'Вход в SPACE',
+              subtitle:
+                  'Выберите удобный способ авторизации. После входа вы вернетесь в приложение.',
+              onClose: () => Navigator.of(dialogContext).pop(),
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      if (telegramAvailable)
+                        AppButton(
+                          label: 'Telegram',
+                          icon: const Icon(Icons.telegram_rounded),
+                          variant: isTelegramSelected
+                              ? AppButtonVariant.primary
+                              : AppButtonVariant.outline,
+                          onPressed: () {
+                            setModalState(
+                              () =>
+                                  selectedProvider = _WebLoginProvider.telegram,
+                            );
+                          },
                         ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: embeddedAuth,
-                    ),
+                      if (vkAvailable)
+                        AppButton(
+                          label: 'VK',
+                          icon: const Icon(Icons.language_rounded),
+                          variant: !isTelegramSelected
+                              ? AppButtonVariant.primary
+                              : AppButtonVariant.outline,
+                          onPressed: () {
+                            setModalState(
+                              () => selectedProvider = _WebLoginProvider.vk,
+                            );
+                          },
+                        ),
+                    ],
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (isTelegramSelected) ...[
+                    Text(
+                      embeddedTelegramAuth == null
+                          ? 'Нажмите кнопку ниже, завершите Telegram login и вернитесь в SPACE.'
+                          : 'Войдите через Telegram прямо в этом окне. После успешного входа модалка закроется автоматически.',
+                      style: Theme.of(modalContext).textTheme.bodyMedium,
+                    ),
+                    if (embeddedTelegramAuth != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 460,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.14),
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: embeddedTelegramAuth,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    Text(
+                      'Мы перенаправим вас на страницу VK OAuth в этой вкладке. После подтверждения входа вы автоматически вернетесь в SPACE.',
+                      style: Theme.of(modalContext).textTheme.bodyMedium,
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                if (isTelegramSelected && telegramAvailable)
+                  if (embeddedTelegramAuth == null)
+                    AppButton(
+                      label: 'Login via Telegram',
+                      variant: AppButtonVariant.primary,
+                      icon: const Icon(Icons.telegram_rounded),
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        unawaited(_openTelegramLogin(telegramLoginUri));
+                      },
+                    )
+                  else
+                    AppButton(
+                      label: 'Открыть в popup',
+                      variant: AppButtonVariant.secondary,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      onPressed: () =>
+                          unawaited(_openTelegramLogin(telegramLoginUri)),
+                    ),
+                if (!isTelegramSelected && vkAvailable)
+                  AppButton(
+                    label: 'Login via VK',
+                    variant: AppButtonVariant.primary,
+                    icon: const Icon(Icons.open_in_new_rounded),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      unawaited(_openVkLogin(vkLoginUri));
+                    },
+                  ),
+                AppButton(
+                  label: 'Отмена',
+                  variant: AppButtonVariant.ghost,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                 ),
               ],
-            ],
-          ),
-          actions: [
-            if (embeddedAuth == null)
-              AppButton(
-                label: 'Login via Telegram',
-                variant: AppButtonVariant.primary,
-                icon: const Icon(Icons.telegram_rounded),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  unawaited(_openTelegramLogin(loginUri));
-                },
-              )
-            else
-              AppButton(
-                label: 'Открыть в popup',
-                variant: AppButtonVariant.secondary,
-                icon: const Icon(Icons.open_in_new_rounded),
-                onPressed: () => unawaited(_openTelegramLogin(loginUri)),
-              ),
-            AppButton(
-              label: 'Отмена',
-              variant: AppButtonVariant.ghost,
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -427,6 +501,27 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
     return Uri.parse(
       'https://t.me/$bot?startapp=${Uri.encodeComponent(startApp)}',
+    );
+  }
+
+  Uri? _vkLoginUri({
+    required String nextLocation,
+  }) {
+    if (!kIsWeb) return null;
+    final config = ref.read(appConfigProvider);
+    final appId = config.vkAppId.trim();
+    if (appId.isEmpty) return null;
+
+    final redirect = Uri.base.replace(
+      path: AppRoutes.auth,
+      queryParameters: const <String, String>{'vk_auth': '1'},
+      fragment: '',
+    );
+    final redirectUri = Uri.parse(_withoutFragment(redirect));
+    return buildVkOAuthAuthorizeUri(
+      appId: appId,
+      redirectUri: redirectUri,
+      state: nextLocation,
     );
   }
 
@@ -525,6 +620,20 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     );
     if (!opened) {
       _showMessage('Could not open Telegram login');
+    }
+  }
+
+  Future<void> _openVkLogin(Uri uri) async {
+    if (kIsWeb) {
+      TelegramWebAppBridge.redirect(uri.toString());
+      return;
+    }
+    final opened = await launchUrl(
+      uri,
+      mode: LaunchMode.platformDefault,
+    );
+    if (!opened) {
+      _showMessage('Could not open VK login');
     }
   }
 

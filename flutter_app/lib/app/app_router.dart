@@ -258,7 +258,9 @@ String? _authRouteWithNext({
 }
 
 String? _readAuthNext(Uri authUri) {
-  final raw = authUri.queryParameters['next']?.trim() ?? '';
+  final rawQueryNext = authUri.queryParameters['next']?.trim() ?? '';
+  final rawStateNext = _extractStateFromAuthUri(authUri) ?? '';
+  final raw = rawQueryNext.isNotEmpty ? rawQueryNext : rawStateNext;
   if (raw.isEmpty) return null;
   final parsed = Uri.tryParse(raw);
   if (parsed == null) return null;
@@ -274,6 +276,32 @@ String? _readAuthNext(Uri authUri) {
     out = '$out#${parsed.fragment}';
   }
   return out;
+}
+
+String? _extractStateFromAuthUri(Uri authUri) {
+  final fromQuery = authUri.queryParameters['state']?.trim() ?? '';
+  if (fromQuery.isNotEmpty) return fromQuery;
+
+  final fragment = authUri.fragment.trim();
+  if (fragment.isEmpty) return null;
+
+  final candidates = <String>{fragment};
+  final questionMarkIndex = fragment.indexOf('?');
+  if (questionMarkIndex >= 0 && questionMarkIndex < fragment.length - 1) {
+    candidates.add(fragment.substring(questionMarkIndex + 1));
+  }
+
+  for (final candidate in candidates) {
+    try {
+      final params = Uri.splitQueryString(candidate);
+      final fromHash = params['state']?.trim() ?? '';
+      if (fromHash.isNotEmpty) return fromHash;
+    } catch (_) {
+      // Ignore malformed fragments and keep auth redirect flow.
+    }
+  }
+
+  return null;
 }
 
 String? _normalizeAppLocation(Uri uri) {

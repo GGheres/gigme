@@ -6,6 +6,7 @@ Flutter migration of GigMe frontend with unchanged Go backend contracts.
 
 - `Mode A (current MVP)`: Flutter Web inside Telegram WebView (`initData` -> `POST /auth/telegram`).
 - `Mode B (implemented scaffold)`: standalone Android/iOS auth via deep-link/helper URL returning `initData`, then same `POST /auth/telegram` backend contract.
+- `Web OAuth (optional)`: VK web login (`access_token` callback -> `POST /auth/vk`) for web users.
 
 ## Project structure
 
@@ -22,6 +23,7 @@ Flutter migration of GigMe frontend with unchanged Go backend contracts.
 
 - `API_URL` (default `/api`)
 - `BOT_USERNAME` (used for share links)
+- `VK_APP_ID` (optional VK OAuth application id for web login button)
 - `AUTH_MODE` (`telegram_web` or `standalone`)
 - `STANDALONE_AUTH_URL` (optional helper URL for Mode B login start)
 - `STANDALONE_REDIRECT_URI` (deep-link target for helper callback, default `gigme://auth`)
@@ -41,6 +43,7 @@ flutter pub get
 flutter run -d chrome \
   --dart-define=API_URL=http://localhost:8080 \
   --dart-define=BOT_USERNAME=YOUR_BOT_USERNAME \
+  --dart-define=VK_APP_ID=YOUR_VK_APP_ID \
   --dart-define=AUTH_MODE=telegram_web \
   --dart-define=ADMIN_TELEGRAM_IDS=123456789
 ```
@@ -70,6 +73,7 @@ flutter build web --release \
   --base-href / \
   --dart-define=API_URL=/api \
   --dart-define=BOT_USERNAME=YOUR_BOT_USERNAME \
+  --dart-define=VK_APP_ID=YOUR_VK_APP_ID \
   --dart-define=AUTH_MODE=telegram_web
 ```
 
@@ -85,6 +89,7 @@ Production compose serves Flutter web:
 For Flutter build-time env in `infra/.env.prod`:
 - `FLUTTER_API_URL`
 - `FLUTTER_BOT_USERNAME`
+- `FLUTTER_VK_APP_ID`
 - `FLUTTER_AUTH_MODE`
 - `FLUTTER_STANDALONE_AUTH_URL`
 - `FLUTTER_STANDALONE_REDIRECT_URI`
