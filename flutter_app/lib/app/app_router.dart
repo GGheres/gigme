@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -386,8 +387,19 @@ Page<void> _noTransitionPage(
   GoRouterState state,
   Widget child,
 ) {
+  final shouldConstrainWebWidth =
+      kIsWeb && state.matchedLocation != AppRoutes.landing;
+
   return NoTransitionPage<void>(
     key: state.pageKey,
-    child: child,
+    child: shouldConstrainWebWidth
+        ? Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: child,
+            ),
+          )
+        : child,
   );
 }
