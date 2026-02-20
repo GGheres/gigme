@@ -22,7 +22,7 @@ type VKLaunchParams struct {
 func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParams, error) {
 	raw := strings.TrimSpace(querySearch)
 	if raw == "" {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("empty launch params")
 	}
 
 	searchIndex := strings.Index(raw, "?")
@@ -31,37 +31,37 @@ func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParam
 	}
 	raw = strings.TrimLeft(raw, "?")
 	if raw == "" {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("empty query string")
 	}
 
 	parsed, err := url.ParseQuery(raw)
 	if err != nil {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("malformed query string")
 	}
 
 	sign := strings.TrimSpace(parsed.Get("sign"))
 	if sign == "" {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("missing sign")
 	}
 
 	vkParams := collectVKLaunchSignParams(parsed)
 	if len(vkParams) == 0 {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("missing vk_* params")
 	}
 
 	calculated := calculateVKLaunchSign(vkParams, secretKey)
 	if !hmac.Equal([]byte(calculated), []byte(sign)) {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("sign mismatch")
 	}
 
 	userID, err := strconv.ParseInt(strings.TrimSpace(parsed.Get("vk_user_id")), 10, 64)
 	if err != nil || userID <= 0 {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("invalid vk_user_id")
 	}
 
 	appID, err := strconv.ParseInt(strings.TrimSpace(parsed.Get("vk_app_id")), 10, 64)
 	if err != nil || appID <= 0 {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+		return VKLaunchParams{}, invalidVKLaunchParams("invalid vk_app_id")
 	}
 
 	return VKLaunchParams{
@@ -91,6 +91,13 @@ func calculateVKLaunchSign(params url.Values, secretKey string) string {
 	hash = strings.ReplaceAll(hash, "+", "-")
 	hash = strings.ReplaceAll(hash, "/", "_")
 	return strings.TrimRight(hash, "=")
+}
+
+func invalidVKLaunchParams(reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrInvalidVKLaunchParams
+	}
+	return fmt.Errorf("%w: %s", ErrInvalidVKLaunchParams, reason)
 }
 
 func BuildVKMiniAppUsername(viewerID int64) string {

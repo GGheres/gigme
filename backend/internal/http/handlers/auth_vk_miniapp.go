@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"gigme/backend/internal/auth"
@@ -40,7 +41,17 @@ func (h *Handler) AuthVKMiniApp(w http.ResponseWriter, r *http.Request) {
 
 	launch, err := auth.ValidateVKLaunchParams(req.LaunchParams, h.cfg.VKAppSecret)
 	if err != nil {
-		logger.Warn("action", "action", "auth_vk_miniapp", "status", "invalid_launch_params")
+		appID, userID, hasSign := parseVKMiniAppLaunchMeta(req.LaunchParams)
+		logger.Warn(
+			"action", "action", "auth_vk_miniapp",
+			"status", "invalid_launch_params",
+			"error", err,
+			"vk_app_id", appID,
+			"vk_user_id", userID,
+			"has_sign", hasSign,
+			"launch_params_len", len(req.LaunchParams),
+			"configured_vk_app_id", strings.TrimSpace(h.cfg.VKAppID),
+		)
 		writeError(w, http.StatusUnauthorized, "invalid vk launch params")
 		return
 	}
@@ -99,4 +110,29 @@ func (h *Handler) ensureVKMiniAppUser(ctx context.Context, vkUserID int64, teleg
 		return models.User{}, false, err
 	}
 	return created, true, nil
+}
+
+func parseVKMiniAppLaunchMeta(raw string) (string, string, bool) {
+	query := strings.TrimSpace(raw)
+	if query == "" {
+		return "", "", false
+	}
+
+	if idx := strings.Index(query, "?"); idx >= 0 {
+		query = query[idx+1:]
+	}
+	query = strings.TrimLeft(query, "?")
+	if query == "" {
+		return "", "", false
+	}
+
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		return "", "", false
+	}
+
+	appID := strings.TrimSpace(values.Get("vk_app_id"))
+	userID := strings.TrimSpace(values.Get("vk_user_id"))
+	hasSign := strings.TrimSpace(values.Get("sign")) != ""
+	return appID, userID, hasSign
 }
