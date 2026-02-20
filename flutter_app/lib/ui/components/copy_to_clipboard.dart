@@ -8,6 +8,8 @@ Future<void> copyToClipboard(
   required String text,
   String successMessage = 'Скопировано в буфер обмена',
   String emptyMessage = 'Нет текста для копирования',
+  String errorMessage =
+      'Не удалось скопировать. Проверьте доступ к буферу обмена.',
 }) async {
   final normalized = text.trim();
   if (normalized.isEmpty) {
@@ -19,7 +21,18 @@ Future<void> copyToClipboard(
     return;
   }
 
-  await Clipboard.setData(ClipboardData(text: normalized));
+  try {
+    await Clipboard.setData(ClipboardData(text: normalized));
+  } catch (_) {
+    if (!context.mounted) return;
+    AppToast.show(
+      context,
+      message: errorMessage,
+      tone: AppToastTone.error,
+    );
+    return;
+  }
+
   if (!context.mounted) return;
 
   AppToast.show(

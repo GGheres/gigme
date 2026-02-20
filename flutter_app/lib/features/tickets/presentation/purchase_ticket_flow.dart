@@ -884,24 +884,44 @@ class PurchaseStatusPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text('Order ID: ${order.id}'),
-          Text('Payment method: ${order.paymentMethod}'),
-          Text('Total: ${formatMoney(order.totalCents)}'),
+          _CopyInfoRow(label: 'Order ID', value: order.id),
+          _CopyInfoRow(
+            label: 'Payment method',
+            value: order.paymentMethod,
+            copyEnabled: false,
+          ),
+          _CopyInfoRow(
+            label: 'Total',
+            value: formatMoney(order.totalCents),
+            copyEnabled: false,
+          ),
           const SizedBox(height: 10),
           if (instructions.displayMessage.trim().isNotEmpty)
             Text(instructions.displayMessage),
           if (instructions.phoneNumber.trim().isNotEmpty)
-            Text('Phone: ${instructions.phoneNumber}'),
+            _CopyInfoRow(label: 'Phone', value: instructions.phoneNumber),
           if (instructions.usdtWallet.trim().isNotEmpty)
-            Text('USDT wallet: ${instructions.usdtWallet}'),
+            _CopyInfoRow(
+              label: 'USDT wallet',
+              value: instructions.usdtWallet,
+            ),
           if (instructions.usdtNetwork.trim().isNotEmpty)
-            Text('Network: ${instructions.usdtNetwork}'),
+            _CopyInfoRow(
+              label: 'Network',
+              value: instructions.usdtNetwork,
+            ),
           if (instructions.usdtMemo.trim().isNotEmpty)
-            Text('Memo: ${instructions.usdtMemo}'),
+            _CopyInfoRow(
+              label: 'Memo',
+              value: instructions.usdtMemo,
+            ),
           if (instructions.paymentQrData.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
-            SelectableText(
-                'Payment QR payload:\n${instructions.paymentQrData}'),
+            _CopyDataCard(
+              title: 'Payment QR payload',
+              value: instructions.paymentQrData,
+              copyValue: instructions.paymentQrData,
+            ),
           ],
           const SizedBox(height: 14),
           OutlinedButton(
@@ -1083,12 +1103,23 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
             ),
           ),
           const SizedBox(height: 12),
-          Text('Order ID: ${order.id}'),
-          Text('qrcId: ${widget.created.sbpQr.qrcId}'),
-          Text('Сумма: ${formatMoney(order.totalCents)}'),
-          Text('Order status: ${order.status}'),
-          Text(
-              'Payment status: ${paymentStatus.isEmpty ? 'PENDING' : paymentStatus}'),
+          _CopyInfoRow(label: 'Order ID', value: order.id),
+          _CopyInfoRow(label: 'qrcId', value: widget.created.sbpQr.qrcId),
+          _CopyInfoRow(
+            label: 'Сумма',
+            value: formatMoney(order.totalCents),
+            copyEnabled: false,
+          ),
+          _CopyInfoRow(
+            label: 'Order status',
+            value: order.status,
+            copyEnabled: false,
+          ),
+          _CopyInfoRow(
+            label: 'Payment status',
+            value: paymentStatus.isEmpty ? 'PENDING' : paymentStatus,
+            copyEnabled: false,
+          ),
           if ((_status?.message ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(_status!.message),
@@ -1121,8 +1152,11 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
                     'QR payload временно недоступен. Попробуйте обновить статус.'),
           const SizedBox(height: 10),
           if (qrPayload.isNotEmpty)
-            SelectableText(qrPayload,
-                style: Theme.of(context).textTheme.bodySmall),
+            _CopyDataCard(
+              title: 'QR payload',
+              value: qrPayload,
+              copyValue: qrPayload,
+            ),
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: _loading
@@ -1455,21 +1489,48 @@ class _PaymentRequisitesBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedPhone = phoneNumber.trim();
+    final normalizedWallet = usdtWallet.trim();
+    final normalizedNetwork = usdtNetwork.trim();
+    final normalizedMemo = usdtMemo.trim();
+    final normalizedQrData = qrData.trim();
+
     switch (paymentMethod) {
       case 'USDT':
-        return _InfoCard(
-          text: [
-            'Кошелек: ${usdtWallet.trim().isEmpty ? 'не настроено' : usdtWallet}',
-            'Сеть: ${usdtNetwork.trim().isEmpty ? 'TRC20' : usdtNetwork}',
-            if (usdtMemo.trim().isNotEmpty) 'Memo/Tag: $usdtMemo',
-          ].join('\n'),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CopyDataCard(
+              title: 'USDT кошелек',
+              value: normalizedWallet.isEmpty
+                  ? 'Кошелек не настроен. Укажите PAYMENT_USDT_WALLET.'
+                  : normalizedWallet,
+              copyValue: normalizedWallet,
+            ),
+            const SizedBox(height: 8),
+            _CopyDataCard(
+              title: 'Сеть',
+              value: normalizedNetwork.isEmpty ? 'TRC20' : normalizedNetwork,
+              copyValue:
+                  normalizedNetwork.isEmpty ? 'TRC20' : normalizedNetwork,
+            ),
+            if (normalizedMemo.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _CopyDataCard(
+                title: 'Memo/Tag',
+                value: normalizedMemo,
+                copyValue: normalizedMemo,
+              ),
+            ],
+          ],
         );
       case 'PAYMENT_QR':
         return _CopyDataCard(
           title: 'QR payload',
-          value: qrData.trim().isEmpty
+          value: normalizedQrData.isEmpty
               ? 'QR payload не настроен. Укажите PAYMENT_QR_DATA.'
-              : qrData,
+              : normalizedQrData,
+          copyValue: normalizedQrData,
         );
       case 'TOCHKA_SBP_QR':
         return const _InfoCard(
@@ -1480,9 +1541,10 @@ class _PaymentRequisitesBlock extends StatelessWidget {
       default:
         return _CopyDataCard(
           title: 'Номер для перевода',
-          value: phoneNumber.trim().isEmpty
+          value: normalizedPhone.isEmpty
               ? 'Номер не настроен. Укажите PAYMENT_PHONE_NUMBER.'
-              : phoneNumber,
+              : normalizedPhone,
+          copyValue: normalizedPhone,
         );
     }
   }
@@ -1492,14 +1554,19 @@ class _CopyDataCard extends StatelessWidget {
   const _CopyDataCard({
     required this.title,
     required this.value,
+    this.copyValue,
   });
 
   final String title;
   final String value;
+  final String? copyValue;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final valueToCopy = (copyValue ?? value).trim();
+    final canCopy = valueToCopy.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1515,12 +1582,51 @@ class _CopyDataCard extends StatelessWidget {
           SelectableText(value),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: () => copyToClipboard(context, text: value),
+            onPressed: canCopy
+                ? () => copyToClipboard(context, text: valueToCopy)
+                : null,
             icon: const Icon(Icons.copy_rounded),
             label: const Text('Скопировать'),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CopyInfoRow extends StatelessWidget {
+  const _CopyInfoRow({
+    required this.label,
+    required this.value,
+    this.copyEnabled = true,
+  });
+
+  final String label;
+  final String value;
+  final bool copyEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedValue = value.trim();
+    if (normalizedValue.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SelectableText(
+            '$label: $normalizedValue',
+          ),
+        ),
+        if (copyEnabled)
+          IconButton(
+            tooltip: 'Скопировать',
+            onPressed: () => copyToClipboard(context, text: normalizedValue),
+            icon: const Icon(Icons.copy_rounded),
+          ),
+      ],
     );
   }
 }
