@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/notifications/providers.dart';
+import '../../auth/application/auth_controller.dart';
+import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
@@ -21,6 +23,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
   bool _saving = false;
+  bool _loggingOut = false;
   bool _localRemindersEnabled = true;
 
   @override
@@ -57,6 +60,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           : 'Локальные напоминания отключены.',
                     ),
                   ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SectionCard(
+            title: 'Аккаунт',
+            subtitle: 'Управление сессией входа',
+            child: AppButton(
+              label: 'Выйти из аккаунта',
+              icon: const Icon(Icons.logout_rounded),
+              variant: AppButtonVariant.danger,
+              loading: _loggingOut,
+              expand: true,
+              onPressed: _loggingOut ? null : _confirmAndLogout,
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
         ],
@@ -100,6 +116,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } finally {
       if (mounted) {
         setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _confirmAndLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Выйти из аккаунта?'),
+          content: const Text(
+            'Текущая сессия будет завершена на этом устройстве.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Выйти'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !mounted) return;
+
+    setState(() => _loggingOut = true);
+    try {
+      await ref.read(authControllerProvider).logout();
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        message: 'Вы вышли из аккаунта',
+        tone: AppToastTone.info,
+      );
+      context.go(AppRoutes.auth);
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        message: 'Не удалось выполнить выход: $error',
+        tone: AppToastTone.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loggingOut = false);
       }
     }
   }

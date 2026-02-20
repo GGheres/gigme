@@ -1,7 +1,6 @@
 import '../utils/json_utils.dart';
 
 class User {
-
   factory User.fromJson(dynamic json) {
     final map = asMap(json);
     return User(
@@ -38,8 +37,25 @@ class User {
   final int ratingCount;
   final int balanceTokens;
 
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'telegramId': telegramId,
+      'firstName': firstName,
+      'lastName': lastName,
+      'username': username,
+      'photoUrl': photoUrl,
+      'rating': rating,
+      'ratingCount': ratingCount,
+      'balanceTokens': balanceTokens,
+    };
+  }
+
   String get displayName {
-    final full = [firstName, lastName].where((e) => e.trim().isNotEmpty).join(' ').trim();
+    final full = [firstName, lastName]
+        .where((e) => e.trim().isNotEmpty)
+        .join(' ')
+        .trim();
     if (full.isNotEmpty) return full;
     if (username.trim().isNotEmpty) return '@${username.trim()}';
     return 'User';

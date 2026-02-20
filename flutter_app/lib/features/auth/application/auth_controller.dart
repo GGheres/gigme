@@ -57,17 +57,14 @@ class AuthController extends ChangeNotifier {
       }
     }
 
-    final persistedToken = await tokenStorage.readToken();
-    if (persistedToken != null && persistedToken.trim().isNotEmpty) {
-      try {
-        final user = await repository.getMe(persistedToken);
-        _state = AuthState.authenticated(token: persistedToken, user: user);
-        notifyListeners();
-        await _claimPendingReferralIfNeeded(token: persistedToken);
-        return;
-      } catch (_) {
-        await tokenStorage.clearToken();
-      }
+    final restoredFromSession = await _restorePersistedSession();
+    if (restoredFromSession) {
+      return;
+    }
+
+    final restoredFromLegacyToken = await _restoreLegacyTokenSession();
+    if (restoredFromLegacyToken) {
+      return;
     }
 
     if (kIsWeb) {
@@ -138,7 +135,7 @@ class AuthController extends ChangeNotifier {
 
     try {
       final session = await repository.loginWithTelegram(initData);
-      await tokenStorage.writeToken(session.accessToken);
+      await _persistSession(session: session);
       _state = AuthState.authenticated(
         token: session.accessToken,
         user: session.user,
@@ -163,7 +160,7 @@ class AuthController extends ChangeNotifier {
         accessToken: accessToken,
         userId: userId,
       );
-      await tokenStorage.writeToken(session.accessToken);
+      await _persistSession(session: session);
       _state = AuthState.authenticated(
         token: session.accessToken,
         user: session.user,
@@ -190,7 +187,7 @@ class AuthController extends ChangeNotifier {
         state: state,
         deviceId: deviceId,
       );
-      await tokenStorage.writeToken(session.accessToken);
+      await _persistSession(session: session);
       _state = AuthState.authenticated(
         token: session.accessToken,
         user: session.user,
@@ -215,7 +212,7 @@ class AuthController extends ChangeNotifier {
       final session = await repository.loginWithVkMiniApp(
         launchParams: launchParams,
       );
-      await tokenStorage.writeToken(session.accessToken);
+      await _persistSession(session: session);
       _state = AuthState.authenticated(
         token: session.accessToken,
         user: session.user,
@@ -236,8 +233,11 @@ class AuthController extends ChangeNotifier {
       final user = await repository.getMe(token);
       _state = AuthState.authenticated(token: token, user: user);
       notifyListeners();
-    } catch (_) {
-      await logout();
+      await tokenStorage.writeSession(token: token, user: user);
+    } catch (error) {
+      if (_isUnauthorizedError(error)) {
+        await logout();
+      }
     }
   }
 
@@ -248,7 +248,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> applySession(AuthSession session) async {
-    await tokenStorage.writeToken(session.accessToken);
+    await _persistSession(session: session);
     _state = AuthState.authenticated(
       token: session.accessToken,
       user: session.user,
@@ -304,6 +304,70 @@ class AuthController extends ChangeNotifier {
     await loginWithTelegram(initData);
   }
 
+  Future<bool> _restorePersistedSession() async {
+    final persisted = await tokenStorage.readSession();
+    if (persisted == null || persisted.token.trim().isEmpty) {
+      return false;
+    }
+
+    final token = persisted.token.trim();
+    _state = AuthState.authenticated(token: token, user: persisted.user);
+    notifyListeners();
+
+    try {
+      final user = await repository.getMe(token);
+      _state = AuthState.authenticated(token: token, user: user);
+      notifyListeners();
+      await tokenStorage.writeSession(token: token, user: user);
+      await _claimPendingReferralIfNeeded(token: token);
+      return true;
+    } catch (error) {
+      if (_isUnauthorizedError(error)) {
+        await tokenStorage.clearToken();
+        _state = AuthState.unauthenticated();
+        notifyListeners();
+        return false;
+      }
+      // Keep cached session on temporary network/API failures.
+      return true;
+    }
+  }
+
+  Future<bool> _restoreLegacyTokenSession() async {
+    final persistedToken = await tokenStorage.readToken();
+    if (persistedToken == null || persistedToken.trim().isEmpty) {
+      return false;
+    }
+
+    final token = persistedToken.trim();
+    try {
+      final user = await repository.getMe(token);
+      _state = AuthState.authenticated(token: token, user: user);
+      notifyListeners();
+      await tokenStorage.writeSession(token: token, user: user);
+      await _claimPendingReferralIfNeeded(token: token);
+      return true;
+    } catch (error) {
+      if (_isUnauthorizedError(error)) {
+        await tokenStorage.clearToken();
+      }
+      return false;
+    }
+  }
+
+  Future<void> _persistSession({required AuthSession session}) {
+    return tokenStorage.writeSession(
+      token: session.accessToken,
+      user: session.user,
+    );
+  }
+
+  bool _isUnauthorizedError(Object error) {
+    if (error is! AppException) return false;
+    final statusCode = error.statusCode ?? 0;
+    return statusCode == 401 || statusCode == 403;
+  }
+
   Future<void> _claimPendingReferralIfNeeded({required String token}) async {
     final eventId = _startupLink.eventId;
     final refCode = _startupLink.refCode;
@@ -324,6 +388,7 @@ class AuthController extends ChangeNotifier {
             _state.user!.copyWith(balanceTokens: claim.inviteeBalanceTokens);
         _state = AuthState.authenticated(token: token, user: updatedUser);
         notifyListeners();
+        await tokenStorage.writeSession(token: token, user: updatedUser);
       }
     } catch (_) {
       // Referral claim should not block the login flow.
