@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/notifications/providers.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/section_card.dart';
@@ -30,6 +32,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
+      appBar: AppBar(
+        leading: BackButton(onPressed: _handleBack),
+      ),
       title: 'Настройки',
       subtitle: 'Управление уведомлениями и поведением приложения',
       scrollable: true,
@@ -97,5 +102,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         setState(() => _saving = false);
       }
     }
+  }
+
+  void _handleBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    context.go(AppRoutes.profile);
   }
 }
