@@ -15,6 +15,7 @@ import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/app_card.dart';
+import '../../../ui/components/copy_to_clipboard.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/data/ticketing_repository.dart';
@@ -779,7 +780,16 @@ class _ContactsBlock extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.alternate_email_rounded),
             title: Text(row.kind),
-            subtitle: Text(row.value),
+            subtitle: SelectableText(row.value),
+            trailing: IconButton(
+              tooltip: 'Скопировать',
+              onPressed: () => copyToClipboard(
+                context,
+                text: row.value,
+                successMessage: '${row.kind} скопирован',
+              ),
+              icon: const Icon(Icons.copy_rounded),
+            ),
           );
         }),
       ],

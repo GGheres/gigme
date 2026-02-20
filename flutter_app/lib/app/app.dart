@@ -33,8 +33,10 @@ class GigMeApp extends ConsumerWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         routerConfig: router,
-        builder: (context, child) => AppBackground(
-          child: child ?? const SizedBox.shrink(),
+        builder: (context, child) => SelectionArea(
+          child: AppBackground(
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
         debugShowCheckedModeBanner: false,
       ),

@@ -3,13 +3,13 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/network/providers.dart';
 import '../../../core/notifications/providers.dart';
 import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/copy_to_clipboard.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/purchase_ticket_draft_store.dart';
 import '../data/ticketing_repository.dart';
@@ -1515,14 +1515,7 @@ class _CopyDataCard extends StatelessWidget {
           SelectableText(value),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: value));
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Скопировано')),
-                );
-              }
-            },
+            onPressed: () => copyToClipboard(context, text: value),
             icon: const Icon(Icons.copy_rounded),
             label: const Text('Скопировать'),
           ),
