@@ -77,6 +77,24 @@ class CreateEventPayload {
   }
 }
 
+class EventLikeStatus {
+  factory EventLikeStatus.fromJson(dynamic json) {
+    final map = asMap(json);
+    return EventLikeStatus(
+      likesCount: asInt(map['likesCount']),
+      isLiked: asBool(map['isLiked']),
+    );
+  }
+
+  EventLikeStatus({
+    required this.likesCount,
+    required this.isLiked,
+  });
+
+  final int likesCount;
+  final bool isLiked;
+}
+
 class EventsRepository {
   EventsRepository(this._ref);
 
@@ -202,6 +220,38 @@ class EventsRepository {
               'eventKey': accessKey!.trim(),
           },
           decoder: (_) {},
+        );
+  }
+
+  Future<EventLikeStatus> likeEvent({
+    required String token,
+    required int eventId,
+    String? accessKey,
+  }) {
+    return _ref.read(apiClientProvider).post<EventLikeStatus>(
+          ApiPaths.eventLike(eventId),
+          token: token,
+          query: <String, dynamic>{
+            if ((accessKey ?? '').trim().isNotEmpty)
+              'eventKey': accessKey!.trim(),
+          },
+          decoder: EventLikeStatus.fromJson,
+        );
+  }
+
+  Future<EventLikeStatus> unlikeEvent({
+    required String token,
+    required int eventId,
+    String? accessKey,
+  }) {
+    return _ref.read(apiClientProvider).delete<EventLikeStatus>(
+          ApiPaths.eventLike(eventId),
+          token: token,
+          query: <String, dynamic>{
+            if ((accessKey ?? '').trim().isNotEmpty)
+              'eventKey': accessKey!.trim(),
+          },
+          decoder: EventLikeStatus.fromJson,
         );
   }
 

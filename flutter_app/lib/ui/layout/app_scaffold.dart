@@ -104,16 +104,17 @@ class AppScaffold extends StatelessWidget {
       body = SafeArea(child: body);
     }
 
+    final shouldRenderBackdrop = showBackgroundDecor && !kIsWeb;
+
     return Scaffold(
       appBar: appBar,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
-      backgroundColor: backgroundColor ??
-          (kIsWeb ? AppColors.backgroundSoft : Colors.transparent),
+      backgroundColor: backgroundColor ?? Colors.transparent,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (showBackgroundDecor) const _ScaffoldBackdrop(),
+          if (shouldRenderBackdrop) const _ScaffoldBackdrop(),
           body,
         ],
       ),

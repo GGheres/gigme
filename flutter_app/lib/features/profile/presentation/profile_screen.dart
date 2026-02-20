@@ -11,8 +11,6 @@ import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/app_button.dart';
-import '../../../ui/components/app_modal.dart';
-import '../../../ui/components/app_text_field.dart';
 import '../../events/application/events_controller.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
@@ -98,14 +96,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ProfileSummaryCard(
                     user: state.user,
-                    loading: state.loading,
-                    onTopup: () async {
-                      final amount = await _askTopupAmount(context);
-                      if (amount == null) return;
-                      await ref
-                          .read(profileControllerProvider)
-                          .topupTokens(amount);
-                    },
                   ),
                   const SizedBox(height: 14),
                   FilledButton.icon(
@@ -261,51 +251,5 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
     );
-  }
-
-  Future<int?> _askTopupAmount(BuildContext context) async {
-    final ctrl = TextEditingController(text: '100');
-    final formKey = GlobalKey<FormState>();
-    final result = await showAppDialog<int>(
-      context: context,
-      builder: (context) => AppModal(
-        title: 'Пополнение GigTokens',
-        subtitle: 'Введите сумму от 1 до 1 000 000.',
-        onClose: () => Navigator.pop(context),
-        body: Form(
-          key: formKey,
-          child: AppTextField(
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            label: 'Сумма',
-            hint: '100',
-            validator: (value) {
-              final parsed = int.tryParse((value ?? '').trim());
-              if (parsed == null || parsed < 1 || parsed > 1000000) {
-                return 'Введите значение от 1 до 1 000 000';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: 'Отмена',
-            variant: AppButtonVariant.ghost,
-            onPressed: () => Navigator.pop(context),
-          ),
-          AppButton(
-            label: 'Применить',
-            variant: AppButtonVariant.secondary,
-            onPressed: () {
-              if (!(formKey.currentState?.validate() ?? false)) return;
-              Navigator.pop(context, int.parse(ctrl.text.trim()));
-            },
-          ),
-        ],
-      ),
-    );
-    ctrl.dispose();
-    return result;
   }
 }

@@ -26,6 +26,7 @@ class FeedScreen extends ConsumerStatefulWidget {
 
 class _FeedScreenState extends ConsumerState<FeedScreen> {
   bool _loadedOnce = false;
+  final Set<int> _likeLoadingIds = <int>{};
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +138,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     referencePoint: location.state.userLocation,
                     apiUrl: config.apiUrl,
                     eventAccessKeys: events.eventAccessKeys,
+                    likeLoadingIds: _likeLoadingIds,
                     onTap: (event) {
                       final key = events.accessKeyFor(event.id,
                           fallback: event.accessKey);
@@ -147,6 +149,33 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         },
                       );
                       context.push(uri.toString());
+                    },
+                    onLikeTap: (event) async {
+                      if (_likeLoadingIds.contains(event.id)) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      setState(() => _likeLoadingIds.add(event.id));
+                      try {
+                        await ref.read(eventsControllerProvider).toggleLike(
+                              eventId: event.id,
+                              isLiked: event.isLiked,
+                              accessKey: events.accessKeyFor(
+                                event.id,
+                                fallback: event.accessKey,
+                              ),
+                            );
+                      } catch (error) {
+                        if (mounted) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('$error')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _likeLoadingIds.remove(event.id));
+                        } else {
+                          _likeLoadingIds.remove(event.id);
+                        }
+                      }
                     },
                   ),
                 ),

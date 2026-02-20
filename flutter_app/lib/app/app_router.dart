@@ -25,6 +25,7 @@ import '../features/tickets/presentation/admin_promo_codes_page.dart';
 import '../features/tickets/presentation/admin_qr_scanner_page.dart';
 import '../features/tickets/presentation/admin_stats_page.dart';
 import '../features/tickets/presentation/my_tickets_page.dart';
+import '../ui/layout/landing_backdrop.dart';
 import 'app_shell.dart';
 import 'routes.dart';
 
@@ -387,19 +388,32 @@ Page<void> _noTransitionPage(
   GoRouterState state,
   Widget child,
 ) {
-  final shouldConstrainWebWidth =
+  final shouldUseLandingBackdropOnWeb =
       kIsWeb && state.matchedLocation != AppRoutes.landing;
 
-  return NoTransitionPage<void>(
-    key: state.pageKey,
-    child: shouldConstrainWebWidth
-        ? Align(
+  if (shouldUseLandingBackdropOnWeb) {
+    return NoTransitionPage<void>(
+      key: state.pageKey,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned.fill(
+            child: IgnorePointer(child: LandingBackdrop()),
+          ),
+          Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1000),
               child: child,
             ),
-          )
-        : child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  return NoTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
   );
 }

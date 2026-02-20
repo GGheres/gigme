@@ -14,16 +14,20 @@ class FeedList extends StatelessWidget {
     required this.items,
     required this.referencePoint,
     required this.onTap,
+    required this.onLikeTap,
     required this.apiUrl,
     required this.eventAccessKeys,
+    required this.likeLoadingIds,
     super.key,
   });
 
   final List<EventCard> items;
   final LatLng? referencePoint;
   final ValueChanged<EventCard> onTap;
+  final ValueChanged<EventCard> onLikeTap;
   final String apiUrl;
   final Map<int, String> eventAccessKeys;
+  final Set<int> likeLoadingIds;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +72,8 @@ class FeedList extends StatelessWidget {
             accessKey: accessKey,
             referencePoint: referencePoint,
             onTap: () => onTap(event),
+            onLikeTap: () => onLikeTap(event),
+            likeLoading: likeLoadingIds.contains(event.id),
           ),
         );
       },

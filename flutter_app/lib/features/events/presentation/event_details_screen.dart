@@ -41,6 +41,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
   bool _loading = true;
   bool _joining = false;
+  bool _liking = false;
   bool _sharing = false;
   bool _sendingComment = false;
   bool _deletingEvent = false;
@@ -264,7 +265,33 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             Chip(
                                 label: Text(
                                     '👥 ${detail.event.participantsCount}')),
-                            Chip(label: Text('❤️ ${detail.event.likesCount}')),
+                            ActionChip(
+                              onPressed: _liking
+                                  ? null
+                                  : () => _toggleLike(detail: detail),
+                              avatar: _liking
+                                  ? SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          Theme.of(context).colorScheme.error,
+                                        ),
+                                      ),
+                                    )
+                                  : Icon(
+                                      detail.event.isLiked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 16,
+                                      color: detail.event.isLiked
+                                          ? Theme.of(context).colorScheme.error
+                                          : null,
+                                    ),
+                              label: Text('${detail.event.likesCount}'),
+                            ),
                             Chip(
                                 label:
                                     Text('💬 ${detail.event.commentsCount}')),
@@ -512,6 +539,41 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     } finally {
       if (mounted) {
         setState(() => _sharing = false);
+      }
+    }
+  }
+
+  Future<void> _toggleLike({required EventDetail detail}) async {
+    setState(() => _liking = true);
+    try {
+      final events = ref.read(eventsControllerProvider);
+      final accessKey = events.accessKeyFor(
+        detail.event.id,
+        fallback: detail.event.accessKey.trim().isNotEmpty
+            ? detail.event.accessKey
+            : widget.eventKey,
+      );
+      final status = await events.toggleLike(
+        eventId: detail.event.id,
+        isLiked: detail.event.isLiked,
+        accessKey: accessKey,
+      );
+      if (!mounted) return;
+      final current = _detail;
+      if (current == null || current.event.id != detail.event.id) return;
+      setState(() {
+        _detail = current.copyWith(
+          event: current.event.copyWith(
+            likesCount: status.likesCount,
+            isLiked: status.isLiked,
+          ),
+        );
+      });
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() => _liking = false);
       }
     }
   }

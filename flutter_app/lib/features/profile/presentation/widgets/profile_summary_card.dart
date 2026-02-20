@@ -2,21 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/models/user.dart';
 import '../../../../ui/components/app_badge.dart';
-import '../../../../ui/components/app_button.dart';
 import '../../../../ui/components/app_card.dart';
 import '../../../../ui/theme/app_spacing.dart';
 
 class ProfileSummaryCard extends StatelessWidget {
   const ProfileSummaryCard({
     required this.user,
-    required this.loading,
-    required this.onTopup,
     super.key,
   });
 
   final User? user;
-  final bool loading;
-  final VoidCallback onTopup;
 
   @override
   Widget build(BuildContext context) {
@@ -48,13 +43,6 @@ class ProfileSummaryCard extends StatelessWidget {
                 variant: AppBadgeVariant.accent,
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            onPressed: loading ? null : onTopup,
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            label: 'Topup tokens',
-            variant: AppButtonVariant.secondary,
           ),
         ],
       ),

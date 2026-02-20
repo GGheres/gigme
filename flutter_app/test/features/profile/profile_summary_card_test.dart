@@ -23,8 +23,6 @@ void main() {
         home: Scaffold(
           body: ProfileSummaryCard(
             user: user,
-            loading: false,
-            onTopup: () {},
           ),
         ),
       ),
@@ -32,6 +30,6 @@ void main() {
 
     expect(find.text('Jane Doe'), findsOneWidget);
     expect(find.textContaining('777 GT'), findsOneWidget);
-    expect(find.text('Topup tokens'), findsOneWidget);
+    expect(find.text('Topup tokens'), findsNothing);
   });
 }

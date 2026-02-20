@@ -15,17 +15,21 @@ class EventCardTile extends StatelessWidget {
   const EventCardTile({
     required this.event,
     required this.onTap,
+    required this.onLikeTap,
     required this.apiUrl,
     this.referencePoint,
     this.accessKey = '',
+    this.likeLoading = false,
     super.key,
   });
 
   final EventCard event;
   final VoidCallback onTap;
+  final VoidCallback onLikeTap;
   final String apiUrl;
   final LatLng? referencePoint;
   final String accessKey;
+  final bool likeLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -126,9 +130,11 @@ class EventCardTile extends StatelessWidget {
                       variant: AppBadgeVariant.info,
                       textStyle: badgeTextStyle,
                     ),
-                    AppBadge(
-                      label: '${event.likesCount} лайков',
-                      variant: AppBadgeVariant.info,
+                    _LikeBadge(
+                      likesCount: event.likesCount,
+                      isLiked: event.isLiked,
+                      onTap: onLikeTap,
+                      loading: likeLoading,
                       textStyle: badgeTextStyle,
                     ),
                     AppBadge(
@@ -199,6 +205,77 @@ class EventCardTile extends StatelessWidget {
       lng2: event.lng,
     );
     return formatDistanceKm(km);
+  }
+}
+
+class _LikeBadge extends StatelessWidget {
+  const _LikeBadge({
+    required this.likesCount,
+    required this.isLiked,
+    required this.onTap,
+    required this.loading,
+    this.textStyle,
+  });
+
+  final int likesCount;
+  final bool isLiked;
+  final VoidCallback onTap;
+  final bool loading;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final iconColor = isLiked ? AppColors.danger : textColor;
+
+    return Opacity(
+      opacity: loading ? 0.76 : 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          onTap: loading ? null : onTap,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.info.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+              border: Border.all(color: AppColors.info.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (loading)
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                    ),
+                  )
+                else
+                  Icon(
+                    isLiked
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    size: 14,
+                    color: iconColor,
+                  ),
+                const SizedBox(width: 4),
+                Text(
+                  '$likesCount лайков',
+                  style: (textStyle ?? Theme.of(context).textTheme.labelSmall)
+                      ?.copyWith(color: textColor),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

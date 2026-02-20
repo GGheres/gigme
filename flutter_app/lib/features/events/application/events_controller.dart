@@ -250,6 +250,42 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  Future<EventLikeStatus> toggleLike({
+    required int eventId,
+    required bool isLiked,
+    String? accessKey,
+  }) async {
+    final token = _token;
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
+
+    final next = isLiked
+        ? await repository.unlikeEvent(
+            token: token,
+            eventId: eventId,
+            accessKey: accessKeyFor(eventId, fallback: accessKey),
+          )
+        : await repository.likeEvent(
+            token: token,
+            eventId: eventId,
+            accessKey: accessKeyFor(eventId, fallback: accessKey),
+          );
+
+    final feedIndex = _state.feed.indexWhere((item) => item.id == eventId);
+    if (feedIndex >= 0) {
+      final updatedFeed = [..._state.feed];
+      updatedFeed[feedIndex] = updatedFeed[feedIndex].copyWith(
+        likesCount: next.likesCount,
+        isLiked: next.isLiked,
+      );
+      _state = _state.copyWith(feed: updatedFeed);
+      notifyListeners();
+    }
+
+    return next;
+  }
+
   Future<void> setFeedPriorityAsAdmin({
     required int eventId,
     required bool enabled,

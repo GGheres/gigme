@@ -17,6 +17,7 @@ class ApiPaths {
   static String eventById(int id) => '/events/$id';
   static String eventJoin(int id) => '/events/$id/join';
   static String eventLeave(int id) => '/events/$id/leave';
+  static String eventLike(int id) => '/events/$id/like';
   static String eventPromote(int id) => '/events/$id/promote';
   static String adminLandingPublish(int id) => '/admin/events/$id/landing';
   static String adminEventById(int id) => '/admin/events/$id';
