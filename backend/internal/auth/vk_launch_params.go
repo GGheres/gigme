@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -18,11 +17,6 @@ type VKLaunchParams struct {
 	UserID   int64
 	AppID    int64
 	Platform string
-}
-
-type vkLaunchPair struct {
-	key   string
-	value string
 }
 
 func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParams, error) {
@@ -40,23 +34,23 @@ func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParam
 		return VKLaunchParams{}, ErrInvalidVKLaunchParams
 	}
 
-	sign, pairs := extractVKLaunchSignAndPairs(raw)
-	if sign == "" || len(pairs) == 0 {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
-	}
-
-	decodedSign, err := url.QueryUnescape(sign)
-	if err == nil {
-		sign = decodedSign
-	}
-
-	calculated := calculateVKLaunchSign(pairs, secretKey)
-	if !hmac.Equal([]byte(calculated), []byte(sign)) {
-		return VKLaunchParams{}, ErrInvalidVKLaunchParams
-	}
-
 	parsed, err := url.ParseQuery(raw)
 	if err != nil {
+		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+	}
+
+	sign := strings.TrimSpace(parsed.Get("sign"))
+	if sign == "" {
+		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+	}
+
+	vkParams := collectVKLaunchSignParams(parsed)
+	if len(vkParams) == 0 {
+		return VKLaunchParams{}, ErrInvalidVKLaunchParams
+	}
+
+	calculated := calculateVKLaunchSign(vkParams, secretKey)
+	if !hmac.Equal([]byte(calculated), []byte(sign)) {
 		return VKLaunchParams{}, ErrInvalidVKLaunchParams
 	}
 
@@ -77,53 +71,22 @@ func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParam
 	}, nil
 }
 
-func extractVKLaunchSignAndPairs(rawQuery string) (string, []vkLaunchPair) {
-	sign := ""
-	pairs := make([]vkLaunchPair, 0)
-
-	for _, part := range strings.Split(rawQuery, "&") {
-		if part == "" {
+func collectVKLaunchSignParams(parsed url.Values) url.Values {
+	out := make(url.Values)
+	for key, values := range parsed {
+		if !strings.HasPrefix(key, "vk_") {
 			continue
 		}
-		pieces := strings.SplitN(part, "=", 2)
-		key := pieces[0]
-		if key == "" {
-			continue
-		}
-
-		value := ""
-		if len(pieces) > 1 {
-			value = pieces[1]
-		}
-
-		if strings.HasPrefix(key, "vk_") {
-			pairs = append(pairs, vkLaunchPair{key: key, value: value})
-			continue
-		}
-		if key == "sign" {
-			sign = value
+		for _, value := range values {
+			out.Add(key, value)
 		}
 	}
-
-	sort.SliceStable(pairs, func(i, j int) bool {
-		return pairs[i].key < pairs[j].key
-	})
-	return sign, pairs
+	return out
 }
 
-func calculateVKLaunchSign(params []vkLaunchPair, secretKey string) string {
-	var builder strings.Builder
-	for i, pair := range params {
-		if i > 0 {
-			builder.WriteByte('&')
-		}
-		builder.WriteString(pair.key)
-		builder.WriteByte('=')
-		builder.WriteString(url.PathEscape(pair.value))
-	}
-
+func calculateVKLaunchSign(params url.Values, secretKey string) string {
 	mac := hmac.New(sha256.New, []byte(secretKey))
-	_, _ = mac.Write([]byte(builder.String()))
+	_, _ = mac.Write([]byte(params.Encode()))
 	hash := base64.URLEncoding.EncodeToString(mac.Sum(nil))
 	hash = strings.ReplaceAll(hash, "+", "-")
 	hash = strings.ReplaceAll(hash, "/", "_")

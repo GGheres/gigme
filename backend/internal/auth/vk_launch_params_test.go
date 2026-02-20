@@ -35,6 +35,27 @@ func TestValidateVKLaunchParamsInvalidSign(t *testing.T) {
 	}
 }
 
+func TestValidateVKLaunchParamsEncodedValue(t *testing.T) {
+	const (
+		query  = "q=1&vk_user_id=111111&vk_app_id=111111&vk_is_app_user=1&vk_are_notifications_enabled=1&vk_language=ru&vk_access_token_settings=&vk_platform=andr%26oid&sign=f3d_AUYiYKEnG-pc9KpG_ZvHB8UEwS-ZeqwnIpgjqJE"
+		secret = "AAAAAAAAAAAAAAAAAA"
+	)
+
+	got, err := ValidateVKLaunchParams(query, secret)
+	if err != nil {
+		t.Fatalf("ValidateVKLaunchParams() error = %v", err)
+	}
+	if got.UserID != 111111 {
+		t.Fatalf("UserID = %d, want %d", got.UserID, 111111)
+	}
+	if got.AppID != 111111 {
+		t.Fatalf("AppID = %d, want %d", got.AppID, 111111)
+	}
+	if got.Platform != "andr&oid" {
+		t.Fatalf("Platform = %q, want %q", got.Platform, "andr&oid")
+	}
+}
+
 func TestBuildVKMiniAppUsername(t *testing.T) {
 	if got := BuildVKMiniAppUsername(100); got != "vk100" {
 		t.Fatalf("BuildVKMiniAppUsername(100) = %q", got)
