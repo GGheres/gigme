@@ -225,10 +225,28 @@ class _LikeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor =
-        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
-    final iconColor = isLiked ? AppColors.danger : textColor;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final likeAccent = theme.colorScheme.error;
+    final textColor = isLiked
+        ? (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)
+        : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary);
+    final iconColor = isLiked ? likeAccent : textColor;
+    final backgroundColor = isLiked
+        ? likeAccent.withValues(alpha: isDark ? 0.28 : 0.1)
+        : AppColors.info.withValues(alpha: 0.16);
+    final borderColor = isLiked
+        ? likeAccent.withValues(alpha: isDark ? 0.82 : 0.42)
+        : AppColors.info.withValues(alpha: 0.4);
+    final shadow = isLiked && isDark
+        ? <BoxShadow>[
+            BoxShadow(
+              color: likeAccent.withValues(alpha: 0.34),
+              blurRadius: 14,
+              offset: const Offset(0, 3),
+            ),
+          ]
+        : const <BoxShadow>[];
 
     return Opacity(
       opacity: loading ? 0.76 : 1,
@@ -240,9 +258,10 @@ class _LikeBadge extends StatelessWidget {
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.info.withValues(alpha: 0.16),
+              color: backgroundColor,
               borderRadius: BorderRadius.circular(AppRadii.pill),
-              border: Border.all(color: AppColors.info.withValues(alpha: 0.4)),
+              border: Border.all(color: borderColor),
+              boxShadow: shadow,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

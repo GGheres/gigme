@@ -14,6 +14,8 @@ import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/theme/app_colors.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/data/ticketing_repository.dart';
 import '../../tickets/presentation/purchase_ticket_flow.dart';
@@ -116,6 +118,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   Widget build(BuildContext context) {
     final detail = _detail;
     final config = ref.watch(appConfigProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final apiUrl = config.apiUrl;
     final authState = ref.watch(authControllerProvider).state;
     final inAdminRoute =
@@ -181,327 +184,322 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               ? Center(child: Text(_error!))
               : (detail == null)
                   ? const Center(child: Text('Событие не найдено'))
-                  : ListView(
-                      padding: const EdgeInsets.all(14),
-                      children: [
-                        Text(
-                          detail.event.title,
-                          style: Theme.of(context).textTheme.headlineSmall,
+                  : AppCard(
+                      margin: const EdgeInsets.all(14),
+                      variant: AppCardVariant.plain,
+                      borderRadius: 20,
+                      padding: EdgeInsets.zero,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.backgroundDeep.withValues(alpha: 0.28)
+                              : AppColors.surfaceMuted.withValues(alpha: 0.3),
                         ),
-                        const SizedBox(height: 6),
-                        Text(formatDateTime(detail.event.startsAt)),
-                        if (detail.event.endsAt != null)
-                          Text(
-                              'Завершение: ${formatDateTime(detail.event.endsAt)}'),
-                        const SizedBox(height: 10),
-                        if (detail.media.isNotEmpty)
-                          SizedBox(
-                            height: 210,
-                            child: PageView.builder(
-                              itemCount: detail.media.length,
-                              itemBuilder: (context, index) {
-                                final fallbackUrl = detail.media[index].trim();
-                                final proxyUrl = buildEventMediaProxyUrl(
-                                  apiUrl: apiUrl,
-                                  eventId: detail.event.id,
-                                  index: index,
-                                  accessKey: detailAccessKey,
-                                );
-                                final imageUrl = proxyUrl.isNotEmpty
-                                    ? proxyUrl
-                                    : fallbackUrl;
-                                final fallbackImageUrl =
-                                    proxyUrl.isNotEmpty ? fallbackUrl : '';
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: imageUrl.isEmpty
-                                        ? Container(
-                                            color: const Color(0xFFE8F0F4),
-                                            child: const Icon(
-                                                Icons.broken_image_outlined),
-                                          )
-                                        : Image.network(
-                                            imageUrl,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, _, __) {
-                                              if (fallbackImageUrl.isNotEmpty &&
-                                                  fallbackImageUrl !=
-                                                      imageUrl) {
-                                                return Image.network(
-                                                  fallbackImageUrl,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (context, _, __) =>
-                                                          Container(
+                        child: ListView(
+                          padding: const EdgeInsets.all(14),
+                          children: [
+                            Text(
+                              detail.event.title,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(formatDateTime(detail.event.startsAt)),
+                            if (detail.event.endsAt != null)
+                              Text(
+                                  'Завершение: ${formatDateTime(detail.event.endsAt)}'),
+                            const SizedBox(height: 10),
+                            if (detail.media.isNotEmpty)
+                              SizedBox(
+                                height: 210,
+                                child: PageView.builder(
+                                  itemCount: detail.media.length,
+                                  itemBuilder: (context, index) {
+                                    final fallbackUrl =
+                                        detail.media[index].trim();
+                                    final proxyUrl = buildEventMediaProxyUrl(
+                                      apiUrl: apiUrl,
+                                      eventId: detail.event.id,
+                                      index: index,
+                                      accessKey: detailAccessKey,
+                                    );
+                                    final imageUrl = proxyUrl.isNotEmpty
+                                        ? proxyUrl
+                                        : fallbackUrl;
+                                    final fallbackImageUrl =
+                                        proxyUrl.isNotEmpty ? fallbackUrl : '';
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: imageUrl.isEmpty
+                                            ? Container(
+                                                color: const Color(0xFFE8F0F4),
+                                                child: const Icon(Icons
+                                                    .broken_image_outlined),
+                                              )
+                                            : Image.network(
+                                                imageUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, _, __) {
+                                                  if (fallbackImageUrl
+                                                          .isNotEmpty &&
+                                                      fallbackImageUrl !=
+                                                          imageUrl) {
+                                                    return Image.network(
+                                                      fallbackImageUrl,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder:
+                                                          (context, _, __) =>
+                                                              Container(
+                                                        color: const Color(
+                                                            0xFFE8F0F4),
+                                                        child: const Icon(Icons
+                                                            .broken_image_outlined),
+                                                      ),
+                                                    );
+                                                  }
+                                                  return Container(
                                                     color:
                                                         const Color(0xFFE8F0F4),
                                                     child: const Icon(Icons
                                                         .broken_image_outlined),
-                                                  ),
-                                                );
-                                              }
-                                              return Container(
-                                                color: const Color(0xFFE8F0F4),
-                                                child: const Icon(Icons
-                                                    .broken_image_outlined),
-                                              );
-                                            },
-                                          ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        const SizedBox(height: 12),
-                        if (sanitizedDescription.isNotEmpty)
-                          Text(sanitizedDescription),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            Chip(
-                                label: Text(
-                                    '👥 ${detail.event.participantsCount}')),
-                            ActionChip(
-                              onPressed: _liking
-                                  ? null
-                                  : () => _toggleLike(detail: detail),
-                              avatar: _liking
-                                  ? SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          Theme.of(context).colorScheme.error,
-                                        ),
+                                                  );
+                                                },
+                                              ),
                                       ),
-                                    )
-                                  : Icon(
-                                      detail.event.isLiked
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      size: 16,
-                                      color: detail.event.isLiked
-                                          ? Theme.of(context).colorScheme.error
-                                          : null,
-                                    ),
-                              label: Text('${detail.event.likesCount}'),
-                            ),
-                            Chip(
-                                label:
-                                    Text('💬 ${detail.event.commentsCount}')),
-                            if (detail.event.capacity != null)
-                              Chip(
-                                label: Text(
-                                  '🎟️ ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
+                                    );
+                                  },
                                 ),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: _hasAnyProducts
-                                    ? () => showPurchaseTicketFlow(
-                                          context,
-                                          eventId: detail.event.id,
-                                        )
-                                    : null,
-                                child: const Text('КУПИТЬ билет'),
+                            const SizedBox(height: 12),
+                            if (sanitizedDescription.isNotEmpty)
+                              Text(sanitizedDescription),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                Chip(
+                                    label: Text(
+                                        '👥 ${detail.event.participantsCount}')),
+                                _buildLikeChip(detail: detail),
+                                Chip(
+                                    label: Text(
+                                        '💬 ${detail.event.commentsCount}')),
+                                if (detail.event.capacity != null)
+                                  Chip(
+                                    label: Text(
+                                      '🎟️ ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: _hasAnyProducts
+                                        ? () => showPurchaseTicketFlow(
+                                              context,
+                                              eventId: detail.event.id,
+                                            )
+                                        : null,
+                                    child: const Text('КУПИТЬ билет'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                OutlinedButton.icon(
+                                  onPressed: _sharing ? null : _share,
+                                  icon: const Icon(Icons.share_outlined),
+                                  label: const Text('Поделиться'),
+                                ),
+                              ],
+                            ),
+                            if (!detail.isJoined) ...[
+                              const SizedBox(height: 8),
+                              OutlinedButton(
+                                onPressed: _joining
+                                    ? null
+                                    : () async {
+                                        setState(() => _joining = true);
+                                        try {
+                                          final events = ref
+                                              .read(eventsControllerProvider);
+                                          await events.joinEvent(
+                                            eventId: detail.event.id,
+                                            accessKey: widget.eventKey,
+                                          );
+                                          await _load();
+                                        } catch (error) {
+                                          _showMessage('$error');
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() => _joining = false);
+                                          }
+                                        }
+                                      },
+                                child: Text(_joining
+                                    ? 'Выполняется…'
+                                    : 'Присоединиться'),
                               ),
-                            ),
-                            const SizedBox(width: 10),
+                            ],
+                            const SizedBox(height: 8),
                             OutlinedButton.icon(
-                              onPressed: _sharing ? null : _share,
-                              icon: const Icon(Icons.share_outlined),
-                              label: const Text('Поделиться'),
+                              onPressed: () {
+                                final lat = detail.event.lat;
+                                final lng = detail.event.lng;
+                                launchUrl(Uri.parse(
+                                    'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng'));
+                              },
+                              icon: const Icon(Icons.location_on_outlined),
+                              label: const Text('Открыть на карте'),
                             ),
-                          ],
-                        ),
-                        if (!detail.isJoined) ...[
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed: _joining
-                                ? null
-                                : () async {
-                                    setState(() => _joining = true);
-                                    try {
-                                      final events =
-                                          ref.read(eventsControllerProvider);
-                                      await events.joinEvent(
-                                        eventId: detail.event.id,
-                                        accessKey: widget.eventKey,
-                                      );
-                                      await _load();
-                                    } catch (error) {
-                                      _showMessage('$error');
-                                    } finally {
-                                      if (mounted) {
-                                        setState(() => _joining = false);
-                                      }
-                                    }
-                                  },
-                            child: Text(
-                                _joining ? 'Выполняется…' : 'Присоединиться'),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            final lat = detail.event.lat;
-                            final lng = detail.event.lng;
-                            launchUrl(Uri.parse(
-                                'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng'));
-                          },
-                          icon: const Icon(Icons.location_on_outlined),
-                          label: const Text('Открыть на карте'),
-                        ),
-                        if (detail.isJoined) ...[
-                          const SizedBox(height: 16),
-                          _ContactsBlock(detail: detail),
-                        ],
-                        const SizedBox(height: 16),
-                        Text('Комментарии',
-                            style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        if (_comments.isEmpty)
-                          const Text('Комментариев пока нет')
-                        else
-                          ..._comments.map(
-                            (comment) => ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(comment.userName),
-                              subtitle: Text(comment.body),
-                              trailing: isAdmin
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
+                            if (detail.isJoined) ...[
+                              const SizedBox(height: 16),
+                              _ContactsBlock(detail: detail),
+                            ],
+                            const SizedBox(height: 16),
+                            Text('Комментарии',
+                                style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 8),
+                            if (_comments.isEmpty)
+                              const Text('Комментариев пока нет')
+                            else
+                              ..._comments.map(
+                                (comment) => ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(comment.userName),
+                                  subtitle: Text(comment.body),
+                                  trailing: isAdmin
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              formatDateTime(comment.createdAt),
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelSmall,
+                                            ),
+                                            IconButton(
+                                              tooltip: 'Удалить комментарий',
+                                              onPressed: _deletingCommentIds
+                                                      .contains(comment.id)
+                                                  ? null
+                                                  : () => _deleteComment(
+                                                      comment: comment),
+                                              icon: _deletingCommentIds
+                                                      .contains(comment.id)
+                                                  ? const SizedBox(
+                                                      width: 18,
+                                                      height: 18,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    )
+                                                  : const Icon(
+                                                      Icons.delete_outline),
+                                            ),
+                                          ],
+                                        )
+                                      : Text(
                                           formatDateTime(comment.createdAt),
                                           style: Theme.of(context)
                                               .textTheme
                                               .labelSmall,
                                         ),
-                                        IconButton(
-                                          tooltip: 'Удалить комментарий',
-                                          onPressed: _deletingCommentIds
-                                                  .contains(comment.id)
-                                              ? null
-                                              : () => _deleteComment(
-                                                  comment: comment),
-                                          icon: _deletingCommentIds
-                                                  .contains(comment.id)
-                                              ? const SizedBox(
-                                                  width: 18,
-                                                  height: 18,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                  ),
-                                                )
-                                              : const Icon(
-                                                  Icons.delete_outline),
-                                        ),
-                                      ],
-                                    )
-                                  : Text(
-                                      formatDateTime(comment.createdAt),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall,
-                                    ),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              minLines: 2,
+                              maxLines: 4,
+                              maxLength: 400,
+                              decoration: const InputDecoration(
+                                  labelText: 'Добавить комментарий'),
+                              onChanged: (value) => _commentInput = value,
                             ),
-                          ),
-                        const SizedBox(height: 10),
-                        TextField(
-                          minLines: 2,
-                          maxLines: 4,
-                          maxLength: 400,
-                          decoration: const InputDecoration(
-                              labelText: 'Добавить комментарий'),
-                          onChanged: (value) => _commentInput = value,
-                        ),
-                        FilledButton(
-                          onPressed: _sendingComment
-                              ? null
-                              : () async {
-                                  final body = _commentInput.trim();
-                                  if (body.isEmpty) {
-                                    _showMessage(
-                                        'Комментарий не может быть пустым');
-                                    return;
-                                  }
-
-                                  setState(() => _sendingComment = true);
-                                  try {
-                                    await ref
-                                        .read(eventsControllerProvider)
-                                        .addComment(
-                                          eventId: detail.event.id,
-                                          body: body,
-                                          accessKey: widget.eventKey,
-                                        );
-                                    _commentInput = '';
-                                    await _load();
-                                  } catch (error) {
-                                    _showMessage('$error');
-                                  } finally {
-                                    if (mounted) {
-                                      setState(() => _sendingComment = false);
-                                    }
-                                  }
-                                },
-                          child:
-                              Text(_sendingComment ? 'Отправка…' : 'Отправить'),
-                        ),
-                        if (detail.isJoined) ...[
-                          const SizedBox(height: 10),
-                          OutlinedButton(
-                            onPressed: _joining
-                                ? null
-                                : () async {
-                                    setState(() => _joining = true);
-                                    try {
-                                      await ref
-                                          .read(eventsControllerProvider)
-                                          .leaveEvent(
-                                            eventId: detail.event.id,
-                                            accessKey: widget.eventKey,
-                                          );
-                                      await _load();
-                                    } catch (error) {
-                                      _showMessage('$error');
-                                    } finally {
-                                      if (mounted) {
-                                        setState(() => _joining = false);
+                            FilledButton(
+                              onPressed: _sendingComment
+                                  ? null
+                                  : () async {
+                                      final body = _commentInput.trim();
+                                      if (body.isEmpty) {
+                                        _showMessage(
+                                            'Комментарий не может быть пустым');
+                                        return;
                                       }
-                                    }
-                                  },
-                            child: Text(_joining ? 'Выполняется…' : 'Покинуть'),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        Text(
-                          'Участники',
-                          style: Theme.of(context).textTheme.titleMedium,
+
+                                      setState(() => _sendingComment = true);
+                                      try {
+                                        await ref
+                                            .read(eventsControllerProvider)
+                                            .addComment(
+                                              eventId: detail.event.id,
+                                              body: body,
+                                              accessKey: widget.eventKey,
+                                            );
+                                        _commentInput = '';
+                                        await _load();
+                                      } catch (error) {
+                                        _showMessage('$error');
+                                      } finally {
+                                        if (mounted) {
+                                          setState(
+                                              () => _sendingComment = false);
+                                        }
+                                      }
+                                    },
+                              child: Text(
+                                  _sendingComment ? 'Отправка…' : 'Отправить'),
+                            ),
+                            if (detail.isJoined) ...[
+                              const SizedBox(height: 10),
+                              OutlinedButton(
+                                onPressed: _joining
+                                    ? null
+                                    : () async {
+                                        setState(() => _joining = true);
+                                        try {
+                                          await ref
+                                              .read(eventsControllerProvider)
+                                              .leaveEvent(
+                                                eventId: detail.event.id,
+                                                accessKey: widget.eventKey,
+                                              );
+                                          await _load();
+                                        } catch (error) {
+                                          _showMessage('$error');
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() => _joining = false);
+                                          }
+                                        }
+                                      },
+                                child: Text(
+                                    _joining ? 'Выполняется…' : 'Покинуть'),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Text(
+                              'Участники',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 6),
+                            ...detail.participants
+                                .map((participant) => ListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(
+                                          Icons.person_outline_rounded),
+                                      title: Text(participant.name),
+                                      subtitle: Text(
+                                          formatDateTime(participant.joinedAt)),
+                                    )),
+                          ],
                         ),
-                        const SizedBox(height: 6),
-                        ...detail.participants.map((participant) => ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.person_outline_rounded),
-                              title: Text(participant.name),
-                              subtitle:
-                                  Text(formatDateTime(participant.joinedAt)),
-                            )),
-                      ],
+                      ),
                     ),
     );
   }
@@ -541,6 +539,49 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         setState(() => _sharing = false);
       }
     }
+  }
+
+  Widget _buildLikeChip({required EventDetail detail}) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final likeAccent = theme.colorScheme.error;
+    final liked = detail.event.isLiked;
+    final backgroundColor = liked
+        ? likeAccent.withValues(alpha: isDark ? 0.26 : 0.1)
+        : (isDark
+            ? AppColors.darkSurfaceMuted.withValues(alpha: 0.9)
+            : AppColors.surfaceStrong);
+    final borderColor = liked
+        ? likeAccent.withValues(alpha: isDark ? 0.8 : 0.42)
+        : (isDark ? AppColors.darkBorderStrong : AppColors.borderStrong);
+    final labelColor = liked
+        ? (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)
+        : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary);
+
+    return ActionChip(
+      onPressed: _liking ? null : () => _toggleLike(detail: detail),
+      backgroundColor: backgroundColor,
+      side: BorderSide(color: borderColor),
+      labelStyle: theme.textTheme.labelMedium?.copyWith(
+        color: labelColor,
+        fontWeight: liked ? FontWeight.w700 : FontWeight.w600,
+      ),
+      avatar: _liking
+          ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(likeAccent),
+              ),
+            )
+          : Icon(
+              liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              size: 16,
+              color: liked ? likeAccent : labelColor,
+            ),
+      label: Text('${detail.event.likesCount}'),
+    );
   }
 
   Future<void> _toggleLike({required EventDetail detail}) async {
