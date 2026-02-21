@@ -134,14 +134,13 @@ func handleJob(ctx context.Context, repo *repository.Repository, telegram Telegr
 	if photoCaption == "" {
 		photoCaption = message.Text
 	}
-	if message.PhotoURL != "" {
-		sendErr = telegram.SendPhotoWithMarkup(chatID, message.PhotoURL, photoCaption, markup)
-		if sendErr != nil && message.FallbackPhotoURL != "" && message.FallbackPhotoURL != message.PhotoURL {
-			sendErr = telegram.SendPhotoWithMarkup(chatID, message.FallbackPhotoURL, photoCaption, markup)
-		}
+	for _, photoURL := range message.PhotoURLs {
+		sendErr = telegram.SendPhotoWithMarkup(chatID, photoURL, photoCaption, markup)
 		if sendErr == nil {
 			sent = true
+			break
 		}
+		logger.Warn("job_photo_send_failed", "job_id", job.ID, "photo_url", photoURL, "error", sendErr)
 	}
 	if !sent {
 		sendErr = telegram.SendMessageWithMarkup(chatID, message.Text, markup)
@@ -168,11 +167,10 @@ func handleJob(ctx context.Context, repo *repository.Repository, telegram Telegr
 }
 
 type notificationMessage struct {
-	Text             string
-	PhotoURL         string
-	FallbackPhotoURL string
-	ButtonURL        string
-	ButtonText       string
+	Text       string
+	PhotoURLs  []string
+	ButtonURL  string
+	ButtonText string
 }
 
 func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) notificationMessage {
@@ -229,30 +227,7 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 	title := payloadString(job.Payload, "title")
 	startsAt := formatStartsAt(payloadString(job.Payload, "startsAt"))
 	address := payloadString(job.Payload, "addressLabel")
-	mediaBaseURL := strings.TrimSpace(apiBaseURL)
-	if mediaBaseURL == "" {
-		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
-	}
-	photoURL := payloadString(job.Payload, "photoUrl")
-	if photoURL == "" {
-		photoURL = payloadString(job.Payload, "thumbnailUrl")
-	}
-	photoURL = normalizePhotoURL(photoURL, mediaBaseURL, baseURL)
-	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
-	if previewURL == "" {
-		previewURL = buildMediaPreviewURL(baseURL, extractEventID(job))
-	}
-
-	primaryPhoto := ""
-	fallbackPhoto := ""
-	if previewURL != "" {
-		primaryPhoto = previewURL
-		if photoURL != "" && photoURL != previewURL {
-			fallbackPhoto = photoURL
-		}
-	} else if photoURL != "" {
-		primaryPhoto = photoURL
-	}
+	photoURLs := buildNotificationPhotoURLs(job, baseURL, apiBaseURL)
 
 	lines := make([]string, 0, 4)
 	if heading != "" {
@@ -274,11 +249,10 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 	eventURL := buildEventURL(baseURL, extractEventID(job))
 
 	return notificationMessage{
-		Text:             text,
-		PhotoURL:         primaryPhoto,
-		FallbackPhotoURL: fallbackPhoto,
-		ButtonURL:        eventURL,
-		ButtonText:       buttonText(eventURL),
+		Text:       text,
+		PhotoURLs:  photoURLs,
+		ButtonURL:  eventURL,
+		ButtonText: buttonText(eventURL),
 	}
 }
 
@@ -304,32 +278,12 @@ func buildCommentNotification(job models.NotificationJob, baseURL, apiBaseURL st
 		lines = append(lines, commenter)
 	}
 	eventURL := buildEventURL(baseURL, extractEventID(job))
-	mediaBaseURL := strings.TrimSpace(apiBaseURL)
-	if mediaBaseURL == "" {
-		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
-	}
-	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
-	if previewURL == "" {
-		previewURL = buildMediaPreviewURL(baseURL, extractEventID(job))
-	}
-	photoURL := payloadString(job.Payload, "photoUrl")
-	if photoURL == "" {
-		photoURL = payloadString(job.Payload, "thumbnailUrl")
-	}
-	photoURL = normalizePhotoURL(photoURL, mediaBaseURL, baseURL)
-	fallbackPhoto := ""
-	if previewURL != "" && photoURL != "" && photoURL != previewURL {
-		fallbackPhoto = photoURL
-	}
-	if previewURL == "" {
-		previewURL = photoURL
-	}
+	photoURLs := buildNotificationPhotoURLs(job, baseURL, apiBaseURL)
 	return notificationMessage{
-		Text:             strings.Join(lines, "\n"),
-		PhotoURL:         previewURL,
-		FallbackPhotoURL: fallbackPhoto,
-		ButtonURL:        eventURL,
-		ButtonText:       buttonText(eventURL),
+		Text:       strings.Join(lines, "\n"),
+		PhotoURLs:  photoURLs,
+		ButtonURL:  eventURL,
+		ButtonText: buttonText(eventURL),
 	}
 }
 
@@ -464,6 +418,46 @@ func buildMediaPreviewURL(baseURL string, eventID int64) string {
 	return parsed.String()
 }
 
+func buildNotificationPhotoURLs(job models.NotificationJob, baseURL, apiBaseURL string) []string {
+	mediaBaseURL := strings.TrimSpace(apiBaseURL)
+	if mediaBaseURL == "" {
+		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
+	}
+	eventID := extractEventID(job)
+	photoURLs := buildMediaPreviewCandidates(eventID, mediaBaseURL, baseURL)
+
+	photoURL := payloadString(job.Payload, "photoUrl")
+	if photoURL == "" {
+		photoURL = payloadString(job.Payload, "thumbnailUrl")
+	}
+	return appendUniqueStrings(
+		photoURLs,
+		normalizePhotoURL(photoURL, mediaBaseURL, baseURL),
+		normalizePhotoURL(photoURL, buildAPIBaseURL(mediaBaseURL), buildAPIBaseURL(baseURL)),
+	)
+}
+
+func buildMediaPreviewCandidates(eventID int64, apiBaseURL, baseURL string) []string {
+	return appendUniqueStrings(
+		nil,
+		buildMediaPreviewURL(apiBaseURL, eventID),
+		buildMediaPreviewURL(buildAPIBaseURL(apiBaseURL), eventID),
+		buildMediaPreviewURL(buildAPIBaseURL(baseURL), eventID),
+		buildMediaPreviewURL(baseURL, eventID),
+	)
+}
+
+func buildAPIBaseURL(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	parsed.Path = "/api"
+	return parsed.String()
+}
+
 func normalizePhotoURL(raw string, baseURLs ...string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -504,6 +498,29 @@ func normalizePhotoURL(raw string, baseURLs ...string) string {
 		return parsed.String()
 	}
 	return ""
+}
+
+func appendUniqueStrings(target []string, values ...string) []string {
+	if target == nil {
+		target = make([]string, 0, len(values))
+	}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		seen := false
+		for _, existing := range target {
+			if existing == trimmed {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			target = append(target, trimmed)
+		}
+	}
+	return target
 }
 
 func withTitle(prefix, title string) string {

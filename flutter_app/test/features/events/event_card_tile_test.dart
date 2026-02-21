@@ -50,8 +50,11 @@ void main() {
     );
 
     expect(find.text('City Jam'), findsOneWidget);
-    expect(find.textContaining('идут'), findsOneWidget);
-    expect(find.textContaining('лайков'), findsOneWidget);
+    expect(find.byIcon(Icons.people_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+    expect(find.textContaining('идут'), findsNothing);
+    expect(find.textContaining('лайков'), findsNothing);
+    expect(find.textContaining('комментариев'), findsNothing);
   });
 
   testWidgets('renders best event badge for featured card', (tester) async {

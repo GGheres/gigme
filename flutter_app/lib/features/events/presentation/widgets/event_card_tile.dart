@@ -121,15 +121,14 @@ class EventCardTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
+                Row(
                   children: [
-                    AppBadge(
-                      label: '${event.participantsCount} идут',
-                      variant: AppBadgeVariant.info,
+                    _StatBadge(
+                      icon: Icons.people_alt_outlined,
+                      value: event.participantsCount,
                       textStyle: badgeTextStyle,
                     ),
+                    const SizedBox(width: AppSpacing.xs),
                     _LikeBadge(
                       likesCount: event.likesCount,
                       isLiked: event.isLiked,
@@ -137,17 +136,12 @@ class EventCardTile extends StatelessWidget {
                       loading: likeLoading,
                       textStyle: badgeTextStyle,
                     ),
-                    AppBadge(
-                      label: '${event.commentsCount} комментариев',
-                      variant: AppBadgeVariant.info,
+                    const SizedBox(width: AppSpacing.xs),
+                    _StatBadge(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      value: event.commentsCount,
                       textStyle: badgeTextStyle,
                     ),
-                    if (distanceText != null)
-                      AppBadge(
-                        label: distanceText,
-                        variant: AppBadgeVariant.success,
-                        textStyle: badgeTextStyle,
-                      ),
                   ],
                 ),
               ],
@@ -208,6 +202,55 @@ class EventCardTile extends StatelessWidget {
   }
 }
 
+class _StatBadge extends StatelessWidget {
+  const _StatBadge({
+    required this.icon,
+    required this.value,
+    this.textStyle,
+  });
+
+  final IconData icon;
+  final int value;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final decoration = BoxDecoration(
+      color: AppColors.info.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(AppRadii.pill),
+      border: Border.all(color: AppColors.info.withValues(alpha: 0.4)),
+    );
+
+    return DecoratedBox(
+      decoration: decoration,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: textColor,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$value',
+              style: (textStyle ?? theme.textTheme.labelSmall)?.copyWith(
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LikeBadge extends StatelessWidget {
   const _LikeBadge({
     required this.likesCount,
@@ -256,7 +299,7 @@ class _LikeBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadii.pill),
           onTap: loading ? null : onTap,
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: backgroundColor,
               borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -285,7 +328,7 @@ class _LikeBadge extends StatelessWidget {
                   ),
                 const SizedBox(width: 4),
                 Text(
-                  '$likesCount лайков',
+                  '$likesCount',
                   style: (textStyle ?? Theme.of(context).textTheme.labelSmall)
                       ?.copyWith(color: textColor),
                 ),
