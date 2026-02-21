@@ -130,10 +130,14 @@ func handleJob(ctx context.Context, repo *repository.Repository, telegram Telegr
 
 	var sendErr error
 	sent := false
+	photoCaption := truncateRunes(message.Text, 1024)
+	if photoCaption == "" {
+		photoCaption = message.Text
+	}
 	if message.PhotoURL != "" {
-		sendErr = telegram.SendPhotoWithMarkup(chatID, message.PhotoURL, message.Text, markup)
+		sendErr = telegram.SendPhotoWithMarkup(chatID, message.PhotoURL, photoCaption, markup)
 		if sendErr != nil && message.FallbackPhotoURL != "" && message.FallbackPhotoURL != message.PhotoURL {
-			sendErr = telegram.SendPhotoWithMarkup(chatID, message.FallbackPhotoURL, message.Text, markup)
+			sendErr = telegram.SendPhotoWithMarkup(chatID, message.FallbackPhotoURL, photoCaption, markup)
 		}
 		if sendErr == nil {
 			sent = true
@@ -225,17 +229,15 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 	title := payloadString(job.Payload, "title")
 	startsAt := formatStartsAt(payloadString(job.Payload, "startsAt"))
 	address := payloadString(job.Payload, "addressLabel")
-	photoURL := payloadString(job.Payload, "photoUrl")
-	if photoURL == "" {
-		photoURL = payloadString(job.Payload, "thumbnailUrl")
-	}
-	if photoURL != "" && !strings.HasPrefix(photoURL, "http://") && !strings.HasPrefix(photoURL, "https://") {
-		photoURL = ""
-	}
 	mediaBaseURL := strings.TrimSpace(apiBaseURL)
 	if mediaBaseURL == "" {
 		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
 	}
+	photoURL := payloadString(job.Payload, "photoUrl")
+	if photoURL == "" {
+		photoURL = payloadString(job.Payload, "thumbnailUrl")
+	}
+	photoURL = normalizePhotoURL(photoURL, mediaBaseURL, baseURL)
 	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
 	if previewURL == "" {
 		previewURL = buildMediaPreviewURL(baseURL, extractEventID(job))
@@ -307,11 +309,27 @@ func buildCommentNotification(job models.NotificationJob, baseURL, apiBaseURL st
 		mediaBaseURL = payloadString(job.Payload, "apiBaseUrl")
 	}
 	previewURL := buildMediaPreviewURL(mediaBaseURL, extractEventID(job))
+	if previewURL == "" {
+		previewURL = buildMediaPreviewURL(baseURL, extractEventID(job))
+	}
+	photoURL := payloadString(job.Payload, "photoUrl")
+	if photoURL == "" {
+		photoURL = payloadString(job.Payload, "thumbnailUrl")
+	}
+	photoURL = normalizePhotoURL(photoURL, mediaBaseURL, baseURL)
+	fallbackPhoto := ""
+	if previewURL != "" && photoURL != "" && photoURL != previewURL {
+		fallbackPhoto = photoURL
+	}
+	if previewURL == "" {
+		previewURL = photoURL
+	}
 	return notificationMessage{
-		Text:       strings.Join(lines, "\n"),
-		PhotoURL:   previewURL,
-		ButtonURL:  eventURL,
-		ButtonText: buttonText(eventURL),
+		Text:             strings.Join(lines, "\n"),
+		PhotoURL:         previewURL,
+		FallbackPhotoURL: fallbackPhoto,
+		ButtonURL:        eventURL,
+		ButtonText:       buttonText(eventURL),
 	}
 }
 
@@ -446,6 +464,48 @@ func buildMediaPreviewURL(baseURL string, eventID int64) string {
 	return parsed.String()
 }
 
+func normalizePhotoURL(raw string, baseURLs ...string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(raw); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		scheme := strings.ToLower(parsed.Scheme)
+		if scheme == "http" || scheme == "https" {
+			return parsed.String()
+		}
+		return ""
+	}
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		return raw
+	}
+	if strings.HasPrefix(raw, "//") {
+		for _, baseURL := range baseURLs {
+			parsed, err := url.Parse(strings.TrimSpace(baseURL))
+			if err == nil && parsed.Scheme != "" {
+				return parsed.Scheme + ":" + raw
+			}
+		}
+		return ""
+	}
+	for _, baseURL := range baseURLs {
+		parsed, err := url.Parse(strings.TrimSpace(baseURL))
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			continue
+		}
+		parsed.RawQuery = ""
+		parsed.Fragment = ""
+		if strings.HasPrefix(raw, "/") {
+			parsed.Path = path.Clean(raw)
+		} else {
+			basePath := strings.TrimSpace(parsed.Path)
+			parsed.Path = path.Join("/", basePath, raw)
+		}
+		return parsed.String()
+	}
+	return ""
+}
+
 func withTitle(prefix, title string) string {
 	trimmed := strings.TrimSpace(title)
 	if trimmed == "" {
@@ -483,10 +543,13 @@ func truncateRunes(value string, max int) string {
 	if utf8.RuneCountInString(value) <= max {
 		return value
 	}
-	out := make([]rune, 0, max)
+	if max == 1 {
+		return "…"
+	}
+	out := make([]rune, 0, max-1)
 	for _, r := range value {
 		out = append(out, r)
-		if len(out) >= max {
+		if len(out) >= max-1 {
 			break
 		}
 	}
