@@ -689,7 +689,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
       unawaited(events.refresh(center: center));
 
       if (!mounted) return;
-      context.go(AppRoutes.event(eventId));
+      await context.push(AppRoutes.event(eventId));
     } catch (error) {
       _showError('$error');
     } finally {

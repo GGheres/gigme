@@ -301,6 +301,21 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  Future<void> updateEventAsAdmin({
+    required int eventId,
+    required UpdateEventAdminPayload payload,
+  }) async {
+    final token = _token;
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Missing auth token');
+    }
+    await repository.updateEventAsAdmin(
+      token: token,
+      eventId: eventId,
+      payload: payload,
+    );
+  }
+
   Future<List<EventComment>> loadComments({
     required int eventId,
     String? accessKey,

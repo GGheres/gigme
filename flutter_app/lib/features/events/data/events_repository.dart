@@ -77,6 +77,68 @@ class CreateEventPayload {
   }
 }
 
+class UpdateEventAdminPayload {
+  UpdateEventAdminPayload({
+    this.title,
+    this.description,
+    this.startsAt,
+    this.endsAt,
+    this.clearEndsAt = false,
+    this.lat,
+    this.lng,
+    this.capacity,
+    this.media,
+    this.addressLabel,
+    this.filters,
+    this.contactTelegram,
+    this.contactWhatsapp,
+    this.contactWechat,
+    this.contactFbMessenger,
+    this.contactSnapchat,
+  });
+
+  final String? title;
+  final String? description;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+  final bool clearEndsAt;
+  final double? lat;
+  final double? lng;
+  final int? capacity;
+  final List<String>? media;
+  final String? addressLabel;
+  final List<String>? filters;
+  final String? contactTelegram;
+  final String? contactWhatsapp;
+  final String? contactWechat;
+  final String? contactFbMessenger;
+  final String? contactSnapchat;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      if (title != null) 'title': title!.trim(),
+      if (description != null) 'description': description!.trim(),
+      if (startsAt != null) 'startsAt': startsAt!.toUtc().toIso8601String(),
+      if (clearEndsAt)
+        'endsAt': ''
+      else if (endsAt != null)
+        'endsAt': endsAt!.toUtc().toIso8601String(),
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (capacity != null) 'capacity': capacity,
+      if (media != null) 'media': media,
+      if (addressLabel != null) 'addressLabel': addressLabel!.trim(),
+      if (filters != null) 'filters': filters,
+      if (contactTelegram != null) 'contactTelegram': contactTelegram!.trim(),
+      if (contactWhatsapp != null) 'contactWhatsapp': contactWhatsapp!.trim(),
+      if (contactWechat != null) 'contactWechat': contactWechat!.trim(),
+      if (contactFbMessenger != null)
+        'contactFbMessenger': contactFbMessenger!.trim(),
+      if (contactSnapchat != null) 'contactSnapchat': contactSnapchat!.trim(),
+    };
+  }
+}
+
 class EventLikeStatus {
   factory EventLikeStatus.fromJson(dynamic json) {
     final map = asMap(json);
@@ -270,6 +332,19 @@ class EventsRepository {
               : <String, dynamic>{
                   'clear': true,
                 },
+          decoder: (_) {},
+        );
+  }
+
+  Future<void> updateEventAsAdmin({
+    required String token,
+    required int eventId,
+    required UpdateEventAdminPayload payload,
+  }) {
+    return _ref.read(apiClientProvider).patch<void>(
+          ApiPaths.adminEventById(eventId),
+          token: token,
+          body: payload.toJson(),
           decoder: (_) {},
         );
   }
