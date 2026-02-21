@@ -121,14 +121,15 @@ class EventCardTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Row(
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
                   children: [
                     _StatBadge(
                       icon: Icons.people_alt_outlined,
                       value: event.participantsCount,
                       textStyle: badgeTextStyle,
                     ),
-                    const SizedBox(width: AppSpacing.xs),
                     _LikeBadge(
                       likesCount: event.likesCount,
                       isLiked: event.isLiked,
@@ -136,12 +137,16 @@ class EventCardTile extends StatelessWidget {
                       loading: likeLoading,
                       textStyle: badgeTextStyle,
                     ),
-                    const SizedBox(width: AppSpacing.xs),
                     _StatBadge(
                       icon: Icons.chat_bubble_outline_rounded,
                       value: event.commentsCount,
                       textStyle: badgeTextStyle,
                     ),
+                    if (distanceText != null)
+                      _DistanceBadge(
+                        distanceText: distanceText,
+                        textStyle: badgeTextStyle,
+                      ),
                   ],
                 ),
               ],
@@ -335,6 +340,53 @@ class _LikeBadge extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DistanceBadge extends StatelessWidget {
+  const _DistanceBadge({
+    required this.distanceText,
+    this.textStyle,
+  });
+
+  final String distanceText;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: isDark ? 0.24 : 0.14),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: isDark ? 0.5 : 0.35),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.place_outlined,
+              size: 14,
+              color: textColor,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              distanceText,
+              style: (textStyle ?? theme.textTheme.labelSmall)?.copyWith(
+                color: textColor,
+              ),
+            ),
+          ],
         ),
       ),
     );
