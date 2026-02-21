@@ -123,62 +123,55 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ],
           const SizedBox(height: AppSpacing.sm),
           Expanded(
-            child: AppCard(
-              variant: AppCardVariant.panel,
-              padding: const EdgeInsets.all(AppSpacing.xs),
-              child: AppCard(
-                variant: AppCardVariant.panel,
-                padding: EdgeInsets.zero,
-                child: RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(eventsControllerProvider)
-                      .refresh(center: location.state.center),
-                  child: FeedList(
-                    items: state.feed,
-                    referencePoint: location.state.userLocation,
-                    apiUrl: config.apiUrl,
-                    eventAccessKeys: events.eventAccessKeys,
-                    likeLoadingIds: _likeLoadingIds,
-                    onTap: (event) {
-                      final key = events.accessKeyFor(event.id,
-                          fallback: event.accessKey);
-                      final uri = Uri(
-                        path: AppRoutes.event(event.id),
-                        queryParameters: {
-                          if (key.isNotEmpty) 'key': key,
-                        },
+            child: RefreshIndicator(
+              onRefresh: () => ref
+                  .read(eventsControllerProvider)
+                  .refresh(center: location.state.center),
+              child: FeedList(
+                items: state.feed,
+                referencePoint:
+                    location.state.userLocation ?? location.state.center,
+                apiUrl: config.apiUrl,
+                eventAccessKeys: events.eventAccessKeys,
+                likeLoadingIds: _likeLoadingIds,
+                onTap: (event) {
+                  final key =
+                      events.accessKeyFor(event.id, fallback: event.accessKey);
+                  final uri = Uri(
+                    path: AppRoutes.event(event.id),
+                    queryParameters: {
+                      if (key.isNotEmpty) 'key': key,
+                    },
+                  );
+                  context.push(uri.toString());
+                },
+                onLikeTap: (event) async {
+                  if (_likeLoadingIds.contains(event.id)) return;
+                  final messenger = ScaffoldMessenger.of(context);
+                  setState(() => _likeLoadingIds.add(event.id));
+                  try {
+                    await ref.read(eventsControllerProvider).toggleLike(
+                          eventId: event.id,
+                          isLiked: event.isLiked,
+                          accessKey: events.accessKeyFor(
+                            event.id,
+                            fallback: event.accessKey,
+                          ),
+                        );
+                  } catch (error) {
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('$error')),
                       );
-                      context.push(uri.toString());
-                    },
-                    onLikeTap: (event) async {
-                      if (_likeLoadingIds.contains(event.id)) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      setState(() => _likeLoadingIds.add(event.id));
-                      try {
-                        await ref.read(eventsControllerProvider).toggleLike(
-                              eventId: event.id,
-                              isLiked: event.isLiked,
-                              accessKey: events.accessKeyFor(
-                                event.id,
-                                fallback: event.accessKey,
-                              ),
-                            );
-                      } catch (error) {
-                        if (mounted) {
-                          messenger.showSnackBar(
-                            SnackBar(content: Text('$error')),
-                          );
-                        }
-                      } finally {
-                        if (mounted) {
-                          setState(() => _likeLoadingIds.remove(event.id));
-                        } else {
-                          _likeLoadingIds.remove(event.id);
-                        }
-                      }
-                    },
-                  ),
-                ),
+                    }
+                  } finally {
+                    if (mounted) {
+                      setState(() => _likeLoadingIds.remove(event.id));
+                    } else {
+                      _likeLoadingIds.remove(event.id);
+                    }
+                  }
+                },
               ),
             ),
           ),
