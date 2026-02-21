@@ -35,6 +35,7 @@ class PersistedAuthSession {
 class TokenStorage {
   static const _tokenKey = 'gigme_access_token';
   static const _sessionKey = 'gigme_auth_session';
+  static const _telegramInitDataKey = 'gigme_telegram_init_data';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -72,6 +73,26 @@ class TokenStorage {
     await _writeString(_tokenKey, token);
   }
 
+  Future<String?> readTelegramInitData() async {
+    final raw = await _readString(_telegramInitDataKey);
+    final value = (raw ?? '').trim();
+    if (value.isEmpty) return null;
+    return value;
+  }
+
+  Future<void> writeTelegramInitData(String initData) async {
+    final value = initData.trim();
+    if (value.isEmpty) {
+      await _remove(_telegramInitDataKey);
+      return;
+    }
+    await _writeString(_telegramInitDataKey, value);
+  }
+
+  Future<void> clearTelegramInitData() async {
+    await _remove(_telegramInitDataKey);
+  }
+
   Future<void> writeSession({
     required String token,
     required User user,
@@ -86,10 +107,12 @@ class TokenStorage {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_sessionKey);
       await prefs.remove(_tokenKey);
+      await prefs.remove(_telegramInitDataKey);
       return;
     }
     await _secureStorage.delete(key: _sessionKey);
     await _secureStorage.delete(key: _tokenKey);
+    await _secureStorage.delete(key: _telegramInitDataKey);
   }
 
   Future<String?> _readString(String key) async {

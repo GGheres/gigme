@@ -102,7 +102,7 @@ class AuthController extends ChangeNotifier {
     }
 
     if (config.isTelegramWebMode) {
-      final initData = _resolveTelegramInitData();
+      final initData = await _resolveTelegramInitDataOrSaved();
       if (initData == null || initData.isEmpty) {
         _state = AuthState.unauthenticated(
           error:
@@ -117,7 +117,7 @@ class AuthController extends ChangeNotifier {
     }
 
     await _startStandaloneLinkListener();
-    final initData = _resolveTelegramInitData();
+    final initData = await _resolveTelegramInitDataOrSaved();
     if (initData != null && initData.isNotEmpty) {
       await loginWithTelegram(initData);
       return;
@@ -135,7 +135,7 @@ class AuthController extends ChangeNotifier {
 
     try {
       final session = await repository.loginWithTelegram(initData);
-      await _persistSession(session: session);
+      await _persistSession(session: session, telegramInitData: initData);
       _state = AuthState.authenticated(
         token: session.accessToken,
         user: session.user,
@@ -236,7 +236,11 @@ class AuthController extends ChangeNotifier {
       await tokenStorage.writeSession(token: token, user: user);
     } catch (error) {
       if (_isUnauthorizedError(error)) {
-        await logout();
+        final reloginSucceeded =
+            await _reauthenticateWithStoredTelegramInitData();
+        if (!reloginSucceeded) {
+          await logout();
+        }
       }
     }
   }
@@ -291,7 +295,7 @@ class AuthController extends ChangeNotifier {
       }
     }
 
-    final initData = _resolveTelegramInitData();
+    final initData = await _resolveTelegramInitDataOrSaved();
     if (initData == null || initData.isEmpty) {
       _state = AuthState.unauthenticated(
         error: config.isTelegramWebMode
@@ -323,6 +327,11 @@ class AuthController extends ChangeNotifier {
       return true;
     } catch (error) {
       if (_isUnauthorizedError(error)) {
+        final reloginSucceeded =
+            await _reauthenticateWithStoredTelegramInitData();
+        if (reloginSucceeded) {
+          return true;
+        }
         await tokenStorage.clearToken();
         _state = AuthState.unauthenticated();
         notifyListeners();
@@ -349,17 +358,60 @@ class AuthController extends ChangeNotifier {
       return true;
     } catch (error) {
       if (_isUnauthorizedError(error)) {
+        final reloginSucceeded =
+            await _reauthenticateWithStoredTelegramInitData();
+        if (reloginSucceeded) {
+          return true;
+        }
         await tokenStorage.clearToken();
       }
       return false;
     }
   }
 
-  Future<void> _persistSession({required AuthSession session}) {
-    return tokenStorage.writeSession(
+  Future<void> _persistSession({
+    required AuthSession session,
+    String? telegramInitData,
+  }) async {
+    await tokenStorage.writeSession(
       token: session.accessToken,
       user: session.user,
     );
+    if (telegramInitData != null && telegramInitData.trim().isNotEmpty) {
+      await tokenStorage.writeTelegramInitData(telegramInitData);
+      return;
+    }
+    await tokenStorage.clearTelegramInitData();
+  }
+
+  Future<String?> _resolveTelegramInitDataOrSaved() async {
+    final fromRuntime = _resolveTelegramInitData();
+    if (fromRuntime != null && fromRuntime.isNotEmpty) {
+      return fromRuntime;
+    }
+    return tokenStorage.readTelegramInitData();
+  }
+
+  Future<bool> _reauthenticateWithStoredTelegramInitData() async {
+    final initData = await tokenStorage.readTelegramInitData();
+    if (initData == null || initData.isEmpty) {
+      return false;
+    }
+
+    try {
+      final session = await repository.loginWithTelegram(initData);
+      await _persistSession(session: session, telegramInitData: initData);
+      _state = AuthState.authenticated(
+        token: session.accessToken,
+        user: session.user,
+      );
+      notifyListeners();
+      await _claimPendingReferralIfNeeded(token: session.accessToken);
+      return true;
+    } catch (_) {
+      await tokenStorage.clearTelegramInitData();
+      return false;
+    }
   }
 
   bool _isUnauthorizedError(Object error) {
