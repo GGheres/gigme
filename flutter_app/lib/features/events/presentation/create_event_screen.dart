@@ -225,6 +225,30 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     );
   }
 
+  void _resetFormAfterSuccessfulSubmit() {
+    _draftSaveDebounce?.cancel();
+    _submissionCompleted = true;
+
+    _titleCtrl.clear();
+    _descriptionCtrl.clear();
+    _capacityCtrl.clear();
+    _contactTelegramCtrl.clear();
+    _contactWhatsappCtrl.clear();
+    _contactWechatCtrl.clear();
+    _contactMessengerCtrl.clear();
+    _contactSnapchatCtrl.clear();
+
+    _startsAt = null;
+    _endsAt = null;
+    _selectedPoint = null;
+    _isPrivate = false;
+    _showResumeReminder = false;
+    _selectedFilters.clear();
+    _uploadedMedia.clear();
+
+    _submissionCompleted = false;
+  }
+
   Future<void> _persistDraft() async {
     if (_restoringDraft || _submissionCompleted) return;
     _draftSaveDebounce?.cancel();
@@ -683,12 +707,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
       final eventId = await events.createEvent(payload);
       await _draftStore.clear();
       await ref.read(localReminderServiceProvider).cancelCreateEventReminder();
-      _submissionCompleted = true;
+
+      if (!mounted) return;
+      _resetFormAfterSuccessfulSubmit();
+      setState(() {});
 
       final center = ref.read(locationControllerProvider).state.center;
       unawaited(events.refresh(center: center));
-
-      if (!mounted) return;
       await context.push(AppRoutes.event(eventId));
     } catch (error) {
       _showError('$error');
