@@ -1609,8 +1609,10 @@ SELECT
 	count(*) FILTER (WHERE t.redeemed_at IS NOT NULL) AS checked_in_tickets,
 	COALESCE(sum(t.quantity) FILTER (WHERE t.redeemed_at IS NOT NULL), 0) AS checked_in_people
 FROM tickets t
+JOIN orders o ON o.id = t.order_id
 LEFT JOIN events e ON e.id = t.event_id
 WHERE ($1::bigint IS NULL OR t.event_id = $1)
+  AND UPPER(TRIM(o.status)) IN ('PAID', 'CONFIRMED', 'REDEEMED')
 GROUP BY t.event_id, e.title
 ORDER BY t.event_id ASC;`, nullInt64Ptr(eventID))
 	if err != nil {

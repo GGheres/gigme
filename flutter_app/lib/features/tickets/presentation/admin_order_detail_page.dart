@@ -23,15 +23,10 @@ class AdminOrderDetailPage extends ConsumerStatefulWidget {
 }
 
 class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
-  static const int _deleteActivationTapTarget = 5;
-  static const Duration _deleteActivationTapWindow = Duration(seconds: 8);
-
   bool _loading = true;
   bool _busy = false;
   String? _error;
   OrderDetailModel? _detail;
-  int _deleteActivationTapCount = 0;
-  DateTime? _lastDeleteActivationTapAt;
 
   @override
   void initState() {
@@ -165,13 +160,14 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     final order = detail.order;
     final status = order.status;
     final userTelegramId = detail.user?.telegramId ?? 0;
+    final canDelete = status == 'PENDING' ||
+        status == 'PAID' ||
+        status == 'CONFIRMED' ||
+        status == 'CANCELED';
 
     return Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onTap: _registerDeleteActivationTap,
-          child: Text('Заказ ${order.id}'),
-        ),
+        title: Text('Заказ ${order.id}'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
@@ -297,6 +293,14 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
               child: const Text('Отменить заказ'),
             ),
           ],
+          if (canDelete) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _promptDeleteOrder,
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Удалить заказ'),
+            ),
+          ],
         ],
       ),
     );
@@ -326,24 +330,6 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     if (!opened && mounted) {
       _showMessage('Не удалось открыть Telegram');
     }
-  }
-
-  void _registerDeleteActivationTap() {
-    final now = DateTime.now();
-    final lastTap = _lastDeleteActivationTapAt;
-    if (lastTap == null ||
-        now.difference(lastTap) > _deleteActivationTapWindow) {
-      _deleteActivationTapCount = 0;
-    }
-
-    _lastDeleteActivationTapAt = now;
-    _deleteActivationTapCount += 1;
-    if (_deleteActivationTapCount < _deleteActivationTapTarget) {
-      return;
-    }
-
-    _deleteActivationTapCount = 0;
-    unawaited(_promptDeleteOrder());
   }
 
   Future<void> _promptDeleteOrder() async {
@@ -387,7 +373,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
       builder: (context) => AlertDialog(
         title: const Text('Удалить заказ?'),
         content: const Text(
-            'Заказ будет удален из базы без возможности восстановления.'),
+            'Заказ будет удален из базы без возможности восстановления и исчезнет из статистики.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
