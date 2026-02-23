@@ -1167,6 +1167,11 @@ FOR UPDATE;`, orderID).Scan(&status, &promoCodeID); err != nil {
 		}
 
 		if isPaidOrderStatus(status) {
+			type lockedOrderItem struct {
+				itemType string
+				product  string
+				quantity int
+			}
 			rows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
@@ -1176,21 +1181,35 @@ FOR UPDATE;`, orderID)
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			lockedItems := make([]lockedOrderItem, 0, 8)
 			for rows.Next() {
 				var itemType string
 				var productID string
 				var quantity int
 				if err := rows.Scan(&itemType, &productID, &quantity); err != nil {
+					rows.Close()
 					return err
 				}
-				switch itemType {
+				lockedItems = append(lockedItems, lockedOrderItem{
+					itemType: itemType,
+					product:  productID,
+					quantity: quantity,
+				})
+			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				return err
+			}
+			rows.Close()
+
+			for _, item := range lockedItems {
+				switch item.itemType {
 				case models.ItemTypeTicket:
 					if _, err := tx.Exec(ctx, `
 UPDATE ticket_products
 SET sold_count = GREATEST(0, sold_count - $2),
 	updated_at = now()
-WHERE id = $1::uuid;`, productID, quantity); err != nil {
+WHERE id = $1::uuid;`, item.product, item.quantity); err != nil {
 						return err
 					}
 				case models.ItemTypeTransfer:
@@ -1198,13 +1217,10 @@ WHERE id = $1::uuid;`, productID, quantity); err != nil {
 UPDATE transfer_products
 SET sold_count = GREATEST(0, sold_count - $2),
 	updated_at = now()
-WHERE id = $1::uuid;`, productID, quantity); err != nil {
+WHERE id = $1::uuid;`, item.product, item.quantity); err != nil {
 						return err
 					}
 				}
-			}
-			if err := rows.Err(); err != nil {
-				return err
 			}
 		}
 
@@ -1258,6 +1274,11 @@ FOR UPDATE;`, orderID).Scan(&status, &promoCodeID); err != nil {
 		}
 
 		if isPaidOrderStatus(status) || isRedeemedOrderStatus(status) {
+			type lockedOrderItem struct {
+				itemType string
+				product  string
+				quantity int
+			}
 			rows, err := tx.Query(ctx, `
 SELECT item_type, product_id::text, quantity
 FROM order_items
@@ -1267,22 +1288,36 @@ FOR UPDATE;`, orderID)
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			lockedItems := make([]lockedOrderItem, 0, 8)
 
 			for rows.Next() {
 				var itemType string
 				var productID string
 				var quantity int
 				if err := rows.Scan(&itemType, &productID, &quantity); err != nil {
+					rows.Close()
 					return err
 				}
-				switch itemType {
+				lockedItems = append(lockedItems, lockedOrderItem{
+					itemType: itemType,
+					product:  productID,
+					quantity: quantity,
+				})
+			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				return err
+			}
+			rows.Close()
+
+			for _, item := range lockedItems {
+				switch item.itemType {
 				case models.ItemTypeTicket:
 					if _, err := tx.Exec(ctx, `
 UPDATE ticket_products
 SET sold_count = GREATEST(0, sold_count - $2),
 	updated_at = now()
-WHERE id = $1::uuid;`, productID, quantity); err != nil {
+WHERE id = $1::uuid;`, item.product, item.quantity); err != nil {
 						return err
 					}
 				case models.ItemTypeTransfer:
@@ -1290,13 +1325,10 @@ WHERE id = $1::uuid;`, productID, quantity); err != nil {
 UPDATE transfer_products
 SET sold_count = GREATEST(0, sold_count - $2),
 	updated_at = now()
-WHERE id = $1::uuid;`, productID, quantity); err != nil {
+WHERE id = $1::uuid;`, item.product, item.quantity); err != nil {
 						return err
 					}
 				}
-			}
-			if err := rows.Err(); err != nil {
-				return err
 			}
 		}
 
