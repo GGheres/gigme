@@ -10,11 +10,7 @@ class CreateEventDraft {
     required this.title,
     required this.description,
     required this.capacity,
-    required this.contactTelegram,
-    required this.contactWhatsapp,
-    required this.contactWechat,
-    required this.contactMessenger,
-    required this.contactSnapchat,
+    required this.contact,
     required this.startsAt,
     required this.endsAt,
     required this.selectedPoint,
@@ -28,16 +24,22 @@ class CreateEventDraft {
     final lat = map['lat'];
     final lng = map['lng'];
     final hasPoint = lat != null && lng != null;
+    final unifiedContact = asString(map['contact']).trim();
+    final fallbackContact = <String>[
+      asString(map['contactTelegram']),
+      asString(map['contactWhatsapp']),
+      asString(map['contactWechat']),
+      asString(map['contactMessenger']),
+      asString(map['contactSnapchat']),
+    ]
+        .map((item) => item.trim())
+        .firstWhere((item) => item.isNotEmpty, orElse: () => '');
 
     return CreateEventDraft(
       title: asString(map['title']),
       description: asString(map['description']),
       capacity: asString(map['capacity']),
-      contactTelegram: asString(map['contactTelegram']),
-      contactWhatsapp: asString(map['contactWhatsapp']),
-      contactWechat: asString(map['contactWechat']),
-      contactMessenger: asString(map['contactMessenger']),
-      contactSnapchat: asString(map['contactSnapchat']),
+      contact: unifiedContact.isNotEmpty ? unifiedContact : fallbackContact,
       startsAt: asDateTime(map['startsAt']),
       endsAt: asDateTime(map['endsAt']),
       selectedPoint: hasPoint ? LatLng(asDouble(lat), asDouble(lng)) : null,
@@ -58,11 +60,7 @@ class CreateEventDraft {
   final String title;
   final String description;
   final String capacity;
-  final String contactTelegram;
-  final String contactWhatsapp;
-  final String contactWechat;
-  final String contactMessenger;
-  final String contactSnapchat;
+  final String contact;
   final DateTime? startsAt;
   final DateTime? endsAt;
   final LatLng? selectedPoint;
@@ -74,11 +72,7 @@ class CreateEventDraft {
     final hasText = title.trim().isNotEmpty ||
         description.trim().isNotEmpty ||
         capacity.trim().isNotEmpty ||
-        contactTelegram.trim().isNotEmpty ||
-        contactWhatsapp.trim().isNotEmpty ||
-        contactWechat.trim().isNotEmpty ||
-        contactMessenger.trim().isNotEmpty ||
-        contactSnapchat.trim().isNotEmpty;
+        contact.trim().isNotEmpty;
 
     return hasText ||
         startsAt != null ||
@@ -93,11 +87,7 @@ class CreateEventDraft {
       'title': title.trim(),
       'description': description.trim(),
       'capacity': capacity.trim(),
-      'contactTelegram': contactTelegram.trim(),
-      'contactWhatsapp': contactWhatsapp.trim(),
-      'contactWechat': contactWechat.trim(),
-      'contactMessenger': contactMessenger.trim(),
-      'contactSnapchat': contactSnapchat.trim(),
+      'contact': contact.trim(),
       if (startsAt != null) 'startsAt': startsAt!.toIso8601String(),
       if (endsAt != null) 'endsAt': endsAt!.toIso8601String(),
       if (selectedPoint != null) ...<String, dynamic>{

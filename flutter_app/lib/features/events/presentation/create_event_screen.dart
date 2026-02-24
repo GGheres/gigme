@@ -41,11 +41,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
   final _titleCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
   final _capacityCtrl = TextEditingController();
-  final _contactTelegramCtrl = TextEditingController();
-  final _contactWhatsappCtrl = TextEditingController();
-  final _contactWechatCtrl = TextEditingController();
-  final _contactMessengerCtrl = TextEditingController();
-  final _contactSnapchatCtrl = TextEditingController();
+  final _contactCtrl = TextEditingController();
 
   DateTime? _startsAt;
   DateTime? _endsAt;
@@ -65,11 +61,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
         _titleCtrl,
         _descriptionCtrl,
         _capacityCtrl,
-        _contactTelegramCtrl,
-        _contactWhatsappCtrl,
-        _contactWechatCtrl,
-        _contactMessengerCtrl,
-        _contactSnapchatCtrl,
+        _contactCtrl,
       ];
 
   @override
@@ -106,11 +98,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     _titleCtrl.dispose();
     _descriptionCtrl.dispose();
     _capacityCtrl.dispose();
-    _contactTelegramCtrl.dispose();
-    _contactWhatsappCtrl.dispose();
-    _contactWechatCtrl.dispose();
-    _contactMessengerCtrl.dispose();
-    _contactSnapchatCtrl.dispose();
+    _contactCtrl.dispose();
     super.dispose();
   }
 
@@ -176,11 +164,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
         _titleCtrl.text = draft.title;
         _descriptionCtrl.text = draft.description;
         _capacityCtrl.text = draft.capacity;
-        _contactTelegramCtrl.text = draft.contactTelegram;
-        _contactWhatsappCtrl.text = draft.contactWhatsapp;
-        _contactWechatCtrl.text = draft.contactWechat;
-        _contactMessengerCtrl.text = draft.contactMessenger;
-        _contactSnapchatCtrl.text = draft.contactSnapchat;
+        _contactCtrl.text = draft.contact;
         _startsAt = draft.startsAt;
         _endsAt = draft.endsAt;
         _selectedPoint = draft.selectedPoint;
@@ -211,11 +195,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
       title: _titleCtrl.text,
       description: _descriptionCtrl.text,
       capacity: _capacityCtrl.text,
-      contactTelegram: _contactTelegramCtrl.text,
-      contactWhatsapp: _contactWhatsappCtrl.text,
-      contactWechat: _contactWechatCtrl.text,
-      contactMessenger: _contactMessengerCtrl.text,
-      contactSnapchat: _contactSnapchatCtrl.text,
+      contact: _contactCtrl.text,
       startsAt: _startsAt,
       endsAt: _endsAt,
       selectedPoint: _selectedPoint,
@@ -232,11 +212,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     _titleCtrl.clear();
     _descriptionCtrl.clear();
     _capacityCtrl.clear();
-    _contactTelegramCtrl.clear();
-    _contactWhatsappCtrl.clear();
-    _contactWechatCtrl.clear();
-    _contactMessengerCtrl.clear();
-    _contactSnapchatCtrl.clear();
+    _contactCtrl.clear();
 
     _startsAt = null;
     _endsAt = null;
@@ -344,32 +320,17 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
             const SizedBox(height: AppSpacing.md),
             SectionCard(
               title: '3. Контакты',
-              subtitle: 'Укажите минимум один канал связи',
+              subtitle: 'Укажите способ связи в одном поле',
               child: Column(
                 children: [
-                  _ContactField(
-                    controller: _contactTelegramCtrl,
-                    label: 'Telegram @username',
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  _ContactField(
-                    controller: _contactWhatsappCtrl,
-                    label: 'WhatsApp',
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  _ContactField(
-                    controller: _contactWechatCtrl,
-                    label: 'WeChat',
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  _ContactField(
-                    controller: _contactMessengerCtrl,
-                    label: 'Messenger',
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  _ContactField(
-                    controller: _contactSnapchatCtrl,
-                    label: 'Snapchat',
+                  InputField(
+                    controller: _contactCtrl,
+                    maxLength: 120,
+                    label: 'Контакт',
+                    hint:
+                        '@telegram, +7986342232, user@email.com, snapchat:username, messenger:username',
+                    validator: (value) =>
+                        _validateUnifiedContact((value ?? '').trim()),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   SwitchListTile.adaptive(
@@ -657,22 +618,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
       return;
     }
 
-    final contacts = [
-      _contactTelegramCtrl.text.trim(),
-      _contactWhatsappCtrl.text.trim(),
-      _contactWechatCtrl.text.trim(),
-      _contactMessengerCtrl.text.trim(),
-      _contactSnapchatCtrl.text.trim(),
-    ];
-    final hasAnyContact = contacts.any((v) => v.isNotEmpty);
-    if (!hasAnyContact) {
-      _showError('Укажите хотя бы один контакт');
+    final contact = _contactCtrl.text.trim();
+    final contactValidationError = _validateUnifiedContact(contact);
+    if (contactValidationError != null) {
+      _showError(contactValidationError);
       return;
     }
-    if (contacts.any((v) => v.length > 120)) {
-      _showError('Слишком длинный контакт (максимум 120 символов)');
-      return;
-    }
+    final resolvedContact = _resolveContactPayload(contact);
 
     final capacity = int.tryParse(_capacityCtrl.text.trim());
     if (_capacityCtrl.text.trim().isNotEmpty &&
@@ -694,11 +646,11 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
         media: _uploadedMedia.map((item) => item.fileUrl).toList(),
         filters: _selectedFilters,
         isPrivate: _isPrivate,
-        contactTelegram: _contactTelegramCtrl.text.trim(),
-        contactWhatsapp: _contactWhatsappCtrl.text.trim(),
-        contactWechat: _contactWechatCtrl.text.trim(),
-        contactFbMessenger: _contactMessengerCtrl.text.trim(),
-        contactSnapchat: _contactSnapchatCtrl.text.trim(),
+        contactTelegram: resolvedContact.contactTelegram,
+        contactWhatsapp: resolvedContact.contactWhatsapp,
+        contactWechat: null,
+        contactFbMessenger: resolvedContact.contactFbMessenger,
+        contactSnapchat: resolvedContact.contactSnapchat,
         addressLabel:
             '${selectedPoint.latitude.toStringAsFixed(5)}, ${selectedPoint.longitude.toStringAsFixed(5)}',
       );
@@ -728,6 +680,62 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     if (!mounted) return;
     AppToast.show(context, message: message, tone: AppToastTone.error);
   }
+
+  String? _validateUnifiedContact(String value) {
+    if (value.isEmpty) {
+      return 'Укажите контакт';
+    }
+    if (_runeLength(value) > 120) {
+      return 'Контакт не должен превышать 120 символов';
+    }
+    if (_isSupportedContact(value)) {
+      return null;
+    }
+    return 'Используйте формат @telegram, +7986342232, email, snapchat или messenger';
+  }
+
+  bool _isSupportedContact(String value) {
+    return _telegramContactPattern.hasMatch(value) ||
+        _phoneContactPattern.hasMatch(value) ||
+        _emailContactPattern.hasMatch(value) ||
+        _snapchatContactPattern.hasMatch(value) ||
+        _messengerContactPattern.hasMatch(value);
+  }
+
+  _ResolvedContactPayload _resolveContactPayload(String value) {
+    if (_telegramContactPattern.hasMatch(value)) {
+      return _ResolvedContactPayload(contactTelegram: value);
+    }
+    if (_phoneContactPattern.hasMatch(value)) {
+      return _ResolvedContactPayload(contactWhatsapp: value);
+    }
+    if (_emailContactPattern.hasMatch(value)) {
+      return _ResolvedContactPayload(contactFbMessenger: value);
+    }
+    if (_snapchatContactPattern.hasMatch(value)) {
+      return _ResolvedContactPayload(contactSnapchat: value);
+    }
+    return _ResolvedContactPayload(contactFbMessenger: value);
+  }
+
+  int _runeLength(String value) {
+    return value.runes.length;
+  }
+
+  static final RegExp _telegramContactPattern =
+      RegExp(r'^@[a-zA-Z0-9_]{3,32}$');
+  static final RegExp _phoneContactPattern =
+      RegExp(r'^\+[0-9][0-9\s\-()]{6,19}$');
+  static final RegExp _emailContactPattern =
+      RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+  static final RegExp _snapchatContactPattern = RegExp(
+    r'^snapchat\s*[:@-]?\s*[a-zA-Z0-9._-]{2,32}$',
+    caseSensitive: false,
+  );
+  static final RegExp _messengerContactPattern = RegExp(
+    r'^messenger\s*[:@-]?\s*.+$',
+    caseSensitive: false,
+  );
 }
 
 class _UploadedMedia {
@@ -744,23 +752,18 @@ class _UploadedMedia {
   final Uint8List? previewBytes;
 }
 
-class _ContactField extends StatelessWidget {
-  const _ContactField({
-    required this.controller,
-    required this.label,
+class _ResolvedContactPayload {
+  const _ResolvedContactPayload({
+    this.contactTelegram,
+    this.contactWhatsapp,
+    this.contactFbMessenger,
+    this.contactSnapchat,
   });
 
-  final TextEditingController controller;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputField(
-      controller: controller,
-      maxLength: 120,
-      label: label,
-    );
-  }
+  final String? contactTelegram;
+  final String? contactWhatsapp;
+  final String? contactFbMessenger;
+  final String? contactSnapchat;
 }
 
 class _DateTimeField extends StatelessWidget {
