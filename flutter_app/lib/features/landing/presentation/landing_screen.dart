@@ -731,9 +731,15 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
   Future<void> _openTelegramLogin(Uri uri) async {
     if (kIsWeb) {
-      final opened = TelegramWebAppBridge.openPopup(uri.toString());
+      final uriString = uri.toString();
+      if (TelegramWebAppBridge.isLikelyMobileBrowser()) {
+        TelegramWebAppBridge.redirect(uriString);
+        return;
+      }
+
+      final opened = TelegramWebAppBridge.openPopup(uriString);
       if (!opened) {
-        TelegramWebAppBridge.redirect(uri.toString());
+        TelegramWebAppBridge.redirect(uriString);
       }
       return;
     }

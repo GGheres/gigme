@@ -39,6 +39,18 @@ void main() {
       expect(credentials.deviceId, 'device-1');
     });
 
+    test('parses code and device when state is missing', () {
+      final uri = Uri.parse(
+        'https://spacefestival.fun/space_app/auth?code=abc&device_id=device-1',
+      );
+
+      final credentials = parseVkAuthCodeCredentialsFromUri(uri);
+      expect(credentials, isNotNull);
+      expect(credentials!.code, 'abc');
+      expect(credentials.state, isEmpty);
+      expect(credentials.deviceId, 'device-1');
+    });
+
     test('parses code flow params from payload json', () {
       final payload = Uri.encodeQueryComponent(
         '{"code":"abc","state":"signed.device","device_id":"device-1"}',

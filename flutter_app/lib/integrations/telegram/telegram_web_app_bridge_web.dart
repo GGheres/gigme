@@ -37,6 +37,21 @@ String? startParam() {
   return _readTrimmedJsString(unsafe['startParam']);
 }
 
+bool isLikelyMobileBrowser() {
+  final navigator = globalContext['navigator'];
+  if (navigator is! JSObject) return false;
+
+  final userAgent =
+      _readTrimmedJsString(navigator['userAgent'])?.toLowerCase() ?? '';
+  if (userAgent.isEmpty) return false;
+
+  return userAgent.contains('android') ||
+      userAgent.contains('iphone') ||
+      userAgent.contains('ipad') ||
+      userAgent.contains('ipod') ||
+      userAgent.contains('mobile');
+}
+
 void openLink(String url) {
   final app = _webApp();
   final trimmed = url.trim();

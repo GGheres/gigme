@@ -4,6 +4,8 @@ String? getInitData() => null;
 
 String? startParam() => null;
 
+bool isLikelyMobileBrowser() => false;
+
 void openLink(String url) {}
 
 bool openPopup(String url) => false;

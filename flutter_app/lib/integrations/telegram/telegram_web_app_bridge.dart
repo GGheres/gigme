@@ -8,6 +8,8 @@ class TelegramWebAppBridge {
 
   static String? startParam() => bridge.startParam();
 
+  static bool isLikelyMobileBrowser() => bridge.isLikelyMobileBrowser();
+
   static void openLink(String url) => bridge.openLink(url);
 
   static bool openPopup(String url) => bridge.openPopup(url);

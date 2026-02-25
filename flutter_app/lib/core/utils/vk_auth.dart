@@ -73,7 +73,7 @@ VkAuthCodeCredentials? parseVkAuthCodeCredentialsFromUri(Uri? uri) {
         : deviceId;
   }
 
-  if (code.isEmpty || state.isEmpty || deviceId.isEmpty) {
+  if (code.isEmpty || deviceId.isEmpty) {
     return null;
   }
 

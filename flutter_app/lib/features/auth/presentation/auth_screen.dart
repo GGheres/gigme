@@ -147,13 +147,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           outline: true,
                           onPressed: () async {
                             if (kIsWeb) {
-                              final opened = TelegramWebAppBridge.openPopup(
-                                standaloneHelperUri.toString(),
-                              );
+                              final uriString = standaloneHelperUri.toString();
+                              if (TelegramWebAppBridge
+                                  .isLikelyMobileBrowser()) {
+                                TelegramWebAppBridge.redirect(uriString);
+                                return;
+                              }
+
+                              final opened =
+                                  TelegramWebAppBridge.openPopup(uriString);
                               if (!opened) {
-                                TelegramWebAppBridge.redirect(
-                                  standaloneHelperUri.toString(),
-                                );
+                                TelegramWebAppBridge.redirect(uriString);
                               }
                               return;
                             }
