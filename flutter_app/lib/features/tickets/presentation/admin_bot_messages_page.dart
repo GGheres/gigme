@@ -102,15 +102,18 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
 
   /// _promptReply handles prompt reply.
 
-  Future<void> _promptReply(int chatId) async {
+  Future<void> _promptReply(AdminBotMessageModel item) async {
     if (_sending) return;
+    final chatId = item.chatId;
+    final contact = item.contactLabel.trim();
+    final title = contact.isEmpty ? 'Ответ пользователю' : 'Ответ $contact';
 
     final textCtrl = TextEditingController();
     final message = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Ответ пользователю $chatId'),
+          title: Text(title),
           content: TextField(
             controller: textCtrl,
             autofocus: true,
@@ -263,7 +266,7 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
                                       ],
                                     ),
                                     Text(
-                                      'Чат ${item.chatId} · ${item.contactLabel}',
+                                      item.contactLabel,
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleSmall,
@@ -278,7 +281,7 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
                                         FilledButton.tonalIcon(
                                           onPressed: _sending
                                               ? null
-                                              : () => _promptReply(item.chatId),
+                                              : () => _promptReply(item),
                                           icon: const Icon(Icons.reply_rounded),
                                           label: const Text('Ответить'),
                                         ),

@@ -463,6 +463,13 @@ class OrderUserModel {
   final String lastName;
   final String username;
 
+  /// usernameLabel handles username label.
+  String get usernameLabel {
+    final normalized = username.trim();
+    if (normalized.isEmpty) return '';
+    return '@$normalized';
+  }
+
   /// displayName handles display name.
 
   String get displayName {
@@ -715,23 +722,22 @@ class AdminBotMessageModel {
   /// contactLabel handles contact label.
 
   String get contactLabel {
+    if (userUsername.trim().isNotEmpty) return '@${userUsername.trim()}';
+    if (senderUsername.trim().isNotEmpty) return '@${senderUsername.trim()}';
+
     final userFullName = [userFirstName, userLastName]
         .where((item) => item.trim().isNotEmpty)
         .join(' ')
         .trim();
     if (userFullName.isNotEmpty) return userFullName;
-    if (userUsername.trim().isNotEmpty) return '@${userUsername.trim()}';
 
     final senderFullName = [senderFirstName, senderLastName]
         .where((item) => item.trim().isNotEmpty)
         .join(' ')
         .trim();
     if (senderFullName.isNotEmpty) return senderFullName;
-    if (senderUsername.trim().isNotEmpty) return '@${senderUsername.trim()}';
-    if (senderTelegramId != null && senderTelegramId! > 0) {
-      return 'TG ${senderTelegramId!}';
-    }
-    return 'TG $chatId';
+    if (userId != null && userId! > 0) return 'Пользователь #${userId!}';
+    return 'Пользователь';
   }
 }
 

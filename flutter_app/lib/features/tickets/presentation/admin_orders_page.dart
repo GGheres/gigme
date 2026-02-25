@@ -169,6 +169,17 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                             final order = item.order;
                             final status = order.status;
                             final userTelegramId = item.user?.telegramId ?? 0;
+                            final userDisplay = item.user?.displayName ??
+                                'Пользователь #${order.userId}';
+                            final userHandle = item.user?.usernameLabel ?? '';
+                            final subtitleLines = <String>[
+                              'Заказ ${order.id}',
+                              userDisplay,
+                            ];
+                            if (userHandle.isNotEmpty &&
+                                userHandle != userDisplay.trim()) {
+                              subtitleLines.add(userHandle);
+                            }
                             return Container(
                               margin: const EdgeInsets.only(bottom: 10),
                               decoration: BoxDecoration(
@@ -183,7 +194,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                                     ? 'Событие #${order.eventId}'
                                     : order.eventTitle),
                                 subtitle: Text(
-                                  'Заказ ${order.id}\n${item.user?.displayName ?? 'Пользователь #${order.userId}'}${userTelegramId > 0 ? '\nTG $userTelegramId' : ''}',
+                                  subtitleLines.join('\n'),
                                 ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
