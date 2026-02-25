@@ -255,6 +255,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
+/// _authRouteWithNext authenticates route with next.
+
 String? _authRouteWithNext({
   required Uri targetUri,
   required bool alreadyInAuth,
@@ -266,6 +268,8 @@ String? _authRouteWithNext({
   }
   return Uri(path: AppRoutes.auth, queryParameters: {'next': next}).toString();
 }
+
+/// _readAuthNext reads auth next.
 
 String? _readAuthNext(Uri authUri) {
   final rawQueryNext = authUri.queryParameters['next']?.trim() ?? '';
@@ -290,6 +294,8 @@ String? _readAuthNext(Uri authUri) {
   }
   return out;
 }
+
+/// _extractStateFromAuthUri extracts state from auth uri.
 
 String? _extractStateFromAuthUri(Uri authUri) {
   final fromQuery = authUri.queryParameters['state']?.trim() ?? '';
@@ -317,6 +323,8 @@ String? _extractStateFromAuthUri(Uri authUri) {
   return null;
 }
 
+/// _extractNextFromSignedVKState extracts next from signed v k state.
+
 String? _extractNextFromSignedVKState(String state) {
   final raw = state.trim();
   if (raw.isEmpty) return null;
@@ -340,6 +348,8 @@ String? _extractNextFromSignedVKState(String state) {
   }
 }
 
+/// _normalizeBase64 normalizes base64.
+
 String _normalizeBase64(String source) {
   final normalized = source.replaceAll('-', '+').replaceAll('_', '/');
   final remainder = normalized.length % 4;
@@ -348,6 +358,8 @@ String _normalizeBase64(String source) {
   }
   return normalized.padRight(normalized.length + (4 - remainder), '=');
 }
+
+/// _normalizeAppLocation normalizes app location.
 
 String? _normalizeAppLocation(Uri uri) {
   final path = uri.path.trim();
@@ -363,6 +375,8 @@ String? _normalizeAppLocation(Uri uri) {
   }
   return out;
 }
+
+/// _startupEventLocation handles startup event location.
 
 String? _startupEventLocation({
   required int? eventId,
@@ -383,6 +397,8 @@ String? _startupEventLocation({
   );
   return uri.toString();
 }
+
+/// _noTransitionPage handles no transition page.
 
 Page<void> _noTransitionPage(
   GoRouterState state,

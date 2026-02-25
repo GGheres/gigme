@@ -8,8 +8,13 @@ import 'theme_mode_provider.dart';
 import 'theme.dart';
 import '../ui/layout/app_background.dart';
 
+/// GigMeApp represents gig me app.
+
 class GigMeApp extends ConsumerWidget {
+  /// GigMeApp handles gig me app.
   const GigMeApp({super.key});
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

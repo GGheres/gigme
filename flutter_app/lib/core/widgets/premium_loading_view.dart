@@ -5,7 +5,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+/// PremiumLoadingView represents premium loading view.
+
 class PremiumLoadingView extends StatefulWidget {
+  /// PremiumLoadingView handles premium loading view.
   const PremiumLoadingView({
     super.key,
     this.text = 'SPACE • LOADING • ',
@@ -19,9 +22,13 @@ class PremiumLoadingView extends StatefulWidget {
   final bool compact;
   final bool blackBackdrop;
 
+  /// createState creates state.
+
   @override
   State<PremiumLoadingView> createState() => _PremiumLoadingViewState();
 }
+
+/// _PremiumLoadingViewState represents premium loading view state.
 
 class _PremiumLoadingViewState extends State<PremiumLoadingView>
     with SingleTickerProviderStateMixin {
@@ -91,7 +98,10 @@ class _PremiumLoadingViewState extends State<PremiumLoadingView>
   }
 }
 
+/// _PremiumLoadingTuning represents premium loading tuning.
+
 class _PremiumLoadingTuning {
+  /// _PremiumLoadingTuning handles premium loading tuning.
   const _PremiumLoadingTuning._();
 
   static const double effectsTimelineSec = 120;
@@ -112,7 +122,10 @@ class _PremiumLoadingTuning {
   static const double compactOrbitMax = 190;
 }
 
+/// _PremiumFrameEffect represents premium frame effect.
+
 class _PremiumFrameEffect extends StatelessWidget {
+  /// _PremiumFrameEffect handles premium frame effect.
   const _PremiumFrameEffect({
     required this.text,
     required this.timeline,
@@ -124,6 +137,8 @@ class _PremiumFrameEffect extends StatelessWidget {
   final Animation<double> timeline;
   final bool reduceMotion;
   final Widget child;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +179,10 @@ class _PremiumFrameEffect extends StatelessWidget {
   }
 }
 
+/// _AnimatedGrainOverlay represents animated grain overlay.
+
 class _AnimatedGrainOverlay extends StatefulWidget {
+  /// _AnimatedGrainOverlay handles animated grain overlay.
   const _AnimatedGrainOverlay({
     required this.opacity,
     required this.fps,
@@ -173,20 +191,28 @@ class _AnimatedGrainOverlay extends StatefulWidget {
   final double opacity;
   final double fps;
 
+  /// createState creates state.
+
   @override
   State<_AnimatedGrainOverlay> createState() => _AnimatedGrainOverlayState();
 }
+
+/// _AnimatedGrainOverlayState represents animated grain overlay state.
 
 class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
   final List<ui.Image> _frames = <ui.Image>[];
   Timer? _timer;
   int _frameIndex = 0;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_prepareFrames());
   }
+
+  /// didUpdateWidget handles did update widget.
 
   @override
   void didUpdateWidget(covariant _AnimatedGrainOverlay oldWidget) {
@@ -196,11 +222,15 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
     }
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
+
+  /// _prepareFrames handles prepare frames.
 
   Future<void> _prepareFrames() async {
     const frameCount = 8;
@@ -225,6 +255,8 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
     });
     _startTicker();
   }
+
+  /// _generateNoiseImage handles generate noise image.
 
   Future<ui.Image> _generateNoiseImage({
     required int frameSize,
@@ -255,6 +287,8 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
     return completer.future;
   }
 
+  /// _startTicker handles start ticker.
+
   void _startTicker() {
     _timer?.cancel();
     final fps = widget.fps.clamp(1.0, 12.0);
@@ -266,6 +300,8 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
       });
     });
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +318,10 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
   }
 }
 
+/// _GrainOverlayPainter represents grain overlay painter.
+
 class _GrainOverlayPainter extends CustomPainter {
+  /// _GrainOverlayPainter handles grain overlay painter.
   const _GrainOverlayPainter({
     required this.image,
     required this.opacity,
@@ -292,6 +331,8 @@ class _GrainOverlayPainter extends CustomPainter {
   final ui.Image image;
   final double opacity;
   final int frameIndex;
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -318,6 +359,8 @@ class _GrainOverlayPainter extends CustomPainter {
     canvas.drawImageRect(image, src, dst, paint);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant _GrainOverlayPainter oldDelegate) {
     return oldDelegate.image != image ||
@@ -326,7 +369,10 @@ class _GrainOverlayPainter extends CustomPainter {
   }
 }
 
+/// _PremiumFramePainter represents premium frame painter.
+
 class _PremiumFramePainter extends CustomPainter {
+  /// _PremiumFramePainter handles premium frame painter.
   const _PremiumFramePainter({
     required this.text,
     required this.timeSec,
@@ -344,6 +390,8 @@ class _PremiumFramePainter extends CustomPainter {
   final double timeSec;
   final bool reduceMotion;
 
+  /// paint draws painter output on the canvas.
+
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
@@ -351,6 +399,8 @@ class _PremiumFramePainter extends CustomPainter {
     final breath = _breathValue(timeSec);
     _drawTickerText(canvas: canvas, frame: frame, breath: breath);
   }
+
+  /// _drawTickerText handles draw ticker text.
 
   void _drawTickerText({
     required Canvas canvas,
@@ -451,6 +501,8 @@ class _PremiumFramePainter extends CustomPainter {
     }
   }
 
+  /// _resolveFramePath handles resolve frame path.
+
   _FramePathData _resolveFramePath(Size size) {
     final radius = ((size.shortestSide * 0.5) - 6).clamp(18.0, 180.0);
     final key = [
@@ -480,6 +532,8 @@ class _PremiumFramePainter extends CustomPainter {
     }
     return out;
   }
+
+  /// _glyphPainter handles glyph painter.
 
   TextPainter _glyphPainter({
     required String glyph,
@@ -538,6 +592,8 @@ class _PremiumFramePainter extends CustomPainter {
     return painter;
   }
 
+  /// _glyphWidth handles glyph width.
+
   double _glyphWidth({
     required String glyph,
     required double fontSize,
@@ -565,12 +621,16 @@ class _PremiumFramePainter extends CustomPainter {
     return painter.width;
   }
 
+  /// _breathValue handles breath value.
+
   double _breathValue(double timeSeconds) {
     final phase = (timeSeconds / _PremiumLoadingTuning.globalBreathPeriodSec) *
         math.pi *
         2;
     return 0.5 + (0.5 * math.sin(phase));
   }
+
+  /// _gaussianOnLoop handles gaussian on loop.
 
   double _gaussianOnLoop({
     required double s,
@@ -585,6 +645,8 @@ class _PremiumFramePainter extends CustomPainter {
     return math.exp(-(d * d) / denom);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return oldDelegate is! _PremiumFramePainter ||
@@ -594,7 +656,10 @@ class _PremiumFramePainter extends CustomPainter {
   }
 }
 
+/// _FramePathData represents frame path data.
+
 class _FramePathData {
+  /// _FramePathData handles frame path data.
   const _FramePathData({
     required this.rect,
     required this.center,

@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// TestNormalizeWebAppBaseURL verifies that host-only URLs get the `/space_app` path.
 func TestNormalizeWebAppBaseURL(t *testing.T) {
 	got := normalizeWebAppBaseURL("https://spacefestival.fun")
 	want := "https://spacefestival.fun/space_app"
@@ -13,6 +14,7 @@ func TestNormalizeWebAppBaseURL(t *testing.T) {
 	}
 }
 
+// TestNormalizeWebAppBaseURLDropsQueryAndFragment ensures query/fragment parts are stripped.
 func TestNormalizeWebAppBaseURLDropsQueryAndFragment(t *testing.T) {
 	got := normalizeWebAppBaseURL("https://spacefestival.fun/?foo=bar#x=1")
 	want := "https://spacefestival.fun/space_app"
@@ -21,6 +23,7 @@ func TestNormalizeWebAppBaseURLDropsQueryAndFragment(t *testing.T) {
 	}
 }
 
+// TestBuildEventURLUsesSpaceAppPath validates event deeplink composition for web app path and params.
 func TestBuildEventURLUsesSpaceAppPath(t *testing.T) {
 	link := buildEventURL(normalizeWebAppBaseURL("https://spacefestival.fun"), 42, "abc_123")
 	parsed, err := url.Parse(link)
@@ -38,6 +41,7 @@ func TestBuildEventURLUsesSpaceAppPath(t *testing.T) {
 	}
 }
 
+// TestParseAdminReplyCommand verifies `/reply <chat_id> <text>` command parsing.
 func TestParseAdminReplyCommand(t *testing.T) {
 	chatID, replyText, ok := parseAdminReplyCommand("/reply 12345 спасибо за сообщение")
 	if !ok {
@@ -51,6 +55,7 @@ func TestParseAdminReplyCommand(t *testing.T) {
 	}
 }
 
+// TestParseAdminReplyTargetCommand verifies parsing of the reply target command.
 func TestParseAdminReplyTargetCommand(t *testing.T) {
 	chatID, ok := parseAdminReplyTargetCommand("/reply 54321")
 	if !ok {
@@ -61,6 +66,7 @@ func TestParseAdminReplyTargetCommand(t *testing.T) {
 	}
 }
 
+// TestParseAdminReplyCallbackData checks both direct reply and hint callback formats.
 func TestParseAdminReplyCallbackData(t *testing.T) {
 	chatID, isHint, ok := parseAdminReplyCallbackData("reply:111")
 	if !ok || isHint {
@@ -79,6 +85,7 @@ func TestParseAdminReplyCallbackData(t *testing.T) {
 	}
 }
 
+// TestParseAdminReplyPayload verifies payload decoding for reply deep links.
 func TestParseAdminReplyPayload(t *testing.T) {
 	chatID, ok := parseAdminReplyPayload("reply_998877")
 	if !ok {
@@ -89,6 +96,7 @@ func TestParseAdminReplyPayload(t *testing.T) {
 	}
 }
 
+// TestParseStartPayloadSkipsReplyPayload confirms reply payload is ignored by event start parser.
 func TestParseStartPayloadSkipsReplyPayload(t *testing.T) {
 	eventID, key := parseStartPayload("reply_123")
 	if eventID != 0 || key != "" {

@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// TestTokenManagerRefreshesBeforeUse verifies token manager refreshes before use behavior.
 func TestTokenManagerRefreshesBeforeUse(t *testing.T) {
 	t.Parallel()
 

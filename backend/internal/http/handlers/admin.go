@@ -17,10 +17,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// hideRequest represents hide request.
 type hideRequest struct {
 	Hidden bool `json:"hidden"`
 }
 
+// updateEventRequest represents update event request.
 type updateEventRequest struct {
 	Title              *string  `json:"title"`
 	Description        *string  `json:"description"`
@@ -39,31 +41,37 @@ type updateEventRequest struct {
 	ContactSnapchat    *string  `json:"contactSnapchat"`
 }
 
+// adminBlockRequest represents admin block request.
 type adminBlockRequest struct {
 	Reason string `json:"reason"`
 }
 
+// adminUsersResponse represents admin users response.
 type adminUsersResponse struct {
 	Items []models.AdminUser `json:"items"`
 	Total int                `json:"total"`
 }
 
+// adminUserDetailResponse represents admin user detail response.
 type adminUserDetailResponse struct {
 	User          models.AdminUser   `json:"user"`
 	CreatedEvents []models.UserEvent `json:"createdEvents"`
 }
 
+// broadcastButton represents broadcast button.
 type broadcastButton struct {
 	Text string `json:"text"`
 	URL  string `json:"url"`
 }
 
+// broadcastFilters represents broadcast filters.
 type broadcastFilters struct {
 	Blocked       *bool   `json:"blocked"`
 	MinBalance    *int64  `json:"minBalance"`
 	LastSeenAfter *string `json:"lastSeenAfter"`
 }
 
+// createBroadcastRequest represents create broadcast request.
 type createBroadcastRequest struct {
 	Audience string            `json:"audience"`
 	UserIDs  []int64           `json:"userIds"`
@@ -72,6 +80,7 @@ type createBroadcastRequest struct {
 	Buttons  []broadcastButton `json:"buttons"`
 }
 
+// createBroadcastResponse represents create broadcast response.
 type createBroadcastResponse struct {
 	BroadcastID int64 `json:"broadcastId"`
 	Targets     int64 `json:"targets"`
@@ -79,6 +88,7 @@ type createBroadcastResponse struct {
 
 const maxBroadcastMessageLength = 4096
 
+// requireAdmin handles require admin.
 func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *http.Request, action string) (int64, bool) {
 	telegramID, ok := middleware.TelegramIDFromContext(r.Context())
 	if !ok {
@@ -97,6 +107,7 @@ func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *ht
 	return telegramID, true
 }
 
+// ListAdminUsers lists admin users.
 func (h *Handler) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_users"); !ok {
@@ -138,6 +149,7 @@ func (h *Handler) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, adminUsersResponse{Items: items, Total: total})
 }
 
+// GetAdminUser returns admin user.
 func (h *Handler) GetAdminUser(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_get_user"); !ok {
@@ -171,6 +183,7 @@ func (h *Handler) GetAdminUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, adminUserDetailResponse{User: user, CreatedEvents: events})
 }
 
+// BlockUser handles block user.
 func (h *Handler) BlockUser(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_block_user"); !ok {
@@ -198,6 +211,7 @@ func (h *Handler) BlockUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// UnblockUser handles unblock user.
 func (h *Handler) UnblockUser(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_unblock_user"); !ok {
@@ -219,6 +233,7 @@ func (h *Handler) UnblockUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// CreateBroadcast creates broadcast.
 func (h *Handler) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_create_broadcast"); !ok {
@@ -312,6 +327,7 @@ func (h *Handler) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, createBroadcastResponse{BroadcastID: broadcastID, Targets: targets})
 }
 
+// StartBroadcast handles start broadcast.
 func (h *Handler) StartBroadcast(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_start_broadcast"); !ok {
@@ -342,6 +358,7 @@ func (h *Handler) StartBroadcast(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// ListBroadcasts lists broadcasts.
 func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_broadcasts"); !ok {
@@ -373,6 +390,7 @@ func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetBroadcast returns broadcast.
 func (h *Handler) GetBroadcast(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_get_broadcast"); !ok {
@@ -399,6 +417,7 @@ func (h *Handler) GetBroadcast(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+// HideEvent handles hide event.
 func (h *Handler) HideEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "hide_event"); !ok {
@@ -431,6 +450,7 @@ func (h *Handler) HideEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// UpdateEventAdmin updates event admin.
 func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_update_event"); !ok {
@@ -657,6 +677,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// DeleteEventAdmin deletes event admin.
 func (h *Handler) DeleteEventAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_event"); !ok {
@@ -688,6 +709,7 @@ func (h *Handler) DeleteEventAdmin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// DeleteEventCommentAdmin deletes event comment admin.
 func (h *Handler) DeleteEventCommentAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_comment"); !ok {

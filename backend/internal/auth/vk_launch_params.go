@@ -13,12 +13,14 @@ import (
 
 var ErrInvalidVKLaunchParams = errors.New("invalid vk launch params")
 
+// VKLaunchParams represents v k launch params.
 type VKLaunchParams struct {
 	UserID   int64
 	AppID    int64
 	Platform string
 }
 
+// ValidateVKLaunchParams validates v k launch params.
 func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParams, error) {
 	raw := strings.TrimSpace(querySearch)
 	if raw == "" {
@@ -71,6 +73,7 @@ func ValidateVKLaunchParams(querySearch string, secretKey string) (VKLaunchParam
 	}, nil
 }
 
+// collectVKLaunchSignParams handles collect v k launch sign params.
 func collectVKLaunchSignParams(parsed url.Values) url.Values {
 	out := make(url.Values)
 	for key, values := range parsed {
@@ -84,6 +87,7 @@ func collectVKLaunchSignParams(parsed url.Values) url.Values {
 	return out
 }
 
+// calculateVKLaunchSign handles calculate v k launch sign.
 func calculateVKLaunchSign(params url.Values, secretKey string) string {
 	mac := hmac.New(sha256.New, []byte(secretKey))
 	_, _ = mac.Write([]byte(params.Encode()))
@@ -93,6 +97,7 @@ func calculateVKLaunchSign(params url.Values, secretKey string) string {
 	return strings.TrimRight(hash, "=")
 }
 
+// invalidVKLaunchParams handles invalid v k launch params.
 func invalidVKLaunchParams(reason string) error {
 	if strings.TrimSpace(reason) == "" {
 		return ErrInvalidVKLaunchParams
@@ -100,6 +105,7 @@ func invalidVKLaunchParams(reason string) error {
 	return fmt.Errorf("%w: %s", ErrInvalidVKLaunchParams, reason)
 }
 
+// BuildVKMiniAppUsername builds v k mini app username.
 func BuildVKMiniAppUsername(viewerID int64) string {
 	if viewerID <= 0 {
 		return "vk_user"

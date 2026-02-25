@@ -16,11 +16,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// landingEventsResponse represents landing events response.
 type landingEventsResponse struct {
 	Items []landingEventItem `json:"items"`
 	Total int                `json:"total"`
 }
 
+// landingEventItem represents landing event item.
 type landingEventItem struct {
 	ID                int64   `json:"id"`
 	Title             string  `json:"title"`
@@ -37,10 +39,12 @@ type landingEventItem struct {
 	AppURL            string  `json:"appUrl"`
 }
 
+// setLandingPublishRequest represents set landing publish request.
 type setLandingPublishRequest struct {
 	Published *bool `json:"published"`
 }
 
+// landingContentResponse represents landing content response.
 type landingContentResponse struct {
 	HeroEyebrow         string `json:"heroEyebrow"`
 	HeroTitle           string `json:"heroTitle"`
@@ -53,6 +57,7 @@ type landingContentResponse struct {
 	FooterText          string `json:"footerText"`
 }
 
+// upsertLandingContentRequest represents upsert landing content request.
 type upsertLandingContentRequest struct {
 	HeroEyebrow         *string `json:"heroEyebrow"`
 	HeroTitle           *string `json:"heroTitle"`
@@ -77,6 +82,7 @@ const (
 	landingDefaultFooterText          = "SPACE"
 )
 
+// LandingEvents handles landing events.
 func (h *Handler) LandingEvents(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 
@@ -146,6 +152,7 @@ func (h *Handler) LandingEvents(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// LandingContent handles landing content.
 func (h *Handler) LandingContent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	ctx, cancel := h.withTimeout(r.Context())
@@ -160,6 +167,7 @@ func (h *Handler) LandingContent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, landingContentToResponse(content))
 }
 
+// UpsertLandingContent handles upsert landing content.
 func (h *Handler) UpsertLandingContent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_upsert_landing_content"); !ok {
@@ -213,6 +221,7 @@ func (h *Handler) UpsertLandingContent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// SetEventLandingPublished sets event landing published.
 func (h *Handler) SetEventLandingPublished(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_set_landing_published"); !ok {
@@ -278,6 +287,7 @@ func (h *Handler) SetEventLandingPublished(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// buildLandingAppURL builds landing app u r l.
 func buildLandingAppURL(baseURL string, eventID int64, eventKey string) string {
 	query := url.Values{
 		"eventId": {strconv.FormatInt(eventID, 10)},
@@ -302,6 +312,7 @@ func buildLandingAppURL(baseURL string, eventID int64, eventKey string) string {
 	return parsed.String()
 }
 
+// buildLandingTicketURL builds landing ticket u r l.
 func buildLandingTicketURL(botUsername string, eventID int64, eventKey string, fallbackAppURL string) string {
 	username := strings.TrimPrefix(strings.TrimSpace(botUsername), "@")
 	if username == "" {
@@ -311,6 +322,7 @@ func buildLandingTicketURL(botUsername string, eventID int64, eventKey string, f
 	return fmt.Sprintf("https://t.me/%s?startapp=%s", username, url.QueryEscape(startParam))
 }
 
+// buildLandingStartParam builds landing start param.
 func buildLandingStartParam(eventID int64, eventKey string) string {
 	if eventKey == "" {
 		return fmt.Sprintf("e_%d", eventID)
@@ -318,6 +330,7 @@ func buildLandingStartParam(eventID int64, eventKey string) string {
 	return fmt.Sprintf("e_%d_%s", eventID, eventKey)
 }
 
+// sanitizeLandingKey handles sanitize landing key.
 func sanitizeLandingKey(raw string) string {
 	value := strings.TrimSpace(raw)
 	if value == "" || len(value) > 64 {
@@ -336,6 +349,7 @@ func sanitizeLandingKey(raw string) string {
 	return b.String()
 }
 
+// hasAny reports whether any exists.
 func (req upsertLandingContentRequest) hasAny() bool {
 	return req.HeroEyebrow != nil ||
 		req.HeroTitle != nil ||
@@ -348,6 +362,7 @@ func (req upsertLandingContentRequest) hasAny() bool {
 		req.FooterText != nil
 }
 
+// mergeLandingContent merges landing content.
 func mergeLandingContent(current models.LandingContent, req upsertLandingContentRequest) models.LandingContent {
 	out := current
 	if req.HeroEyebrow != nil {
@@ -380,6 +395,7 @@ func mergeLandingContent(current models.LandingContent, req upsertLandingContent
 	return out
 }
 
+// landingContentToResponse handles landing content to response.
 func landingContentToResponse(content models.LandingContent) landingContentResponse {
 	return landingContentResponse{
 		HeroEyebrow:         firstNonEmpty(content.HeroEyebrow, landingDefaultHeroEyebrow),
@@ -394,6 +410,7 @@ func landingContentToResponse(content models.LandingContent) landingContentRespo
 	}
 }
 
+// firstNonEmpty handles first non empty.
 func firstNonEmpty(raw string, fallback string) string {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -402,7 +419,9 @@ func firstNonEmpty(raw string, fallback string) string {
 	return value
 }
 
+// validateLandingContent validates landing content.
 func validateLandingContent(content models.LandingContent) error {
+	// limit represents limit.
 	type limit struct {
 		field string
 		value string

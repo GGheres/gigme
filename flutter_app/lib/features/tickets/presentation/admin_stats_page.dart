@@ -8,7 +8,10 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// AdminStatsPage represents admin stats page.
+
 class AdminStatsPage extends ConsumerStatefulWidget {
+  /// AdminStatsPage handles admin stats page.
   const AdminStatsPage({
     super.key,
     this.embedded = false,
@@ -16,9 +19,13 @@ class AdminStatsPage extends ConsumerStatefulWidget {
 
   final bool embedded;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AdminStatsPage> createState() => _AdminStatsPageState();
 }
+
+/// _AdminStatsPageState represents admin stats page state.
 
 class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
   final TextEditingController _eventIdCtrl = TextEditingController();
@@ -26,17 +33,23 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
   String? _error;
   AdminStatsModel? _stats;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _eventIdCtrl.dispose();
     super.dispose();
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -72,6 +85,8 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
       });
     }
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +139,8 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
       body: body,
     );
   }
+
+  /// _statsCard handles stats card.
 
   Widget _statsCard(AdminStatsBreakdownModel item) {
     return Card(

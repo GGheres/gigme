@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// clientLogEvent represents client log event.
 type clientLogEvent struct {
 	Level     string                 `json:"level"`
 	Message   string                 `json:"message"`
@@ -17,6 +18,7 @@ type clientLogEvent struct {
 	UserAgent string                 `json:"userAgent"`
 }
 
+// clientLogRequest represents client log request.
 type clientLogRequest struct {
 	Events    []clientLogEvent       `json:"events"`
 	Level     string                 `json:"level"`
@@ -34,6 +36,7 @@ var suppressedClientMessages = map[string]struct{}{
 	"geolocation_error":  {},
 }
 
+// ClientLogs handles client logs.
 func (h *Handler) ClientLogs(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var req clientLogRequest
@@ -77,6 +80,7 @@ func (h *Handler) ClientLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// shouldSuppressClientEvent reports whether should suppress client event.
 func shouldSuppressClientEvent(event clientLogEvent) bool {
 	if event.Message == "" {
 		return false
@@ -86,6 +90,7 @@ func shouldSuppressClientEvent(event clientLogEvent) bool {
 	return ok
 }
 
+// logClientEvent handles log client event.
 func logClientEvent(logger *slog.Logger, r *http.Request, event clientLogEvent) {
 	if logger == nil {
 		logger = slog.Default()

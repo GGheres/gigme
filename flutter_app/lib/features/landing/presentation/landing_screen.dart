@@ -33,17 +33,26 @@ import '../../auth/data/auth_repository.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../data/landing_repository.dart';
 
+/// _WebLoginProvider represents web login provider.
+
 enum _WebLoginProvider {
   telegram,
   vk,
 }
 
+/// LandingScreen represents landing screen.
+
 class LandingScreen extends ConsumerStatefulWidget {
+  /// LandingScreen handles landing screen.
   const LandingScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<LandingScreen> createState() => _LandingScreenState();
 }
+
+/// _LandingScreenState represents landing screen state.
 
 class _LandingScreenState extends ConsumerState<LandingScreen>
     with SingleTickerProviderStateMixin {
@@ -828,7 +837,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 }
 
+/// LandingLayoutConfig represents landing layout config.
+
 class LandingLayoutConfig {
+  /// LandingLayoutConfig handles landing layout config.
   const LandingLayoutConfig._();
 
   static const double desktopBreakpoint = 1100;
@@ -881,9 +893,15 @@ class LandingLayoutConfig {
   static const String backgroundVideoAssetPath =
       'assets/videos/landing/IMG_9645.MP4';
 
+  /// isDesktop reports whether desktop condition is met.
+
   static bool isDesktop(double width) => width >= desktopBreakpoint;
+
+  /// isTablet reports whether tablet condition is met.
   static bool isTablet(double width) =>
       width >= tabletBreakpoint && width < desktopBreakpoint;
+
+  /// shouldReduceMotion reports whether should reduce motion.
 
   static bool shouldReduceMotion(BuildContext context) {
     final media = MediaQuery.maybeOf(context);
@@ -892,6 +910,8 @@ class LandingLayoutConfig {
     return forceReduceMotion || userPrefersReduced;
   }
 
+  /// parallaxFactor handles parallax factor.
+
   static double parallaxFactor({
     required String layer,
     required bool reduceMotion,
@@ -899,6 +919,8 @@ class LandingLayoutConfig {
     final source = reduceMotion ? reducedParallaxFactors : parallaxFactors;
     return source[layer] ?? 0;
   }
+
+  /// canvasHeight handles canvas height.
 
   static double canvasHeight({
     required Size viewport,
@@ -911,6 +933,8 @@ class LandingLayoutConfig {
     }
     return viewport.height * mobileCanvasScreens;
   }
+
+  /// quietZoneWidth handles quiet zone width.
 
   static double quietZoneWidth(double screenWidth) {
     if (isDesktop(screenWidth)) {
@@ -925,6 +949,8 @@ class LandingLayoutConfig {
     return screenWidth * quietZoneWidthRules['mobileFactor']!;
   }
 
+  /// quietZoneLeft handles quiet zone left.
+
   static double quietZoneLeft({
     required double screenWidth,
     required double quietZoneWidth,
@@ -937,6 +963,8 @@ class LandingLayoutConfig {
     return shifted.clamp(16.0, screenWidth - quietZoneWidth - 16.0);
   }
 
+  /// sectionTop handles section top.
+
   static double sectionTop({
     required double canvasHeight,
     required double viewportHeight,
@@ -946,7 +974,10 @@ class LandingLayoutConfig {
   }
 }
 
+/// _LandingForeground represents landing foreground.
+
 class _LandingForeground extends StatelessWidget {
+  /// _LandingForeground handles landing foreground.
   const _LandingForeground({
     required this.viewport,
     required this.canvasHeight,
@@ -974,6 +1005,8 @@ class _LandingForeground extends StatelessWidget {
   final int total;
   final VoidCallback onOpenApp;
   final ValueChanged<LandingEvent> onBuy;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1036,7 +1069,10 @@ class _LandingForeground extends StatelessWidget {
   }
 }
 
+/// _HeroSection represents hero section.
+
 class _HeroSection extends StatelessWidget {
+  /// _HeroSection handles hero section.
   const _HeroSection({
     required this.featuredEvent,
     required this.apiUrl,
@@ -1058,6 +1094,8 @@ class _HeroSection extends StatelessWidget {
   final int totalParticipants;
   final VoidCallback onPrimaryAction;
   final VoidCallback onOpenApp;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1133,7 +1171,10 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
+/// _HeroActions represents hero actions.
+
 class _HeroActions extends StatelessWidget {
+  /// _HeroActions handles hero actions.
   const _HeroActions({
     required this.total,
     required this.totalParticipants,
@@ -1147,6 +1188,8 @@ class _HeroActions extends StatelessWidget {
   final String openAppLabel;
   final VoidCallback onPrimaryAction;
   final VoidCallback onOpenApp;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1192,11 +1235,16 @@ class _HeroActions extends StatelessWidget {
   }
 }
 
+/// _HeroPoster represents hero poster.
+
 class _HeroPoster extends StatelessWidget {
+  /// _HeroPoster handles hero poster.
   const _HeroPoster({required this.event, required this.apiUrl});
 
   final LandingEvent? event;
   final String apiUrl;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1287,8 +1335,13 @@ class _HeroPoster extends StatelessWidget {
   }
 }
 
+/// _PosterFallback represents poster fallback.
+
 class _PosterFallback extends StatelessWidget {
+  /// _PosterFallback handles poster fallback.
   const _PosterFallback();
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1311,7 +1364,10 @@ class _PosterFallback extends StatelessWidget {
   }
 }
 
+/// _AboutSection represents about section.
+
 class _AboutSection extends StatelessWidget {
+  /// _AboutSection handles about section.
   const _AboutSection({
     required this.events,
     required this.content,
@@ -1323,6 +1379,8 @@ class _AboutSection extends StatelessWidget {
   final LandingContent content;
   final int total;
   final int totalParticipants;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1389,7 +1447,10 @@ class _AboutSection extends StatelessWidget {
   }
 }
 
+/// _HighlightTile represents highlight tile.
+
 class _HighlightTile extends StatelessWidget {
+  /// _HighlightTile handles highlight tile.
   const _HighlightTile({
     required this.icon,
     required this.title,
@@ -1399,6 +1460,8 @@ class _HighlightTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1440,7 +1503,10 @@ class _HighlightTile extends StatelessWidget {
   }
 }
 
+/// _LandingParallaxCanvas represents landing parallax canvas.
+
 class _LandingParallaxCanvas extends StatelessWidget {
+  /// _LandingParallaxCanvas handles landing parallax canvas.
   const _LandingParallaxCanvas({
     required this.scrollOffset,
     required this.canvasHeight,
@@ -1456,6 +1522,8 @@ class _LandingParallaxCanvas extends StatelessWidget {
   final double quietZoneLeft;
   final double quietZoneWidth;
   final bool reduceMotion;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1519,17 +1587,28 @@ class _LandingParallaxCanvas extends StatelessWidget {
   }
 }
 
+/// _LandingVideoBackground represents landing video background.
+
 class _LandingVideoBackground extends StatefulWidget {
+  /// _LandingVideoBackground handles landing video background.
   const _LandingVideoBackground();
+
+  /// createState creates state.
 
   @override
   State<_LandingVideoBackground> createState() =>
+
+      /// _LandingVideoBackgroundState handles landing video background state.
       _LandingVideoBackgroundState();
 }
+
+/// _LandingVideoBackgroundState represents landing video background state.
 
 class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
   VideoPlayerController? _controller;
   Object? _initError;
+
+  /// initState handles init state.
 
   @override
   void initState() {
@@ -1537,11 +1616,15 @@ class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
     unawaited(_initializeVideo());
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _controller?.dispose();
     super.dispose();
   }
+
+  /// _initializeVideo handles initialize video.
 
   Future<void> _initializeVideo() async {
     final controller = VideoPlayerController.asset(
@@ -1570,6 +1653,8 @@ class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
       _initError = null;
     });
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1606,6 +1691,8 @@ class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
   }
 }
 
+/// BreathingTextFrame represents breathing text frame.
+
 class BreathingTextFrame extends StatelessWidget {
   // Example:
   // BreathingTextFrame(
@@ -1632,6 +1719,8 @@ class BreathingTextFrame extends StatelessWidget {
   final bool enableShimmer;
   final bool enableGrain;
   final Widget child;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1674,7 +1763,10 @@ class BreathingTextFrame extends StatelessWidget {
   }
 }
 
+/// _AnimatedGrainOverlay represents animated grain overlay.
+
 class _AnimatedGrainOverlay extends StatefulWidget {
+  /// _AnimatedGrainOverlay handles animated grain overlay.
   const _AnimatedGrainOverlay({
     required this.opacity,
     required this.fps,
@@ -1683,20 +1775,28 @@ class _AnimatedGrainOverlay extends StatefulWidget {
   final double opacity;
   final double fps;
 
+  /// createState creates state.
+
   @override
   State<_AnimatedGrainOverlay> createState() => _AnimatedGrainOverlayState();
 }
+
+/// _AnimatedGrainOverlayState represents animated grain overlay state.
 
 class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
   final List<ui.Image> _frames = <ui.Image>[];
   Timer? _timer;
   int _frameIndex = 0;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_prepareFrames());
   }
+
+  /// didUpdateWidget handles did update widget.
 
   @override
   void didUpdateWidget(covariant _AnimatedGrainOverlay oldWidget) {
@@ -1706,11 +1806,15 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
     }
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
+
+  /// _prepareFrames handles prepare frames.
 
   Future<void> _prepareFrames() async {
     // Keep grain cheap: pre-generate small frames once and just cycle them.
@@ -1735,6 +1839,8 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
     });
     _startTicker();
   }
+
+  /// _generateNoiseImage handles generate noise image.
 
   Future<ui.Image> _generateNoiseImage({
     required int frameSize,
@@ -1765,6 +1871,8 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
     return completer.future;
   }
 
+  /// _startTicker handles start ticker.
+
   void _startTicker() {
     _timer?.cancel();
     final fps = widget.fps.clamp(1.0, 12.0);
@@ -1776,6 +1884,8 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
       });
     });
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1795,7 +1905,10 @@ class _AnimatedGrainOverlayState extends State<_AnimatedGrainOverlay> {
   }
 }
 
+/// _GrainOverlayPainter represents grain overlay painter.
+
 class _GrainOverlayPainter extends CustomPainter {
+  /// _GrainOverlayPainter handles grain overlay painter.
   const _GrainOverlayPainter({
     required this.image,
     required this.opacity,
@@ -1805,6 +1918,8 @@ class _GrainOverlayPainter extends CustomPainter {
   final ui.Image image;
   final double opacity;
   final int frameIndex;
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1831,6 +1946,8 @@ class _GrainOverlayPainter extends CustomPainter {
     canvas.drawImageRect(image, src, dst, paint);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant _GrainOverlayPainter oldDelegate) {
     return oldDelegate.image != image ||
@@ -1839,7 +1956,10 @@ class _GrainOverlayPainter extends CustomPainter {
   }
 }
 
+/// _ParallaxLayer represents parallax layer.
+
 class _ParallaxLayer extends StatelessWidget {
+  /// _ParallaxLayer handles parallax layer.
   const _ParallaxLayer({
     required this.scrollOffset,
     required this.factor,
@@ -1851,6 +1971,8 @@ class _ParallaxLayer extends StatelessWidget {
   final double factor;
   final double overflow;
   final Widget child;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1878,8 +2000,13 @@ class _ParallaxLayer extends StatelessWidget {
   }
 }
 
+/// _EdgeVignette represents edge vignette.
+
 class _EdgeVignette extends StatelessWidget {
+  /// _EdgeVignette handles edge vignette.
   const _EdgeVignette();
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1925,8 +2052,13 @@ class _EdgeVignette extends StatelessWidget {
   }
 }
 
+/// _AuroraPainter represents aurora painter.
+
 class _AuroraPainter extends CustomPainter {
+  /// _AuroraPainter handles aurora painter.
   const _AuroraPainter();
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1964,6 +2096,8 @@ class _AuroraPainter extends CustomPainter {
     );
   }
 
+  /// _orb builds an orb descriptor for painter effects.
+
   void _orb({
     required Canvas canvas,
     required Offset center,
@@ -1981,12 +2115,19 @@ class _AuroraPainter extends CustomPainter {
     canvas.drawCircle(center, radius, paint);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// _NearDecorPainter represents near decor painter.
+
 class _NearDecorPainter extends CustomPainter {
+  /// _NearDecorPainter handles near decor painter.
   const _NearDecorPainter();
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2027,11 +2168,16 @@ class _NearDecorPainter extends CustomPainter {
     canvas.drawPath(wave, paint);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// _BreathingFramePainter represents breathing frame painter.
+
 class _BreathingFramePainter extends CustomPainter {
+  /// _BreathingFramePainter handles breathing frame painter.
   const _BreathingFramePainter({
     required this.text,
     required this.timeSec,
@@ -2050,6 +2196,8 @@ class _BreathingFramePainter extends CustomPainter {
   final double timeSec;
   final bool enableShimmer;
   final bool reduceMotion;
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2081,6 +2229,8 @@ class _BreathingFramePainter extends CustomPainter {
       breath: breath,
     );
   }
+
+  /// _drawCornerAccents handles draw corner accents.
 
   void _drawCornerAccents({
     required Canvas canvas,
@@ -2115,6 +2265,8 @@ class _BreathingFramePainter extends CustomPainter {
     }
   }
 
+  /// _drawFrameStroke handles draw frame stroke.
+
   void _drawFrameStroke({
     required Canvas canvas,
     required _FramePathData frame,
@@ -2136,6 +2288,8 @@ class _BreathingFramePainter extends CustomPainter {
       ..color = const Color(0xFFC8FFEE).withValues(alpha: lineAlpha);
     canvas.drawPath(frame.path, linePaint);
   }
+
+  /// _drawShimmerStroke handles draw shimmer stroke.
 
   void _drawShimmerStroke({
     required Canvas canvas,
@@ -2162,6 +2316,8 @@ class _BreathingFramePainter extends CustomPainter {
       ).createShader(frame.rect);
     canvas.drawPath(frame.path, shimmerPaint);
   }
+
+  /// _drawTickerText handles draw ticker text.
 
   void _drawTickerText({
     required Canvas canvas,
@@ -2267,6 +2423,8 @@ class _BreathingFramePainter extends CustomPainter {
     }
   }
 
+  /// _resolveFramePath handles resolve frame path.
+
   _FramePathData _resolveFramePath(Size size) {
     final inset = (size.shortestSide * 0.026).clamp(14.0, 30.0);
     final radius = (size.shortestSide * 0.035).clamp(18.0, 36.0);
@@ -2303,6 +2461,8 @@ class _BreathingFramePainter extends CustomPainter {
     }
     return out;
   }
+
+  /// _glyphPainter handles glyph painter.
 
   TextPainter _glyphPainter({
     required String glyph,
@@ -2363,6 +2523,8 @@ class _BreathingFramePainter extends CustomPainter {
     return painter;
   }
 
+  /// _glyphWidth handles glyph width.
+
   double _glyphWidth({
     required String glyph,
     required double fontSize,
@@ -2391,11 +2553,15 @@ class _BreathingFramePainter extends CustomPainter {
     return painter.width;
   }
 
+  /// _breathValue handles breath value.
+
   double _breathValue(double timeSeconds) {
     final phase =
         (timeSeconds / LandingLayoutConfig.globalBreathPeriodSec) * math.pi * 2;
     return 0.5 + (0.5 * math.sin(phase));
   }
+
+  /// _gaussianOnLoop handles gaussian on loop.
 
   double _gaussianOnLoop({
     required double s,
@@ -2410,6 +2576,8 @@ class _BreathingFramePainter extends CustomPainter {
     return math.exp(-(d * d) / denom);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return oldDelegate is! _BreathingFramePainter ||
@@ -2420,7 +2588,10 @@ class _BreathingFramePainter extends CustomPainter {
   }
 }
 
+/// _FramePathData represents frame path data.
+
 class _FramePathData {
+  /// _FramePathData handles frame path data.
   const _FramePathData({
     required this.rect,
     required this.path,
@@ -2434,7 +2605,10 @@ class _FramePathData {
   final double length;
 }
 
+/// _GlassPanel represents glass panel.
+
 class _GlassPanel extends StatelessWidget {
+  /// _GlassPanel handles glass panel.
   const _GlassPanel({
     required this.child,
     required this.padding,
@@ -2442,6 +2616,8 @@ class _GlassPanel extends StatelessWidget {
 
   final Widget child;
   final EdgeInsetsGeometry padding;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -2477,6 +2653,8 @@ class _GlassPanel extends StatelessWidget {
   }
 }
 
+/// _clampedParallaxOffset handles clamped parallax offset.
+
 double _clampedParallaxOffset({
   required double scrollOffset,
   required double factor,
@@ -2488,6 +2666,8 @@ double _clampedParallaxOffset({
   return shift;
 }
 
+/// _totalParticipants handles total participants.
+
 int _totalParticipants(List<LandingEvent> events) {
   var total = 0;
   for (final event in events) {
@@ -2495,6 +2675,8 @@ int _totalParticipants(List<LandingEvent> events) {
   }
   return total;
 }
+
+/// _uniqueLocations handles unique locations.
 
 int _uniqueLocations(List<LandingEvent> events) {
   final unique = <String>{};
@@ -2507,6 +2689,8 @@ int _uniqueLocations(List<LandingEvent> events) {
   return unique.length;
 }
 
+/// _earliestDate handles earliest date.
+
 DateTime? _earliestDate(List<LandingEvent> events) {
   DateTime? out;
   for (final event in events) {
@@ -2518,6 +2702,8 @@ DateTime? _earliestDate(List<LandingEvent> events) {
   }
   return out;
 }
+
+/// _eventMeta handles event meta.
 
 String _eventMeta(LandingEvent? event) {
   if (event == null) return 'Новый цикл фестиваля уже открыт';

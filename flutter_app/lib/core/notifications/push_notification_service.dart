@@ -8,11 +8,15 @@ import '../config/app_config.dart';
 import '../network/api_client.dart';
 import '../network/api_paths.dart';
 
+/// PushNotificationService represents push notification service.
+
 class PushNotificationService {
   bool _initialized = false;
   bool _initializing = false;
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<String>? _onTokenRefreshSub;
+
+  /// initialize handles internal initialize behavior.
 
   Future<void> initialize({
     required AppConfig config,
@@ -57,7 +61,8 @@ class PushNotificationService {
             fcmToken: newToken,
           )
               .then((_) => debugPrint('FCM token refreshed and synced'))
-              .catchError((error) => debugPrint('FCM token refresh sync failed: $error')),
+              .catchError((error) =>
+                  debugPrint('FCM token refresh sync failed: $error')),
         );
       });
 
@@ -73,10 +78,14 @@ class PushNotificationService {
     }
   }
 
+  /// dispose releases resources held by this instance.
+
   Future<void> dispose() async {
     await _onMessageSub?.cancel();
     await _onTokenRefreshSub?.cancel();
   }
+
+  /// _syncToken handles sync token.
 
   Future<void> _syncToken({
     required ApiClient apiClient,
@@ -84,7 +93,8 @@ class PushNotificationService {
     required String fcmToken,
   }) {
     final platform = _platformName();
-    final appVersion = const String.fromEnvironment('APP_VERSION', defaultValue: '').trim();
+    final appVersion =
+        const String.fromEnvironment('APP_VERSION', defaultValue: '').trim();
 
     return apiClient.post<void>(
       ApiPaths.mePushToken,
@@ -97,6 +107,8 @@ class PushNotificationService {
       decoder: (_) {},
     );
   }
+
+  /// _platformName handles platform name.
 
   String _platformName() {
     if (kIsWeb) return 'web';

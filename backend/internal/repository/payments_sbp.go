@@ -16,6 +16,7 @@ var (
 	ErrSbpQRNotFound = errors.New("sbp qr not found")
 )
 
+// UpsertPaymentParams represents upsert payment params.
 type UpsertPaymentParams struct {
 	OrderID           string
 	Provider          string
@@ -25,6 +26,7 @@ type UpsertPaymentParams struct {
 	RawResponseJSON   []byte
 }
 
+// UpsertSbpQR handles upsert sbp q r.
 func (r *Repository) UpsertSbpQR(ctx context.Context, orderID, qrcID, payload, merchantID, accountID, status string) (models.SbpQR, error) {
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO sbp_qr (order_id, qrc_id, payload, merchant_id, account_id, status)
@@ -48,6 +50,7 @@ RETURNING id::text, order_id::text, qrc_id, payload, merchant_id, account_id, st
 	return scanSbpQR(row)
 }
 
+// GetSbpQRByOrderID returns sbp q r by order i d.
 func (r *Repository) GetSbpQRByOrderID(ctx context.Context, orderID string) (models.SbpQR, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT id::text, order_id::text, qrc_id, payload, merchant_id, account_id, status, created_at, updated_at
@@ -63,6 +66,7 @@ WHERE order_id = $1::uuid;`, strings.TrimSpace(orderID))
 	return out, nil
 }
 
+// UpdateSbpQRStatus updates sbp q r status.
 func (r *Repository) UpdateSbpQRStatus(ctx context.Context, orderID, status string) error {
 	cmd, err := r.pool.Exec(ctx, `
 UPDATE sbp_qr
@@ -78,6 +82,7 @@ WHERE order_id = $1::uuid;`, strings.TrimSpace(orderID), strings.TrimSpace(statu
 	return nil
 }
 
+// UpsertPayment handles upsert payment.
 func (r *Repository) UpsertPayment(ctx context.Context, params UpsertPaymentParams) (models.Payment, error) {
 	provider := strings.TrimSpace(params.Provider)
 	if provider == "" {
@@ -113,6 +118,7 @@ RETURNING id::text, order_id::text, provider, provider_payment_id, amount, statu
 	return scanPayment(row)
 }
 
+// scanSbpQR scans sbp q r.
 func scanSbpQR(row pgx.Row) (models.SbpQR, error) {
 	var out models.SbpQR
 	if err := row.Scan(
@@ -131,6 +137,7 @@ func scanSbpQR(row pgx.Row) (models.SbpQR, error) {
 	return out, nil
 }
 
+// scanPayment scans payment.
 func scanPayment(row pgx.Row) (models.Payment, error) {
 	var out models.Payment
 	var providerPaymentID sql.NullString

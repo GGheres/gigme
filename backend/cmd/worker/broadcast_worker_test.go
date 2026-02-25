@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// fakeTelegram represents fake telegram.
 type fakeTelegram struct {
 	sent            []int64
 	failWithMarkup  bool
@@ -21,6 +22,7 @@ type fakeTelegram struct {
 	markupSendTries int
 }
 
+// SendMessageWithMarkup handles send message with markup.
 func (f *fakeTelegram) SendMessageWithMarkup(chatID int64, text string, markup *integrations.ReplyMarkup) error {
 	if markup != nil {
 		f.markupSendTries++
@@ -34,10 +36,12 @@ func (f *fakeTelegram) SendMessageWithMarkup(chatID int64, text string, markup *
 	return nil
 }
 
+// SendPhotoWithMarkup handles send photo with markup.
 func (f *fakeTelegram) SendPhotoWithMarkup(chatID int64, photoURL, caption string, markup *integrations.ReplyMarkup) error {
 	return nil
 }
 
+// TestBroadcastWorkerSendsJobs verifies broadcast worker sends jobs behavior.
 func TestBroadcastWorkerSendsJobs(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -121,6 +125,7 @@ func TestBroadcastWorkerSendsJobs(t *testing.T) {
 	}
 }
 
+// TestBroadcastWorkerFallsBackToPlainTextWhenMarkupRejected verifies broadcast worker falls back to plain text when markup rejected behavior.
 func TestBroadcastWorkerFallsBackToPlainTextWhenMarkupRejected(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -205,6 +210,7 @@ func TestBroadcastWorkerFallsBackToPlainTextWhenMarkupRejected(t *testing.T) {
 	}
 }
 
+// insertWorkerUser handles insert worker user.
 func insertWorkerUser(ctx context.Context, pool *pgxpool.Pool, telegramID int64, suffix string) (int64, error) {
 	row := pool.QueryRow(ctx, `INSERT INTO users (telegram_id, username, first_name, last_name)
 VALUES ($1, $2, $3, $4)

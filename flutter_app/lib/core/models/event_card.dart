@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// EventCard represents event card.
+
 class EventCard {
+  /// EventCard handles event card.
 
   factory EventCard.fromJson(dynamic json) {
     final map = asMap(json);
@@ -8,7 +11,10 @@ class EventCard {
       id: asInt(map['id']),
       title: asString(map['title']),
       description: asString(map['description']),
-      links: asList(map['links']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
+      links: asList(map['links'])
+          .map((e) => asString(e))
+          .where((e) => e.isNotEmpty)
+          .toList(),
       startsAt: asDateTime(map['startsAt']),
       endsAt: asDateTime(map['endsAt']),
       lat: asDouble(map['lat']),
@@ -20,7 +26,10 @@ class EventCard {
       participantsCount: asInt(map['participantsCount']),
       likesCount: asInt(map['likesCount']),
       commentsCount: asInt(map['commentsCount']),
-      filters: asList(map['filters']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
+      filters: asList(map['filters'])
+          .map((e) => asString(e))
+          .where((e) => e.isNotEmpty)
+          .toList(),
       isJoined: asBool(map['isJoined']),
       isLiked: asBool(map['isLiked']),
       isPrivate: asBool(map['isPrivate']),
@@ -32,6 +41,8 @@ class EventCard {
       contactSnapchat: asString(map['contactSnapchat']),
     );
   }
+
+  /// EventCard handles event card.
   EventCard({
     required this.id,
     required this.title,
@@ -86,7 +97,12 @@ class EventCard {
   final String contactFbMessenger;
   final String contactSnapchat;
 
-  bool get isFeatured => promotedUntil != null && promotedUntil!.isAfter(DateTime.now());
+  /// isFeatured reports whether featured condition is met.
+
+  bool get isFeatured =>
+      promotedUntil != null && promotedUntil!.isAfter(DateTime.now());
+
+  /// copyWith handles copy with.
 
   EventCard copyWith({
     int? participantsCount,

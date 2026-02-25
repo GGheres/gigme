@@ -9,10 +9,12 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// authRequest represents auth request.
 type authRequest struct {
 	InitData string `json:"initData" validate:"required"`
 }
 
+// AuthTelegram authenticates telegram.
 func (h *Handler) AuthTelegram(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var req authRequest

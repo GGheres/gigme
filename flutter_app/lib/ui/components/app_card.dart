@@ -4,13 +4,18 @@ import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 
+/// AppCardVariant represents app card variant.
+
 enum AppCardVariant {
   surface,
   panel,
   plain,
 }
 
+/// AppCard represents app card.
+
 class AppCard extends StatelessWidget {
+  /// AppCard handles app card.
   const AppCard({
     required this.child,
     this.padding = const EdgeInsets.all(16),
@@ -29,6 +34,8 @@ class AppCard extends StatelessWidget {
   final AppCardVariant variant;
   final double? borderRadius;
   final Clip clipBehavior;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +74,8 @@ class AppCard extends StatelessWidget {
     );
   }
 }
+
+/// _decorationFor handles decoration for.
 
 BoxDecoration _decorationFor(
   AppCardVariant variant, {

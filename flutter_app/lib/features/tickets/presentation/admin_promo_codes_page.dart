@@ -6,13 +6,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 
+/// AdminPromoCodesPage represents admin promo codes page.
+
 class AdminPromoCodesPage extends ConsumerStatefulWidget {
+  /// AdminPromoCodesPage handles admin promo codes page.
   const AdminPromoCodesPage({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<AdminPromoCodesPage> createState() =>
+
+      /// _AdminPromoCodesPageState handles admin promo codes page state.
       _AdminPromoCodesPageState();
 }
+
+/// _AdminPromoCodesPageState represents admin promo codes page state.
 
 class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
   final TextEditingController _codeCtrl = TextEditingController();
@@ -30,12 +39,16 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
   String? _error;
   List<PromoCodeViewModel> _items = <PromoCodeViewModel>[];
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     _valueCtrl.text = '10';
     unawaited(_load());
   }
+
+  /// dispose releases resources held by this instance.
 
   @override
   void dispose() {
@@ -47,6 +60,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
     _activeToCtrl.dispose();
     super.dispose();
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -85,6 +100,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
     }
   }
 
+  /// _createPromo creates promo.
+
   Future<void> _createPromo() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     final code = _codeCtrl.text.trim();
@@ -121,6 +138,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
     }
   }
 
+  /// _deletePromo deletes promo.
+
   Future<void> _deletePromo(String promoId) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
@@ -136,6 +155,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +298,8 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
             ),
     );
   }
+
+  /// _showMessage handles show message.
 
   void _showMessage(String text) {
     if (!mounted) return;

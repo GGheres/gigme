@@ -1,6 +1,9 @@
 import 'dart:convert';
 
+/// VkAuthCredentials represents vk auth credentials.
+
 class VkAuthCredentials {
+  /// VkAuthCredentials handles vk auth credentials.
   const VkAuthCredentials({
     required this.accessToken,
     this.userId,
@@ -10,7 +13,10 @@ class VkAuthCredentials {
   final int? userId;
 }
 
+/// VkAuthCodeCredentials represents vk auth code credentials.
+
 class VkAuthCodeCredentials {
+  /// VkAuthCodeCredentials handles vk auth code credentials.
   const VkAuthCodeCredentials({
     required this.code,
     required this.state,
@@ -21,6 +27,8 @@ class VkAuthCodeCredentials {
   final String state;
   final String deviceId;
 }
+
+/// extractVkMiniAppLaunchParams extracts vk mini app launch params.
 
 String? extractVkMiniAppLaunchParams(Uri? uri) {
   if (uri == null) return null;
@@ -38,6 +46,8 @@ String? extractVkMiniAppLaunchParams(Uri? uri) {
   return raw;
 }
 
+/// parseVkAuthCredentialsFromUri parses vk auth credentials from uri.
+
 VkAuthCredentials? parseVkAuthCredentialsFromUri(Uri? uri) {
   if (uri == null) return null;
   final params = _collectUriAuthParams(uri);
@@ -53,6 +63,8 @@ VkAuthCredentials? parseVkAuthCredentialsFromUri(Uri? uri) {
     userId: parsedUserId != null && parsedUserId > 0 ? parsedUserId : null,
   );
 }
+
+/// parseVkAuthCodeCredentialsFromUri parses vk auth code credentials from uri.
 
 VkAuthCodeCredentials? parseVkAuthCodeCredentialsFromUri(Uri? uri) {
   if (uri == null) return null;
@@ -84,6 +96,8 @@ VkAuthCodeCredentials? parseVkAuthCodeCredentialsFromUri(Uri? uri) {
   );
 }
 
+/// parseVkAuthErrorFromUri parses vk auth error from uri.
+
 String? parseVkAuthErrorFromUri(Uri? uri) {
   if (uri == null) return null;
   final params = _collectUriAuthParams(uri);
@@ -105,6 +119,8 @@ String? parseVkAuthErrorFromUri(Uri? uri) {
   if (description.isEmpty) return error;
   return '$error: $description';
 }
+
+/// _collectUriAuthParams handles collect uri auth params.
 
 Map<String, String> _collectUriAuthParams(Uri uri) {
   final out = <String, String>{...uri.queryParameters};
@@ -132,6 +148,8 @@ Map<String, String> _collectUriAuthParams(Uri uri) {
   return out;
 }
 
+/// _parseVkAuthPayload parses vk auth payload.
+
 Map<String, String> _parseVkAuthPayload(String payloadRaw) {
   final raw = payloadRaw.trim();
   if (raw.isEmpty) return const <String, String>{};
@@ -150,6 +168,8 @@ Map<String, String> _parseVkAuthPayload(String payloadRaw) {
   }
 }
 
+/// _decodePayloadMap decodes payload map.
+
 Map<String, String> _decodePayloadMap(String source) {
   final asJson = _decodeJsonMap(source);
   if (asJson.isNotEmpty) return asJson;
@@ -166,6 +186,8 @@ Map<String, String> _decodePayloadMap(String source) {
     return const <String, String>{};
   }
 }
+
+/// _decodeJsonMap decodes json map.
 
 Map<String, String> _decodeJsonMap(String source) {
   try {

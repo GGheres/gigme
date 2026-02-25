@@ -7,10 +7,15 @@ import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/json_utils.dart';
 
+/// AdminRepository represents admin repository.
+
 class AdminRepository {
+  /// AdminRepository handles admin repository.
   AdminRepository(this._ref);
 
   final Ref _ref;
+
+  /// login handles internal login behavior.
 
   Future<AdminLoginResponse> login({
     required String username,
@@ -27,6 +32,8 @@ class AdminRepository {
           decoder: AdminLoginResponse.fromJson,
         );
   }
+
+  /// listUsers lists users.
 
   Future<AdminUsersResponse> listUsers({
     required String token,
@@ -48,6 +55,8 @@ class AdminRepository {
         );
   }
 
+  /// getUser returns user.
+
   Future<AdminUserDetailResponse> getUser({
     required String token,
     required int id,
@@ -59,6 +68,8 @@ class AdminRepository {
           retry: false,
         );
   }
+
+  /// blockUser handles block user.
 
   Future<void> blockUser({
     required String token,
@@ -75,6 +86,8 @@ class AdminRepository {
         );
   }
 
+  /// unblockUser handles unblock user.
+
   Future<void> unblockUser({
     required String token,
     required int id,
@@ -86,6 +99,8 @@ class AdminRepository {
           decoder: (_) {},
         );
   }
+
+  /// listBroadcasts lists broadcasts.
 
   Future<AdminBroadcastsResponse> listBroadcasts({
     required String token,
@@ -102,6 +117,8 @@ class AdminRepository {
           decoder: AdminBroadcastsResponse.fromJson,
         );
   }
+
+  /// createBroadcast creates broadcast.
 
   Future<AdminCreateBroadcastResponse> createBroadcast({
     required String token,
@@ -127,6 +144,8 @@ class AdminRepository {
         );
   }
 
+  /// startBroadcast handles start broadcast.
+
   Future<void> startBroadcast({
     required String token,
     required int id,
@@ -138,6 +157,8 @@ class AdminRepository {
           decoder: (_) {},
         );
   }
+
+  /// listParserSources lists parser sources.
 
   Future<AdminParserSourcesResponse> listParserSources({
     required String token,
@@ -154,6 +175,8 @@ class AdminRepository {
           decoder: AdminParserSourcesResponse.fromJson,
         );
   }
+
+  /// createParserSource creates parser source.
 
   Future<AdminParserSource> createParserSource({
     required String token,
@@ -175,6 +198,8 @@ class AdminRepository {
         );
   }
 
+  /// updateParserSource updates parser source.
+
   Future<void> updateParserSource({
     required String token,
     required int id,
@@ -188,6 +213,8 @@ class AdminRepository {
         );
   }
 
+  /// parseSource parses source.
+
   Future<AdminParserParseResponse> parseSource({
     required String token,
     required int id,
@@ -199,6 +226,8 @@ class AdminRepository {
           decoder: AdminParserParseResponse.fromJson,
         );
   }
+
+  /// parseInput parses input.
 
   Future<AdminParserParseResponse> parseInput({
     required String token,
@@ -215,6 +244,8 @@ class AdminRepository {
           decoder: AdminParserParseResponse.fromJson,
         );
   }
+
+  /// listParsedEvents lists parsed events.
 
   Future<AdminParsedEventsResponse> listParsedEvents({
     required String token,
@@ -236,6 +267,8 @@ class AdminRepository {
         );
   }
 
+  /// geocode handles internal geocode behavior.
+
   Future<GeocodeResultsResponse> geocode({
     required String token,
     required String query,
@@ -251,6 +284,8 @@ class AdminRepository {
           decoder: GeocodeResultsResponse.fromJson,
         );
   }
+
+  /// importParsedEvent imports parsed event.
 
   Future<int> importParsedEvent({
     required String token,
@@ -288,6 +323,8 @@ class AdminRepository {
     );
   }
 
+  /// rejectParsedEvent rejects parsed event.
+
   Future<void> rejectParsedEvent({
     required String token,
     required int id,
@@ -300,6 +337,8 @@ class AdminRepository {
         );
   }
 
+  /// deleteParsedEvent deletes parsed event.
+
   Future<void> deleteParsedEvent({
     required String token,
     required int id,
@@ -310,6 +349,8 @@ class AdminRepository {
           decoder: (_) {},
         );
   }
+
+  /// listLandingEvents lists landing events.
 
   Future<LandingEventsResponse> listLandingEvents({
     int limit = 100,
@@ -325,6 +366,8 @@ class AdminRepository {
         );
   }
 
+  /// setLandingPublished sets landing published.
+
   Future<void> setLandingPublished({
     required String token,
     required int eventId,
@@ -337,6 +380,8 @@ class AdminRepository {
           decoder: (_) {},
         );
   }
+
+  /// getEventMedia returns event media.
 
   Future<List<String>> getEventMedia({
     required String token,
@@ -356,6 +401,8 @@ class AdminRepository {
     );
   }
 
+  /// updateEventMedia updates event media.
+
   Future<void> updateEventMedia({
     required String token,
     required int eventId,
@@ -369,6 +416,8 @@ class AdminRepository {
         );
   }
 
+  /// deleteEvent deletes event.
+
   Future<void> deleteEvent({
     required String token,
     required int eventId,
@@ -379,6 +428,8 @@ class AdminRepository {
           decoder: (_) {},
         );
   }
+
+  /// deleteComment deletes comment.
 
   Future<void> deleteComment({
     required String token,
@@ -391,12 +442,16 @@ class AdminRepository {
         );
   }
 
+  /// getLandingContent returns landing content.
+
   Future<LandingContent> getLandingContent() {
     return _ref.read(apiClientProvider).get<LandingContent>(
           ApiPaths.landingContent,
           decoder: LandingContent.fromJson,
         );
   }
+
+  /// updateLandingContent updates landing content.
 
   Future<void> updateLandingContent({
     required String token,
@@ -412,4 +467,6 @@ class AdminRepository {
 }
 
 final adminRepositoryProvider =
+
+    /// AdminRepository handles admin repository.
     Provider<AdminRepository>((ref) => AdminRepository(ref));

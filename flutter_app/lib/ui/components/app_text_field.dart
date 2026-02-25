@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
 
+/// AppTextField represents app text field.
+
 class AppTextField extends StatelessWidget {
+  /// AppTextField handles app text field.
   const AppTextField({
     super.key,
     this.controller,
@@ -50,6 +53,8 @@ class AppTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final FormFieldValidator<String>? validator;
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     return TextFormField(
@@ -80,7 +85,10 @@ class AppTextField extends StatelessWidget {
   }
 }
 
+/// AppDropdownField represents app dropdown field.
+
 class AppDropdownField<T> extends StatelessWidget {
+  /// AppDropdownField handles app dropdown field.
   const AppDropdownField({
     required this.items,
     this.value,
@@ -101,6 +109,8 @@ class AppDropdownField<T> extends StatelessWidget {
   final String? helper;
   final String? errorText;
   final bool enabled;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -124,10 +134,15 @@ class AppDropdownField<T> extends StatelessWidget {
   }
 }
 
+/// AppFieldGroup represents app field group.
+
 class AppFieldGroup extends StatelessWidget {
+  /// AppFieldGroup handles app field group.
   const AppFieldGroup({required this.children, super.key});
 
   final List<Widget> children;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

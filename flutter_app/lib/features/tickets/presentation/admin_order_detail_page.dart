@@ -12,15 +12,24 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// AdminOrderDetailPage represents admin order detail page.
+
 class AdminOrderDetailPage extends ConsumerStatefulWidget {
+  /// AdminOrderDetailPage handles admin order detail page.
   const AdminOrderDetailPage({required this.orderId, super.key});
 
   final String orderId;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AdminOrderDetailPage> createState() =>
+
+      /// _AdminOrderDetailPageState handles admin order detail page state.
       _AdminOrderDetailPageState();
 }
+
+/// _AdminOrderDetailPageState represents admin order detail page state.
 
 class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
   bool _loading = true;
@@ -28,11 +37,15 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
   String? _error;
   OrderDetailModel? _detail;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -69,6 +82,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     }
   }
 
+  /// _confirm handles internal confirm behavior.
+
   Future<void> _confirm() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
@@ -89,6 +104,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
       }
     }
   }
+
+  /// _cancel handles internal cancel behavior.
 
   Future<void> _cancel() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -139,6 +156,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
       }
     }
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -306,11 +325,15 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     );
   }
 
+  /// _showMessage handles show message.
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  /// _openBotForUser handles open bot for user.
 
   Future<void> _openBotForUser(int telegramId) async {
     final config = ref.read(appConfigProvider);
@@ -331,6 +354,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
       _showMessage('Не удалось открыть Telegram');
     }
   }
+
+  /// _promptDeleteOrder handles prompt delete order.
 
   Future<void> _promptDeleteOrder() async {
     if (_busy) return;

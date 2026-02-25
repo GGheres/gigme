@@ -17,16 +17,25 @@ import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 import 'widgets/feed_list.dart';
 
+/// FeedScreen represents feed screen.
+
 class FeedScreen extends ConsumerStatefulWidget {
+  /// FeedScreen handles feed screen.
   const FeedScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<FeedScreen> createState() => _FeedScreenState();
 }
 
+/// _FeedScreenState represents feed screen state.
+
 class _FeedScreenState extends ConsumerState<FeedScreen> {
   bool _loadedOnce = false;
   final Set<int> _likeLoadingIds = <int>{};
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +190,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 }
 
+/// _FilterBar represents filter bar.
+
 class _FilterBar extends StatelessWidget {
+  /// _FilterBar handles filter bar.
   const _FilterBar({
     required this.activeFilters,
     required this.nearbyOnly,
@@ -195,6 +207,8 @@ class _FilterBar extends StatelessWidget {
   final VoidCallback onToggleNearby;
   final ValueChanged<String> onToggleFilter;
   final VoidCallback onClearFilters;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

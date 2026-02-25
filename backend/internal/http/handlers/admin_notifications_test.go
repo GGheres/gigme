@@ -8,6 +8,7 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// TestAdminTelegramIDsSorted verifies admin telegram i ds sorted behavior.
 func TestAdminTelegramIDsSorted(t *testing.T) {
 	got := adminTelegramIDs(map[int64]struct{}{
 		44: {},
@@ -22,6 +23,7 @@ func TestAdminTelegramIDsSorted(t *testing.T) {
 	}
 }
 
+// TestBuildAdminOrderNotificationText verifies build admin order notification text behavior.
 func TestBuildAdminOrderNotificationText(t *testing.T) {
 	order := models.Order{
 		ID:            "ord-1",
@@ -54,6 +56,7 @@ func TestBuildAdminOrderNotificationText(t *testing.T) {
 	}
 }
 
+// TestBuildAdminOrderNotificationTextUsesFallbackUserID verifies build admin order notification text uses fallback user i d behavior.
 func TestBuildAdminOrderNotificationTextUsesFallbackUserID(t *testing.T) {
 	order := models.Order{
 		ID:      "ord-2",
@@ -65,6 +68,7 @@ func TestBuildAdminOrderNotificationTextUsesFallbackUserID(t *testing.T) {
 	}
 }
 
+// TestIncomingTelegramMessageTextPrefersText verifies incoming telegram message text prefers text behavior.
 func TestIncomingTelegramMessageTextPrefersText(t *testing.T) {
 	msg := &telegramMessage{
 		Text:    "  hello from user  ",
@@ -75,6 +79,7 @@ func TestIncomingTelegramMessageTextPrefersText(t *testing.T) {
 	}
 }
 
+// TestBuildAdminBotMessageNotificationText verifies build admin bot message notification text behavior.
 func TestBuildAdminBotMessageNotificationText(t *testing.T) {
 	msg := telegramMessage{
 		MessageID: 77,
@@ -106,6 +111,7 @@ func TestBuildAdminBotMessageNotificationText(t *testing.T) {
 	}
 }
 
+// TestBuildAdminBotMessageNotificationTextEmpty verifies build admin bot message notification text empty behavior.
 func TestBuildAdminBotMessageNotificationTextEmpty(t *testing.T) {
 	msg := telegramMessage{}
 	if got := buildAdminBotMessageNotificationText(msg, ""); got != "" {
@@ -113,6 +119,7 @@ func TestBuildAdminBotMessageNotificationTextEmpty(t *testing.T) {
 	}
 }
 
+// TestBuildAdminReplyMarkup verifies build admin reply markup behavior.
 func TestBuildAdminReplyMarkup(t *testing.T) {
 	markup := buildAdminReplyMarkup("@my_bot", 123456)
 	if markup == nil {
@@ -160,6 +167,7 @@ func TestBuildAdminReplyMarkup(t *testing.T) {
 	}
 }
 
+// TestBuildAdminReplyMarkupWithoutBotUsername verifies build admin reply markup without bot username behavior.
 func TestBuildAdminReplyMarkupWithoutBotUsername(t *testing.T) {
 	markup := buildAdminReplyMarkup("", 123)
 	if markup == nil {
@@ -180,6 +188,7 @@ func TestBuildAdminReplyMarkupWithoutBotUsername(t *testing.T) {
 	}
 }
 
+// TestBuildAdminReplyMarkupInvalidChat verifies build admin reply markup invalid chat behavior.
 func TestBuildAdminReplyMarkupInvalidChat(t *testing.T) {
 	if markup := buildAdminReplyMarkup("my_bot", 0); markup != nil {
 		t.Fatalf("expected nil markup, got %+v", markup)

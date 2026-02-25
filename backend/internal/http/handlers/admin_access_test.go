@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TestAdminEndpointsRequireAllowlist verifies admin endpoints require allowlist behavior.
 func TestAdminEndpointsRequireAllowlist(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -87,6 +88,7 @@ func TestAdminEndpointsRequireAllowlist(t *testing.T) {
 	}
 }
 
+// insertTestUser handles insert test user.
 func insertTestUser(ctx context.Context, pool *pgxpool.Pool, telegramID int64, suffix string) (int64, error) {
 	row := pool.QueryRow(ctx, `INSERT INTO users (telegram_id, username, first_name, last_name)
 VALUES ($1, $2, $3, $4)

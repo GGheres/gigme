@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TestListUserEventsFiltersByCreator verifies list user events filters by creator behavior.
 func TestListUserEventsFiltersByCreator(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -75,6 +76,7 @@ func TestListUserEventsFiltersByCreator(t *testing.T) {
 	}
 }
 
+// insertTestUser handles insert test user.
 func insertTestUser(ctx context.Context, pool *pgxpool.Pool, suffix string) (int64, error) {
 	telegramID := time.Now().UnixNano()
 	row := pool.QueryRow(ctx, `INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
@@ -87,6 +89,7 @@ RETURNING id;`, telegramID, "test_"+suffix, "Test", "User", nil)
 	return id, nil
 }
 
+// insertTestEvent handles insert test event.
 func insertTestEvent(ctx context.Context, pool *pgxpool.Pool, userID int64, title string) (int64, error) {
 	row := pool.QueryRow(ctx, `INSERT INTO events (creator_user_id, title, description, starts_at, location)
 VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint(0, 0), 4326)::geography)

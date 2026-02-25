@@ -7,7 +7,10 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 
+/// AdminQrScannerPage represents admin qr scanner page.
+
 class AdminQrScannerPage extends ConsumerStatefulWidget {
+  /// AdminQrScannerPage handles admin qr scanner page.
   const AdminQrScannerPage({
     super.key,
     this.embedded = false,
@@ -15,9 +18,13 @@ class AdminQrScannerPage extends ConsumerStatefulWidget {
 
   final bool embedded;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AdminQrScannerPage> createState() => _AdminQrScannerPageState();
 }
+
+/// _ScannerMessageTone represents scanner message tone.
 
 enum _ScannerMessageTone {
   info,
@@ -25,7 +32,10 @@ enum _ScannerMessageTone {
   error,
 }
 
+/// _DecodedQrPayload represents decoded qr payload.
+
 class _DecodedQrPayload {
+  /// _DecodedQrPayload handles decoded qr payload.
   const _DecodedQrPayload({
     required this.ticketId,
     required this.eventId,
@@ -41,6 +51,8 @@ class _DecodedQrPayload {
   final int quantity;
 }
 
+/// _AdminQrScannerPageState represents admin qr scanner page state.
+
 class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
   final TextEditingController _ticketIdCtrl = TextEditingController();
   final TextEditingController _payloadCtrl = TextEditingController();
@@ -50,12 +62,16 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
   String? _lastPayload;
   _DecodedQrPayload? _decodedQr;
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _ticketIdCtrl.dispose();
     _payloadCtrl.dispose();
     super.dispose();
   }
+
+  /// _redeem handles internal redeem behavior.
 
   Future<void> _redeem(
       {required String ticketId, String qrPayload = ''}) async {
@@ -112,6 +128,8 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     }
   }
 
+  /// _onScanPayload handles on scan payload.
+
   void _onScanPayload(String payload) {
     if (_busy || payload.trim().isEmpty) return;
     if (_lastPayload == payload) return;
@@ -136,6 +154,8 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     });
   }
 
+  /// _clearForm handles clear form.
+
   void _clearForm() {
     setState(() {
       _ticketIdCtrl.clear();
@@ -146,6 +166,8 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
       _messageTone = _ScannerMessageTone.info;
     });
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +271,8 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     );
   }
 
+  /// _decodePayload decodes payload.
+
   _DecodedQrPayload? _decodePayload(String token) {
     final parts = token.split('.');
     if (parts.length != 2) return null;
@@ -285,12 +309,16 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     }
   }
 
+  /// _parseInt parses int.
+
   int _parseInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value.trim()) ?? 0;
     return 0;
   }
+
+  /// _messageBackgroundColor handles message background color.
 
   Color _messageBackgroundColor() {
     switch (_messageTone) {

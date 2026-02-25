@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// TestValidateLoginWidgetPayload_Success verifies validate login widget payload success behavior.
 func TestValidateLoginWidgetPayload_Success(t *testing.T) {
 	botToken := "123456:bot_token"
 	now := time.Now().Unix()
@@ -50,6 +51,7 @@ func TestValidateLoginWidgetPayload_Success(t *testing.T) {
 	}
 }
 
+// TestBuildWebAppInitData_RoundTripValidate verifies build web app init data round trip validate behavior.
 func TestBuildWebAppInitData_RoundTripValidate(t *testing.T) {
 	botToken := "123456:bot_token"
 	now := time.Now().UTC()

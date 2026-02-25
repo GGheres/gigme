@@ -12,10 +12,12 @@ import (
 
 const adminMessageMaxRunes = 1500
 
+// notifyAdmins handles notify admins.
 func (h *Handler) notifyAdmins(logger *slog.Logger, text string) {
 	h.notifyAdminsWithMarkup(logger, text, nil)
 }
 
+// notifyAdminsWithMarkup handles notify admins with markup.
 func (h *Handler) notifyAdminsWithMarkup(logger *slog.Logger, text string, markup *integrations.ReplyMarkup) {
 	if h == nil || h.telegram == nil || h.cfg == nil {
 		return
@@ -40,6 +42,7 @@ func (h *Handler) notifyAdminsWithMarkup(logger *slog.Logger, text string, marku
 	}
 }
 
+// adminTelegramIDs handles admin telegram i ds.
 func adminTelegramIDs(ids map[int64]struct{}) []int64 {
 	result := make([]int64, 0, len(ids))
 	for id := range ids {
@@ -54,6 +57,7 @@ func adminTelegramIDs(ids map[int64]struct{}) []int64 {
 	return result
 }
 
+// buildAdminOrderNotificationText builds admin order notification text.
 func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64, userTelegramID int64, botUsername string) string {
 	lines := []string{"Новый заказ"}
 
@@ -101,6 +105,7 @@ func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64, u
 	return strings.Join(lines, "\n")
 }
 
+// buildAdminBotMessageNotificationText builds admin bot message notification text.
 func buildAdminBotMessageNotificationText(message telegramMessage, botUsername string) string {
 	text := incomingTelegramMessageText(&message)
 	if text == "" {
@@ -126,6 +131,7 @@ func buildAdminBotMessageNotificationText(message telegramMessage, botUsername s
 	return strings.Join(lines, "\n")
 }
 
+// incomingTelegramMessageText handles incoming telegram message text.
 func incomingTelegramMessageText(message *telegramMessage) string {
 	if message == nil {
 		return ""
@@ -136,6 +142,7 @@ func incomingTelegramMessageText(message *telegramMessage) string {
 	return strings.TrimSpace(message.Caption)
 }
 
+// formatTelegramSender formats telegram sender.
 func formatTelegramSender(message telegramMessage) string {
 	firstName := strings.TrimSpace(message.From.FirstName)
 	lastName := strings.TrimSpace(message.From.LastName)
@@ -158,6 +165,7 @@ func formatTelegramSender(message telegramMessage) string {
 	}
 }
 
+// trimMessageForAdmin handles trim message for admin.
 func trimMessageForAdmin(text string) string {
 	raw := strings.TrimSpace(text)
 	if raw == "" {
@@ -173,6 +181,7 @@ func trimMessageForAdmin(text string) string {
 	return string(runes[:adminMessageMaxRunes-3]) + "..."
 }
 
+// buildTelegramBotReplyLink builds telegram bot reply link.
 func buildTelegramBotReplyLink(botUsername string, chatID int64) string {
 	if chatID <= 0 {
 		return ""
@@ -184,6 +193,7 @@ func buildTelegramBotReplyLink(botUsername string, chatID int64) string {
 	return fmt.Sprintf("https://t.me/%s?start=reply_%d", username, chatID)
 }
 
+// buildAdminReplyMarkup builds admin reply markup.
 func buildAdminReplyMarkup(botUsername string, chatID int64) *integrations.ReplyMarkup {
 	if chatID <= 0 {
 		return nil
@@ -210,6 +220,7 @@ func buildAdminReplyMarkup(botUsername string, chatID int64) *integrations.Reply
 	}
 }
 
+// normalizeTelegramBotUsername normalizes telegram bot username.
 func normalizeTelegramBotUsername(value string) string {
 	username := strings.TrimSpace(value)
 	username = strings.TrimPrefix(username, "@")

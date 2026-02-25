@@ -7,7 +7,10 @@ import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
 
+/// AppNavbarItem represents app navbar item.
+
 class AppNavbarItem {
+  /// AppNavbarItem handles app navbar item.
   const AppNavbarItem({
     required this.label,
     required this.icon,
@@ -17,7 +20,10 @@ class AppNavbarItem {
   final IconData icon;
 }
 
+/// AppTopNavbar represents app top navbar.
+
 class AppTopNavbar extends StatelessWidget {
+  /// AppTopNavbar handles app top navbar.
   const AppTopNavbar({
     required this.items,
     required this.selectedIndex,
@@ -30,6 +36,8 @@ class AppTopNavbar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final String title;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +115,10 @@ class AppTopNavbar extends StatelessWidget {
   }
 }
 
+/// _NavChip represents nav chip.
+
 class _NavChip extends StatelessWidget {
+  /// _NavChip handles nav chip.
   const _NavChip({
     required this.label,
     required this.icon,
@@ -119,6 +130,8 @@ class _NavChip extends StatelessWidget {
   final IconData icon;
   final bool active;
   final VoidCallback onTap;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

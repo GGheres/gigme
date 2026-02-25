@@ -45,6 +45,7 @@ var TicketGroupSizeByType = map[string]int{
 	TicketTypeGroup10: 10,
 }
 
+// TicketProduct represents ticket product.
 type TicketProduct struct {
 	ID             string    `json:"id"`
 	EventID        int64     `json:"eventId"`
@@ -59,6 +60,7 @@ type TicketProduct struct {
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
+// TransferProduct represents transfer product.
 type TransferProduct struct {
 	ID             string                 `json:"id"`
 	EventID        int64                  `json:"eventId"`
@@ -74,6 +76,7 @@ type TransferProduct struct {
 	UpdatedAt      time.Time              `json:"updatedAt"`
 }
 
+// PromoCode represents promo code.
 type PromoCode struct {
 	ID           string     `json:"id"`
 	Code         string     `json:"code"`
@@ -90,6 +93,7 @@ type PromoCode struct {
 	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
+// Order represents order.
 type Order struct {
 	ID               string     `json:"id"`
 	UserID           int64      `json:"userId"`
@@ -114,6 +118,7 @@ type Order struct {
 	UpdatedAt        time.Time  `json:"updatedAt"`
 }
 
+// OrderItem represents order item.
 type OrderItem struct {
 	ID             int64                  `json:"id"`
 	OrderID        string                 `json:"orderId"`
@@ -127,6 +132,7 @@ type OrderItem struct {
 	CreatedAt      time.Time              `json:"createdAt"`
 }
 
+// Ticket represents ticket.
 type Ticket struct {
 	ID            string     `json:"id"`
 	OrderID       string     `json:"orderId"`
@@ -143,6 +149,7 @@ type Ticket struct {
 	CreatedAt     time.Time  `json:"createdAt"`
 }
 
+// OrderUserSummary represents order user summary.
 type OrderUserSummary struct {
 	ID         int64  `json:"id"`
 	TelegramID int64  `json:"telegramId"`
@@ -151,6 +158,7 @@ type OrderUserSummary struct {
 	Username   string `json:"username"`
 }
 
+// PaymentInstructions represents payment instructions.
 type PaymentInstructions struct {
 	PhoneNumber    string `json:"phoneNumber,omitempty"`
 	USDTWallet     string `json:"usdtWallet,omitempty"`
@@ -163,6 +171,7 @@ type PaymentInstructions struct {
 	DisplayMessage string `json:"displayMessage"`
 }
 
+// PaymentSettings represents payment settings.
 type PaymentSettings struct {
 	PhoneNumber      string     `json:"phoneNumber"`
 	USDTWallet       string     `json:"usdtWallet"`
@@ -182,6 +191,7 @@ type PaymentSettings struct {
 	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
 }
 
+// PaymentSettingsPatch represents payment settings patch.
 type PaymentSettingsPatch struct {
 	PhoneNumber      *string `json:"phoneNumber,omitempty"`
 	USDTWallet       *string `json:"usdtWallet,omitempty"`
@@ -198,6 +208,7 @@ type PaymentSettingsPatch struct {
 	SBPDescription   *string `json:"sbpDescription,omitempty"`
 }
 
+// SbpQR represents sbp q r.
 type SbpQR struct {
 	ID         string    `json:"id"`
 	OrderID    string    `json:"orderId"`
@@ -210,6 +221,7 @@ type SbpQR struct {
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
+// Payment represents payment.
 type Payment struct {
 	ID                string                 `json:"id"`
 	OrderID           string                 `json:"orderId"`
@@ -222,6 +234,7 @@ type Payment struct {
 	UpdatedAt         time.Time              `json:"updatedAt"`
 }
 
+// OrderDetail represents order detail.
 type OrderDetail struct {
 	Order               Order               `json:"order"`
 	User                *OrderUserSummary   `json:"user,omitempty"`
@@ -230,16 +243,19 @@ type OrderDetail struct {
 	PaymentInstructions PaymentInstructions `json:"paymentInstructions"`
 }
 
+// OrderSummary represents order summary.
 type OrderSummary struct {
 	Order
 	User *OrderUserSummary `json:"user,omitempty"`
 }
 
+// OrderProductSelection represents order product selection.
 type OrderProductSelection struct {
 	ProductID string `json:"productId"`
 	Quantity  int    `json:"quantity"`
 }
 
+// CreateOrderParams represents create order params.
 type CreateOrderParams struct {
 	UserID           int64
 	EventID          int64
@@ -250,6 +266,7 @@ type CreateOrderParams struct {
 	PromoCode        string
 }
 
+// PromoValidation represents promo validation.
 type PromoValidation struct {
 	Valid         bool   `json:"valid"`
 	Code          string `json:"code"`
@@ -260,6 +277,7 @@ type PromoValidation struct {
 	Reason        string `json:"reason,omitempty"`
 }
 
+// TicketProductInput represents ticket product input.
 type TicketProductInput struct {
 	EventID        int64  `json:"eventId"`
 	Name           string `json:"name"`
@@ -269,12 +287,14 @@ type TicketProductInput struct {
 	IsActive       bool   `json:"isActive"`
 }
 
+// TicketProductPatch represents ticket product patch.
 type TicketProductPatch struct {
 	PriceCents     *int64 `json:"priceCents,omitempty"`
 	InventoryLimit *int   `json:"inventoryLimit,omitempty"`
 	IsActive       *bool  `json:"isActive,omitempty"`
 }
 
+// TransferProductInput represents transfer product input.
 type TransferProductInput struct {
 	EventID        int64                  `json:"eventId"`
 	Name           string                 `json:"name"`
@@ -285,6 +305,7 @@ type TransferProductInput struct {
 	IsActive       bool                   `json:"isActive"`
 }
 
+// TransferProductPatch represents transfer product patch.
 type TransferProductPatch struct {
 	PriceCents     *int64                 `json:"priceCents,omitempty"`
 	Info           map[string]interface{} `json:"info,omitempty"`
@@ -292,6 +313,7 @@ type TransferProductPatch struct {
 	IsActive       *bool                  `json:"isActive,omitempty"`
 }
 
+// PromoCodeInput represents promo code input.
 type PromoCodeInput struct {
 	Code         string     `json:"code"`
 	DiscountType string     `json:"discountType"`
@@ -303,6 +325,7 @@ type PromoCodeInput struct {
 	IsActive     bool       `json:"isActive"`
 }
 
+// PromoCodePatch represents promo code patch.
 type PromoCodePatch struct {
 	DiscountType *string    `json:"discountType,omitempty"`
 	Value        *int64     `json:"value,omitempty"`
@@ -313,11 +336,13 @@ type PromoCodePatch struct {
 	IsActive     *bool      `json:"isActive,omitempty"`
 }
 
+// TicketRedeemResult represents ticket redeem result.
 type TicketRedeemResult struct {
 	Ticket      Ticket `json:"ticket"`
 	OrderStatus string `json:"orderStatus"`
 }
 
+// TicketStatsBreakdown represents ticket stats breakdown.
 type TicketStatsBreakdown struct {
 	EventID                 *int64           `json:"eventId,omitempty"`
 	EventTitle              string           `json:"eventTitle,omitempty"`
@@ -329,6 +354,7 @@ type TicketStatsBreakdown struct {
 	TransferDirectionCounts map[string]int64 `json:"transferDirectionCounts"`
 }
 
+// TicketStats represents ticket stats.
 type TicketStats struct {
 	Global TicketStatsBreakdown   `json:"global"`
 	Events []TicketStatsBreakdown `json:"events"`

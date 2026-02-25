@@ -15,15 +15,24 @@ import '../../events/application/events_controller.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
 
+/// ProfileScreen represents profile screen.
+
 class ProfileScreen extends ConsumerStatefulWidget {
+  /// ProfileScreen handles profile screen.
   const ProfileScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
+/// _ProfileScreenState represents profile screen state.
+
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _loaded = false;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

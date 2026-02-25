@@ -7,6 +7,7 @@ import (
 	"gigme/backend/internal/eventparser/extract"
 )
 
+// TestExtractLinksDedup verifies extract links dedup behavior.
 func TestExtractLinksDedup(t *testing.T) {
 	text := "Visit https://example.com/a and https://example.com/a plus https://example.org/b."
 	got := extract.ExtractLinks(text)

@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gigme_flutter/core/utils/vk_auth.dart';
 
+/// main is the application entry point.
+
 void main() {
   group('extractVkMiniAppLaunchParams', () {
     test('returns raw query when vk launch params are present', () {

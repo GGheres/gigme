@@ -16,6 +16,8 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// showPurchaseTicketFlow handles show purchase ticket flow.
+
 Future<void> showPurchaseTicketFlow(
   BuildContext context, {
   required int eventId,
@@ -46,14 +48,21 @@ Future<void> showPurchaseTicketFlow(
   );
 }
 
+/// PurchaseTicketFlow represents purchase ticket flow.
+
 class PurchaseTicketFlow extends ConsumerStatefulWidget {
+  /// PurchaseTicketFlow handles purchase ticket flow.
   const PurchaseTicketFlow({required this.eventId, super.key});
 
   final int eventId;
 
+  /// createState creates state.
+
   @override
   ConsumerState<PurchaseTicketFlow> createState() => _PurchaseTicketFlowState();
 }
+
+/// _PurchaseTicketFlowState represents purchase ticket flow state.
 
 class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     with WidgetsBindingObserver {
@@ -799,7 +808,10 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   }
 }
 
+/// PaymentMethodPage represents payment method page.
+
 class PaymentMethodPage extends StatelessWidget {
+  /// PaymentMethodPage handles payment method page.
   const PaymentMethodPage({
     required this.method,
     required this.amountCents,
@@ -808,6 +820,8 @@ class PaymentMethodPage extends StatelessWidget {
 
   final String method;
   final int amountCents;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -838,7 +852,10 @@ class PaymentMethodPage extends StatelessWidget {
   }
 }
 
+/// PurchaseStatusPage represents purchase status page.
+
 class PurchaseStatusPage extends StatelessWidget {
+  /// PurchaseStatusPage handles purchase status page.
   const PurchaseStatusPage({
     required this.detail,
     required this.onClose,
@@ -847,6 +864,8 @@ class PurchaseStatusPage extends StatelessWidget {
 
   final OrderDetailModel detail;
   final VoidCallback onClose;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -934,7 +953,10 @@ class PurchaseStatusPage extends StatelessWidget {
   }
 }
 
+/// SbpQrPaymentPage represents sbp qr payment page.
+
 class SbpQrPaymentPage extends ConsumerStatefulWidget {
+  /// SbpQrPaymentPage handles sbp qr payment page.
   const SbpQrPaymentPage({
     required this.created,
     required this.onClose,
@@ -944,9 +966,13 @@ class SbpQrPaymentPage extends ConsumerStatefulWidget {
   final CreateSbpQrOrderResponseModel created;
   final VoidCallback onClose;
 
+  /// createState creates state.
+
   @override
   ConsumerState<SbpQrPaymentPage> createState() => _SbpQrPaymentPageState();
 }
+
+/// _SbpQrPaymentPageState represents sbp qr payment page state.
 
 class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
   Timer? _timer;
@@ -956,6 +982,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
   int _attempt = 0;
   late final DateTime _startedAt;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
@@ -963,18 +991,28 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     unawaited(_pollStatus(scheduleNext: true));
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
 
+  /// _token handles internal token behavior.
+
   String get _token =>
+
+      /// read reads the requested data.
       ref.read(authControllerProvider).state.token?.trim() ?? '';
+
+  /// _isPollingExpired reports whether polling expired condition is met.
 
   bool get _isPollingExpired {
     return DateTime.now().difference(_startedAt) >= const Duration(minutes: 15);
   }
+
+  /// _pollStatus handles poll status.
 
   Future<void> _pollStatus({bool scheduleNext = false}) async {
     final token = _token;
@@ -1015,6 +1053,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     }
   }
 
+  /// _scheduleNextPoll handles schedule next poll.
+
   void _scheduleNextPoll() {
     _timer?.cancel();
     if (!mounted || _isPollingExpired || _isPaid(_status)) return;
@@ -1026,6 +1066,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     });
   }
 
+  /// _isPaid reports whether paid condition is met.
+
   bool _isPaid(SbpQrStatusResponseModel? status) {
     if (status == null) return false;
     if (status.paid) return true;
@@ -1034,6 +1076,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
         orderStatus == 'REDEEMED' ||
         orderStatus == 'CONFIRMED';
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1176,7 +1220,10 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
   }
 }
 
+/// _TicketQuantityRow represents ticket quantity row.
+
 class _TicketQuantityRow extends StatelessWidget {
+  /// _TicketQuantityRow handles ticket quantity row.
   const _TicketQuantityRow({
     required this.title,
     required this.subtitle,
@@ -1188,6 +1235,8 @@ class _TicketQuantityRow extends StatelessWidget {
   final String subtitle;
   final int quantity;
   final ValueChanged<int> onChanged;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1243,7 +1292,10 @@ class _TicketQuantityRow extends StatelessWidget {
   }
 }
 
+/// _PaymentMethodTile represents payment method tile.
+
 class _PaymentMethodTile extends StatelessWidget {
+  /// _PaymentMethodTile handles payment method tile.
   const _PaymentMethodTile({
     required this.title,
     required this.subtitle,
@@ -1255,6 +1307,8 @@ class _PaymentMethodTile extends StatelessWidget {
   final String subtitle;
   final bool selected;
   final VoidCallback onTap;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1304,10 +1358,15 @@ class _PaymentMethodTile extends StatelessWidget {
   }
 }
 
+/// _InfoCard represents info card.
+
 class _InfoCard extends StatelessWidget {
+  /// _InfoCard handles info card.
   const _InfoCard({required this.text});
 
   final String text;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1324,7 +1383,10 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
+/// _PaymentCheckoutPage represents payment checkout page.
+
 class _PaymentCheckoutPage extends ConsumerWidget {
+  /// _PaymentCheckoutPage handles payment checkout page.
   const _PaymentCheckoutPage({
     required this.paymentMethod,
     required this.amountCents,
@@ -1340,6 +1402,8 @@ class _PaymentCheckoutPage extends ConsumerWidget {
   final VoidCallback onBack;
   final VoidCallback? onPaid;
   final bool submitting;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1441,6 +1505,8 @@ class _PaymentCheckoutPage extends ConsumerWidget {
     );
   }
 
+  /// _methodTitle handles method title.
+
   String _methodTitle(String method) {
     switch (method) {
       case 'USDT':
@@ -1454,6 +1520,8 @@ class _PaymentCheckoutPage extends ConsumerWidget {
         return 'Перевод по номеру телефона';
     }
   }
+
+  /// _methodSubtitle handles method subtitle.
 
   String _methodSubtitle(String method) {
     switch (method) {
@@ -1470,7 +1538,10 @@ class _PaymentCheckoutPage extends ConsumerWidget {
   }
 }
 
+/// _PaymentRequisitesBlock represents payment requisites block.
+
 class _PaymentRequisitesBlock extends StatelessWidget {
+  /// _PaymentRequisitesBlock handles payment requisites block.
   const _PaymentRequisitesBlock({
     required this.paymentMethod,
     required this.phoneNumber,
@@ -1486,6 +1557,8 @@ class _PaymentRequisitesBlock extends StatelessWidget {
   final String usdtNetwork;
   final String usdtMemo;
   final String qrData;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1550,7 +1623,10 @@ class _PaymentRequisitesBlock extends StatelessWidget {
   }
 }
 
+/// _CopyDataCard represents copy data card.
+
 class _CopyDataCard extends StatelessWidget {
+  /// _CopyDataCard handles copy data card.
   const _CopyDataCard({
     required this.title,
     required this.value,
@@ -1560,6 +1636,8 @@ class _CopyDataCard extends StatelessWidget {
   final String title;
   final String value;
   final String? copyValue;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1594,7 +1672,10 @@ class _CopyDataCard extends StatelessWidget {
   }
 }
 
+/// _CopyInfoRow represents copy info row.
+
 class _CopyInfoRow extends StatelessWidget {
+  /// _CopyInfoRow handles copy info row.
   const _CopyInfoRow({
     required this.label,
     required this.value,
@@ -1604,6 +1685,8 @@ class _CopyInfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool copyEnabled;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1631,7 +1714,10 @@ class _CopyInfoRow extends StatelessWidget {
   }
 }
 
+/// _SummaryRow represents summary row.
+
 class _SummaryRow extends StatelessWidget {
+  /// _SummaryRow handles summary row.
   const _SummaryRow({
     required this.label,
     required this.value,
@@ -1641,6 +1727,8 @@ class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
   final bool emphasized;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

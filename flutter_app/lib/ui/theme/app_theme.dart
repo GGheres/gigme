@@ -6,6 +6,8 @@ import 'app_shadows.dart';
 import 'app_tokens.dart';
 import 'app_typography.dart';
 
+/// buildAppTheme builds app theme.
+
 ThemeData buildAppTheme({
   required Brightness brightness,
 }) {
@@ -189,7 +191,8 @@ ThemeData buildAppTheme({
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.pill),
       ),
-      indicatorColor: colorScheme.primary.withValues(alpha: isDark ? 0.26 : 0.16),
+      indicatorColor:
+          colorScheme.primary.withValues(alpha: isDark ? 0.26 : 0.16),
     ),
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: Colors.transparent,

@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// TelegramUser represents telegram user.
 type TelegramUser struct {
 	ID        int64  `json:"id"`
 	Username  string `json:"username"`
@@ -22,6 +23,7 @@ type TelegramUser struct {
 	PhotoURL  string `json:"photo_url"`
 }
 
+// ValidateInitData validates init data.
 func ValidateInitData(initData string, botToken string, maxAge time.Duration) (TelegramUser, map[string]string, error) {
 	parsed, err := url.ParseQuery(initData)
 	if err != nil {
@@ -75,6 +77,7 @@ func ValidateInitData(initData string, botToken string, maxAge time.Duration) (T
 	return user, flat, nil
 }
 
+// buildDataCheckString builds data check string.
 func buildDataCheckString(values url.Values) string {
 	keys := make([]string, 0, len(values))
 	for k := range values {
@@ -89,18 +92,21 @@ func buildDataCheckString(values url.Values) string {
 	return strings.Join(parts, "\n")
 }
 
+// buildSecretKey builds secret key.
 func buildSecretKey(botToken string) []byte {
 	h := hmac.New(sha256.New, []byte("WebAppData"))
 	h.Write([]byte(botToken))
 	return h.Sum(nil)
 }
 
+// computeHMAC handles compute h m a c.
 func computeHMAC(secret []byte, data string) string {
 	h := hmac.New(sha256.New, secret)
 	h.Write([]byte(data))
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// parseUser parses user.
 func parseUser(raw string) (TelegramUser, error) {
 	if raw == "" {
 		return TelegramUser{}, errors.New("missing user")

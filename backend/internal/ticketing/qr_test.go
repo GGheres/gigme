@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// TestSignAndVerifyQRPayload verifies sign and verify q r payload behavior.
 func TestSignAndVerifyQRPayload(t *testing.T) {
 	secret := "test-secret"
 	payload := BuildPayload("ticket-1", 100, 200, "SINGLE", 1, time.Date(2026, 2, 11, 10, 0, 0, 0, time.UTC), "abc")
@@ -23,6 +24,7 @@ func TestSignAndVerifyQRPayload(t *testing.T) {
 	}
 }
 
+// TestVerifyQRPayloadRejectsTamperedSignature verifies verify q r payload rejects tampered signature behavior.
 func TestVerifyQRPayloadRejectsTamperedSignature(t *testing.T) {
 	secret := "test-secret"
 	payload := BuildPayload("ticket-1", 100, 200, "GROUP2", 2, time.Now().UTC(), "nonce")
@@ -40,6 +42,7 @@ func TestVerifyQRPayloadRejectsTamperedSignature(t *testing.T) {
 	}
 }
 
+// TestVerifyQRPayloadRejectsMalformedToken verifies verify q r payload rejects malformed token behavior.
 func TestVerifyQRPayloadRejectsMalformedToken(t *testing.T) {
 	if _, err := VerifyQRPayload("secret", "bad-token"); err == nil {
 		t.Fatalf("expected malformed token to fail")

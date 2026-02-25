@@ -16,6 +16,7 @@ type HostRateLimiter struct {
 	burst    int
 }
 
+// NewHostRateLimiter creates host rate limiter.
 func NewHostRateLimiter(rps float64, burst int) *HostRateLimiter {
 	if rps <= 0 {
 		rps = 1
@@ -30,6 +31,7 @@ func NewHostRateLimiter(rps float64, burst int) *HostRateLimiter {
 	}
 }
 
+// Wait handles internal wait behavior.
 func (l *HostRateLimiter) Wait(ctx context.Context, host string) error {
 	if l == nil || host == "" {
 		return nil
@@ -38,6 +40,7 @@ func (l *HostRateLimiter) Wait(ctx context.Context, host string) error {
 	return limiter.Wait(ctx)
 }
 
+// getLimiter returns limiter.
 func (l *HostRateLimiter) getLimiter(host string) *rate.Limiter {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -49,6 +52,7 @@ func (l *HostRateLimiter) getLimiter(host string) *rate.Limiter {
 	return limiter
 }
 
+// backoffDuration handles backoff duration.
 func backoffDuration(base time.Duration, attempt int, jitterFn func(max int64) int64) time.Duration {
 	if base <= 0 {
 		base = 200 * time.Millisecond

@@ -7,6 +7,7 @@ import (
 	"gigme/backend/internal/http/middleware"
 )
 
+// MyEvents handles my events.
 func (h *Handler) MyEvents(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())

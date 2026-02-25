@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
 
+/// AppSectionHeader represents app section header.
+
 class AppSectionHeader extends StatelessWidget {
+  /// AppSectionHeader handles app section header.
   const AppSectionHeader({
     required this.title,
     this.subtitle,
@@ -19,6 +22,8 @@ class AppSectionHeader extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final Color? titleColor;
   final Color? subtitleColor;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

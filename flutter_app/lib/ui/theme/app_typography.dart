@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
+/// AppTypography represents app typography.
+
 class AppTypography {
+  /// AppTypography handles app typography.
   const AppTypography._();
+
+  /// TODO handles t o d o.
 
   // TODO(ui-fonts): add real brand font files in pubspec assets.
   static const String displayFontFamily = 'Bricolage Grotesque';
@@ -12,6 +17,8 @@ class AppTypography {
     'Arial',
     'sans-serif',
   ];
+
+  /// textTheme handles text theme.
 
   static TextTheme get textTheme {
     TextStyle bodyStyle({

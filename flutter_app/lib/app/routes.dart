@@ -1,3 +1,4 @@
+/// AppRoutes represents app routes.
 class AppRoutes {
   static const landing = '/';
 
@@ -18,11 +19,21 @@ class AppRoutes {
   static const adminStats = '/space_app/admin/stats';
   static const uiPreview = '/space_app/dev/ui_preview';
 
+  /// event handles internal event behavior.
+
   static String event(int id) => '/space_app/event/$id';
+
+  /// adminEvent handles admin event.
   static String adminEvent(int id) => '/space_app/admin/event/$id';
+
+  /// adminOrderDetail handles admin order detail.
   static String adminOrderDetail(String id) => '/space_app/admin/orders/$id';
+
+  /// adminBotMessagesForChat handles admin bot messages for chat.
   static String adminBotMessagesForChat(int chatId) =>
       '$adminBotMessages?chatId=$chatId';
+
+  /// isAppPath reports whether app path condition is met.
 
   static bool isAppPath(String location) =>
       location == appRoot || location.startsWith('$appRoot/');

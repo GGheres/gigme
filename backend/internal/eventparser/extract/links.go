@@ -7,6 +7,7 @@ import (
 
 var urlRE = regexp.MustCompile(`https?://[^\s<>"]+`)
 
+// ExtractLinks extracts links.
 func ExtractLinks(text string) []string {
 	matches := urlRE.FindAllString(text, -1)
 	if len(matches) == 0 {
@@ -31,6 +32,7 @@ func ExtractLinks(text string) []string {
 	return out
 }
 
+// MergeLinks merges links.
 func MergeLinks(lists ...[]string) []string {
 	seen := map[string]struct{}{}
 	out := make([]string, 0)

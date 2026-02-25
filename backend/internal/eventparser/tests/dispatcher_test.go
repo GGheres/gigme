@@ -8,6 +8,7 @@ import (
 	"gigme/backend/internal/eventparser/core"
 )
 
+// TestDispatcherDomainSelectionAndTelegramChannelShortcut verifies parser selection for each supported input domain.
 func TestDispatcherDomainSelectionAndTelegramChannelShortcut(t *testing.T) {
 	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
 		"https://t.me/s/gigmechannel": {
@@ -73,6 +74,7 @@ Place: Amsterdam</div>`),
 	}
 }
 
+// TestDispatcherUnsupportedInput ensures invalid input is wrapped as UnsupportedInputError.
 func TestDispatcherUnsupportedInput(t *testing.T) {
 	d := newTestDispatcher(&fakeFetcher{responses: map[string]fakeResponse{}})
 	_, err := d.ParseEvent(context.Background(), "not a url with spaces")

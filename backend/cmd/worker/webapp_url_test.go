@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// TestNormalizeWebAppBaseURL verifies normalize web app base u r l behavior.
 func TestNormalizeWebAppBaseURL(t *testing.T) {
 	got := normalizeWebAppBaseURL("https://spacefestival.fun")
 	want := "https://spacefestival.fun/space_app"
@@ -13,6 +14,7 @@ func TestNormalizeWebAppBaseURL(t *testing.T) {
 	}
 }
 
+// TestBuildEventURLUsesSpaceAppPathAndEventIDQuery verifies build event u r l uses space app path and event i d query behavior.
 func TestBuildEventURLUsesSpaceAppPathAndEventIDQuery(t *testing.T) {
 	link := buildEventURL("https://spacefestival.fun", 17)
 	parsed, err := url.Parse(link)

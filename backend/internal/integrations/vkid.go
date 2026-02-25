@@ -14,12 +14,14 @@ import (
 
 const defaultVKIDBaseURL = "https://id.vk.ru"
 
+// VKIDAuthError represents v k i d auth error.
 type VKIDAuthError struct {
 	Code        string
 	Description string
 	StatusCode  int
 }
 
+// Error handles internal error behavior.
 func (e *VKIDAuthError) Error() string {
 	if e == nil {
 		return "vk id auth error"
@@ -30,6 +32,7 @@ func (e *VKIDAuthError) Error() string {
 	return fmt.Sprintf("vk id auth error: %s (%s)", e.Code, e.Description)
 }
 
+// VKIDToken represents v k i d token.
 type VKIDToken struct {
 	AccessToken  string
 	RefreshToken string
@@ -39,6 +42,7 @@ type VKIDToken struct {
 	Scope        string
 }
 
+// VKIDUserInfo represents v k i d user info.
 type VKIDUserInfo struct {
 	UserID    int64
 	FirstName string
@@ -48,12 +52,14 @@ type VKIDUserInfo struct {
 	Phone     string
 }
 
+// VKIDClient represents v k i d client.
 type VKIDClient struct {
 	client  *http.Client
 	baseURL string
 	appID   string
 }
 
+// NewVKIDClient creates v k i d client.
 func NewVKIDClient(appID string) *VKIDClient {
 	return &VKIDClient{
 		client:  &http.Client{Timeout: 10 * time.Second},
@@ -62,6 +68,7 @@ func NewVKIDClient(appID string) *VKIDClient {
 	}
 }
 
+// ExchangeCode handles exchange code.
 func (c *VKIDClient) ExchangeCode(
 	ctx context.Context,
 	code string,
@@ -134,6 +141,7 @@ func (c *VKIDClient) ExchangeCode(
 	}, nil
 }
 
+// GetUserInfo returns user info.
 func (c *VKIDClient) GetUserInfo(ctx context.Context, accessToken string) (VKIDUserInfo, error) {
 	client, endpoint, appID, err := c.resolveAuthRequest("/oauth2/user_info")
 	if err != nil {
@@ -188,6 +196,7 @@ func (c *VKIDClient) GetUserInfo(ctx context.Context, accessToken string) (VKIDU
 	}, nil
 }
 
+// resolveAuthRequest handles resolve auth request.
 func (c *VKIDClient) resolveAuthRequest(path string) (*http.Client, string, string, error) {
 	if c == nil {
 		return nil, "", "", fmt.Errorf("vk id client is nil")
@@ -213,6 +222,7 @@ func (c *VKIDClient) resolveAuthRequest(path string) (*http.Client, string, stri
 	return client, endpoint.String(), strings.TrimSpace(c.appID), nil
 }
 
+// postVKIDForm handles post v k i d form.
 func postVKIDForm(
 	ctx context.Context,
 	client *http.Client,
@@ -258,6 +268,7 @@ func postVKIDForm(
 	return body, nil
 }
 
+// withQueryParams configures query params.
 func withQueryParams(endpoint string, params url.Values) (string, error) {
 	parsed, err := url.Parse(endpoint)
 	if err != nil {
@@ -274,6 +285,7 @@ func withQueryParams(endpoint string, params url.Values) (string, error) {
 	return parsed.String(), nil
 }
 
+// parseVKIDUserID parses v k i d user i d.
 func parseVKIDUserID(raw json.RawMessage) (int64, error) {
 	if len(raw) == 0 {
 		return 0, fmt.Errorf("empty user_id")

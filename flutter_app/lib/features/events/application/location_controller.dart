@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+/// LocationState represents location state.
+
 class LocationState {
+  /// LocationState handles location state.
 
   factory LocationState.initial() => const LocationState(
         center: LatLng(52.37, 4.90),
@@ -14,6 +17,8 @@ class LocationState {
         permissionDenied: false,
         error: null,
       );
+
+  /// LocationState handles location state.
   const LocationState({
     required this.center,
     required this.userLocation,
@@ -27,6 +32,8 @@ class LocationState {
   final bool loading;
   final bool permissionDenied;
   final String? error;
+
+  /// copyWith handles copy with.
 
   LocationState copyWith({
     LatLng? center,
@@ -45,13 +52,20 @@ class LocationState {
   }
 }
 
+/// LocationController represents location controller.
+
 class LocationController extends ChangeNotifier {
+  /// LocationController handles location controller.
   LocationController() {
     unawaited(refresh());
   }
 
   LocationState _state = LocationState.initial();
+
+  /// state exposes the current state value.
   LocationState get state => _state;
+
+  /// refresh handles internal refresh behavior.
 
   Future<void> refresh() async {
     _state = _state.copyWith(loading: true, error: null);
@@ -104,13 +118,16 @@ class LocationController extends ChangeNotifier {
     }
   }
 
+  /// setMapCenter sets map center.
+
   void setMapCenter(LatLng center) {
     _state = _state.copyWith(center: center, error: null);
     notifyListeners();
   }
 }
 
-final locationControllerProvider = ChangeNotifierProvider<LocationController>((ref) {
+final locationControllerProvider =
+    ChangeNotifierProvider<LocationController>((ref) {
   final controller = LocationController();
   ref.onDispose(controller.dispose);
   return controller;

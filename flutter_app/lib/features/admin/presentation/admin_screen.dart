@@ -19,12 +19,19 @@ import '../../tickets/presentation/admin_qr_scanner_page.dart';
 import '../../tickets/presentation/admin_stats_page.dart';
 import '../data/admin_repository.dart';
 
+/// AdminScreen represents admin screen.
+
 class AdminScreen extends ConsumerStatefulWidget {
+  /// AdminScreen handles admin screen.
   const AdminScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<AdminScreen> createState() => _AdminScreenState();
 }
+
+/// _AdminScreenState represents admin screen state.
 
 class _AdminScreenState extends ConsumerState<AdminScreen>
     with TickerProviderStateMixin {
@@ -2294,7 +2301,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   }
 }
 
+/// _BroadcastButtonDraft represents broadcast button draft.
+
 class _BroadcastButtonDraft {
+  /// _BroadcastButtonDraft handles broadcast button draft.
   _BroadcastButtonDraft({required String text, required String url})
       : textCtrl = TextEditingController(text: text),
         urlCtrl = TextEditingController(text: url);
@@ -2302,13 +2312,18 @@ class _BroadcastButtonDraft {
   final TextEditingController textCtrl;
   final TextEditingController urlCtrl;
 
+  /// dispose releases resources held by this instance.
+
   void dispose() {
     textCtrl.dispose();
     urlCtrl.dispose();
   }
 }
 
+/// _ParserDraft represents parser draft.
+
 class _ParserDraft {
+  /// _ParserDraft handles parser draft.
   factory _ParserDraft.fromParsed(AdminParsedEvent item) {
     final imageLinks = _dedupeTrimmed(item.links.where(_isImageLink).toList());
     final eventLinks = _dedupeTrimmed(
@@ -2326,6 +2341,8 @@ class _ParserDraft {
       mediaCtrl: TextEditingController(text: imageLinks.join('\n')),
     );
   }
+
+  /// _ParserDraft handles parser draft.
   _ParserDraft({
     required this.titleCtrl,
     required this.descriptionCtrl,
@@ -2346,6 +2363,8 @@ class _ParserDraft {
   final TextEditingController linksCtrl;
   final TextEditingController mediaCtrl;
 
+  /// dispose releases resources held by this instance.
+
   void dispose() {
     titleCtrl.dispose();
     descriptionCtrl.dispose();
@@ -2357,6 +2376,8 @@ class _ParserDraft {
     mediaCtrl.dispose();
   }
 }
+
+/// _isImageLink reports whether image link condition is met.
 
 bool _isImageLink(String value) {
   final trimmed = value.trim().toLowerCase();
@@ -2371,6 +2392,8 @@ bool _isImageLink(String value) {
   }
   return false;
 }
+
+/// _dedupeTrimmed handles dedupe trimmed.
 
 List<String> _dedupeTrimmed(List<String> values) {
   final out = <String>[];

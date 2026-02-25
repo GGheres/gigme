@@ -10,7 +10,10 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// AdminBotMessagesPage represents admin bot messages page.
+
 class AdminBotMessagesPage extends ConsumerStatefulWidget {
+  /// AdminBotMessagesPage handles admin bot messages page.
   const AdminBotMessagesPage({
     super.key,
     this.embedded = false,
@@ -20,10 +23,16 @@ class AdminBotMessagesPage extends ConsumerStatefulWidget {
   final bool embedded;
   final int? initialChatId;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AdminBotMessagesPage> createState() =>
+
+      /// _AdminBotMessagesPageState handles admin bot messages page state.
       _AdminBotMessagesPageState();
 }
+
+/// _AdminBotMessagesPageState represents admin bot messages page state.
 
 class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
   final TextEditingController _chatIdCtrl = TextEditingController();
@@ -32,6 +41,8 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
   bool _sending = false;
   String? _error;
   AdminBotMessagesListModel? _messages;
+
+  /// initState handles init state.
 
   @override
   void initState() {
@@ -43,11 +54,15 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     unawaited(_load());
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _chatIdCtrl.dispose();
     super.dispose();
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -84,6 +99,8 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
       });
     }
   }
+
+  /// _promptReply handles prompt reply.
 
   Future<void> _promptReply(int chatId) async {
     if (_sending) return;
@@ -141,6 +158,8 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     }
   }
 
+  /// _openBot handles open bot.
+
   Future<void> _openBot(int chatId) async {
     final config = ref.read(appConfigProvider);
     final link = buildBotReplyDeepLink(
@@ -160,6 +179,8 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
       _showMessage('Не удалось открыть Telegram');
     }
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +324,8 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     );
   }
 
+  /// _formatDate formats date.
+
   String _formatDate(DateTime? value) {
     if (value == null) return '—';
     final local = value.toLocal();
@@ -312,6 +335,8 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     final minute = local.minute.toString().padLeft(2, '0');
     return '$day.$month ${local.year} $hour:$minute';
   }
+
+  /// _showMessage handles show message.
 
   void _showMessage(String message) {
     if (!mounted) return;

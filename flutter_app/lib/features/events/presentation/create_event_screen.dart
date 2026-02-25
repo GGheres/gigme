@@ -25,12 +25,19 @@ import '../application/location_controller.dart';
 import '../data/create_event_draft_store.dart';
 import '../data/events_repository.dart';
 
+/// CreateEventScreen represents create event screen.
+
 class CreateEventScreen extends ConsumerStatefulWidget {
+  /// CreateEventScreen creates event screen.
   const CreateEventScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
 }
+
+/// _CreateEventScreenState represents create event screen state.
 
 class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     with WidgetsBindingObserver {
@@ -738,11 +745,16 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
   );
 }
 
+/// _UploadedMedia represents uploaded media.
+
 class _UploadedMedia {
+  /// _UploadedMedia handles uploaded media.
   _UploadedMedia({
     required this.fileUrl,
     this.previewBytes,
   });
+
+  /// _UploadedMedia handles uploaded media.
 
   factory _UploadedMedia.fromStoredUrl(String fileUrl) {
     return _UploadedMedia(fileUrl: fileUrl);
@@ -752,7 +764,10 @@ class _UploadedMedia {
   final Uint8List? previewBytes;
 }
 
+/// _ResolvedContactPayload represents resolved contact payload.
+
 class _ResolvedContactPayload {
+  /// _ResolvedContactPayload handles resolved contact payload.
   const _ResolvedContactPayload({
     this.contactTelegram,
     this.contactWhatsapp,
@@ -766,7 +781,10 @@ class _ResolvedContactPayload {
   final String? contactSnapchat;
 }
 
+/// _DateTimeField represents date time field.
+
 class _DateTimeField extends StatelessWidget {
+  /// _DateTimeField handles date time field.
   const _DateTimeField({
     required this.label,
     required this.value,
@@ -778,6 +796,8 @@ class _DateTimeField extends StatelessWidget {
   final DateTime? value;
   final ValueChanged<DateTime?> onChanged;
   final bool clearable;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -806,6 +826,8 @@ class _DateTimeField extends StatelessWidget {
       ),
     );
   }
+
+  /// _pick handles internal pick behavior.
 
   Future<void> _pick(BuildContext context) async {
     final now = DateTime.now();

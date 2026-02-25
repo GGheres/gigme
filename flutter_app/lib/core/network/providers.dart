@@ -16,4 +16,5 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());
 
-final eventAccessKeyStoreProvider = Provider<EventAccessKeyStore>((ref) => EventAccessKeyStore());
+final eventAccessKeyStoreProvider =
+    Provider<EventAccessKeyStore>((ref) => EventAccessKeyStore());

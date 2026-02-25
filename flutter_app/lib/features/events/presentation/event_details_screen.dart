@@ -25,8 +25,11 @@ import '../../tickets/presentation/purchase_ticket_flow.dart';
 import '../application/events_controller.dart';
 import '../data/events_repository.dart';
 
+/// TODO handles t o d o.
+
 // TODO(ui-migration): migrate details/comments/participants blocks to AppScaffold and App* components.
 class EventDetailsScreen extends ConsumerStatefulWidget {
+  /// EventDetailsScreen handles event details screen.
   const EventDetailsScreen({
     required this.eventId,
     this.eventKey,
@@ -36,9 +39,13 @@ class EventDetailsScreen extends ConsumerStatefulWidget {
   final int eventId;
   final String? eventKey;
 
+  /// createState creates state.
+
   @override
   ConsumerState<EventDetailsScreen> createState() => _EventDetailsScreenState();
 }
+
+/// _EventDetailsScreenState represents event details screen state.
 
 class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   EventDetail? _detail;
@@ -57,11 +64,15 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   final Set<int> _deletingCommentIds = <int>{};
   String? _error;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     setState(() {
@@ -101,6 +112,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  /// _loadProductsAvailability loads products availability.
+
   Future<bool> _loadProductsAvailability(int eventId) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) {
@@ -118,6 +131,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       return true;
     }
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -536,6 +551,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     );
   }
 
+  /// _share handles internal share behavior.
+
   Future<void> _share() async {
     final detail = _detail;
     if (detail == null) return;
@@ -572,6 +589,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       }
     }
   }
+
+  /// _buildLikeChip builds like chip.
 
   Widget _buildLikeChip({required EventDetail detail}) {
     final theme = Theme.of(context);
@@ -616,6 +635,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     );
   }
 
+  /// _toggleLike handles toggle like.
+
   Future<void> _toggleLike({required EventDetail detail}) async {
     setState(() => _liking = true);
     try {
@@ -651,6 +672,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  /// _togglePriority handles toggle priority.
+
   Future<void> _togglePriority({required EventDetail detail}) async {
     final enable = !detail.event.isFeatured;
     setState(() => _updatingPriority = true);
@@ -675,6 +698,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  /// _editEventAsAdmin handles edit event as admin.
+
   Future<void> _editEventAsAdmin({required EventDetail detail}) async {
     final submission = await _showAdminEditDialog(detail: detail);
     if (submission == null) return;
@@ -696,6 +721,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       }
     }
   }
+
+  /// _showAdminEditDialog handles show admin edit dialog.
 
   Future<_AdminEventEditSubmission?> _showAdminEditDialog({
     required EventDetail detail,
@@ -1042,6 +1069,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     return result;
   }
 
+  /// _deleteEvent deletes event.
+
   Future<void> _deleteEvent({required int eventId}) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -1080,6 +1109,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       }
     }
   }
+
+  /// _deleteComment deletes comment.
 
   Future<void> _deleteComment({required EventComment comment}) async {
     final shouldDelete = await showDialog<bool>(
@@ -1124,6 +1155,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  /// _stripCoordinatesText handles strip coordinates text.
+
   String _stripCoordinatesText(String description) {
     final coordinateLine =
         RegExp(r'^\s*-?\d{1,2}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?\s*$');
@@ -1144,17 +1177,25 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     return cleaned;
   }
 
+  /// _formatIsoInput formats iso input.
+
   String _formatIsoInput(DateTime? value) {
     if (value == null) return '';
     return value.toUtc().toIso8601String();
   }
+
+  /// _parseCoordinate parses coordinate.
 
   double? _parseCoordinate(String raw) {
     final normalized = raw.trim().replaceAll(',', '.');
     return double.tryParse(normalized);
   }
 
+  /// _runeLength handles rune length.
+
   int _runeLength(String value) => value.runes.length;
+
+  /// _exitDetails handles exit details.
 
   void _exitDetails({required bool inAdminRoute}) {
     if (context.canPop()) {
@@ -1164,6 +1205,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     context.go(inAdminRoute ? AppRoutes.admin : AppRoutes.feed);
   }
 
+  /// _showMessage handles show message.
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -1171,7 +1214,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   }
 }
 
+/// _AdminEventEditSubmission represents admin event edit submission.
+
 class _AdminEventEditSubmission {
+  /// _AdminEventEditSubmission handles admin event edit submission.
   _AdminEventEditSubmission({
     required this.title,
     required this.description,
@@ -1204,6 +1250,8 @@ class _AdminEventEditSubmission {
   final String contactFbMessenger;
   final String contactSnapchat;
 
+  /// toPayload handles to payload.
+
   UpdateEventAdminPayload toPayload() {
     return UpdateEventAdminPayload(
       title: title,
@@ -1224,10 +1272,15 @@ class _AdminEventEditSubmission {
   }
 }
 
+/// _ContactsBlock represents contacts block.
+
 class _ContactsBlock extends StatelessWidget {
+  /// _ContactsBlock handles contacts block.
   const _ContactsBlock({required this.detail});
 
   final EventDetail detail;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -1268,7 +1321,10 @@ class _ContactsBlock extends StatelessWidget {
   }
 }
 
+/// _ContactRowData represents contact row data.
+
 class _ContactRowData {
+  /// _ContactRowData handles contact row data.
   const _ContactRowData(this.kind, this.value);
 
   final String kind;

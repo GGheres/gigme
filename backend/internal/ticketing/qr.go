@@ -21,6 +21,7 @@ var (
 	ErrInvalidQRSign    = errors.New("invalid qr signature")
 )
 
+// QRPayload represents q r payload.
 type QRPayload struct {
 	TicketID   string `json:"ticketId"`
 	EventID    int64  `json:"eventId"`
@@ -31,6 +32,7 @@ type QRPayload struct {
 	IssuedAt   int64  `json:"issuedAt"`
 }
 
+// SignQRPayload signs q r payload.
 func SignQRPayload(secret string, payload QRPayload) (string, error) {
 	if strings.TrimSpace(secret) == "" {
 		return "", fmt.Errorf("secret is required")
@@ -44,6 +46,7 @@ func SignQRPayload(secret string, payload QRPayload) (string, error) {
 	return base + "." + sig, nil
 }
 
+// VerifyQRPayload handles verify q r payload.
 func VerifyQRPayload(secret string, token string) (QRPayload, error) {
 	var payload QRPayload
 	parts := strings.Split(token, ".")
@@ -67,11 +70,13 @@ func VerifyQRPayload(secret string, token string) (QRPayload, error) {
 	return payload, nil
 }
 
+// HashPayloadToken handles hash payload token.
 func HashPayloadToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
 
+// NewNonce creates nonce.
 func NewNonce(size int) (string, error) {
 	if size <= 0 {
 		size = 16
@@ -83,6 +88,7 @@ func NewNonce(size int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
+// GenerateQRImagePNG handles generate q r image p n g.
 func GenerateQRImagePNG(payload string, size int) ([]byte, error) {
 	if size <= 0 {
 		size = 256
@@ -90,12 +96,14 @@ func GenerateQRImagePNG(payload string, size int) ([]byte, error) {
 	return qrcode.Encode(payload, qrcode.Medium, size)
 }
 
+// signRaw signs raw.
 func signRaw(secret string, raw []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write(raw)
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
+// BuildPayload builds payload.
 func BuildPayload(ticketID string, eventID int64, userID int64, ticketType string, quantity int, issuedAt time.Time, nonce string) QRPayload {
 	return QRPayload{
 		TicketID:   ticketID,

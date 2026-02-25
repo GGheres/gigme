@@ -10,8 +10,10 @@ import (
 	"gigme/backend/internal/config"
 )
 
+// Cleanup represents cleanup.
 type Cleanup func() error
 
+// New creates the requested data.
 func New(cfg config.LoggingConfig) (*slog.Logger, Cleanup, error) {
 	level := parseLevel(cfg.Level)
 	handlerOptions := &slog.HandlerOptions{
@@ -55,6 +57,7 @@ func New(cfg config.LoggingConfig) (*slog.Logger, Cleanup, error) {
 	return logger, cleanup, nil
 }
 
+// parseLevel parses level.
 func parseLevel(value string) slog.Level {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "debug":

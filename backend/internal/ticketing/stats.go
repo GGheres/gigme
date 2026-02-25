@@ -1,5 +1,6 @@
 package ticketing
 
+// StatsRow represents stats row.
 type StatsRow struct {
 	OrderID    string
 	EventID    int64
@@ -11,6 +12,7 @@ type StatsRow struct {
 	Quantity   int64
 }
 
+// StatsBucket represents stats bucket.
 type StatsBucket struct {
 	EventID                 int64
 	EventTitle              string
@@ -20,6 +22,7 @@ type StatsBucket struct {
 	TransferDirectionCounts map[string]int64
 }
 
+// NewStatsBucket creates stats bucket.
 func NewStatsBucket(eventID int64, title string) StatsBucket {
 	return StatsBucket{
 		EventID:                 eventID,
@@ -29,6 +32,7 @@ func NewStatsBucket(eventID int64, title string) StatsBucket {
 	}
 }
 
+// AggregateStats handles aggregate stats.
 func AggregateStats(rows []StatsRow) (StatsBucket, map[int64]StatsBucket) {
 	global := NewStatsBucket(0, "")
 	perEvent := map[int64]StatsBucket{}
@@ -79,10 +83,12 @@ func AggregateStats(rows []StatsRow) (StatsBucket, map[int64]StatsBucket) {
 	return global, perEvent
 }
 
+// orderKey handles order key.
 func orderKey(row StatsRow) string {
 	return row.OrderID + "|" + row.Status
 }
 
+// isPurchasedStatus reports whether purchased status condition is met.
 func isPurchasedStatus(status string) bool {
 	switch status {
 	case "PAID", "CONFIRMED", "REDEEMED":

@@ -17,16 +17,25 @@ import '../../../ui/theme/app_spacing.dart';
 import '../application/events_controller.dart';
 import '../application/location_controller.dart';
 
+/// MapScreen represents map screen.
+
 class MapScreen extends ConsumerStatefulWidget {
+  /// MapScreen maps screen.
   const MapScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
+/// _MapScreenState represents map screen state.
+
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
   bool _loadedOnce = false;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +184,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
     );
   }
+
+  /// _openMarkerSheet handles open marker sheet.
 
   Future<void> _openMarkerSheet(BuildContext context, int eventId) async {
     final eventsController = ref.read(eventsControllerProvider);

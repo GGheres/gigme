@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+/// formatMoney formats money.
+
 String formatMoney(int cents, {String currency = 'RUB'}) {
   final negative = cents < 0;
   final absolute = cents.abs();
@@ -8,6 +10,8 @@ String formatMoney(int cents, {String currency = 'RUB'}) {
   final value = '$units.${fraction.toString().padLeft(2, '0')}';
   return negative ? '-$value $currency' : '$value $currency';
 }
+
+/// statusColor handles status color.
 
 Color statusColor(String status, BuildContext context) {
   final value = status.toUpperCase();
@@ -25,6 +29,8 @@ Color statusColor(String status, BuildContext context) {
       return Theme.of(context).colorScheme.secondary;
   }
 }
+
+/// statusTint handles status tint.
 
 Color statusTint(String status, BuildContext context) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -59,6 +65,8 @@ Color statusTint(String status, BuildContext context) {
       return const Color(0xFFF5F5F5);
   }
 }
+
+/// buildBotReplyDeepLink builds bot reply deep link.
 
 String buildBotReplyDeepLink({
   required String botUsername,

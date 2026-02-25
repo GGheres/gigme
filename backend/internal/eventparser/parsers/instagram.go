@@ -14,11 +14,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// InstagramParser represents instagram parser.
 type InstagramParser struct {
 	fetcher core.Fetcher
 	logger  *slog.Logger
 }
 
+// NewInstagramParser creates instagram parser.
 func NewInstagramParser(fetcher core.Fetcher, logger *slog.Logger) *InstagramParser {
 	if logger == nil {
 		logger = slog.Default()
@@ -26,6 +28,7 @@ func NewInstagramParser(fetcher core.Fetcher, logger *slog.Logger) *InstagramPar
 	return &InstagramParser{fetcher: fetcher, logger: logger}
 }
 
+// Parse parses the provided input.
 func (p *InstagramParser) Parse(ctx context.Context, input string) (*core.EventData, error) {
 	if p == nil || p.fetcher == nil {
 		return nil, fmt.Errorf("instagram parser is not configured")
@@ -76,6 +79,7 @@ func (p *InstagramParser) Parse(ctx context.Context, input string) (*core.EventD
 	}, nil
 }
 
+// looksLikeInstagramAuthWall handles looks like instagram auth wall.
 func looksLikeInstagramAuthWall(lowerBody string) bool {
 	return strings.Contains(lowerBody, "log in") ||
 		strings.Contains(lowerBody, "login") ||

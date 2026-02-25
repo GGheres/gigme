@@ -11,7 +11,10 @@ import '../ui/theme/app_radii.dart';
 import '../ui/theme/app_spacing.dart';
 import 'routes.dart';
 
+/// AppShell represents app shell.
+
 class AppShell extends ConsumerStatefulWidget {
+  /// AppShell handles app shell.
   const AppShell({
     required this.navigationShell,
     super.key,
@@ -19,29 +22,42 @@ class AppShell extends ConsumerStatefulWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
+/// _AppShellState represents app shell state.
+
 class _AppShellState extends ConsumerState<AppShell> {
   static const List<_ShellDestination> _destinations = <_ShellDestination>[
+    /// _ShellDestination handles shell destination.
     _ShellDestination(
       label: 'Лента',
       icon: Icons.view_list_rounded,
     ),
+
+    /// _ShellDestination handles shell destination.
     _ShellDestination(
       label: 'Карта',
       icon: Icons.map_rounded,
     ),
+
+    /// _ShellDestination handles shell destination.
     _ShellDestination(
       label: 'Создать',
       icon: Icons.add_circle_outline_rounded,
     ),
+
+    /// _ShellDestination handles shell destination.
     _ShellDestination(
       label: 'Профиль',
       icon: Icons.person_outline_rounded,
     ),
   ];
+
+  /// didChangeDependencies handles did change dependencies.
 
   @override
   void didChangeDependencies() {
@@ -61,6 +77,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       context.go(uri.toString());
     });
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +118,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  /// _onDestinationSelected handles on destination selected.
+
   void _onDestinationSelected(int index) {
     if (index < 0 || index >= _destinations.length) return;
     if (index == widget.navigationShell.currentIndex) return;
@@ -107,7 +127,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
+/// _AppBottomDock represents app bottom dock.
+
 class _AppBottomDock extends StatelessWidget {
+  /// _AppBottomDock handles app bottom dock.
   const _AppBottomDock({
     required this.selectedIndex,
     required this.destinations,
@@ -117,6 +140,8 @@ class _AppBottomDock extends StatelessWidget {
   final int selectedIndex;
   final List<_ShellDestination> destinations;
   final ValueChanged<int> onSelected;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +167,9 @@ class _AppBottomDock extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: <Color>[
-                    (isDark ? AppColors.darkSurfaceStrong : AppColors.surfaceStrong)
+                    (isDark
+                            ? AppColors.darkSurfaceStrong
+                            : AppColors.surfaceStrong)
                         .withValues(alpha: isDark ? 0.92 : 0.9),
                     (isDark ? AppColors.darkSurface : AppColors.surface)
                         .withValues(alpha: isDark ? 0.9 : 0.86),
@@ -177,7 +204,10 @@ class _AppBottomDock extends StatelessWidget {
   }
 }
 
+/// _AppNavigationRail represents app navigation rail.
+
 class _AppNavigationRail extends StatelessWidget {
+  /// _AppNavigationRail handles app navigation rail.
   const _AppNavigationRail({
     required this.selectedIndex,
     required this.destinations,
@@ -187,6 +217,8 @@ class _AppNavigationRail extends StatelessWidget {
   final int selectedIndex;
   final List<_ShellDestination> destinations;
   final ValueChanged<int> onSelected;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +264,10 @@ class _AppNavigationRail extends StatelessWidget {
   }
 }
 
+/// _ShellDestination represents shell destination.
+
 class _ShellDestination {
+  /// _ShellDestination handles shell destination.
   const _ShellDestination({
     required this.label,
     required this.icon,

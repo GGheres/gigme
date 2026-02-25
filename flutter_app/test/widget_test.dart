@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 
+/// main is the application entry point.
+
 void main() {
   testWidgets('Widget test harness is operational',
       (WidgetTester tester) async {

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:intl/intl.dart';
 
+/// formatDateTime formats date time.
+
 String formatDateTime(DateTime? value) {
   if (value == null) return '—';
   final localValue = value.toLocal();
@@ -12,6 +14,8 @@ String formatDateTime(DateTime? value) {
   }
 }
 
+/// formatDistanceKm formats distance km.
+
 String formatDistanceKm(double distanceKm) {
   if (distanceKm <= 0) return '0 km';
   if (distanceKm < 1) {
@@ -19,6 +23,8 @@ String formatDistanceKm(double distanceKm) {
   }
   return '${distanceKm.toStringAsFixed(distanceKm < 10 ? 1 : 0)} km';
 }
+
+/// haversineKm handles haversine km.
 
 double haversineKm({
   required double lat1,
@@ -36,5 +42,7 @@ double haversineKm({
   final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   return earthRadiusKm * c;
 }
+
+/// _toRadians handles to radians.
 
 double _toRadians(double value) => value * (3.141592653589793 / 180.0);

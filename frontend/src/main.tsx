@@ -4,6 +4,7 @@ import App from './App'
 import './styles.css'
 import 'leaflet/dist/leaflet.css'
 
+// applyBackgroundAssetPaths handles apply background asset paths.
 const applyBackgroundAssetPaths = () => {
   if (typeof document === 'undefined') return
   const baseUrl = import.meta.env.BASE_URL || '/'

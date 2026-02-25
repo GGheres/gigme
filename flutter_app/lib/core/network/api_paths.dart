@@ -1,3 +1,4 @@
+/// ApiPaths represents api paths.
 class ApiPaths {
   static const authTelegram = '/auth/telegram';
   static const authVkStart = '/auth/vk/start';
@@ -14,13 +15,29 @@ class ApiPaths {
   static const landingEvents = '/landing/events';
   static const landingContent = '/landing/content';
 
+  /// eventById handles event by id.
+
   static String eventById(int id) => '/events/$id';
+
+  /// eventJoin handles event join.
   static String eventJoin(int id) => '/events/$id/join';
+
+  /// eventLeave handles event leave.
   static String eventLeave(int id) => '/events/$id/leave';
+
+  /// eventLike handles event like.
   static String eventLike(int id) => '/events/$id/like';
+
+  /// eventPromote handles event promote.
   static String eventPromote(int id) => '/events/$id/promote';
+
+  /// adminLandingPublish handles admin landing publish.
   static String adminLandingPublish(int id) => '/admin/events/$id/landing';
+
+  /// adminEventById handles admin event by id.
   static String adminEventById(int id) => '/admin/events/$id';
+
+  /// adminCommentById handles admin comment by id.
   static String adminCommentById(int id) => '/admin/comments/$id';
   static const adminLandingContent = '/admin/landing/content';
 

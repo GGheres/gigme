@@ -7,10 +7,15 @@ import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/json_utils.dart';
 
+/// VkAuthStartResponse represents vk auth start response.
+
 class VkAuthStartResponse {
+  /// VkAuthStartResponse handles vk auth start response.
   VkAuthStartResponse({
     required this.authorizeUrl,
   });
+
+  /// VkAuthStartResponse handles vk auth start response.
 
   factory VkAuthStartResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -22,10 +27,15 @@ class VkAuthStartResponse {
   final String authorizeUrl;
 }
 
+/// AuthRepository represents auth repository.
+
 class AuthRepository {
+  /// AuthRepository authenticates repository.
   AuthRepository(this._ref);
 
   final Ref _ref;
+
+  /// loginWithTelegram handles login with telegram.
 
   Future<AuthSession> loginWithTelegram(String initData) {
     return _ref.read(apiClientProvider).post<AuthSession>(
@@ -34,6 +44,8 @@ class AuthRepository {
           decoder: AuthSession.fromJson,
         );
   }
+
+  /// loginWithVk handles login with vk.
 
   Future<AuthSession> loginWithVk({
     required String accessToken,
@@ -48,6 +60,8 @@ class AuthRepository {
           decoder: AuthSession.fromJson,
         );
   }
+
+  /// loginWithVkCode handles login with vk code.
 
   Future<AuthSession> loginWithVkCode({
     required String code,
@@ -64,6 +78,8 @@ class AuthRepository {
           decoder: AuthSession.fromJson,
         );
   }
+
+  /// startVkAuth handles start vk auth.
 
   Future<Uri> startVkAuth({
     required String redirectUri,
@@ -86,6 +102,8 @@ class AuthRepository {
     return uri;
   }
 
+  /// loginWithVkMiniApp handles login with vk mini app.
+
   Future<AuthSession> loginWithVkMiniApp({
     required String launchParams,
   }) {
@@ -96,6 +114,8 @@ class AuthRepository {
         );
   }
 
+  /// getMe returns me.
+
   Future<User> getMe(String token) {
     return _ref.read(apiClientProvider).get<User>(
           ApiPaths.me,
@@ -104,6 +124,8 @@ class AuthRepository {
           decoder: User.fromJson,
         );
   }
+
+  /// claimReferral claims referral.
 
   Future<ReferralClaimResponse> claimReferral({
     required String token,
@@ -123,4 +145,6 @@ class AuthRepository {
 }
 
 final authRepositoryProvider =
+
+    /// AuthRepository authenticates repository.
     Provider<AuthRepository>((ref) => AuthRepository(ref));

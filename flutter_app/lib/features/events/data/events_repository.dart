@@ -12,7 +12,10 @@ import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/json_utils.dart';
 
+/// CreateEventPayload represents create event payload.
+
 class CreateEventPayload {
+  /// CreateEventPayload creates event payload.
   CreateEventPayload({
     required this.title,
     required this.description,
@@ -49,6 +52,8 @@ class CreateEventPayload {
   final String? contactSnapchat;
   final String? addressLabel;
 
+  /// toJson handles to json.
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'title': title,
@@ -77,7 +82,10 @@ class CreateEventPayload {
   }
 }
 
+/// UpdateEventAdminPayload represents update event admin payload.
+
 class UpdateEventAdminPayload {
+  /// UpdateEventAdminPayload updates event admin payload.
   UpdateEventAdminPayload({
     this.title,
     this.description,
@@ -114,6 +122,8 @@ class UpdateEventAdminPayload {
   final String? contactFbMessenger;
   final String? contactSnapchat;
 
+  /// toJson handles to json.
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       if (title != null) 'title': title!.trim(),
@@ -139,7 +149,10 @@ class UpdateEventAdminPayload {
   }
 }
 
+/// EventLikeStatus represents event like status.
+
 class EventLikeStatus {
+  /// EventLikeStatus handles event like status.
   factory EventLikeStatus.fromJson(dynamic json) {
     final map = asMap(json);
     return EventLikeStatus(
@@ -147,6 +160,8 @@ class EventLikeStatus {
       isLiked: asBool(map['isLiked']),
     );
   }
+
+  /// EventLikeStatus handles event like status.
 
   EventLikeStatus({
     required this.likesCount,
@@ -157,10 +172,15 @@ class EventLikeStatus {
   final bool isLiked;
 }
 
+/// EventsRepository represents events repository.
+
 class EventsRepository {
+  /// EventsRepository handles events repository.
   EventsRepository(this._ref);
 
   final Ref _ref;
+
+  /// updateLocation updates location.
 
   Future<void> updateLocation({
     required String token,
@@ -177,6 +197,8 @@ class EventsRepository {
           decoder: (_) {},
         );
   }
+
+  /// getNearby returns nearby.
 
   Future<List<EventMarker>> getNearby({
     required String token,
@@ -199,6 +221,8 @@ class EventsRepository {
           decoder: (data) => asList(data).map(EventMarker.fromJson).toList(),
         );
   }
+
+  /// getFeed returns feed.
 
   Future<List<EventCard>> getFeed({
     required String token,
@@ -224,6 +248,8 @@ class EventsRepository {
         );
   }
 
+  /// getEvent returns event.
+
   Future<EventDetail> getEvent({
     required String token,
     required int eventId,
@@ -241,6 +267,8 @@ class EventsRepository {
         );
   }
 
+  /// createEvent creates event.
+
   Future<CreateEventResponse> createEvent({
     required String token,
     required CreateEventPayload payload,
@@ -252,6 +280,8 @@ class EventsRepository {
           decoder: CreateEventResponse.fromJson,
         );
   }
+
+  /// joinEvent joins event.
 
   Future<void> joinEvent({
     required String token,
@@ -269,6 +299,8 @@ class EventsRepository {
         );
   }
 
+  /// leaveEvent leaves event.
+
   Future<void> leaveEvent({
     required String token,
     required int eventId,
@@ -284,6 +316,8 @@ class EventsRepository {
           decoder: (_) {},
         );
   }
+
+  /// likeEvent likes event.
 
   Future<EventLikeStatus> likeEvent({
     required String token,
@@ -301,6 +335,8 @@ class EventsRepository {
         );
   }
 
+  /// unlikeEvent removes like from event.
+
   Future<EventLikeStatus> unlikeEvent({
     required String token,
     required int eventId,
@@ -316,6 +352,8 @@ class EventsRepository {
           decoder: EventLikeStatus.fromJson,
         );
   }
+
+  /// setFeedPriorityAsAdmin sets feed priority as admin.
 
   Future<void> setFeedPriorityAsAdmin({
     required String token,
@@ -336,6 +374,8 @@ class EventsRepository {
         );
   }
 
+  /// updateEventAsAdmin updates event as admin.
+
   Future<void> updateEventAsAdmin({
     required String token,
     required int eventId,
@@ -348,6 +388,8 @@ class EventsRepository {
           decoder: (_) {},
         );
   }
+
+  /// getComments returns comments.
 
   Future<List<EventComment>> getComments({
     required String token,
@@ -369,6 +411,8 @@ class EventsRepository {
         );
   }
 
+  /// addComment handles add comment.
+
   Future<EventComment> addComment({
     required String token,
     required int eventId,
@@ -389,6 +433,8 @@ class EventsRepository {
     );
   }
 
+  /// deleteCommentAsAdmin deletes comment as admin.
+
   Future<void> deleteCommentAsAdmin({
     required String token,
     required int commentId,
@@ -400,6 +446,8 @@ class EventsRepository {
         );
   }
 
+  /// deleteEventAsAdmin deletes event as admin.
+
   Future<void> deleteEventAsAdmin({
     required String token,
     required int eventId,
@@ -410,6 +458,8 @@ class EventsRepository {
           decoder: (_) {},
         );
   }
+
+  /// presignMedia handles presign media.
 
   Future<PresignResponse> presignMedia({
     required String token,
@@ -429,6 +479,8 @@ class EventsRepository {
         );
   }
 
+  /// uploadPresigned handles upload presigned.
+
   Future<void> uploadPresigned({
     required String uploadUrl,
     required Uint8List bytes,
@@ -440,6 +492,8 @@ class EventsRepository {
           contentType: contentType,
         );
   }
+
+  /// uploadMedia handles upload media.
 
   Future<String> uploadMedia({
     required String token,
@@ -458,6 +512,8 @@ class EventsRepository {
         );
   }
 
+  /// getReferralCode returns referral code.
+
   Future<ReferralCodeResponse> getReferralCode({required String token}) {
     return _ref.read(apiClientProvider).get<ReferralCodeResponse>(
           ApiPaths.referralCode,
@@ -468,4 +524,6 @@ class EventsRepository {
 }
 
 final eventsRepositoryProvider =
+
+    /// EventsRepository handles events repository.
     Provider<EventsRepository>((ref) => EventsRepository(ref));

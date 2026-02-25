@@ -4,6 +4,8 @@ import 'local_reminder_service.dart';
 import 'push_notification_service.dart';
 
 final pushNotificationServiceProvider =
+
+    /// PushNotificationService handles push notification service.
     Provider<PushNotificationService>((ref) {
   final service = PushNotificationService();
   ref.onDispose(() {

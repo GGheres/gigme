@@ -21,6 +21,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// Handler aggregates shared dependencies used by HTTP handlers.
 type Handler struct {
 	repo             *repository.Repository
 	s3               *integrations.S3Client
@@ -36,6 +37,7 @@ type Handler struct {
 	adminReplyTarget map[int64]int64
 }
 
+// New builds a handler with default parser, geocoder, validator, and rate limiter dependencies.
 func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integrations.TelegramClient, tochka *tochkaapi.Client, cfg *config.Config, logger *slog.Logger) *Handler {
 	if logger == nil {
 		logger = slog.Default()
@@ -55,10 +57,12 @@ func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integ
 	}
 }
 
+// withTimeout returns a short-lived request context for repository and integration calls.
 func (h *Handler) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, 5*time.Second)
 }
 
+// loggerForRequest enriches the base logger with request, user, and telegram identifiers from context.
 func (h *Handler) loggerForRequest(r *http.Request) *slog.Logger {
 	logger := h.logger
 	if logger == nil {

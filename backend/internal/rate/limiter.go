@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// WindowLimiter represents window limiter.
 type WindowLimiter struct {
 	mu              sync.Mutex
 	limit           int
@@ -14,11 +15,13 @@ type WindowLimiter struct {
 	cleanupInterval time.Duration
 }
 
+// windowEntry represents window entry.
 type windowEntry struct {
 	start time.Time
 	count int
 }
 
+// NewWindowLimiter creates window limiter.
 func NewWindowLimiter(limit int, window time.Duration) *WindowLimiter {
 	return &WindowLimiter{
 		limit:           limit,
@@ -29,6 +32,7 @@ func NewWindowLimiter(limit int, window time.Duration) *WindowLimiter {
 	}
 }
 
+// Allow handles internal allow behavior.
 func (l *WindowLimiter) Allow(key string) bool {
 	now := time.Now()
 	l.mu.Lock()
@@ -56,6 +60,7 @@ func (l *WindowLimiter) Allow(key string) bool {
 	return true
 }
 
+// maybeCleanup handles maybe cleanup.
 func (l *WindowLimiter) maybeCleanup(now time.Time) {
 	if l.cleanupInterval <= 0 || l.window <= 0 {
 		return

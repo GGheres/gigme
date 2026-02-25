@@ -2,6 +2,7 @@ package models
 
 import "time"
 
+// User represents user.
 type User struct {
 	ID            int64     `json:"id"`
 	TelegramID    int64     `json:"telegramId"`
@@ -16,6 +17,7 @@ type User struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
+// UserPushToken represents user push token.
 type UserPushToken struct {
 	UserID     int64     `json:"userId"`
 	Platform   string    `json:"platform"`
@@ -29,6 +31,7 @@ type UserPushToken struct {
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
+// Event represents event.
 type Event struct {
 	ID                 int64      `json:"id"`
 	CreatorUserID      int64      `json:"creatorUserId"`
@@ -63,6 +66,7 @@ type Event struct {
 	UpdatedAt          time.Time  `json:"updatedAt"`
 }
 
+// UserEvent represents user event.
 type UserEvent struct {
 	ID                int64     `json:"id"`
 	Title             string    `json:"title"`
@@ -71,6 +75,7 @@ type UserEvent struct {
 	ThumbnailURL      string    `json:"thumbnailUrl,omitempty"`
 }
 
+// LandingContent represents landing content.
 type LandingContent struct {
 	HeroEyebrow         string    `json:"heroEyebrow"`
 	HeroTitle           string    `json:"heroTitle"`
@@ -86,6 +91,7 @@ type LandingContent struct {
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
+// EventMarker represents event marker.
 type EventMarker struct {
 	ID         int64     `json:"id"`
 	Title      string    `json:"title"`
@@ -96,12 +102,14 @@ type EventMarker struct {
 	Filters    []string  `json:"filters,omitempty"`
 }
 
+// Participant represents participant.
 type Participant struct {
 	UserID   int64     `json:"userId"`
 	Name     string    `json:"name"`
 	JoinedAt time.Time `json:"joinedAt"`
 }
 
+// NotificationJob represents notification job.
 type NotificationJob struct {
 	ID        int64                  `json:"id"`
 	UserID    int64                  `json:"userId"`
@@ -114,6 +122,7 @@ type NotificationJob struct {
 	LastError string                 `json:"lastError,omitempty"`
 }
 
+// EventComment represents event comment.
 type EventComment struct {
 	ID        int64     `json:"id"`
 	EventID   int64     `json:"eventId"`
@@ -123,6 +132,7 @@ type EventComment struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// AdminUser represents admin user.
 type AdminUser struct {
 	ID            int64      `json:"id"`
 	TelegramID    int64      `json:"telegramId"`
@@ -141,6 +151,7 @@ type AdminUser struct {
 	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
+// AdminBroadcast represents admin broadcast.
 type AdminBroadcast struct {
 	ID          int64                  `json:"id"`
 	AdminUserID int64                  `json:"adminUserId"`
@@ -154,6 +165,7 @@ type AdminBroadcast struct {
 	Failed      int                    `json:"failed"`
 }
 
+// AdminBroadcastJob represents admin broadcast job.
 type AdminBroadcastJob struct {
 	ID           int64  `json:"id"`
 	BroadcastID  int64  `json:"broadcastId"`
@@ -163,6 +175,7 @@ type AdminBroadcastJob struct {
 	LastError    string `json:"lastError,omitempty"`
 }
 
+// AdminBotMessage represents admin bot message.
 type AdminBotMessage struct {
 	ID                int64     `json:"id"`
 	ChatID            int64     `json:"chatId"`
@@ -181,6 +194,7 @@ type AdminBotMessage struct {
 	CreatedAt         time.Time `json:"createdAt"`
 }
 
+// AdminParserSource represents admin parser source.
 type AdminParserSource struct {
 	ID           int64      `json:"id"`
 	SourceType   string     `json:"sourceType"`
@@ -193,6 +207,7 @@ type AdminParserSource struct {
 	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
+// AdminParsedEvent represents admin parsed event.
 type AdminParsedEvent struct {
 	ID              int64      `json:"id"`
 	SourceID        *int64     `json:"sourceId,omitempty"`

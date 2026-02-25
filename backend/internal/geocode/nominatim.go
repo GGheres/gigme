@@ -15,28 +15,33 @@ import (
 const defaultEndpoint = "https://nominatim.openstreetmap.org/search"
 const defaultUserAgent = "GigmeAdminGeocoder/1.0"
 
+// Config represents config.
 type Config struct {
 	Endpoint string
 	Timeout  time.Duration
 }
 
+// Client represents client.
 type Client struct {
 	endpoint string
 	client   *http.Client
 }
 
+// Result represents result.
 type Result struct {
 	DisplayName string  `json:"displayName"`
 	Lat         float64 `json:"lat"`
 	Lng         float64 `json:"lng"`
 }
 
+// nominatimItem represents nominatim item.
 type nominatimItem struct {
 	DisplayName string `json:"display_name"`
 	Lat         string `json:"lat"`
 	Lon         string `json:"lon"`
 }
 
+// NewClient creates client.
 func NewClient(cfg Config) *Client {
 	endpoint := strings.TrimSpace(cfg.Endpoint)
 	if endpoint == "" {
@@ -54,6 +59,7 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
+// Search handles internal search behavior.
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]Result, error) {
 	if c == nil {
 		return nil, fmt.Errorf("geocoder is not configured")

@@ -15,6 +15,7 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// authVKRequest represents auth v k request.
 type authVKRequest struct {
 	AccessToken string `json:"accessToken"`
 	UserID      *int64 `json:"userId"`
@@ -23,11 +24,13 @@ type authVKRequest struct {
 	DeviceID    string `json:"deviceId"`
 }
 
+// authVKStartRequest represents auth v k start request.
 type authVKStartRequest struct {
 	RedirectURI string `json:"redirectUri"`
 	Next        string `json:"next"`
 }
 
+// AuthVKStart authenticates v k start.
 func (h *Handler) AuthVKStart(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 
@@ -112,6 +115,7 @@ func (h *Handler) AuthVKStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// AuthVK authenticates v k.
 func (h *Handler) AuthVK(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 
@@ -143,6 +147,7 @@ func (h *Handler) AuthVK(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// authVKLegacy authenticates v k legacy.
 func (h *Handler) authVKLegacy(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -221,6 +226,7 @@ func (h *Handler) authVKLegacy(
 	})
 }
 
+// authVKCodeFlow authenticates v k code flow.
 func (h *Handler) authVKCodeFlow(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -346,6 +352,7 @@ func (h *Handler) authVKCodeFlow(
 	})
 }
 
+// vkExternalTelegramID handles vk external telegram i d.
 func vkExternalTelegramID(vkUserID int64) int64 {
 	if vkUserID <= 0 {
 		return -1

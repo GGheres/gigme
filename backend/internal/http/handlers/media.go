@@ -13,12 +13,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// presignRequest represents presign request.
 type presignRequest struct {
 	FileName    string `json:"fileName"`
 	ContentType string `json:"contentType"`
 	SizeBytes   int64  `json:"sizeBytes"`
 }
 
+// PresignMedia handles presign media.
 func (h *Handler) PresignMedia(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var req presignRequest
@@ -73,6 +75,7 @@ func (h *Handler) PresignMedia(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// UploadMedia handles upload media.
 func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if h.s3 == nil {
@@ -136,6 +139,7 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// EventMedia handles event media.
 func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	idStr := chi.URLParam(r, "id")

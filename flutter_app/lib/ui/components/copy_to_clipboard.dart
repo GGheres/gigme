@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'app_toast.dart';
 
+/// copyToClipboard handles copy to clipboard.
+
 Future<void> copyToClipboard(
   BuildContext context, {
   required String text,

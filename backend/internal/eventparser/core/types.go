@@ -15,6 +15,7 @@ type EventData struct {
 	Links       []string   `json:"links"`
 }
 
+// SourceType represents source type.
 type SourceType string
 
 const (
@@ -25,6 +26,7 @@ const (
 	SourceVK        SourceType = "vk"
 )
 
+// Valid handles internal valid behavior.
 func (s SourceType) Valid() bool {
 	switch s {
 	case SourceAuto, SourceTelegram, SourceWeb, SourceInstagram, SourceVK:
@@ -34,6 +36,7 @@ func (s SourceType) Valid() bool {
 	}
 }
 
+// Parser represents parser.
 type Parser interface {
 	Parse(ctx context.Context, input string) (*EventData, error)
 }
@@ -44,6 +47,7 @@ type BatchParser interface {
 	ParseMany(ctx context.Context, input string) ([]*EventData, error)
 }
 
+// Fetcher represents fetcher.
 type Fetcher interface {
 	Get(ctx context.Context, url string, headers map[string]string) ([]byte, int, error)
 }
@@ -54,12 +58,14 @@ type BrowserFetcher interface {
 	Render(ctx context.Context, url string) ([]byte, error)
 }
 
+// AuthRequiredError represents auth required error.
 type AuthRequiredError struct {
 	Source SourceType
 	URL    string
 	Hint   string
 }
 
+// Error handles internal error behavior.
 func (e *AuthRequiredError) Error() string {
 	if e == nil {
 		return "auth required"
@@ -70,12 +76,14 @@ func (e *AuthRequiredError) Error() string {
 	return fmt.Sprintf("auth required for %s (%s)", e.Source, e.URL)
 }
 
+// DynamicContentError represents dynamic content error.
 type DynamicContentError struct {
 	Source SourceType
 	URL    string
 	Hint   string
 }
 
+// Error handles internal error behavior.
 func (e *DynamicContentError) Error() string {
 	if e == nil {
 		return "dynamic content"
@@ -86,11 +94,13 @@ func (e *DynamicContentError) Error() string {
 	return fmt.Sprintf("dynamic content for %s (%s)", e.Source, e.URL)
 }
 
+// UnsupportedInputError represents unsupported input error.
 type UnsupportedInputError struct {
 	Input string
 	Hint  string
 }
 
+// Error handles internal error behavior.
 func (e *UnsupportedInputError) Error() string {
 	if e == nil {
 		return "unsupported input"

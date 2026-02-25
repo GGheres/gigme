@@ -1,11 +1,16 @@
 import 'package:flutter/foundation.dart';
 
+/// AuthMode represents auth mode.
+
 enum AuthMode {
   telegramWeb,
   standalone,
 }
 
+/// AppConfig represents app config.
+
 class AppConfig {
+  /// AppConfig handles app config.
   AppConfig({
     required this.apiUrl,
     required this.botUsername,
@@ -36,7 +41,11 @@ class AppConfig {
   final String paymentUsdtMemo;
   final String paymentQrData;
 
+  /// isTelegramWebMode reports whether telegram web mode condition is met.
+
   bool get isTelegramWebMode => authMode == AuthMode.telegramWeb;
+
+  /// fromEnvironment handles from environment.
 
   static AppConfig fromEnvironment() {
     const envApiUrl = String.fromEnvironment('API_URL', defaultValue: '');
@@ -90,6 +99,8 @@ class AppConfig {
     );
   }
 
+  /// _resolveAuthMode handles resolve auth mode.
+
   static AuthMode _resolveAuthMode(String rawAuthMode) {
     final mode = rawAuthMode.toLowerCase().trim();
     if (mode == 'standalone') return AuthMode.standalone;
@@ -99,6 +110,8 @@ class AppConfig {
     }
     return kIsWeb ? AuthMode.telegramWeb : AuthMode.standalone;
   }
+
+  /// _resolveStandaloneAuthUrl handles resolve standalone auth url.
 
   static String _resolveStandaloneAuthUrl({
     required String rawStandaloneAuthUrl,
@@ -136,6 +149,8 @@ class AppConfig {
     return raw.substring(0, hashIndex);
   }
 
+  /// _normalizeApiUrl normalizes api url.
+
   static String _normalizeApiUrl(String value) {
     final trimmed = value.trim().replaceAll(RegExp(r'''^['"]|['"]$'''), '');
     final origin = _webOrigin();
@@ -161,6 +176,8 @@ class AppConfig {
     return 'https://${trimmed.replaceAll(RegExp(r'^/+'), '')}';
   }
 
+  /// _webOrigin handles web origin.
+
   static String _webOrigin() {
     if (!kIsWeb) return '';
     final base = Uri.base;
@@ -172,6 +189,8 @@ class AppConfig {
         : '';
     return '${base.scheme}://${base.host}$port';
   }
+
+  /// _parseAdminIds parses admin ids.
 
   static Set<int> _parseAdminIds(String value) {
     final out = <int>{};

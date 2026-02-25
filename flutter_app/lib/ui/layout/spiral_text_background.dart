@@ -6,13 +6,18 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+/// Quality represents quality.
+
 enum Quality {
   high,
   medium,
   low,
 }
 
+/// SpiralTextBackground represents spiral text background.
+
 class SpiralTextBackground extends StatefulWidget {
+  /// SpiralTextBackground handles spiral text background.
   const SpiralTextBackground({
     super.key,
     this.text = defaultText,
@@ -53,9 +58,13 @@ class SpiralTextBackground extends StatefulWidget {
   final double bubbleMaxRadius;
   final Quality quality;
 
+  /// createState creates state.
+
   @override
   State<SpiralTextBackground> createState() => _SpiralTextBackgroundState();
 }
+
+/// _SpiralTextBackgroundState represents spiral text background state.
 
 class _SpiralTextBackgroundState extends State<SpiralTextBackground>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
@@ -450,7 +459,10 @@ class _SpiralTextBackgroundState extends State<SpiralTextBackground>
   }
 }
 
+/// Bubble represents bubble.
+
 class Bubble {
+  /// Bubble handles internal bubble behavior.
   Bubble({
     required this.position,
     required this.velocity,
@@ -468,7 +480,10 @@ class Bubble {
   double life;
 }
 
+/// _SpiralTextBackgroundPainter represents spiral text background painter.
+
 class _SpiralTextBackgroundPainter extends CustomPainter {
+  /// _SpiralTextBackgroundPainter handles spiral text background painter.
   const _SpiralTextBackgroundPainter({
     required this.image,
     required this.shader,
@@ -486,6 +501,8 @@ class _SpiralTextBackgroundPainter extends CustomPainter {
   final double rotation;
   final double opacity;
   final Offset parallax;
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -532,6 +549,8 @@ class _SpiralTextBackgroundPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant _SpiralTextBackgroundPainter oldDelegate) {
     return oldDelegate.image != image ||
@@ -543,7 +562,10 @@ class _SpiralTextBackgroundPainter extends CustomPainter {
   }
 }
 
+/// SpiralPainter represents spiral painter.
+
 class SpiralPainter extends CustomPainter {
+  /// SpiralPainter handles spiral painter.
   const SpiralPainter({
     required this.text,
     required this.baseFontSize,
@@ -561,6 +583,8 @@ class SpiralPainter extends CustomPainter {
   final double spiralTurns;
   final double spiralSpacing;
   final Color color;
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -630,6 +654,8 @@ class SpiralPainter extends CustomPainter {
     }
   }
 
+  /// _buildParagraph builds paragraph.
+
   ui.Paragraph _buildParagraph(String segment) {
     final paragraphBuilder = ui.ParagraphBuilder(
       ui.ParagraphStyle(
@@ -656,6 +682,8 @@ class SpiralPainter extends CustomPainter {
     return paragraph;
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant SpiralPainter oldDelegate) {
     return oldDelegate.text != text ||
@@ -668,7 +696,10 @@ class SpiralPainter extends CustomPainter {
   }
 }
 
+/// _SpiralTextRun represents spiral text run.
+
 class _SpiralTextRun {
+  /// _SpiralTextRun handles spiral text run.
   const _SpiralTextRun({
     required this.paragraph,
     required this.width,
@@ -678,7 +709,10 @@ class _SpiralTextRun {
   final double width;
 }
 
+/// _SpiralCacheSignature represents spiral cache signature.
+
 class _SpiralCacheSignature {
+  /// _SpiralCacheSignature handles spiral cache signature.
   const _SpiralCacheSignature({
     required this.width,
     required this.height,
@@ -703,9 +737,15 @@ class _SpiralCacheSignature {
   final double spiralSpacing;
   final Color color;
 
+  /// size handles internal size behavior.
+
   Size get size => Size(width, height);
 
+  /// widthPx handles width px.
+
   int get widthPx => math.max(1, (width * pixelRatio).round());
+
+  /// heightPx handles height px.
   int get heightPx => math.max(1, (height * pixelRatio).round());
 
   @override
@@ -722,6 +762,8 @@ class _SpiralCacheSignature {
         other.spiralSpacing == spiralSpacing &&
         other.color == color;
   }
+
+  /// hashCode handles hash code.
 
   @override
   int get hashCode {
@@ -762,6 +804,8 @@ extension on Quality {
     }
   }
 }
+
+/// _lerp handles internal lerp behavior.
 
 double _lerp(double a, double b, double t) {
   return a + ((b - a) * t);

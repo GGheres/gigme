@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TestClaimReferralAwardsOnce verifies claim referral awards once behavior.
 func TestClaimReferralAwardsOnce(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -75,6 +76,7 @@ func TestClaimReferralAwardsOnce(t *testing.T) {
 	}
 }
 
+// TestClaimReferralSelfInvite verifies claim referral self invite behavior.
 func TestClaimReferralSelfInvite(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -117,6 +119,7 @@ func TestClaimReferralSelfInvite(t *testing.T) {
 	}
 }
 
+// TestClaimReferralNotNew verifies claim referral not new behavior.
 func TestClaimReferralNotNew(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -163,6 +166,7 @@ func TestClaimReferralNotNew(t *testing.T) {
 	}
 }
 
+// TestClaimReferralMultipleCodes verifies claim referral multiple codes behavior.
 func TestClaimReferralMultipleCodes(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -232,6 +236,7 @@ func TestClaimReferralMultipleCodes(t *testing.T) {
 	}
 }
 
+// insertReferralCode handles insert referral code.
 func insertReferralCode(ctx context.Context, pool *pgxpool.Pool, ownerID int64) (int64, string, error) {
 	code := fmt.Sprintf("TEST%X", time.Now().UnixNano())
 	row := pool.QueryRow(ctx, `INSERT INTO referral_codes (code, owner_user_id)
@@ -244,6 +249,7 @@ RETURNING id;`, code, ownerID)
 	return id, code, nil
 }
 
+// cleanupReferralData handles cleanup referral data.
 func cleanupReferralData(t *testing.T, ctx context.Context, pool *pgxpool.Pool, codeIDs []int64, userIDs []int64, eventIDs []int64) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -260,6 +266,7 @@ func cleanupReferralData(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 	})
 }
 
+// getUserBalance returns user balance.
 func getUserBalance(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID int64) int64 {
 	t.Helper()
 	var balance int64

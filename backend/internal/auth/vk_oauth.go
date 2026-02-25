@@ -18,6 +18,7 @@ var ErrInvalidVKOAuthState = errors.New("invalid vk oauth state")
 
 const vkOAuthStateTTL = 10 * time.Minute
 
+// VKOAuthState represents v k o auth state.
 type VKOAuthState struct {
 	CodeVerifier string
 	RedirectURI  string
@@ -25,6 +26,7 @@ type VKOAuthState struct {
 	ExpiresAt    time.Time
 }
 
+// vkOAuthStatePayload represents vk o auth state payload.
 type vkOAuthStatePayload struct {
 	CodeVerifier string `json:"v"`
 	RedirectURI  string `json:"r"`
@@ -32,6 +34,7 @@ type vkOAuthStatePayload struct {
 	ExpiresAt    int64  `json:"e"`
 }
 
+// GeneratePKCECodeVerifier handles generate p k c e code verifier.
 func GeneratePKCECodeVerifier(length int) (string, error) {
 	if length < 43 || length > 128 {
 		return "", fmt.Errorf("invalid PKCE verifier length: %d", length)
@@ -50,11 +53,13 @@ func GeneratePKCECodeVerifier(length int) (string, error) {
 	return string(out), nil
 }
 
+// BuildPKCECodeChallenge builds p k c e code challenge.
 func BuildPKCECodeChallenge(codeVerifier string) string {
 	sum := sha256.Sum256([]byte(codeVerifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
+// BuildVKOAuthState builds v k o auth state.
 func BuildVKOAuthState(
 	secret string,
 	codeVerifier string,
@@ -85,6 +90,7 @@ func BuildVKOAuthState(
 	return encodedPayload + "." + signature, nil
 }
 
+// ParseVKOAuthState parses v k o auth state.
 func ParseVKOAuthState(
 	state string,
 	secret string,
@@ -123,6 +129,7 @@ func ParseVKOAuthState(
 	return VKOAuthState{}, ErrInvalidVKOAuthState
 }
 
+// parseVKOAuthStateCurrent parses v k o auth state current.
 func parseVKOAuthStateCurrent(
 	state string,
 	secret string,
@@ -150,6 +157,7 @@ func parseVKOAuthStateCurrent(
 	return parsed, true
 }
 
+// parseVKOAuthStateLegacy parses v k o auth state legacy.
 func parseVKOAuthStateLegacy(
 	state string,
 	secret string,
@@ -216,6 +224,7 @@ func parseVKOAuthStateLegacy(
 	return parsed, true
 }
 
+// parseVKOAuthPayload parses v k o auth payload.
 func parseVKOAuthPayload(payloadBytes []byte, now time.Time) (VKOAuthState, bool) {
 	var payload vkOAuthStatePayload
 	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
@@ -242,10 +251,12 @@ func parseVKOAuthPayload(payloadBytes []byte, now time.Time) (VKOAuthState, bool
 	}, true
 }
 
+// signVKOAuthState signs v k o auth state.
 func signVKOAuthState(secret string, encodedPayload string) string {
 	return base64.RawURLEncoding.EncodeToString(signVKOAuthStateRaw(secret, []byte(encodedPayload)))
 }
 
+// signVKOAuthStateRaw signs v k o auth state raw.
 func signVKOAuthStateRaw(secret string, payload []byte) []byte {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write(payload)

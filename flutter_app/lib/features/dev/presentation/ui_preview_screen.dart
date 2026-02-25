@@ -8,8 +8,13 @@ import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 
+/// UiPreviewScreen represents ui preview screen.
+
 class UiPreviewScreen extends StatelessWidget {
+  /// UiPreviewScreen handles ui preview screen.
   const UiPreviewScreen({super.key});
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

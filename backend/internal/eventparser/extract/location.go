@@ -14,6 +14,7 @@ var locationKeywords = []string{
 	"локация:",
 }
 
+// ExtractLocation extracts location.
 func ExtractLocation(text string) string {
 	normalized := NormalizeText(text)
 	if normalized == "" {

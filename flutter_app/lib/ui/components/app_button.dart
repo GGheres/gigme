@@ -5,6 +5,8 @@ import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_tokens.dart';
 
+/// AppButtonVariant represents app button variant.
+
 enum AppButtonVariant {
   primary,
   secondary,
@@ -13,13 +15,18 @@ enum AppButtonVariant {
   danger,
 }
 
+/// AppButtonSize represents app button size.
+
 enum AppButtonSize {
   sm,
   md,
   lg,
 }
 
+/// AppButton represents app button.
+
 class AppButton extends StatefulWidget {
+  /// AppButton handles app button.
   const AppButton({
     required this.label,
     this.onPressed,
@@ -41,15 +48,23 @@ class AppButton extends StatefulWidget {
   final bool expand;
   final String? tooltip;
 
+  /// createState creates state.
+
   @override
   State<AppButton> createState() => _AppButtonState();
 }
+
+/// _AppButtonState represents app button state.
 
 class _AppButtonState extends State<AppButton> {
   bool _hovered = false;
   bool _focused = false;
 
+  /// _enabled handles internal enabled behavior.
+
   bool get _enabled => widget.onPressed != null && !widget.loading;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +167,10 @@ class _AppButtonState extends State<AppButton> {
   }
 }
 
+/// _ButtonMetrics represents button metrics.
+
 class _ButtonMetrics {
+  /// _ButtonMetrics handles button metrics.
   const _ButtonMetrics({
     required this.height,
     required this.horizontalPadding,
@@ -168,7 +186,10 @@ class _ButtonMetrics {
   final TextStyle textStyle;
 }
 
+/// _ButtonVisual represents button visual.
+
 class _ButtonVisual {
+  /// _ButtonVisual handles button visual.
   const _ButtonVisual({
     this.gradient,
     required this.background,
@@ -183,6 +204,8 @@ class _ButtonVisual {
   final Color foreground;
   final List<BoxShadow> shadows;
 }
+
+/// _resolveMetrics handles resolve metrics.
 
 _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
   switch (size) {
@@ -212,6 +235,8 @@ _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
       );
   }
 }
+
+/// _resolveVisual handles resolve visual.
 
 _ButtonVisual _resolveVisual(AppButtonVariant variant,
     {required bool enabled, required bool isDark}) {

@@ -14,11 +14,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// VKParser represents v k parser.
 type VKParser struct {
 	fetcher core.Fetcher
 	logger  *slog.Logger
 }
 
+// NewVKParser creates v k parser.
 func NewVKParser(fetcher core.Fetcher, logger *slog.Logger) *VKParser {
 	if logger == nil {
 		logger = slog.Default()
@@ -26,6 +28,7 @@ func NewVKParser(fetcher core.Fetcher, logger *slog.Logger) *VKParser {
 	return &VKParser{fetcher: fetcher, logger: logger}
 }
 
+// Parse parses the provided input.
 func (p *VKParser) Parse(ctx context.Context, input string) (*core.EventData, error) {
 	if p == nil || p.fetcher == nil {
 		return nil, fmt.Errorf("vk parser is not configured")
@@ -82,6 +85,7 @@ func (p *VKParser) Parse(ctx context.Context, input string) (*core.EventData, er
 	}, nil
 }
 
+// looksLikeVKAuthWall handles looks like v k auth wall.
 func looksLikeVKAuthWall(lowerBody string) bool {
 	return strings.Contains(lowerBody, "login.vk.com") ||
 		strings.Contains(lowerBody, "id=\"login_form\"") ||

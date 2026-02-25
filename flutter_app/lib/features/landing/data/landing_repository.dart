@@ -5,10 +5,15 @@ import '../../../core/models/landing_event.dart';
 import '../../../core/network/api_paths.dart';
 import '../../../core/network/providers.dart';
 
+/// LandingRepository represents landing repository.
+
 class LandingRepository {
+  /// LandingRepository handles landing repository.
   LandingRepository(this._ref);
 
   final Ref _ref;
+
+  /// listEvents lists events.
 
   Future<LandingEventsResponse> listEvents({
     int limit = 100,
@@ -23,6 +28,8 @@ class LandingRepository {
           decoder: LandingEventsResponse.fromJson,
         );
   }
+
+  /// getContent returns content.
 
   Future<LandingContent> getContent() {
     return _ref.read(apiClientProvider).get<LandingContent>(

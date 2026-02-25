@@ -14,6 +14,7 @@ const (
 	adminBotMessageDirectionOutgoing = "OUTGOING"
 )
 
+// StoreAdminBotIncomingMessage handles store admin bot incoming message.
 func (r *Repository) StoreAdminBotIncomingMessage(
 	ctx context.Context,
 	chatID int64,
@@ -53,6 +54,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL);`,
 	return err
 }
 
+// StoreAdminBotOutgoingMessage handles store admin bot outgoing message.
 func (r *Repository) StoreAdminBotOutgoingMessage(
 	ctx context.Context,
 	chatID int64,
@@ -84,6 +86,7 @@ VALUES ($1, $2, $3, NULL, NULL, NULL, NULL, NULL, $4);`,
 	return err
 }
 
+// ListAdminBotMessages lists admin bot messages.
 func (r *Repository) ListAdminBotMessages(ctx context.Context, chatID *int64, limit, offset int) ([]models.AdminBotMessage, int, error) {
 	if limit <= 0 {
 		limit = 100
@@ -194,6 +197,7 @@ LIMIT $2 OFFSET $3;`, nullInt64Ptr(chatID), limit, offset)
 	return items, total, nil
 }
 
+// sanitizeAdminBotMessageText handles sanitize admin bot message text.
 func sanitizeAdminBotMessageText(text string) string {
 	cleaned := strings.TrimSpace(text)
 	if cleaned == "" {
@@ -202,6 +206,7 @@ func sanitizeAdminBotMessageText(text string) string {
 	return cleaned
 }
 
+// nullInt64 handles null int64.
 func nullInt64(value int64) interface{} {
 	if value <= 0 {
 		return nil

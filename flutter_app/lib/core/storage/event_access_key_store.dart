@@ -2,8 +2,12 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// EventAccessKeyStore represents event access key store.
+
 class EventAccessKeyStore {
   static const _storageKey = 'gigme_event_keys';
+
+  /// load loads data from the underlying source.
 
   Future<Map<int, String>> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -17,7 +21,10 @@ class EventAccessKeyStore {
       decoded.forEach((key, value) {
         final parsedKey = int.tryParse(key.toString());
         final parsedValue = value?.toString().trim() ?? '';
-        if (parsedKey != null && parsedKey > 0 && parsedValue.isNotEmpty && parsedValue.length <= 64) {
+        if (parsedKey != null &&
+            parsedKey > 0 &&
+            parsedValue.isNotEmpty &&
+            parsedValue.length <= 64) {
           out[parsedKey] = parsedValue;
         }
       });
@@ -26,6 +33,8 @@ class EventAccessKeyStore {
       return <int, String>{};
     }
   }
+
+  /// save persists data to storage.
 
   Future<void> save(Map<int, String> values) async {
     final prefs = await SharedPreferences.getInstance();

@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// UserEvent represents user event.
+
 class UserEvent {
+  /// UserEvent handles user event.
 
   factory UserEvent.fromJson(dynamic json) {
     final map = asMap(json);
@@ -12,6 +15,8 @@ class UserEvent {
       thumbnailUrl: asString(map['thumbnailUrl']),
     );
   }
+
+  /// UserEvent handles user event.
   UserEvent({
     required this.id,
     required this.title,

@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// EventMarker represents event marker.
+
 class EventMarker {
+  /// EventMarker handles event marker.
 
   factory EventMarker.fromJson(dynamic json) {
     final map = asMap(json);
@@ -11,9 +14,14 @@ class EventMarker {
       lat: asDouble(map['lat']),
       lng: asDouble(map['lng']),
       isPromoted: asBool(map['isPromoted']),
-      filters: asList(map['filters']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
+      filters: asList(map['filters'])
+          .map((e) => asString(e))
+          .where((e) => e.isNotEmpty)
+          .toList(),
     );
   }
+
+  /// EventMarker handles event marker.
   EventMarker({
     required this.id,
     required this.title,

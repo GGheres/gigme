@@ -100,6 +100,7 @@ const EMPTY_FORM_DEFAULTS: FormDefaults = {
   isPrivate: false,
 }
 
+// parseAdminIds parses admin ids.
 const parseAdminIds = (value: string) => {
   const set = new Set<number>()
   value
@@ -125,16 +126,19 @@ const MAX_TOPUP_TOKENS = 1_000_000
 const PENDING_REFERRAL_STORAGE = 'gigme:pendingReferral'
 const MAX_REF_CODE_LENGTH = 32
 
+// formatDateTimeLocal formats date time local.
 const formatDateTimeLocal = (value?: string | null) => {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
+  // pad pads numeric values for formatting.
   const pad = (num: number) => String(num).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
     date.getHours()
   )}:${pad(date.getMinutes())}`
 }
 
+// formatTimestamp formats timestamp.
 const formatTimestamp = (value?: string | null) => {
   if (!value) return '—'
   const date = new Date(value)
@@ -144,6 +148,7 @@ const formatTimestamp = (value?: string | null) => {
 
 const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i
 
+// isImageLink reports whether image link condition is met.
 const isImageLink = (value: string) => {
   const raw = value.trim()
   if (!raw) return false
@@ -160,6 +165,7 @@ const isImageLink = (value: string) => {
   }
 }
 
+// dedupeTrimmed handles dedupe trimmed.
 const dedupeTrimmed = (values: string[], limit = 0) => {
   const out: string[] = []
   const seen = new Set<string>()
@@ -175,12 +181,16 @@ const dedupeTrimmed = (values: string[], limit = 0) => {
   return out
 }
 
+// parserImageLinks handles parser image links.
 const parserImageLinks = (links: string[]) => dedupeTrimmed(links.filter(isImageLink), 5)
 
+// parserEventLinks handles parser event links.
 const parserEventLinks = (links: string[]) => dedupeTrimmed(links.filter((link) => !isImageLink(link)), 20)
 
+// parseLinksText parses links text.
 const parseLinksText = (text: string) => dedupeTrimmed(text.split(/\r?\n/), 20)
 
+// sortFeedItems handles sort feed items.
 const sortFeedItems = (items: EventCard[]) => {
   const now = Date.now()
   return [...items].sort((a, b) => {
@@ -191,6 +201,7 @@ const sortFeedItems = (items: EventCard[]) => {
   })
 }
 
+// buildEventCardFromDetail builds event card from detail.
 const buildEventCardFromDetail = (detail: EventDetail, accessKey?: string): EventCard => ({
   id: detail.event.id,
   title: detail.event.title,
@@ -218,6 +229,7 @@ const buildEventCardFromDetail = (detail: EventDetail, accessKey?: string): Even
   accessKey,
 })
 
+// mergeFeedWithShared merges feed with shared.
 const mergeFeedWithShared = (feedItems: EventCard[], sharedEvents: Record<number, EventCard>) => {
   if (!sharedEvents || Object.keys(sharedEvents).length === 0) return feedItems
   const map = new Map(feedItems.map((item) => [item.id, item]))
@@ -227,6 +239,7 @@ const mergeFeedWithShared = (feedItems: EventCard[], sharedEvents: Record<number
   return sortFeedItems(Array.from(map.values()))
 }
 
+// mergeMarkersWithShared merges markers with shared.
 const mergeMarkersWithShared = (markers: EventMarker[], sharedEvents: Record<number, EventCard>) => {
   if (!sharedEvents || Object.keys(sharedEvents).length === 0) return markers
   const map = new Map(markers.map((item) => [item.id, item]))
@@ -274,9 +287,12 @@ const EVENT_FILTERS: { id: EventFilter; label: string; icon: string }[] = [
   { id: 'business', label: 'Business', icon: '💼' },
 ]
 
+// formatCoords formats coords.
 const formatCoords = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+// buildCoordsUrl builds coords url.
 const buildCoordsUrl = (lat: number, lng: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+// buildShareUrl builds share url.
 const buildShareUrl = (eventId: number, accessKey?: string, refCode?: string) => {
   if (typeof window === 'undefined') return ''
   const botUsername = TELEGRAM_BOT_USERNAME.replace(/^@+/, '').trim()
@@ -317,7 +333,9 @@ const buildShareUrl = (eventId: number, accessKey?: string, refCode?: string) =>
   }
 }
 
+// toRadians handles to radians.
 const toRadians = (value: number) => (value * Math.PI) / 180
+// getDistanceKm returns distance km.
 const getDistanceKm = (from: LatLng, to: LatLng) => {
   const dLat = toRadians(to.lat - from.lat)
   const dLng = toRadians(to.lng - from.lng)
@@ -330,6 +348,7 @@ const getDistanceKm = (from: LatLng, to: LatLng) => {
   return 6371 * c
 }
 
+// formatDistanceLabel formats distance label.
 const formatDistanceLabel = (km: number) => {
   if (!Number.isFinite(km)) return ''
   if (km < 1) return `${Math.max(1, Math.round(km * 1000))} m`
@@ -337,6 +356,7 @@ const formatDistanceLabel = (km: number) => {
   return `${Math.round(km)} km`
 }
 const COORDS_REGEX = /Coordinates:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i
+// buildMediaProxyUrl builds media proxy url.
 const buildMediaProxyUrl = (eventId: number, index: number, accessKey?: string) => {
   if (API_URL_ERROR) return ''
   const base = `${API_URL}/media/events/${eventId}/${index}`
@@ -344,17 +364,20 @@ const buildMediaProxyUrl = (eventId: number, index: number, accessKey?: string) 
   const separator = base.includes('?') ? '&' : '?'
   return `${base}${separator}eventKey=${encodeURIComponent(accessKey)}`
 }
+// resolveMediaSrc handles resolve media src.
 const resolveMediaSrc = (eventId: number, index: number, fallback?: string, accessKey?: string) => {
   const proxy = buildMediaProxyUrl(eventId, index, accessKey)
   return proxy || fallback || ''
 }
 const NGROK_HOST_RE = /ngrok-free\.app|ngrok\.io/i
 
+// isNgrokUrl reports whether ngrok url condition is met.
 const isNgrokUrl = (value?: string) => {
   if (!value) return false
   return NGROK_HOST_RE.test(value)
 }
 
+// isAndroidDevice reports whether android device condition is met.
 const isAndroidDevice = () => {
   if (typeof navigator === 'undefined') return false
   return /Android/i.test(navigator.userAgent || '')
@@ -367,6 +390,7 @@ type DecodedImage = {
   release: () => void
 }
 
+// buildOptimizedFileName builds optimized file name.
 const buildOptimizedFileName = (name: string, mimeType: string) => {
   const ext = mimeType === 'image/webp' ? 'webp' : mimeType === 'image/png' ? 'png' : 'jpg'
   const dotIndex = name.lastIndexOf('.')
@@ -374,6 +398,7 @@ const buildOptimizedFileName = (name: string, mimeType: string) => {
   return `${baseName || 'photo'}.${ext}`
 }
 
+// decodeImageForCanvas decodes image for canvas.
 const decodeImageForCanvas = async (file: File): Promise<DecodedImage | null> => {
   if (typeof window === 'undefined') return null
   if (typeof createImageBitmap === 'function') {
@@ -411,6 +436,7 @@ const decodeImageForCanvas = async (file: File): Promise<DecodedImage | null> =>
   })
 }
 
+// optimizeImageForUpload handles optimize image for upload.
 const optimizeImageForUpload = async (file: File): Promise<File> => {
   if (!file.type.startsWith('image/')) return file
   if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file
@@ -450,6 +476,7 @@ const optimizeImageForUpload = async (file: File): Promise<File> => {
   }
 }
 
+// parseCoordsFromLine parses coords from line.
 const parseCoordsFromLine = (line: string): LatLng | null => {
   const match = line.match(COORDS_REGEX)
   if (!match) return null
@@ -492,9 +519,12 @@ const CONTACT_ICON_SRC: Record<ContactKind, string> = {
   snapchat: '/contacts/snapchat.ico',
 }
 
+// isLikelyUrl reports whether likely url condition is met.
 const isLikelyUrl = (value: string) => /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)
+// ensureHttps handles ensure https.
 const ensureHttps = (value: string) => (value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`)
 
+// normalizeHandle normalizes handle.
 const normalizeHandle = (value: string, hosts: string[]) => {
   let out = value.trim().replace(/^@+/, '')
   const lower = out.toLowerCase()
@@ -509,6 +539,7 @@ const normalizeHandle = (value: string, hosts: string[]) => {
   return out
 }
 
+// isPresignEnabled reports whether presign enabled condition is met.
 const isPresignEnabled = () => {
   const raw = String(import.meta.env.VITE_PRESIGN_ENABLED || '').trim().toLowerCase()
   if (!raw) return true
@@ -517,6 +548,7 @@ const isPresignEnabled = () => {
   return true
 }
 
+// buildContactHref builds contact href.
 const buildContactHref = (kind: ContactKind, value: string) => {
   const trimmed = value.trim()
   if (!trimmed) return ''
@@ -569,6 +601,7 @@ type ContactItem = {
   href: string
 }
 
+// buildContactItems builds contact items.
 const buildContactItems = (source: ContactSource): ContactItem[] => {
   const items: ContactItem[] = []
   for (const config of CONTACT_CONFIG) {
@@ -592,6 +625,7 @@ type MediaImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & 
   fallbackSrc?: string
 }
 
+// MediaImage handles media image.
 const MediaImage = ({ src, fallbackSrc, alt, onError, loading, decoding, ...rest }: MediaImageProps) => {
   const [candidateSrc, setCandidateSrc] = useState<string>(src || fallbackSrc || '')
   const [resolvedSrc, setResolvedSrc] = useState<string>(src || fallbackSrc || '')
@@ -607,6 +641,7 @@ const MediaImage = ({ src, fallbackSrc, alt, onError, loading, decoding, ...rest
     let cancelled = false
     const controller = new AbortController()
 
+    // clearObjectUrl handles clear object url.
     const clearObjectUrl = () => {
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current)
@@ -614,6 +649,7 @@ const MediaImage = ({ src, fallbackSrc, alt, onError, loading, decoding, ...rest
       }
     }
 
+    // load loads data from the underlying source.
     const load = async (value?: string) => {
       if (!value) return ''
       if (!isNgrokUrl(value)) return value
@@ -631,6 +667,7 @@ const MediaImage = ({ src, fallbackSrc, alt, onError, loading, decoding, ...rest
       return blobUrl
     }
 
+    // run handles internal run behavior.
     const run = async () => {
       clearObjectUrl()
       try {
@@ -686,6 +723,7 @@ type ContactIconsProps = {
   className?: string
 }
 
+// ContactIcons handles contact icons.
 const ContactIcons = ({ source, unlocked = false, className }: ContactIconsProps) => {
   const items = buildContactItems(source)
   if (items.length === 0) return null
@@ -748,6 +786,7 @@ type ProfileAvatarProps = {
   label?: string
 }
 
+// ProfileAvatar handles profile avatar.
 const ProfileAvatar = ({ user, size = 'md', className, label = 'Profile' }: ProfileAvatarProps) => {
   const seed = user?.firstName || user?.username || user?.lastName || 'U'
   const initial = seed ? seed.trim().charAt(0).toUpperCase() : 'U'
@@ -765,6 +804,7 @@ const pulseIcon = L.divIcon({
   iconAnchor: [13, 13],
 })
 
+// getInitDataFromLocation returns init data from location.
 const getInitDataFromLocation = () => {
   const searchParams = new URLSearchParams(window.location.search)
   const fromSearch = searchParams.get('initData') || searchParams.get('tgWebAppData')
@@ -778,6 +818,7 @@ const getInitDataFromLocation = () => {
 type EventLink = { eventId: number | null; eventKey: string; refCode: string }
 type PendingReferral = { eventId: number; refCode: string }
 
+// parseEventId parses event id.
 const parseEventId = (value: string | null) => {
   if (!value) return null
   const parsed = Number(value)
@@ -785,6 +826,7 @@ const parseEventId = (value: string | null) => {
   return parsed
 }
 
+// parseEventKey parses event key.
 const parseEventKey = (value: string | null) => {
   if (!value) return ''
   const trimmed = value.trim()
@@ -792,6 +834,7 @@ const parseEventKey = (value: string | null) => {
   return trimmed
 }
 
+// parseRefCode parses ref code.
 const parseRefCode = (value: string | null) => {
   if (!value) return ''
   const cleaned = value.trim().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -799,6 +842,7 @@ const parseRefCode = (value: string | null) => {
   return cleaned
 }
 
+// extractEventLinkFromParams extracts event link from params.
 const extractEventLinkFromParams = (params: URLSearchParams): EventLink => {
   const eventId = parseEventId(params.get('eventId') || params.get('event'))
   if (!eventId) return { eventId: null, eventKey: '', refCode: '' }
@@ -807,6 +851,7 @@ const extractEventLinkFromParams = (params: URLSearchParams): EventLink => {
   return { eventId, eventKey, refCode }
 }
 
+// getEventLinkFromLocation returns event link from location.
 const getEventLinkFromLocation = (): EventLink => {
   if (typeof window === 'undefined') return { eventId: null, eventKey: '', refCode: '' }
   const searchParams = new URLSearchParams(window.location.search)
@@ -818,6 +863,7 @@ const getEventLinkFromLocation = (): EventLink => {
   return extractEventLinkFromParams(hashParams)
 }
 
+// parseStartParam parses start param.
 const parseStartParam = (raw: string): EventLink => {
   if (!raw) return { eventId: null, eventKey: '', refCode: '' }
   const trimmed = raw.trim()
@@ -842,6 +888,7 @@ const parseStartParam = (raw: string): EventLink => {
   return { eventId, eventKey: '', refCode: '' }
 }
 
+// getEventLinkFromTelegram returns event link from telegram.
 const getEventLinkFromTelegram = (): EventLink => {
   if (typeof window === 'undefined') return { eventId: null, eventKey: '', refCode: '' }
   const tg = (window as any).Telegram?.WebApp
@@ -850,6 +897,7 @@ const getEventLinkFromTelegram = (): EventLink => {
   return parseStartParam(String(startParam))
 }
 
+// getPageFromLocation returns page from location.
 const getPageFromLocation = (): AppPage => {
   if (typeof window === 'undefined') return 'home'
   const path = window.location.pathname || '/'
@@ -857,6 +905,7 @@ const getPageFromLocation = (): AppPage => {
   return path.startsWith(PROFILE_PATH) ? 'profile' : 'home'
 }
 
+// getAdminRouteFromLocation returns admin route from location.
 const getAdminRouteFromLocation = (): { section: AdminSection; userId: number | null } => {
   if (typeof window === 'undefined') return { section: 'users', userId: null }
   const path = window.location.pathname || '/'
@@ -882,6 +931,7 @@ const getAdminRouteFromLocation = (): { section: AdminSection; userId: number | 
   return { section: 'users', userId: null }
 }
 
+// updateEventLinkInLocation updates event link in location.
 const updateEventLinkInLocation = (eventId: number | null, eventKey?: string) => {
   if (typeof window === 'undefined') return
   try {
@@ -903,6 +953,7 @@ const updateEventLinkInLocation = (eventId: number | null, eventKey?: string) =>
   }
 }
 
+// upsertCoordsInDescription handles upsert coords in description.
 const upsertCoordsInDescription = (value: string, lat: number, lng: number) => {
   const coordsLine = `${COORDS_LABEL} ${formatCoords(lat, lng)} (${buildCoordsUrl(lat, lng)})`
   const cleaned = value
@@ -917,6 +968,7 @@ const upsertCoordsInDescription = (value: string, lat: number, lng: number) => {
   return `${trimmedBase}${separator}${coordsLine}`.trimEnd()
 }
 
+// loadStoredCenter loads stored center.
 const loadStoredCenter = (): LatLng | null => {
   if (typeof window === 'undefined') return null
   try {
@@ -930,6 +982,7 @@ const loadStoredCenter = (): LatLng | null => {
   }
 }
 
+// loadStoredEventKeys loads stored event keys.
 const loadStoredEventKeys = () => {
   if (typeof window === 'undefined') return {} as Record<number, string>
   try {
@@ -950,6 +1003,7 @@ const loadStoredEventKeys = () => {
   }
 }
 
+// saveStoredEventKeys saves stored event keys.
 const saveStoredEventKeys = (value: Record<number, string>) => {
   if (typeof window === 'undefined') return
   try {
@@ -967,6 +1021,7 @@ const saveStoredEventKeys = (value: Record<number, string>) => {
   }
 }
 
+// loadPendingReferral loads pending referral.
 const loadPendingReferral = (): PendingReferral | null => {
   if (typeof window === 'undefined') return null
   try {
@@ -982,6 +1037,7 @@ const loadPendingReferral = (): PendingReferral | null => {
   }
 }
 
+// savePendingReferral saves pending referral.
 const savePendingReferral = (value: PendingReferral) => {
   if (typeof window === 'undefined') return
   try {
@@ -991,6 +1047,7 @@ const savePendingReferral = (value: PendingReferral) => {
   }
 }
 
+// clearPendingReferral handles clear pending referral.
 const clearPendingReferral = () => {
   if (typeof window === 'undefined') return
   try {
@@ -1000,11 +1057,13 @@ const clearPendingReferral = () => {
   }
 }
 
+// saveStoredCenter saves stored center.
 const saveStoredCenter = (center: LatLng) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(center))
 }
 
+// App handles internal app behavior.
 function App() {
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
@@ -1188,6 +1247,7 @@ function App() {
     location: mapCardRef,
   }
 
+  // clearCreateError handles clear create error.
   const clearCreateError = (key: keyof CreateErrors) => {
     setCreateErrors((prev) => {
       if (!prev[key]) return prev
@@ -1197,6 +1257,7 @@ function App() {
     })
   }
 
+  // scrollToCreateError handles scroll to create error.
   const scrollToCreateError = (errors: CreateErrors) => {
     const first = createErrorOrder.find((key) => errors[key])
     if (!first) return
@@ -1206,10 +1267,12 @@ function App() {
     }
   }
 
+  // toggleActiveFilter handles toggle active filter.
   const toggleActiveFilter = (id: EventFilter) => {
     setActiveFilters((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
   }
 
+  // toggleCreateFilter handles toggle create filter.
   const toggleCreateFilter = (id: EventFilter) => {
     setCreateFilters((prev) => {
       if (prev.includes(id)) {
@@ -1222,6 +1285,7 @@ function App() {
     })
   }
 
+  // revokePreviews handles revoke previews.
   const revokePreviews = (items: UploadedMedia[]) => {
     items.forEach((item) => {
       if (item.previewUrl.startsWith('blob:')) {
@@ -1230,6 +1294,7 @@ function App() {
     })
   }
 
+  // clearUploadedMedia handles clear uploaded media.
   const clearUploadedMedia = () => {
     setUploadedMedia((prev) => {
       revokePreviews(prev)
@@ -1237,6 +1302,7 @@ function App() {
     })
   }
 
+  // replaceUploadedMedia handles replace uploaded media.
   const replaceUploadedMedia = (next: UploadedMedia[]) => {
     setUploadedMedia((prev) => {
       revokePreviews(prev)
@@ -1244,6 +1310,7 @@ function App() {
     })
   }
 
+  // resetFormState handles reset form state.
   const resetFormState = (close: boolean) => {
     setEditingEventId(null)
     setCreateErrors({})
@@ -1259,6 +1326,7 @@ function App() {
     }
   }
 
+  // buildFormDefaults builds form defaults.
   const buildFormDefaults = (event: EventDetail['event']): FormDefaults => ({
     title: event.title || '',
     startsAt: formatDateTimeLocal(event.startsAt),
@@ -1272,6 +1340,7 @@ function App() {
     isPrivate: Boolean(event.isPrivate),
   })
 
+  // focusMapAt handles focus map at.
   const focusMapAt = (lat: number, lng: number) => {
     hasUserMovedMap.current = true
     if (mapCardRef.current) {
@@ -1287,11 +1356,13 @@ function App() {
     }
   }
 
+  // focusCreatePin handles focus create pin.
   const focusCreatePin = () => {
     if (!createLatLng) return
     focusMapAt(createLatLng.lat, createLatLng.lng)
   }
 
+  // openCreateForm handles open create form.
   const openCreateForm = (source: string) => {
     if (creating) return
     logInfo('toggle_create_form', { open: true, source })
@@ -1299,11 +1370,13 @@ function App() {
     setCreating(true)
   }
 
+  // closeCreateForm handles close create form.
   const closeCreateForm = (source: string) => {
     logInfo('toggle_create_form', { open: false, source })
     resetFormState(true)
   }
 
+  // toggleCreateForm handles toggle create form.
   const toggleCreateForm = () => {
     if (creating) {
       closeCreateForm('hero')
@@ -1312,6 +1385,7 @@ function App() {
     }
   }
 
+  // navigateToPage handles navigate to page.
   const navigateToPage = (page: AppPage) => {
     setActivePage(page)
     if (page !== 'profile') {
@@ -1337,6 +1411,7 @@ function App() {
     }
   }
 
+  // navigateToAdmin handles navigate to admin.
   const navigateToAdmin = (section: AdminSection, userId?: number | null) => {
     setActivePage('admin')
     setAdminSection(section)
@@ -1361,20 +1436,24 @@ function App() {
     }
   }
 
+  // openProfile handles open profile.
   const openProfile = () => {
     if (!user) return
     navigateToPage('profile')
   }
 
+  // goHome handles go home.
   const goHome = () => {
     navigateToPage('home')
   }
 
+  // showToast handles show toast.
   const showToast = (message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(null), 2500)
   }
 
+  // clearActiveFilters handles clear active filters.
   const clearActiveFilters = () => {
     if (activeFilters.length === 0 && !nearbyOnly) return
     logInfo('feed_filters_clear', { count: activeFilters.length, nearbyOnly })
@@ -1382,12 +1461,14 @@ function App() {
     setNearbyOnly(false)
   }
 
+  // getDistanceLabel returns distance label.
   const getDistanceLabel = (lat: number, lng: number) => {
     if (!userLocation) return null
     const label = formatDistanceLabel(getDistanceKm(userLocation, { lat, lng }))
     return label || null
   }
 
+  // startEditFromDetail handles start edit from detail.
   const startEditFromDetail = (source?: EventDetail | null) => {
     const target = source ?? detailEvent ?? selectedEvent
     if (!target) return
@@ -1409,6 +1490,7 @@ function App() {
     })
   }
 
+  // renderDescription handles render description.
   const renderDescription = (value: string) => {
     const lines = value.split('\n')
     return lines.map((line, index) => {
@@ -1440,16 +1522,19 @@ function App() {
     })
   }
 
+  // closeTopupModal handles close topup modal.
   const closeTopupModal = () => {
     setTopupOpen(false)
     setTopupAmount('')
   }
 
+  // handleProfileEventClick handles profile event click.
   const handleProfileEventClick = (eventId: number) => {
     goHome()
     setSelectedId(eventId)
   }
 
+  // handleTokenTopup handles token topup.
   const handleTokenTopup = async () => {
     if (!token) return
     setProfileError(null)
@@ -1476,6 +1561,7 @@ function App() {
     }
   }
 
+  // handleCardTopup handles card topup.
   const handleCardTopup = async () => {
     if (!token || !CARD_TOPUP_ENABLED) return
     setProfileError(null)
@@ -1578,6 +1664,7 @@ function App() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // handler handles internal handler behavior.
     const handler = () => {
       setActivePage(getPageFromLocation())
       const route = getAdminRouteFromLocation()
@@ -1661,6 +1748,7 @@ function App() {
   }, [activePage, adminSection, parserStatusFilter, token])
 
   useEffect(() => {
+    // setViewportHeight sets viewport height.
     const setViewportHeight = () => {
       const vh = window.innerHeight * 0.01
       document.documentElement.style.setProperty('--vh', `${vh}px`)
@@ -1685,6 +1773,7 @@ function App() {
       return
     }
     if (scrolledEventRef.current === selectedId) return
+    // tryScroll handles try scroll.
     const tryScroll = () => {
       if (scrolledEventRef.current === selectedId) return
       const target = document.querySelector(`[data-event-id="${selectedId}"]`)
@@ -1757,6 +1846,7 @@ function App() {
     }
     let cancelled = false
 
+    // handleSuccess handles success.
     const handleSuccess = (pos: GeolocationPosition) => {
       if (cancelled) return
       hasLocation.current = true
@@ -1771,6 +1861,7 @@ function App() {
       setViewLocation(next)
     }
 
+    // handleError handles error.
     const handleError = () => {
       if (cancelled) return
       logWarn('geolocation_error')
@@ -1779,6 +1870,7 @@ function App() {
       }
     }
 
+    // requestLocation handles request location.
     const requestLocation = () => {
       navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
         enableHighAccuracy: true,
@@ -1800,6 +1892,7 @@ function App() {
     if (!token || !userLocation || !hasLocation.current) return
     let cancelled = false
 
+    // send handles internal send behavior.
     const send = () => {
       if (cancelled) return
       logDebug('location_update_send', { lat: userLocation.lat, lng: userLocation.lng })
@@ -1894,6 +1987,7 @@ function App() {
     if (!map || !node) return
 
     let frame: number | null = null
+    // refresh handles internal refresh behavior.
     const refresh = () => {
       if (frame) cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
@@ -1929,6 +2023,7 @@ function App() {
     if (!token || !feedCenter) return
     let cancelled = false
 
+    // load loads data from the underlying source.
     const load = () => {
       if (cancelled) return
       const showLoading = !hasLoadedFeed.current
@@ -2048,6 +2143,7 @@ function App() {
   }, [token, selectedId, selectedAccessKey])
 
 
+  // handleJoin handles join.
   const handleJoin = async () => {
     if (!token || !selectedEvent) return
     setError(null)
@@ -2082,6 +2178,7 @@ function App() {
     }
   }
 
+  // handleLeave handles leave.
   const handleLeave = async () => {
     if (!token || !selectedEvent) return
     setError(null)
@@ -2116,6 +2213,7 @@ function App() {
     }
   }
 
+  // handleLikeToggle handles like toggle.
   const handleLikeToggle = async () => {
     if (!token || !selectedEvent || likeBusy) return
     setError(null)
@@ -2145,6 +2243,7 @@ function App() {
     }
   }
 
+  // handleAddComment handles add comment.
   const handleAddComment = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!token || !selectedEvent || commentSending) return
@@ -2184,6 +2283,7 @@ function App() {
     }
   }
 
+  // handleShareEvent handles share event.
   const handleShareEvent = async () => {
     if (!selectedEvent) return
     if (!token) {
@@ -2232,6 +2332,7 @@ function App() {
     window.prompt('Ссылка на событие', url)
   }
 
+  // handleCreate handles create.
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!token) return
@@ -2503,6 +2604,7 @@ function App() {
     }
   }
 
+  // removeUploadedMediaAt removes uploaded media at.
   const removeUploadedMediaAt = (index: number) => {
     setUploadedMedia((prev) => {
       if (index < 0 || index >= prev.length) return prev
@@ -2515,6 +2617,7 @@ function App() {
     })
   }
 
+  // handleFileUpload handles file upload.
   const handleFileUpload = async (files: FileList | null) => {
     if (!token || !files) return
     const fileArray = Array.from(files).slice(0, 5 - uploadedMedia.length)
@@ -2589,6 +2692,7 @@ function App() {
     }
   }
 
+  // handleAdminDelete handles admin delete.
   const handleAdminDelete = async () => {
     if (!token) return
     const target = detailEvent ?? selectedEvent
@@ -2628,6 +2732,7 @@ function App() {
     }
   }
 
+  // handleAdminPromote handles admin promote.
   const handleAdminPromote = async (mode: '24h' | '7d' | 'clear') => {
     if (!token) return
     const target = detailEvent ?? selectedEvent
@@ -2665,6 +2770,7 @@ function App() {
     }
   }
 
+  // handleAdminApiError handles admin api error.
   const handleAdminApiError = (err: any, setter?: (value: string | null) => void) => {
     const status = err?.status
     if (status === 401 || status === 403) {
@@ -2674,6 +2780,7 @@ function App() {
     if (setter) setter(err?.message || 'Ошибка')
   }
 
+  // loadAdminUsers loads admin users.
   const loadAdminUsers = async () => {
     if (!token) return
     setAdminUsersLoading(true)
@@ -2697,6 +2804,7 @@ function App() {
     }
   }
 
+  // loadAdminUserDetail loads admin user detail.
   const loadAdminUserDetail = async (id: number) => {
     if (!token) return
     setAdminUserLoading(true)
@@ -2714,6 +2822,7 @@ function App() {
     }
   }
 
+  // handleAdminSearch handles admin search.
   const handleAdminSearch = (event: React.FormEvent) => {
     event.preventDefault()
     if (activePage !== 'admin') return
@@ -2721,6 +2830,7 @@ function App() {
     loadAdminUsers()
   }
 
+  // handleAdminBlockToggle handles admin block toggle.
   const handleAdminBlockToggle = async () => {
     if (!token || !adminUserDetail) return
     setAdminBlockBusy(true)
@@ -2740,6 +2850,7 @@ function App() {
     }
   }
 
+  // loadBroadcasts loads broadcasts.
   const loadBroadcasts = async () => {
     if (!token) return
     setBroadcastsLoading(true)
@@ -2756,6 +2867,7 @@ function App() {
     }
   }
 
+  // buildParserImportDraft builds parser import draft.
   const buildParserImportDraft = (item: AdminParsedEvent): ParserImportDraft => {
     const fallbackLat = mapCenter?.lat ?? DEFAULT_CENTER.lat
     const fallbackLng = mapCenter?.lng ?? DEFAULT_CENTER.lng
@@ -2772,6 +2884,7 @@ function App() {
     }
   }
 
+  // loadParserSources loads parser sources.
   const loadParserSources = async () => {
     if (!token) return
     setParserSourcesLoading(true)
@@ -2788,6 +2901,7 @@ function App() {
     }
   }
 
+  // loadParsedEvents loads parsed events.
   const loadParsedEvents = async () => {
     if (!token) return
     setParserEventsLoading(true)
@@ -2814,6 +2928,7 @@ function App() {
     }
   }
 
+  // handleCreateParserSource handles create parser source.
   const handleCreateParserSource = async () => {
     if (!token) return
     const input = parserSourceInput.trim()
@@ -2841,6 +2956,7 @@ function App() {
     }
   }
 
+  // handleToggleParserSource handles toggle parser source.
   const handleToggleParserSource = async (source: AdminParserSource) => {
     if (!token) return
     setParserSourceParseBusyId(source.id)
@@ -2856,6 +2972,7 @@ function App() {
     }
   }
 
+  // handleParseSource handles parse source.
   const handleParseSource = async (sourceId: number) => {
     if (!token) return
     setParserSourceParseBusyId(sourceId)
@@ -2877,6 +2994,7 @@ function App() {
     }
   }
 
+  // handleParseInputQuick handles parse input quick.
   const handleParseInputQuick = async () => {
     if (!token) return
     const input = parserParseInput.trim()
@@ -2903,10 +3021,12 @@ function App() {
     }
   }
 
+  // updateParserDraft updates parser draft.
   const updateParserDraft = (id: number, patch: Partial<ParserImportDraft>) => {
     setParserImportDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
   }
 
+  // moveParserDraftMedia handles move parser draft media.
   const moveParserDraftMedia = (id: number, index: number, direction: -1 | 1) => {
     setParserImportDrafts((prev) => {
       const current = prev[id]
@@ -2920,6 +3040,7 @@ function App() {
     })
   }
 
+  // removeParserDraftMedia removes parser draft media.
   const removeParserDraftMedia = (id: number, index: number) => {
     setParserImportDrafts((prev) => {
       const current = prev[id]
@@ -2929,10 +3050,12 @@ function App() {
     })
   }
 
+  // resetParserDraftMedia handles reset parser draft media.
   const resetParserDraftMedia = (item: AdminParsedEvent) => {
     updateParserDraft(item.id, { media: parserImageLinks(item.links || []) })
   }
 
+  // handleParserGeocode handles parser geocode.
   const handleParserGeocode = async (item: AdminParsedEvent) => {
     if (!token) return
     const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
@@ -2964,6 +3087,7 @@ function App() {
     }
   }
 
+  // handleImportParsedEvent handles import parsed event.
   const handleImportParsedEvent = async (item: AdminParsedEvent) => {
     if (!token) return
     const draft = parserImportDrafts[item.id] || buildParserImportDraft(item)
@@ -3036,6 +3160,7 @@ function App() {
     }
   }
 
+  // handleRejectParsed handles reject parsed.
   const handleRejectParsed = async (id: number) => {
     if (!token) return
     setParserRejectBusyId(id)
@@ -3051,6 +3176,7 @@ function App() {
     }
   }
 
+  // handleDeleteParsed handles delete parsed.
   const handleDeleteParsed = async (id: number) => {
     if (!token) return
     setParserDeleteBusyId(id)
@@ -3066,20 +3192,24 @@ function App() {
     }
   }
 
+  // updateBroadcastButton updates broadcast button.
   const updateBroadcastButton = (index: number, field: 'text' | 'url', value: string) => {
     setBroadcastButtons((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
     )
   }
 
+  // addBroadcastButton handles add broadcast button.
   const addBroadcastButton = () => {
     setBroadcastButtons((prev) => [...prev, { text: '', url: '' }])
   }
 
+  // removeBroadcastButton removes broadcast button.
   const removeBroadcastButton = (index: number) => {
     setBroadcastButtons((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // handleCreateBroadcast handles create broadcast.
   const handleCreateBroadcast = async () => {
     if (!token) return
     const message = broadcastMessage.trim()
@@ -3161,6 +3291,7 @@ function App() {
     }
   }
 
+  // handleStartBroadcast handles start broadcast.
   const handleStartBroadcast = async (id: number) => {
     if (!token) return
     setBroadcastStartBusyId(id)
@@ -3176,11 +3307,13 @@ function App() {
     }
   }
 
+  // openEventFromAdmin handles open event from admin.
   const openEventFromAdmin = (eventId: number) => {
     setSelectedId(eventId)
     navigateToPage('home')
   }
 
+  // handleAdminLogin handles admin login.
   const handleAdminLogin = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!adminLoginUsername.trim() || !adminLoginPassword) {
@@ -3211,6 +3344,7 @@ function App() {
     }
   }
 
+  // renderAdminUsers handles render admin users.
   const renderAdminUsers = () => (
     <section className="panel admin-panel">
       <div className="panel__header">
@@ -3295,6 +3429,7 @@ function App() {
     </section>
   )
 
+  // renderAdminUserDetail handles render admin user detail.
   const renderAdminUserDetail = () => {
     if (adminUserLoading) {
       return <div className="status status--loading">Загрузка…</div>
@@ -3399,6 +3534,7 @@ function App() {
     )
   }
 
+  // renderAdminBroadcasts handles render admin broadcasts.
   const renderAdminBroadcasts = () => (
     <div className="admin-broadcasts">
       <section className="panel admin-panel">
@@ -3550,6 +3686,7 @@ function App() {
     </div>
   )
 
+  // renderAdminParser handles render admin parser.
   const renderAdminParser = () => (
     <div className="admin-parser">
       <section className="panel admin-panel">
@@ -3946,6 +4083,7 @@ function App() {
     </div>
   )
 
+  // renderAdminPanel handles render admin panel.
   const renderAdminPanel = () => {
     if (!token) {
       return (

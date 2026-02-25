@@ -16,7 +16,10 @@ import '../../../core/storage/event_access_key_store.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/events_repository.dart';
 
+/// EventsState represents events state.
+
 class EventsState {
+  /// EventsState handles events state.
   factory EventsState.initial() => const EventsState(
         loading: false,
         refreshing: false,
@@ -28,6 +31,8 @@ class EventsState {
         radiusMeters: kNearbyRadiusMeters,
         lastCenter: null,
       );
+
+  /// EventsState handles events state.
   const EventsState({
     required this.loading,
     required this.refreshing,
@@ -49,6 +54,8 @@ class EventsState {
   final bool nearbyOnly;
   final int radiusMeters;
   final LatLng? lastCenter;
+
+  /// copyWith handles copy with.
 
   EventsState copyWith({
     bool? loading,
@@ -75,7 +82,10 @@ class EventsState {
   }
 }
 
+/// EventsController represents events controller.
+
 class EventsController extends ChangeNotifier {
+  /// EventsController handles events controller.
   EventsController({
     required this.ref,
     required this.repository,
@@ -89,17 +99,27 @@ class EventsController extends ChangeNotifier {
   final EventAccessKeyStore accessKeyStore;
 
   EventsState _state = EventsState.initial();
+
+  /// state exposes the current state value.
   EventsState get state => _state;
 
   Map<int, String> _eventAccessKeys = <int, String>{};
+
+  /// eventAccessKeys handles event access keys.
   Map<int, String> get eventAccessKeys => _eventAccessKeys;
 
+  /// _token handles internal token behavior.
+
   String? get _token => ref.read(authControllerProvider).state.token;
+
+  /// _loadAccessKeys loads access keys.
 
   Future<void> _loadAccessKeys() async {
     _eventAccessKeys = await accessKeyStore.load();
     notifyListeners();
   }
+
+  /// refresh handles internal refresh behavior.
 
   Future<void> refresh(
       {required LatLng center, bool forceLoading = false}) async {
@@ -164,6 +184,8 @@ class EventsController extends ChangeNotifier {
     }
   }
 
+  /// toggleFilter handles toggle filter.
+
   void toggleFilter(String filterId) {
     final current = <String>[..._state.activeFilters];
     if (current.contains(filterId)) {
@@ -175,6 +197,8 @@ class EventsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// clearFilters handles clear filters.
+
   void clearFilters() {
     _state = _state.copyWith(
       activeFilters: <String>[],
@@ -184,15 +208,21 @@ class EventsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// setNearbyOnly sets nearby only.
+
   void setNearbyOnly(bool enabled) {
     _state = _state.copyWith(nearbyOnly: enabled, error: null);
     notifyListeners();
   }
 
+  /// accessKeyFor handles access key for.
+
   String accessKeyFor(int eventId, {String? fallback}) {
     if ((fallback ?? '').trim().isNotEmpty) return fallback!.trim();
     return _eventAccessKeys[eventId] ?? '';
   }
+
+  /// rememberAccessKey handles remember access key.
 
   Future<void> rememberAccessKey(int eventId, String accessKey) async {
     final key = accessKey.trim();
@@ -201,6 +231,8 @@ class EventsController extends ChangeNotifier {
     await accessKeyStore.save(_eventAccessKeys);
     notifyListeners();
   }
+
+  /// loadEventDetail loads event detail.
 
   Future<EventDetail> loadEventDetail(
       {required int eventId, String? accessKey}) async {
@@ -226,6 +258,8 @@ class EventsController extends ChangeNotifier {
     return detail;
   }
 
+  /// joinEvent joins event.
+
   Future<void> joinEvent({required int eventId, String? accessKey}) async {
     final token = _token;
     if (token == null || token.trim().isEmpty) {
@@ -238,6 +272,8 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  /// leaveEvent leaves event.
+
   Future<void> leaveEvent({required int eventId, String? accessKey}) async {
     final token = _token;
     if (token == null || token.trim().isEmpty) {
@@ -249,6 +285,8 @@ class EventsController extends ChangeNotifier {
       accessKey: accessKeyFor(eventId, fallback: accessKey),
     );
   }
+
+  /// toggleLike handles toggle like.
 
   Future<EventLikeStatus> toggleLike({
     required int eventId,
@@ -286,6 +324,8 @@ class EventsController extends ChangeNotifier {
     return next;
   }
 
+  /// setFeedPriorityAsAdmin sets feed priority as admin.
+
   Future<void> setFeedPriorityAsAdmin({
     required int eventId,
     required bool enabled,
@@ -300,6 +340,8 @@ class EventsController extends ChangeNotifier {
       enabled: enabled,
     );
   }
+
+  /// updateEventAsAdmin updates event as admin.
 
   Future<void> updateEventAsAdmin({
     required int eventId,
@@ -316,6 +358,8 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  /// loadComments loads comments.
+
   Future<List<EventComment>> loadComments({
     required int eventId,
     String? accessKey,
@@ -330,6 +374,8 @@ class EventsController extends ChangeNotifier {
       accessKey: accessKeyFor(eventId, fallback: accessKey),
     );
   }
+
+  /// addComment handles add comment.
 
   Future<EventComment> addComment({
     required int eventId,
@@ -348,6 +394,8 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  /// deleteCommentAsAdmin deletes comment as admin.
+
   Future<void> deleteCommentAsAdmin({
     required int commentId,
   }) async {
@@ -361,6 +409,8 @@ class EventsController extends ChangeNotifier {
     );
   }
 
+  /// deleteEventAsAdmin deletes event as admin.
+
   Future<void> deleteEventAsAdmin({
     required int eventId,
   }) async {
@@ -373,6 +423,8 @@ class EventsController extends ChangeNotifier {
       eventId: eventId,
     );
   }
+
+  /// uploadImage handles upload image.
 
   Future<String> uploadImage({
     required String fileName,
@@ -412,6 +464,8 @@ class EventsController extends ChangeNotifier {
     return presign.fileUrl;
   }
 
+  /// _shouldFallbackToApiUpload reports whether should fallback to api upload.
+
   bool _shouldFallbackToApiUpload(AppException error) {
     if (error.statusCode != null) return false;
     return const <String>{
@@ -421,6 +475,8 @@ class EventsController extends ChangeNotifier {
       'receiveTimeout',
     }.contains(error.code);
   }
+
+  /// createEvent creates event.
 
   Future<int> createEvent(CreateEventPayload payload) async {
     final token = _token;
@@ -436,6 +492,8 @@ class EventsController extends ChangeNotifier {
     return created.eventId;
   }
 
+  /// loadReferralCode loads referral code.
+
   Future<String?> loadReferralCode() async {
     final token = _token;
     if (token == null || token.trim().isEmpty) return null;
@@ -443,6 +501,8 @@ class EventsController extends ChangeNotifier {
     if (code.code.trim().isEmpty) return null;
     return code.code.trim();
   }
+
+  /// _upsertFeedItem handles upsert feed item.
 
   void _upsertFeedItem(EventCard event) {
     final next = [..._state.feed];
@@ -455,6 +515,8 @@ class EventsController extends ChangeNotifier {
     _state = _state.copyWith(feed: _sortFeed(next));
     notifyListeners();
   }
+
+  /// _upsertMarkerFromEvent handles upsert marker from event.
 
   void _upsertMarkerFromEvent(EventCard event) {
     final next = [..._state.markers];
@@ -477,6 +539,8 @@ class EventsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// _sortFeed handles sort feed.
+
   List<EventCard> _sortFeed(List<EventCard> items) {
     final now = DateTime.now();
     return [...items]..sort((a, b) {
@@ -490,11 +554,17 @@ class EventsController extends ChangeNotifier {
       });
   }
 
+  /// feedEventById handles feed event by id.
+
   EventCard? feedEventById(int eventId) =>
+
+      /// firstWhereOrNull handles first where or null.
       _state.feed.firstWhereOrNull((item) => item.id == eventId);
 }
 
 final eventsControllerProvider =
+
+    /// EventsController handles events controller.
     ChangeNotifierProvider<EventsController>((ref) {
   final controller = EventsController(
     ref: ref,

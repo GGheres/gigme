@@ -2,6 +2,7 @@ package handlers
 
 import "testing"
 
+// TestValidateTopupAmount verifies validate topup amount behavior.
 func TestValidateTopupAmount(t *testing.T) {
 	cases := []struct {
 		name    string

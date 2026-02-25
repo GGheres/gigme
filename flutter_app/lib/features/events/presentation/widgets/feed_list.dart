@@ -9,7 +9,10 @@ import '../../../../ui/components/app_section_header.dart';
 import '../../../../ui/theme/app_spacing.dart';
 import 'event_card_tile.dart';
 
+/// FeedList represents feed list.
+
 class FeedList extends StatelessWidget {
+  /// FeedList handles feed list.
   const FeedList({
     required this.items,
     required this.referencePoint,
@@ -28,6 +31,8 @@ class FeedList extends StatelessWidget {
   final String apiUrl;
   final Map<int, String> eventAccessKeys;
   final Set<int> likeLoadingIds;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

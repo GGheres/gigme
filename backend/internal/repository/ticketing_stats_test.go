@@ -9,6 +9,7 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// TestGetTicketStatsExcludesCanceledOrdersFromCheckins verifies get ticket stats excludes canceled orders from checkins behavior.
 func TestGetTicketStatsExcludesCanceledOrdersFromCheckins(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {

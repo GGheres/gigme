@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+// S3Client represents s3 client.
 type S3Client struct {
 	bucket         string
 	endpoint       string
@@ -26,6 +27,7 @@ type S3Client struct {
 	publicPresign  *s3.PresignClient
 }
 
+// NewS3 creates s3.
 func NewS3(ctx context.Context, cfg config.S3Config) (*S3Client, error) {
 	if cfg.Bucket == "" {
 		return nil, fmt.Errorf("S3_BUCKET is required")
@@ -71,6 +73,7 @@ func NewS3(ctx context.Context, cfg config.S3Config) (*S3Client, error) {
 	}, nil
 }
 
+// PresignPutObject handles presign put object.
 func (s *S3Client) PresignPutObject(ctx context.Context, fileName, contentType string) (string, string, error) {
 	key := buildObjectKey(fileName)
 	input := &s3.PutObjectInput{
@@ -89,6 +92,7 @@ func (s *S3Client) PresignPutObject(ctx context.Context, fileName, contentType s
 	return resp.URL, s.publicURLForKey(key), nil
 }
 
+// GetObject returns object.
 func (s *S3Client) GetObject(ctx context.Context, key string) (*s3.GetObjectOutput, error) {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -97,6 +101,7 @@ func (s *S3Client) GetObject(ctx context.Context, key string) (*s3.GetObjectOutp
 	return s.client.GetObject(ctx, input)
 }
 
+// UploadObject handles upload object.
 func (s *S3Client) UploadObject(ctx context.Context, fileName, contentType string, body io.Reader, size int64) (string, error) {
 	key := buildObjectKey(fileName)
 	var readSeeker io.ReadSeeker
@@ -127,6 +132,7 @@ func (s *S3Client) UploadObject(ctx context.Context, fileName, contentType strin
 	return s.publicURLForKey(key), nil
 }
 
+// publicURLForKey handles public u r l for key.
 func (s *S3Client) publicURLForKey(key string) string {
 	if s.publicEndpoint == "" {
 		return fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s.bucket, key)
@@ -144,6 +150,7 @@ func (s *S3Client) publicURLForKey(key string) string {
 	return u.String()
 }
 
+// KeyFromURL handles key from u r l.
 func (s *S3Client) KeyFromURL(rawURL string) (string, bool) {
 	if s == nil || s.bucket == "" {
 		return "", false
@@ -172,12 +179,14 @@ func (s *S3Client) KeyFromURL(rawURL string) (string, bool) {
 	return "", false
 }
 
+// buildObjectKey builds object key.
 func buildObjectKey(fileName string) string {
 	safeName := strings.ReplaceAll(fileName, " ", "-")
 	now := time.Now().UTC()
 	return fmt.Sprintf("events/%d/%02d/%02d/%d-%s", now.Year(), now.Month(), now.Day(), now.UnixNano(), safeName)
 }
 
+// normalizeEndpoint normalizes endpoint.
 func normalizeEndpoint(endpoint string, useSSL bool) string {
 	if endpoint == "" {
 		return ""

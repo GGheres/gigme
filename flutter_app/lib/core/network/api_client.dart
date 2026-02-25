@@ -7,10 +7,16 @@ import '../error/app_exception.dart';
 
 typedef JsonDecoder<T> = T Function(dynamic data);
 
+/// ApiClient represents api client.
+
 class ApiClient {
+  /// ApiClient handles api client.
   ApiClient({required String baseUrl, Dio? dio})
       : _dio = dio ??
+
+            /// Dio handles internal dio behavior.
             Dio(
+              /// BaseOptions handles base options.
               BaseOptions(
                 baseUrl: baseUrl,
                 connectTimeout: const Duration(seconds: 8),
@@ -23,6 +29,8 @@ class ApiClient {
             );
 
   final Dio _dio;
+
+  /// T handles internal t behavior.
 
   Future<T> get<T>(
     String path, {
@@ -40,6 +48,8 @@ class ApiClient {
     );
     return decoder(response.data);
   }
+
+  /// T handles internal t behavior.
 
   Future<T> post<T>(
     String path, {
@@ -59,6 +69,8 @@ class ApiClient {
     return decoder(response.data);
   }
 
+  /// T handles internal t behavior.
+
   Future<T> patch<T>(
     String path, {
     required JsonDecoder<T> decoder,
@@ -77,6 +89,8 @@ class ApiClient {
     return decoder(response.data);
   }
 
+  /// T handles internal t behavior.
+
   Future<T> delete<T>(
     String path, {
     required JsonDecoder<T> decoder,
@@ -94,6 +108,8 @@ class ApiClient {
     );
     return decoder(response.data);
   }
+
+  /// putBytes handles put bytes.
 
   Future<void> putBytes(
     String url, {
@@ -115,6 +131,8 @@ class ApiClient {
       throw _toException(error);
     }
   }
+
+  /// T handles internal t behavior.
 
   Future<T> postMultipart<T>(
     String path, {
@@ -153,6 +171,8 @@ class ApiClient {
     }
   }
 
+  /// _requestWithRetry handles request with retry.
+
   Future<Response<dynamic>> _requestWithRetry({
     required String method,
     required String path,
@@ -190,6 +210,8 @@ class ApiClient {
     }
   }
 
+  /// _isRetryable reports whether retryable condition is met.
+
   bool _isRetryable(DioException error) {
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.sendTimeout ||
@@ -201,6 +223,8 @@ class ApiClient {
     final status = error.response?.statusCode ?? 0;
     return status == 429 || status >= 500;
   }
+
+  /// _toException handles to exception.
 
   AppException _toException(DioException error) {
     final status = error.response?.statusCode;

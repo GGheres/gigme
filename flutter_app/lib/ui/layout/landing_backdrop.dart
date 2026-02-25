@@ -3,11 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+/// LandingBackdrop represents landing backdrop.
+
 class LandingBackdrop extends StatelessWidget {
+  /// LandingBackdrop handles landing backdrop.
   const LandingBackdrop({super.key});
 
   static const String _backgroundVideoAssetPath =
       'assets/videos/landing/IMG_9645.MP4';
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -37,16 +42,25 @@ class LandingBackdrop extends StatelessWidget {
   }
 }
 
+/// _LandingBackdropVideo represents landing backdrop video.
+
 class _LandingBackdropVideo extends StatefulWidget {
+  /// _LandingBackdropVideo handles landing backdrop video.
   const _LandingBackdropVideo();
+
+  /// createState creates state.
 
   @override
   State<_LandingBackdropVideo> createState() => _LandingBackdropVideoState();
 }
 
+/// _LandingBackdropVideoState represents landing backdrop video state.
+
 class _LandingBackdropVideoState extends State<_LandingBackdropVideo> {
   VideoPlayerController? _controller;
   Object? _initError;
+
+  /// initState handles init state.
 
   @override
   void initState() {
@@ -54,11 +68,15 @@ class _LandingBackdropVideoState extends State<_LandingBackdropVideo> {
     unawaited(_initializeVideo());
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _controller?.dispose();
     super.dispose();
   }
+
+  /// _initializeVideo handles initialize video.
 
   Future<void> _initializeVideo() async {
     final controller = VideoPlayerController.asset(
@@ -88,6 +106,8 @@ class _LandingBackdropVideoState extends State<_LandingBackdropVideo> {
       _initError = null;
     });
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -124,8 +144,13 @@ class _LandingBackdropVideoState extends State<_LandingBackdropVideo> {
   }
 }
 
+/// _LandingEdgeVignette represents landing edge vignette.
+
 class _LandingEdgeVignette extends StatelessWidget {
+  /// _LandingEdgeVignette handles landing edge vignette.
   const _LandingEdgeVignette();
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -171,8 +196,13 @@ class _LandingEdgeVignette extends StatelessWidget {
   }
 }
 
+/// _LandingAuroraPainter represents landing aurora painter.
+
 class _LandingAuroraPainter extends CustomPainter {
+  /// _LandingAuroraPainter handles landing aurora painter.
   const _LandingAuroraPainter();
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -210,6 +240,8 @@ class _LandingAuroraPainter extends CustomPainter {
     );
   }
 
+  /// _orb builds an orb descriptor for painter effects.
+
   void _orb({
     required Canvas canvas,
     required Offset center,
@@ -227,12 +259,19 @@ class _LandingAuroraPainter extends CustomPainter {
     canvas.drawCircle(center, radius, paint);
   }
 
+  /// shouldRepaint reports whether should repaint.
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// _LandingNearDecorPainter represents landing near decor painter.
+
 class _LandingNearDecorPainter extends CustomPainter {
+  /// _LandingNearDecorPainter handles landing near decor painter.
   const _LandingNearDecorPainter();
+
+  /// paint draws painter output on the canvas.
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -272,6 +311,8 @@ class _LandingNearDecorPainter extends CustomPainter {
       ).createShader(Offset.zero & size);
     canvas.drawPath(wave, paint);
   }
+
+  /// shouldRepaint reports whether should repaint.
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;

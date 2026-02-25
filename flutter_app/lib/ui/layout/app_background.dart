@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+/// AppBackground represents app background.
+
 class AppBackground extends StatelessWidget {
+  /// AppBackground handles app background.
   const AppBackground({
     required this.child,
     super.key,
   });
 
   final Widget child;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

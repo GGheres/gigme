@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gigme_flutter/core/models/event_card.dart';
 import 'package:gigme_flutter/core/models/event_detail.dart';
 
+/// main is the application entry point.
+
 void main() {
   test('maps EventCard from backend json', () {
     final event = EventCard.fromJson({

@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// EventComment represents event comment.
+
 class EventComment {
+  /// EventComment handles event comment.
 
   factory EventComment.fromJson(dynamic json) {
     final map = asMap(json);
@@ -13,6 +16,8 @@ class EventComment {
       createdAt: asDateTime(map['createdAt']),
     );
   }
+
+  /// EventComment handles event comment.
   EventComment({
     required this.id,
     required this.eventId,

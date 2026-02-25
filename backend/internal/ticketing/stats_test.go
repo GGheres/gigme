@@ -2,6 +2,7 @@ package ticketing
 
 import "testing"
 
+// TestAggregateStats verifies aggregate stats behavior.
 func TestAggregateStats(t *testing.T) {
 	rows := []StatsRow{
 		{OrderID: "o1", EventID: 1, EventTitle: "Event A", Status: "PAID", TotalCents: 10000, ItemType: "TICKET", ProductRef: "SINGLE", Quantity: 2},

@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// TestRegisterQRCodeParsing verifies register q r code parsing behavior.
 func TestRegisterQRCodeParsing(t *testing.T) {
 	t.Parallel()
 
@@ -81,6 +82,7 @@ func TestRegisterQRCodeParsing(t *testing.T) {
 	}
 }
 
+// TestIsPaidStatus verifies is paid status behavior.
 func TestIsPaidStatus(t *testing.T) {
 	t.Parallel()
 	if !IsPaidStatus("Accepted") {

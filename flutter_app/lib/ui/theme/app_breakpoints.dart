@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'app_spacing.dart';
 
+/// AppViewportSize represents app viewport size.
+
 enum AppViewportSize {
   xs,
   sm,
@@ -9,12 +11,17 @@ enum AppViewportSize {
   lg,
 }
 
+/// AppBreakpoints represents app breakpoints.
+
 class AppBreakpoints {
+  /// AppBreakpoints handles app breakpoints.
   const AppBreakpoints._();
 
   static const double xsMax = 600;
   static const double smMax = 1024;
   static const double mdMax = 1440;
+
+  /// fromWidth handles from width.
 
   static AppViewportSize fromWidth(double width) {
     if (width < xsMax) return AppViewportSize.xs;
@@ -22,6 +29,8 @@ class AppBreakpoints {
     if (width < mdMax) return AppViewportSize.md;
     return AppViewportSize.lg;
   }
+
+  /// maxContentWidthFor handles max content width for.
 
   static double maxContentWidthFor(double width) {
     final size = fromWidth(width);
@@ -36,6 +45,8 @@ class AppBreakpoints {
         return 1280;
     }
   }
+
+  /// pagePaddingFor handles page padding for.
 
   static EdgeInsets pagePaddingFor(double width) {
     final size = fromWidth(width);

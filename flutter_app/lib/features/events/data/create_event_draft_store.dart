@@ -5,7 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/json_utils.dart';
 
+/// CreateEventDraft represents create event draft.
+
 class CreateEventDraft {
+  /// CreateEventDraft creates event draft.
   CreateEventDraft({
     required this.title,
     required this.description,
@@ -18,6 +21,8 @@ class CreateEventDraft {
     required this.filters,
     required this.mediaUrls,
   });
+
+  /// CreateEventDraft creates event draft.
 
   factory CreateEventDraft.fromJson(dynamic json) {
     final map = asMap(json);
@@ -68,6 +73,8 @@ class CreateEventDraft {
   final List<String> filters;
   final List<String> mediaUrls;
 
+  /// hasMeaningfulData reports whether meaningful data exists.
+
   bool get hasMeaningfulData {
     final hasText = title.trim().isNotEmpty ||
         description.trim().isNotEmpty ||
@@ -81,6 +88,8 @@ class CreateEventDraft {
         filters.isNotEmpty ||
         mediaUrls.isNotEmpty;
   }
+
+  /// toJson handles to json.
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -101,8 +110,12 @@ class CreateEventDraft {
   }
 }
 
+/// CreateEventDraftStore represents create event draft store.
+
 class CreateEventDraftStore {
   static const String _storageKey = 'gigme_create_event_draft';
+
+  /// load loads data from the underlying source.
 
   Future<CreateEventDraft?> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -119,6 +132,8 @@ class CreateEventDraftStore {
     }
   }
 
+  /// save persists data to storage.
+
   Future<void> save(CreateEventDraft draft) async {
     final prefs = await SharedPreferences.getInstance();
     if (!draft.hasMeaningfulData) {
@@ -127,6 +142,8 @@ class CreateEventDraftStore {
     }
     await prefs.setString(_storageKey, jsonEncode(draft.toJson()));
   }
+
+  /// clear handles internal clear behavior.
 
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();

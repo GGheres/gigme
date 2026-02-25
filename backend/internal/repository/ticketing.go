@@ -28,11 +28,13 @@ var (
 	ErrTicketNotFound        = errors.New("ticket not found")
 )
 
+// queryRunner represents query runner.
 type queryRunner interface {
 	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...interface{}) pgx.Row
 }
 
+// GetPaymentSettings returns payment settings.
 func (r *Repository) GetPaymentSettings(ctx context.Context) (models.PaymentSettings, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT phone_number, usdt_wallet, usdt_network, usdt_memo,
@@ -46,6 +48,7 @@ WHERE id = 1;`)
 	return scanPaymentSettingsRow(row)
 }
 
+// UpsertPaymentSettings handles upsert payment settings.
 func (r *Repository) UpsertPaymentSettings(ctx context.Context, in models.PaymentSettings) (models.PaymentSettings, error) {
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO payment_settings (
@@ -96,6 +99,7 @@ RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
 	return scanPaymentSettingsRow(row)
 }
 
+// ListTicketProducts lists ticket products.
 func (r *Repository) ListTicketProducts(ctx context.Context, eventID *int64, active *bool) ([]models.TicketProduct, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT id::text, event_id, name, type, price_cents, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
@@ -119,6 +123,7 @@ ORDER BY created_at DESC;`, nullInt64Ptr(eventID), boolPtrOrNil(active))
 	return items, rows.Err()
 }
 
+// CreateTicketProduct creates ticket product.
 func (r *Repository) CreateTicketProduct(ctx context.Context, createdBy int64, in models.TicketProductInput) (models.TicketProduct, error) {
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO ticket_products (event_id, name, type, price_cents, inventory_limit, is_active, created_by)
@@ -135,6 +140,7 @@ RETURNING id::text, event_id, name, type, price_cents, inventory_limit, sold_cou
 	return scanTicketProduct(row)
 }
 
+// UpdateTicketProduct updates ticket product.
 func (r *Repository) UpdateTicketProduct(ctx context.Context, id string, patch models.TicketProductPatch) (models.TicketProduct, error) {
 	row := r.pool.QueryRow(ctx, `
 UPDATE ticket_products
@@ -152,6 +158,7 @@ RETURNING id::text, event_id, name, type, price_cents, inventory_limit, sold_cou
 	return scanTicketProduct(row)
 }
 
+// DeleteTicketProduct deletes ticket product.
 func (r *Repository) DeleteTicketProduct(ctx context.Context, id string) error {
 	cmd, err := r.pool.Exec(ctx, `DELETE FROM ticket_products WHERE id = $1::uuid`, id)
 	if err != nil {
@@ -163,6 +170,7 @@ func (r *Repository) DeleteTicketProduct(ctx context.Context, id string) error {
 	return nil
 }
 
+// ListTransferProducts lists transfer products.
 func (r *Repository) ListTransferProducts(ctx context.Context, eventID *int64, active *bool) ([]models.TransferProduct, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT id::text, event_id, name, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at
@@ -186,6 +194,7 @@ ORDER BY created_at DESC;`, nullInt64Ptr(eventID), boolPtrOrNil(active))
 	return items, rows.Err()
 }
 
+// CreateTransferProduct creates transfer product.
 func (r *Repository) CreateTransferProduct(ctx context.Context, createdBy int64, in models.TransferProductInput) (models.TransferProduct, error) {
 	infoJSON, _ := json.Marshal(safeMap(in.Info))
 	row := r.pool.QueryRow(ctx, `
@@ -204,6 +213,7 @@ RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory
 	return scanTransferProduct(row)
 }
 
+// UpdateTransferProduct updates transfer product.
 func (r *Repository) UpdateTransferProduct(ctx context.Context, id string, patch models.TransferProductPatch) (models.TransferProduct, error) {
 	var infoRaw interface{}
 	if patch.Info != nil {
@@ -229,6 +239,7 @@ RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory
 	return scanTransferProduct(row)
 }
 
+// DeleteTransferProduct deletes transfer product.
 func (r *Repository) DeleteTransferProduct(ctx context.Context, id string) error {
 	cmd, err := r.pool.Exec(ctx, `DELETE FROM transfer_products WHERE id = $1::uuid`, id)
 	if err != nil {
@@ -240,6 +251,7 @@ func (r *Repository) DeleteTransferProduct(ctx context.Context, id string) error
 	return nil
 }
 
+// ListPromoCodes lists promo codes.
 func (r *Repository) ListPromoCodes(ctx context.Context, eventID *int64, active *bool) ([]models.PromoCode, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT id::text, code, discount_type, value, usage_limit, used_count, active_from, active_to, event_id, is_active, created_by, created_at, updated_at
@@ -263,6 +275,7 @@ ORDER BY created_at DESC;`, nullInt64Ptr(eventID), boolPtrOrNil(active))
 	return items, rows.Err()
 }
 
+// CreatePromoCode creates promo code.
 func (r *Repository) CreatePromoCode(ctx context.Context, createdBy int64, in models.PromoCodeInput) (models.PromoCode, error) {
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO promo_codes (code, discount_type, value, usage_limit, active_from, active_to, event_id, is_active, created_by)
@@ -281,6 +294,7 @@ RETURNING id::text, code, discount_type, value, usage_limit, used_count, active_
 	return scanPromoCode(row)
 }
 
+// UpdatePromoCode updates promo code.
 func (r *Repository) UpdatePromoCode(ctx context.Context, id string, patch models.PromoCodePatch) (models.PromoCode, error) {
 	var discountType interface{}
 	if patch.DiscountType != nil {
@@ -311,6 +325,7 @@ RETURNING id::text, code, discount_type, value, usage_limit, used_count, active_
 	return scanPromoCode(row)
 }
 
+// DeletePromoCode deletes promo code.
 func (r *Repository) DeletePromoCode(ctx context.Context, id string) error {
 	cmd, err := r.pool.Exec(ctx, `DELETE FROM promo_codes WHERE id = $1::uuid`, id)
 	if err != nil {
@@ -322,6 +337,7 @@ func (r *Repository) DeletePromoCode(ctx context.Context, id string) error {
 	return nil
 }
 
+// ListEventProductsForPurchase lists event products for purchase.
 func (r *Repository) ListEventProductsForPurchase(ctx context.Context, eventID int64) ([]models.TicketProduct, []models.TransferProduct, error) {
 	eid := eventID
 	onlyActive := true
@@ -336,6 +352,7 @@ func (r *Repository) ListEventProductsForPurchase(ctx context.Context, eventID i
 	return tickets, transfers, nil
 }
 
+// ValidatePromoCode validates promo code.
 func (r *Repository) ValidatePromoCode(ctx context.Context, eventID int64, code string, subtotalCents int64) (models.PromoValidation, error) {
 	validation := models.PromoValidation{
 		Valid:         false,
@@ -396,6 +413,7 @@ LIMIT 1;`, validation.Code)
 	return validation, nil
 }
 
+// CreateOrder creates order.
 func (r *Repository) CreateOrder(ctx context.Context, params models.CreateOrderParams) (models.OrderDetail, error) {
 	var out models.OrderDetail
 	if params.UserID <= 0 || params.EventID <= 0 {
@@ -421,6 +439,7 @@ func (r *Repository) CreateOrder(ctx context.Context, params models.CreateOrderP
 	return out, nil
 }
 
+// createOrderTx creates order tx.
 func (r *Repository) createOrderTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -437,6 +456,7 @@ func (r *Repository) createOrderTx(
 		return err
 	}
 
+	// itemDraft represents item draft.
 	type itemDraft struct {
 		ItemType       string
 		ProductID      string
@@ -446,6 +466,7 @@ func (r *Repository) createOrderTx(
 		LineTotalCents int64
 		Meta           map[string]interface{}
 	}
+	// ticketDraft represents ticket draft.
 	type ticketDraft struct {
 		TicketType string
 		Quantity   int
@@ -707,6 +728,7 @@ RETURNING id::text, order_id::text, user_id, event_id, ticket_type, quantity, qr
 	return nil
 }
 
+// ListOrders lists orders.
 func (r *Repository) ListOrders(ctx context.Context, eventID *int64, status string, from, to *time.Time, limit, offset int) ([]models.OrderSummary, int, error) {
 	status = strings.ToUpper(strings.TrimSpace(status))
 	if limit <= 0 {
@@ -786,6 +808,7 @@ LIMIT $5 OFFSET $6;`, nullInt64Ptr(eventID), status, from, to, limit, offset)
 	return items, total, nil
 }
 
+// ListMyOrders lists my orders.
 func (r *Repository) ListMyOrders(ctx context.Context, userID int64, limit, offset int) ([]models.OrderSummary, int, error) {
 	if userID <= 0 {
 		return nil, 0, nil
@@ -858,10 +881,12 @@ LIMIT $2 OFFSET $3;`, userID, limit, offset)
 	return items, total, nil
 }
 
+// GetOrderDetail returns order detail.
 func (r *Repository) GetOrderDetail(ctx context.Context, orderID string, includeUser bool) (models.OrderDetail, error) {
 	return r.fetchOrderDetail(ctx, r.pool, orderID, includeUser)
 }
 
+// fetchOrderDetail handles fetch order detail.
 func (r *Repository) fetchOrderDetail(ctx context.Context, q queryRunner, orderID string, includeUser bool) (models.OrderDetail, error) {
 	var out models.OrderDetail
 	order, err := scanOrder(q.QueryRow(ctx, `
@@ -974,6 +999,7 @@ ORDER BY created_at ASC, id ASC;`, orderID)
 	return out, nil
 }
 
+// ConfirmOrder handles confirm order.
 func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID int64, qrSecret string) (models.OrderDetail, int64, bool, error) {
 	var detail models.OrderDetail
 	var telegramID int64
@@ -998,6 +1024,7 @@ WHERE id = $1::uuid
 		}
 
 		if isPendingOrderStatus(orderStatus) {
+			// lockedOrderItem represents locked order item.
 			type lockedOrderItem struct {
 				itemType  string
 				productID string
@@ -1080,6 +1107,7 @@ FOR UPDATE;`, orderID)
 			return err
 		}
 
+		// ticketToIssue represents ticket to issue.
 		type ticketToIssue struct {
 			id         string
 			userID     int64
@@ -1146,6 +1174,7 @@ WHERE id = $1::uuid;`, row.id, token, hash, now); err != nil {
 	return detail, telegramID, confirmedNow, nil
 }
 
+// CancelOrder handles cancel order.
 func (r *Repository) CancelOrder(ctx context.Context, orderID string, adminID int64, reason string) (models.OrderDetail, error) {
 	var detail models.OrderDetail
 	reason = strings.TrimSpace(reason)
@@ -1167,6 +1196,7 @@ FOR UPDATE;`, orderID).Scan(&status, &promoCodeID); err != nil {
 		}
 
 		if isPaidOrderStatus(status) {
+			// lockedOrderItem represents locked order item.
 			type lockedOrderItem struct {
 				itemType string
 				product  string
@@ -1258,6 +1288,7 @@ WHERE id = $1::uuid;`, orderID, models.OrderStatusCanceled, adminID, nullString(
 	return detail, nil
 }
 
+// DeleteOrder deletes order.
 func (r *Repository) DeleteOrder(ctx context.Context, orderID string) error {
 	return r.WithTx(ctx, func(tx pgx.Tx) error {
 		var status string
@@ -1274,6 +1305,7 @@ FOR UPDATE;`, orderID).Scan(&status, &promoCodeID); err != nil {
 		}
 
 		if isPaidOrderStatus(status) || isRedeemedOrderStatus(status) {
+			// lockedOrderItem represents locked order item.
 			type lockedOrderItem struct {
 				itemType string
 				product  string
@@ -1354,6 +1386,7 @@ WHERE id = $1::uuid;`, promoCodeID.String); err != nil {
 	})
 }
 
+// RedeemTicket handles redeem ticket.
 func (r *Repository) RedeemTicket(ctx context.Context, ticketID string, adminID int64, qrPayload string, qrSecret string) (models.TicketRedeemResult, error) {
 	var out models.TicketRedeemResult
 	secret := strings.TrimSpace(qrSecret)
@@ -1476,6 +1509,7 @@ WHERE id = $1::uuid
 	return out, nil
 }
 
+// ListMyTickets lists my tickets.
 func (r *Repository) ListMyTickets(ctx context.Context, userID int64, eventID *int64) ([]models.Ticket, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT
@@ -1513,6 +1547,7 @@ ORDER BY t.created_at DESC;`, userID, nullInt64Ptr(eventID))
 	return items, rows.Err()
 }
 
+// scanMyTicketWithOrderStatus scans my ticket with order status.
 func scanMyTicketWithOrderStatus(row pgx.Row) (models.Ticket, error) {
 	var out models.Ticket
 	var qrPayload sql.NullString
@@ -1556,6 +1591,7 @@ func scanMyTicketWithOrderStatus(row pgx.Row) (models.Ticket, error) {
 	return out, nil
 }
 
+// GetTicketStats returns ticket stats.
 func (r *Repository) GetTicketStats(ctx context.Context, eventID *int64) (models.TicketStats, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT
@@ -1710,6 +1746,7 @@ ORDER BY t.event_id ASC;`, nullInt64Ptr(eventID))
 	return result, nil
 }
 
+// scanTicketProduct scans ticket product.
 func scanTicketProduct(row pgx.Row) (models.TicketProduct, error) {
 	var out models.TicketProduct
 	var inventoryLimit sql.NullInt32
@@ -1740,6 +1777,7 @@ func scanTicketProduct(row pgx.Row) (models.TicketProduct, error) {
 	return out, nil
 }
 
+// scanTransferProduct scans transfer product.
 func scanTransferProduct(row pgx.Row) (models.TransferProduct, error) {
 	var out models.TransferProduct
 	var inventoryLimit sql.NullInt32
@@ -1773,6 +1811,7 @@ func scanTransferProduct(row pgx.Row) (models.TransferProduct, error) {
 	return out, nil
 }
 
+// scanPromoCode scans promo code.
 func scanPromoCode(row pgx.Row) (models.PromoCode, error) {
 	var out models.PromoCode
 	var usageLimit sql.NullInt32
@@ -1814,6 +1853,7 @@ func scanPromoCode(row pgx.Row) (models.PromoCode, error) {
 	return out, nil
 }
 
+// scanOrder scans order.
 func scanOrder(row pgx.Row) (models.Order, error) {
 	var out models.Order
 	var eventTitle sql.NullString
@@ -1881,6 +1921,7 @@ func scanOrder(row pgx.Row) (models.Order, error) {
 	return out, nil
 }
 
+// scanOrderSummary scans order summary.
 func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	var out models.OrderSummary
 	var order models.Order
@@ -1969,6 +2010,7 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	return out, nil
 }
 
+// scanOrderItem scans order item.
 func scanOrderItem(row pgx.Row) (models.OrderItem, error) {
 	var out models.OrderItem
 	var metaRaw []byte
@@ -1990,6 +2032,7 @@ func scanOrderItem(row pgx.Row) (models.OrderItem, error) {
 	return out, nil
 }
 
+// scanTicket scans ticket.
 func scanTicket(row pgx.Row) (models.Ticket, error) {
 	var out models.Ticket
 	var qrPayload sql.NullString
@@ -2028,6 +2071,7 @@ func scanTicket(row pgx.Row) (models.Ticket, error) {
 	return out, nil
 }
 
+// scanPaymentSettingsRow scans payment settings row.
 func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 	var out models.PaymentSettings
 	var updatedBy sql.NullInt64
@@ -2070,6 +2114,7 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 	return out, nil
 }
 
+// mergeSelections merges selections.
 func mergeSelections(items []models.OrderProductSelection) map[string]int {
 	out := map[string]int{}
 	for _, item := range items {
@@ -2085,6 +2130,7 @@ func mergeSelections(items []models.OrderProductSelection) map[string]int {
 	return out
 }
 
+// isValidPaymentMethod reports whether valid payment method condition is met.
 func isValidPaymentMethod(method string) bool {
 	switch method {
 	case models.PaymentMethodPhone, models.PaymentMethodUSDT, models.PaymentMethodQR, models.PaymentMethodTochkaSBPQR:
@@ -2094,6 +2140,7 @@ func isValidPaymentMethod(method string) bool {
 	}
 }
 
+// updateOrderToPaidCompatible updates order to paid compatible.
 func (r *Repository) updateOrderToPaidCompatible(ctx context.Context, tx pgx.Tx, orderID string, confirmedBy interface{}) error {
 	if _, err := tx.Exec(ctx, `SAVEPOINT confirm_order_status`); err != nil {
 		return err
@@ -2150,6 +2197,7 @@ WHERE id = $1::uuid AND status = $4;`, orderID, status, confirmedBy, models.Orde
 	return nil
 }
 
+// isOrdersStatusCheckViolation reports whether orders status check violation condition is met.
 func isOrdersStatusCheckViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -2161,19 +2209,23 @@ func isOrdersStatusCheckViolation(err error) bool {
 	return strings.EqualFold(strings.TrimSpace(pgErr.ConstraintName), "orders_status_check")
 }
 
+// isPendingOrderStatus reports whether pending order status condition is met.
 func isPendingOrderStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), models.OrderStatusPending)
 }
 
+// isPaidOrderStatus reports whether paid order status condition is met.
 func isPaidOrderStatus(status string) bool {
 	normalized := strings.ToUpper(strings.TrimSpace(status))
 	return normalized == models.OrderStatusPaid || normalized == "CONFIRMED"
 }
 
+// isRedeemedOrderStatus reports whether redeemed order status condition is met.
 func isRedeemedOrderStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), models.OrderStatusRedeemed)
 }
 
+// safeMap handles safe map.
 func safeMap(input map[string]interface{}) map[string]interface{} {
 	if input == nil {
 		return map[string]interface{}{}
@@ -2181,6 +2233,7 @@ func safeMap(input map[string]interface{}) map[string]interface{} {
 	return input
 }
 
+// decodeJSONMap decodes j s o n map.
 func decodeJSONMap(raw []byte) map[string]interface{} {
 	if len(raw) == 0 {
 		return map[string]interface{}{}
@@ -2192,6 +2245,7 @@ func decodeJSONMap(raw []byte) map[string]interface{} {
 	return out
 }
 
+// int64PtrOrNil handles int64 ptr or nil.
 func int64PtrOrNil(value *int64) interface{} {
 	if value == nil {
 		return nil
@@ -2199,6 +2253,7 @@ func int64PtrOrNil(value *int64) interface{} {
 	return *value
 }
 
+// boolPtrOrNil handles bool ptr or nil.
 func boolPtrOrNil(value *bool) interface{} {
 	if value == nil {
 		return nil
@@ -2206,6 +2261,7 @@ func boolPtrOrNil(value *bool) interface{} {
 	return *value
 }
 
+// nullIntPtr handles null int ptr.
 func nullIntPtr(value *int) interface{} {
 	if value == nil || *value <= 0 {
 		return nil
@@ -2213,6 +2269,7 @@ func nullIntPtr(value *int) interface{} {
 	return *value
 }
 
+// nullInt32ToIntPtr handles null int32 to int ptr.
 func nullInt32ToIntPtr(value sql.NullInt32) *int {
 	if !value.Valid {
 		return nil
@@ -2221,6 +2278,7 @@ func nullInt32ToIntPtr(value sql.NullInt32) *int {
 	return &v
 }
 
+// nullTimeToPtr handles null time to ptr.
 func nullTimeToPtr(value sql.NullTime) *time.Time {
 	if !value.Valid {
 		return nil
@@ -2229,6 +2287,7 @@ func nullTimeToPtr(value sql.NullTime) *time.Time {
 	return &v
 }
 
+// nullInt64ToPtr handles null int64 to ptr.
 func nullInt64ToPtr(value sql.NullInt64) *int64 {
 	if !value.Valid {
 		return nil
@@ -2237,6 +2296,7 @@ func nullInt64ToPtr(value sql.NullInt64) *int64 {
 	return &v
 }
 
+// uuidPtrOrNil handles uuid ptr or nil.
 func uuidPtrOrNil(value *string) interface{} {
 	if value == nil || strings.TrimSpace(*value) == "" {
 		return nil

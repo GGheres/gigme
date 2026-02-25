@@ -7,11 +7,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../utils/json_utils.dart';
 
+/// PersistedAuthSession represents persisted auth session.
+
 class PersistedAuthSession {
+  /// PersistedAuthSession handles persisted auth session.
   const PersistedAuthSession({
     required this.token,
     required this.user,
   });
+
+  /// PersistedAuthSession handles persisted auth session.
 
   factory PersistedAuthSession.fromJson(dynamic json) {
     final map = asMap(json);
@@ -24,6 +29,8 @@ class PersistedAuthSession {
   final String token;
   final User user;
 
+  /// toJson handles to json.
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'accessToken': token,
@@ -31,6 +38,8 @@ class PersistedAuthSession {
     };
   }
 }
+
+/// TokenStorage represents token storage.
 
 class TokenStorage {
   static const _tokenKey = 'gigme_access_token';
@@ -42,6 +51,8 @@ class TokenStorage {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
+  /// readToken reads token.
+
   Future<String?> readToken() async {
     final session = await readSession();
     if (session != null && session.token.isNotEmpty) {
@@ -50,6 +61,8 @@ class TokenStorage {
 
     return _readString(_tokenKey);
   }
+
+  /// readSession reads session.
 
   Future<PersistedAuthSession?> readSession() async {
     final raw = await _readString(_sessionKey);
@@ -69,9 +82,13 @@ class TokenStorage {
     }
   }
 
+  /// writeToken writes token.
+
   Future<void> writeToken(String token) async {
     await _writeString(_tokenKey, token);
   }
+
+  /// readTelegramInitData reads telegram init data.
 
   Future<String?> readTelegramInitData() async {
     final raw = await _readString(_telegramInitDataKey);
@@ -79,6 +96,8 @@ class TokenStorage {
     if (value.isEmpty) return null;
     return value;
   }
+
+  /// writeTelegramInitData writes telegram init data.
 
   Future<void> writeTelegramInitData(String initData) async {
     final value = initData.trim();
@@ -89,9 +108,13 @@ class TokenStorage {
     await _writeString(_telegramInitDataKey, value);
   }
 
+  /// clearTelegramInitData handles clear telegram init data.
+
   Future<void> clearTelegramInitData() async {
     await _remove(_telegramInitDataKey);
   }
+
+  /// writeSession writes session.
 
   Future<void> writeSession({
     required String token,
@@ -101,6 +124,8 @@ class TokenStorage {
     await _writeString(_sessionKey, jsonEncode(session.toJson()));
     await _writeString(_tokenKey, token);
   }
+
+  /// clearToken handles clear token.
 
   Future<void> clearToken() async {
     if (kIsWeb) {
@@ -115,6 +140,8 @@ class TokenStorage {
     await _secureStorage.delete(key: _telegramInitDataKey);
   }
 
+  /// _readString reads string.
+
   Future<String?> _readString(String key) async {
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
@@ -122,6 +149,8 @@ class TokenStorage {
     }
     return _secureStorage.read(key: key);
   }
+
+  /// _writeString writes string.
 
   Future<void> _writeString(String key, String value) async {
     if (kIsWeb) {
@@ -131,6 +160,8 @@ class TokenStorage {
     }
     await _secureStorage.write(key: key, value: value);
   }
+
+  /// _remove removes stored data.
 
   Future<void> _remove(String key) async {
     if (kIsWeb) {

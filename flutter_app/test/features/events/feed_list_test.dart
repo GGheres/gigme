@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:gigme_flutter/core/models/event_card.dart';
 import 'package:gigme_flutter/features/events/presentation/widgets/feed_list.dart';
 
+/// main is the application entry point.
+
 void main() {
   testWidgets('renders feed list items', (tester) async {
     final items = [
@@ -32,6 +34,8 @@ void main() {
     expect(find.text('Event B'), findsOneWidget);
   });
 }
+
+/// _event creates a test event fixture.
 
 EventCard _event(int id, String title) {
   return EventCard(

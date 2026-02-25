@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// LandingEvent represents landing event.
+
 class LandingEvent {
+  /// LandingEvent handles landing event.
 
   factory LandingEvent.fromJson(dynamic json) {
     final map = asMap(json);
@@ -20,6 +23,8 @@ class LandingEvent {
       appUrl: asString(map['appUrl']),
     );
   }
+
+  /// LandingEvent handles landing event.
   LandingEvent({
     required this.id,
     required this.title,
@@ -51,7 +56,10 @@ class LandingEvent {
   final String appUrl;
 }
 
+/// LandingEventsResponse represents landing events response.
+
 class LandingEventsResponse {
+  /// LandingEventsResponse handles landing events response.
 
   factory LandingEventsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -60,6 +68,8 @@ class LandingEventsResponse {
       total: asInt(map['total']),
     );
   }
+
+  /// LandingEventsResponse handles landing events response.
   LandingEventsResponse({
     required this.items,
     required this.total,

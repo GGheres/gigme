@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// TestBlockedUserMiddleware verifies blocked user middleware behavior.
 func TestBlockedUserMiddleware(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {

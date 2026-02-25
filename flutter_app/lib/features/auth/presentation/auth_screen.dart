@@ -19,22 +19,33 @@ import '../application/auth_controller.dart';
 import '../application/auth_state.dart';
 import '../data/auth_repository.dart';
 
+/// AuthScreen represents auth screen.
+
 class AuthScreen extends ConsumerStatefulWidget {
+  /// AuthScreen authenticates screen.
   const AuthScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
+/// _AuthScreenState represents auth screen state.
+
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   final TextEditingController _initDataController = TextEditingController();
   bool _standaloneHelperLaunchAttempted = false;
+
+  /// dispose releases resources held by this instance.
 
   @override
   void dispose() {
     _initDataController.dispose();
     super.dispose();
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +100,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ),
     );
   }
+
+  /// _buildTelegramWebScreen builds telegram web screen.
 
   Widget _buildTelegramWebScreen({
     required AuthState state,
@@ -190,6 +203,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+  /// _buildStandaloneContent builds standalone content.
+
   Widget _buildStandaloneContent({
     required AuthState state,
     required AppConfig config,
@@ -280,6 +295,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+  /// _subtitleForMode handles subtitle for mode.
+
   String _subtitleForMode(AuthMode mode) {
     switch (mode) {
       case AuthMode.telegramWeb:
@@ -289,10 +306,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
+  /// _canUseVkLogin reports whether can use vk login.
+
   bool _canUseVkLogin(AppConfig config) {
     if (!kIsWeb) return false;
     return config.vkAppId.trim().isNotEmpty;
   }
+
+  /// _openWebAuthUri handles open web auth uri.
 
   Future<void> _openWebAuthUri(Uri uri) async {
     if (kIsWeb) {
@@ -305,6 +326,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       mode: LaunchMode.externalApplication,
     );
   }
+
+  /// _startVkLogin handles start vk login.
 
   Future<void> _startVkLogin({
     required AppConfig config,
@@ -337,6 +360,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
+  /// _vkLoginErrorMessage handles vk login error message.
+
   String _vkLoginErrorMessage(Object error) {
     if (error is AppException) {
       final statusCode = error.statusCode ?? 0;
@@ -359,6 +384,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return 'Ошибка VK входа: $error';
   }
 
+  /// _standaloneHelperUri handles standalone helper uri.
+
   Uri? _standaloneHelperUri(AppConfig config) {
     final base = _resolveStandaloneHelperBaseUri(
       rawStandaloneAuthUrl: config.standaloneAuthUrl,
@@ -376,6 +403,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return base.replace(queryParameters: query);
   }
 
+  /// _resolveStandaloneHelperBaseUri handles resolve standalone helper base uri.
+
   Uri? _resolveStandaloneHelperBaseUri({
     required String rawStandaloneAuthUrl,
     required String apiUrl,
@@ -387,6 +416,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final absolute = parsed.hasScheme ? parsed : Uri.base.resolveUri(parsed);
     return _applyApiPrefixIfNeeded(helperUri: absolute, apiUrl: apiUrl);
   }
+
+  /// _applyApiPrefixIfNeeded handles apply api prefix if needed.
 
   Uri _applyApiPrefixIfNeeded({
     required Uri helperUri,
@@ -423,6 +454,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
+  /// _segmentsMatch handles segments match.
+
   bool _segmentsMatch({
     required Iterable<String> left,
     required List<String> right,
@@ -436,6 +469,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
     return true;
   }
+
+  /// _effectiveStandaloneRedirectUri handles effective standalone redirect uri.
 
   String _effectiveStandaloneRedirectUri(AppConfig config) {
     if (kIsWeb && config.authMode == AuthMode.telegramWeb) {
@@ -451,6 +486,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return config.standaloneRedirectUri.trim();
   }
 
+  /// _withoutFragment handles without fragment.
+
   String _withoutFragment(Uri uri) {
     final raw = uri.toString();
     final hashIndex = raw.indexOf('#');
@@ -459,6 +496,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
     return raw.substring(0, hashIndex);
   }
+
+  /// _scheduleStandaloneHelperAutoLaunch handles schedule standalone helper auto launch.
 
   void _scheduleStandaloneHelperAutoLaunch({
     required AuthState state,

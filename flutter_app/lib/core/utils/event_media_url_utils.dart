@@ -1,3 +1,4 @@
+/// buildEventMediaProxyUrl builds event media proxy url.
 String buildEventMediaProxyUrl({
   required String apiUrl,
   required int eventId,

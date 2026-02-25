@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as timezone_data;
 import 'package:timezone/timezone.dart' as tz;
 
+/// LocalReminderService represents local reminder service.
+
 class LocalReminderService {
   static const int _createEventReminderId = 4001;
   static const String _channelId = 'gigme_draft_reminders';
@@ -13,6 +15,8 @@ class LocalReminderService {
   static const Duration _defaultDelay = Duration(minutes: 2);
   static const String _enabledStorageKey = 'gigme_local_reminders_enabled';
   static const InitializationSettings _initializationSettings =
+
+      /// InitializationSettings handles initialization settings.
       InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     iOS: DarwinInitializationSettings(
@@ -28,11 +32,15 @@ class LocalReminderService {
   );
 
   final FlutterLocalNotificationsPlugin _plugin =
+
+      /// FlutterLocalNotificationsPlugin handles flutter local notifications plugin.
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
   bool _initializing = false;
   bool _permissionsRequested = false;
+
+  /// initialize handles internal initialize behavior.
 
   Future<void> initialize() async {
     await _ensureInitialized(
@@ -41,10 +49,14 @@ class LocalReminderService {
     );
   }
 
+  /// isEnabled reports whether enabled condition is met.
+
   Future<bool> isEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_enabledStorageKey) ?? true;
   }
+
+  /// setEnabled sets enabled.
 
   Future<void> setEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,6 +67,8 @@ class LocalReminderService {
     }
     await initialize();
   }
+
+  /// scheduleCreateEventReminder handles schedule create event reminder.
 
   Future<void> scheduleCreateEventReminder({
     Duration delay = _defaultDelay,
@@ -69,9 +83,13 @@ class LocalReminderService {
     );
   }
 
+  /// cancelCreateEventReminder handles cancel create event reminder.
+
   Future<void> cancelCreateEventReminder() {
     return _cancel(_createEventReminderId);
   }
+
+  /// schedulePurchaseReminder handles schedule purchase reminder.
 
   Future<void> schedulePurchaseReminder({
     required int eventId,
@@ -87,6 +105,8 @@ class LocalReminderService {
     );
   }
 
+  /// cancelAllDraftReminders handles cancel all draft reminders.
+
   Future<void> cancelAllDraftReminders() async {
     if (kIsWeb) return;
     await _ensureInitialized(
@@ -97,9 +117,13 @@ class LocalReminderService {
     await _plugin.cancelAll();
   }
 
+  /// cancelPurchaseReminder handles cancel purchase reminder.
+
   Future<void> cancelPurchaseReminder({required int eventId}) {
     return _cancel(_purchaseReminderId(eventId));
   }
+
+  /// _scheduleReminder handles schedule reminder.
 
   Future<void> _scheduleReminder({
     required int id,
@@ -141,6 +165,8 @@ class LocalReminderService {
     );
   }
 
+  /// _cancel handles internal cancel behavior.
+
   Future<void> _cancel(int id) async {
     if (kIsWeb) return;
     await _ensureInitialized(
@@ -150,6 +176,8 @@ class LocalReminderService {
     if (!_initialized) return;
     await _plugin.cancel(id);
   }
+
+  /// _ensureInitialized handles ensure initialized.
 
   Future<void> _ensureInitialized({
     required bool respectEnabledFlag,
@@ -193,6 +221,8 @@ class LocalReminderService {
       debugPrint('Local reminder permission request skipped: $error');
     }
   }
+
+  /// _purchaseReminderId handles purchase reminder id.
 
   int _purchaseReminderId(int eventId) {
     final positiveId = eventId.abs();

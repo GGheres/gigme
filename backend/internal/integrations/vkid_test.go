@@ -9,6 +9,7 @@ import (
 	"testing"
 )
 
+// TestVKIDExchangeCodeUsesQueryParamsAndCodeBody verifies v k i d exchange code uses query params and code body behavior.
 func TestVKIDExchangeCodeUsesQueryParamsAndCodeBody(t *testing.T) {
 	t.Parallel()
 
@@ -97,6 +98,7 @@ func TestVKIDExchangeCodeUsesQueryParamsAndCodeBody(t *testing.T) {
 	}
 }
 
+// TestVKIDGetUserInfoUsesClientIDQuery verifies v k i d get user info uses client i d query behavior.
 func TestVKIDGetUserInfoUsesClientIDQuery(t *testing.T) {
 	t.Parallel()
 

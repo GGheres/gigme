@@ -13,6 +13,7 @@ import (
 	"gigme/backend/internal/eventparser/core"
 )
 
+// main is the executable entry point.
 func main() {
 	sourceFlag := flag.String("source", string(core.SourceAuto), "source type: auto|telegram|web|instagram|vk")
 	timeoutFlag := flag.Duration("timeout", 20*time.Second, "parse timeout")

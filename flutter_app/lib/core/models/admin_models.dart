@@ -2,11 +2,16 @@ import '../utils/json_utils.dart';
 import 'auth_session.dart';
 import 'user_event.dart';
 
+/// AdminLoginResponse represents admin login response.
+
 class AdminLoginResponse {
+  /// AdminLoginResponse handles admin login response.
 
   factory AdminLoginResponse.fromJson(dynamic json) {
     return AdminLoginResponse(session: AuthSession.fromJson(json));
   }
+
+  /// AdminLoginResponse handles admin login response.
   AdminLoginResponse({
     required this.session,
   });
@@ -14,7 +19,10 @@ class AdminLoginResponse {
   final AuthSession session;
 }
 
+/// AdminUser represents admin user.
+
 class AdminUser {
+  /// AdminUser handles admin user.
 
   factory AdminUser.fromJson(dynamic json) {
     final map = asMap(json);
@@ -36,6 +44,8 @@ class AdminUser {
       updatedAt: asDateTime(map['updatedAt']),
     );
   }
+
+  /// AdminUser handles admin user.
   AdminUser({
     required this.id,
     required this.telegramId,
@@ -70,15 +80,23 @@ class AdminUser {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  /// displayName handles display name.
+
   String get displayName {
-    final full = [firstName, lastName].where((value) => value.trim().isNotEmpty).join(' ').trim();
+    final full = [firstName, lastName]
+        .where((value) => value.trim().isNotEmpty)
+        .join(' ')
+        .trim();
     if (full.isNotEmpty) return full;
     if (username.trim().isNotEmpty) return '@${username.trim()}';
     return 'ID $id';
   }
 }
 
+/// AdminUsersResponse represents admin users response.
+
 class AdminUsersResponse {
+  /// AdminUsersResponse handles admin users response.
 
   factory AdminUsersResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -87,6 +105,8 @@ class AdminUsersResponse {
       total: asInt(map['total']),
     );
   }
+
+  /// AdminUsersResponse handles admin users response.
   AdminUsersResponse({
     required this.items,
     required this.total,
@@ -96,15 +116,21 @@ class AdminUsersResponse {
   final int total;
 }
 
+/// AdminUserDetailResponse represents admin user detail response.
+
 class AdminUserDetailResponse {
+  /// AdminUserDetailResponse handles admin user detail response.
 
   factory AdminUserDetailResponse.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminUserDetailResponse(
       user: AdminUser.fromJson(map['user']),
-      createdEvents: asList(map['createdEvents']).map(UserEvent.fromJson).toList(),
+      createdEvents:
+          asList(map['createdEvents']).map(UserEvent.fromJson).toList(),
     );
   }
+
+  /// AdminUserDetailResponse handles admin user detail response.
   AdminUserDetailResponse({
     required this.user,
     required this.createdEvents,
@@ -114,7 +140,10 @@ class AdminUserDetailResponse {
   final List<UserEvent> createdEvents;
 }
 
+/// BroadcastButton represents broadcast button.
+
 class BroadcastButton {
+  /// BroadcastButton handles broadcast button.
 
   factory BroadcastButton.fromJson(dynamic json) {
     final map = asMap(json);
@@ -123,6 +152,8 @@ class BroadcastButton {
       url: asString(map['url']),
     );
   }
+
+  /// BroadcastButton handles broadcast button.
   BroadcastButton({
     required this.text,
     required this.url,
@@ -130,6 +161,8 @@ class BroadcastButton {
 
   final String text;
   final String url;
+
+  /// toJson handles to json.
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -139,7 +172,10 @@ class BroadcastButton {
   }
 }
 
+/// AdminBroadcast represents admin broadcast.
+
 class AdminBroadcast {
+  /// AdminBroadcast handles admin broadcast.
 
   factory AdminBroadcast.fromJson(dynamic json) {
     final map = asMap(json);
@@ -155,9 +191,12 @@ class AdminBroadcast {
       sent: asInt(map['sent']),
       failed: asInt(map['failed']),
       message: asString(payload['message']),
-      buttons: asList(payload['buttons']).map(BroadcastButton.fromJson).toList(),
+      buttons:
+          asList(payload['buttons']).map(BroadcastButton.fromJson).toList(),
     );
   }
+
+  /// AdminBroadcast handles admin broadcast.
   AdminBroadcast({
     required this.id,
     required this.adminUserId,
@@ -185,7 +224,10 @@ class AdminBroadcast {
   final List<BroadcastButton> buttons;
 }
 
+/// AdminBroadcastsResponse represents admin broadcasts response.
+
 class AdminBroadcastsResponse {
+  /// AdminBroadcastsResponse handles admin broadcasts response.
 
   factory AdminBroadcastsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -194,6 +236,8 @@ class AdminBroadcastsResponse {
       total: asInt(map['total']),
     );
   }
+
+  /// AdminBroadcastsResponse handles admin broadcasts response.
   AdminBroadcastsResponse({
     required this.items,
     required this.total,
@@ -203,7 +247,10 @@ class AdminBroadcastsResponse {
   final int total;
 }
 
+/// AdminCreateBroadcastResponse represents admin create broadcast response.
+
 class AdminCreateBroadcastResponse {
+  /// AdminCreateBroadcastResponse handles admin create broadcast response.
 
   factory AdminCreateBroadcastResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -212,6 +259,8 @@ class AdminCreateBroadcastResponse {
       targets: asInt(map['targets']),
     );
   }
+
+  /// AdminCreateBroadcastResponse handles admin create broadcast response.
   AdminCreateBroadcastResponse({
     required this.broadcastId,
     required this.targets,
@@ -221,7 +270,10 @@ class AdminCreateBroadcastResponse {
   final int targets;
 }
 
+/// AdminParserSource represents admin parser source.
+
 class AdminParserSource {
+  /// AdminParserSource handles admin parser source.
 
   factory AdminParserSource.fromJson(dynamic json) {
     final map = asMap(json);
@@ -237,6 +289,8 @@ class AdminParserSource {
       updatedAt: asDateTime(map['updatedAt']),
     );
   }
+
+  /// AdminParserSource handles admin parser source.
   AdminParserSource({
     required this.id,
     required this.sourceType,
@@ -260,7 +314,10 @@ class AdminParserSource {
   final DateTime? updatedAt;
 }
 
+/// AdminParserSourcesResponse represents admin parser sources response.
+
 class AdminParserSourcesResponse {
+  /// AdminParserSourcesResponse handles admin parser sources response.
 
   factory AdminParserSourcesResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -269,6 +326,8 @@ class AdminParserSourcesResponse {
       total: asInt(map['total']),
     );
   }
+
+  /// AdminParserSourcesResponse handles admin parser sources response.
   AdminParserSourcesResponse({
     required this.items,
     required this.total,
@@ -278,7 +337,10 @@ class AdminParserSourcesResponse {
   final int total;
 }
 
+/// AdminParsedEvent represents admin parsed event.
+
 class AdminParsedEvent {
+  /// AdminParsedEvent handles admin parsed event.
 
   factory AdminParsedEvent.fromJson(dynamic json) {
     final map = asMap(json);
@@ -291,17 +353,23 @@ class AdminParsedEvent {
       dateTime: asDateTime(map['dateTime']),
       location: asString(map['location']),
       description: asString(map['description']),
-      links: asList(map['links']).map((item) => asString(item)).where((item) => item.isNotEmpty).toList(),
+      links: asList(map['links'])
+          .map((item) => asString(item))
+          .where((item) => item.isNotEmpty)
+          .toList(),
       status: asString(map['status']),
       parserError: asString(map['parserError']),
       parsedAt: asDateTime(map['parsedAt']),
-      importedEventId: map['importedEventId'] == null ? null : asInt(map['importedEventId']),
+      importedEventId:
+          map['importedEventId'] == null ? null : asInt(map['importedEventId']),
       importedBy: map['importedBy'] == null ? null : asInt(map['importedBy']),
       importedAt: asDateTime(map['importedAt']),
       createdAt: asDateTime(map['createdAt']),
       updatedAt: asDateTime(map['updatedAt']),
     );
   }
+
+  /// AdminParsedEvent handles admin parsed event.
   AdminParsedEvent({
     required this.id,
     required this.sourceId,
@@ -341,7 +409,10 @@ class AdminParsedEvent {
   final DateTime? updatedAt;
 }
 
+/// AdminParsedEventsResponse represents admin parsed events response.
+
 class AdminParsedEventsResponse {
+  /// AdminParsedEventsResponse handles admin parsed events response.
 
   factory AdminParsedEventsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -350,6 +421,8 @@ class AdminParsedEventsResponse {
       total: asInt(map['total']),
     );
   }
+
+  /// AdminParsedEventsResponse handles admin parsed events response.
   AdminParsedEventsResponse({
     required this.items,
     required this.total,
@@ -359,7 +432,10 @@ class AdminParsedEventsResponse {
   final int total;
 }
 
+/// AdminParserParseResponse represents admin parser parse response.
+
 class AdminParserParseResponse {
+  /// AdminParserParseResponse handles admin parser parse response.
 
   factory AdminParserParseResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -370,6 +446,8 @@ class AdminParserParseResponse {
       error: asString(map['error']),
     );
   }
+
+  /// AdminParserParseResponse handles admin parser parse response.
   AdminParserParseResponse({
     required this.item,
     required this.items,
@@ -383,7 +461,10 @@ class AdminParserParseResponse {
   final String error;
 }
 
+/// GeocodeResult represents geocode result.
+
 class GeocodeResult {
+  /// GeocodeResult handles geocode result.
 
   factory GeocodeResult.fromJson(dynamic json) {
     final map = asMap(json);
@@ -393,6 +474,8 @@ class GeocodeResult {
       lng: asDouble(map['lng']),
     );
   }
+
+  /// GeocodeResult handles geocode result.
   GeocodeResult({
     required this.displayName,
     required this.lat,
@@ -404,7 +487,10 @@ class GeocodeResult {
   final double lng;
 }
 
+/// GeocodeResultsResponse represents geocode results response.
+
 class GeocodeResultsResponse {
+  /// GeocodeResultsResponse handles geocode results response.
 
   factory GeocodeResultsResponse.fromJson(dynamic json) {
     final map = asMap(json);
@@ -412,6 +498,8 @@ class GeocodeResultsResponse {
       items: asList(map['items']).map(GeocodeResult.fromJson).toList(),
     );
   }
+
+  /// GeocodeResultsResponse handles geocode results response.
   GeocodeResultsResponse({required this.items});
 
   final List<GeocodeResult> items;

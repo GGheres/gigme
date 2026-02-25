@@ -5,6 +5,8 @@ import '../theme/app_radii.dart';
 import '../theme/app_spacing.dart';
 import 'app_button.dart';
 
+/// T handles internal t behavior.
+
 Future<T?> showAppDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -17,6 +19,8 @@ Future<T?> showAppDialog<T>({
     builder: builder,
   );
 }
+
+/// T handles internal t behavior.
 
 Future<T?> showAppModalBottomSheet<T>({
   required BuildContext context,
@@ -37,7 +41,10 @@ Future<T?> showAppModalBottomSheet<T>({
   );
 }
 
+/// AppModal represents app modal.
+
 class AppModal extends StatelessWidget {
+  /// AppModal handles app modal.
   const AppModal({
     required this.title,
     required this.body,
@@ -56,6 +63,8 @@ class AppModal extends StatelessWidget {
   final VoidCallback? onClose;
   final BoxConstraints? constraints;
   final bool scrollBody;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +132,10 @@ class AppModal extends StatelessWidget {
   }
 }
 
+/// _ModalHeader represents modal header.
+
 class _ModalHeader extends StatelessWidget {
+  /// _ModalHeader handles modal header.
   const _ModalHeader({
     required this.title,
     required this.subtitle,
@@ -133,6 +145,8 @@ class _ModalHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback? onClose;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

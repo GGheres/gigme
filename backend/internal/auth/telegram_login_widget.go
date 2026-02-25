@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// LoginWidgetPayload represents login widget payload.
 type LoginWidgetPayload struct {
 	ID               int64
 	FirstName        string
@@ -23,6 +24,7 @@ type LoginWidgetPayload struct {
 	AdditionalFields map[string]string
 }
 
+// ValidateLoginWidgetPayload validates login widget payload.
 func ValidateLoginWidgetPayload(payload LoginWidgetPayload, botToken string, maxAge time.Duration) (TelegramUser, error) {
 	if payload.ID <= 0 {
 		return TelegramUser{}, errors.New("invalid user id")
@@ -92,6 +94,7 @@ func ValidateLoginWidgetPayload(payload LoginWidgetPayload, botToken string, max
 	}, nil
 }
 
+// BuildWebAppInitData builds web app init data.
 func BuildWebAppInitData(user TelegramUser, botToken string, authDate time.Time) (string, error) {
 	if user.ID <= 0 {
 		return "", errors.New("invalid user")

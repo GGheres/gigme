@@ -12,7 +12,10 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// AdminOrdersPage represents admin orders page.
+
 class AdminOrdersPage extends ConsumerStatefulWidget {
+  /// AdminOrdersPage handles admin orders page.
   const AdminOrdersPage({
     super.key,
     this.embedded = false,
@@ -20,9 +23,13 @@ class AdminOrdersPage extends ConsumerStatefulWidget {
 
   final bool embedded;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AdminOrdersPage> createState() => _AdminOrdersPageState();
 }
+
+/// _AdminOrdersPageState represents admin orders page state.
 
 class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   final TextEditingController _eventIdCtrl = TextEditingController();
@@ -31,17 +38,23 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   String? _error;
   OrdersListModel? _orders;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _eventIdCtrl.dispose();
     super.dispose();
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -80,6 +93,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     }
   }
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     final items = _orders?.items ?? <OrderSummaryModel>[];
@@ -97,6 +112,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       body: body,
     );
   }
+
+  /// _buildBody builds body.
 
   Widget _buildBody(BuildContext context, List<OrderSummaryModel> items) {
     return Column(
@@ -223,6 +240,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     );
   }
 
+  /// _openBotForUser handles open bot for user.
+
   Future<void> _openBotForUser(int telegramId) async {
     final config = ref.read(appConfigProvider);
     final link = buildBotReplyDeepLink(
@@ -242,6 +261,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       _showMessage('Не удалось открыть Telegram');
     }
   }
+
+  /// _showMessage handles show message.
 
   void _showMessage(String message) {
     if (!mounted) return;

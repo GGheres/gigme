@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'app_button.dart';
 
+/// PrimaryButton represents primary button.
+
 class PrimaryButton extends StatelessWidget {
+  /// PrimaryButton handles primary button.
   const PrimaryButton({
     required this.label,
     this.onPressed,
@@ -22,6 +25,8 @@ class PrimaryButton extends StatelessWidget {
   final String? tooltip;
   final AppButtonSize size;
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     return AppButton(
@@ -37,7 +42,10 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
+/// SecondaryButton represents secondary button.
+
 class SecondaryButton extends StatelessWidget {
+  /// SecondaryButton handles secondary button.
   const SecondaryButton({
     required this.label,
     this.onPressed,
@@ -59,6 +67,8 @@ class SecondaryButton extends StatelessWidget {
   final AppButtonSize size;
   final bool outline;
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     return AppButton(
@@ -74,7 +84,10 @@ class SecondaryButton extends StatelessWidget {
   }
 }
 
+/// AppIconButton represents app icon button.
+
 class AppIconButton extends StatelessWidget {
+  /// AppIconButton handles app icon button.
   const AppIconButton({
     required this.icon,
     required this.tooltip,
@@ -87,6 +100,8 @@ class AppIconButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback? onPressed;
   final AppButtonVariant variant;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// TokenManagerConfig represents token manager config.
 type TokenManagerConfig struct {
 	ClientID     string
 	ClientSecret string
@@ -19,12 +20,14 @@ type TokenManagerConfig struct {
 	TokenURL     string
 }
 
+// tokenResponse represents token response.
 type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
+// TokenManager represents token manager.
 type TokenManager struct {
 	client       *http.Client
 	cfg          TokenManagerConfig
@@ -35,6 +38,7 @@ type TokenManager struct {
 	cachedExpiry time.Time
 }
 
+// NewTokenManager creates token manager.
 func NewTokenManager(cfg TokenManagerConfig, client *http.Client) *TokenManager {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
@@ -50,6 +54,7 @@ func NewTokenManager(cfg TokenManagerConfig, client *http.Client) *TokenManager 
 	}
 }
 
+// AccessToken handles access token.
 func (tm *TokenManager) AccessToken(ctx context.Context) (string, error) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -65,6 +70,7 @@ func (tm *TokenManager) AccessToken(ctx context.Context) (string, error) {
 	return tm.cachedToken, nil
 }
 
+// refreshLocked handles refresh locked.
 func (tm *TokenManager) refreshLocked(ctx context.Context) error {
 	if strings.TrimSpace(tm.cfg.ClientID) == "" || strings.TrimSpace(tm.cfg.ClientSecret) == "" {
 		return fmt.Errorf("tochka client credentials are required")

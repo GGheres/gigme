@@ -1,4 +1,6 @@
+/// AppRadii represents app radii.
 class AppRadii {
+  /// AppRadii handles app radii.
   const AppRadii._();
 
   static const double sm = 8;

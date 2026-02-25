@@ -6,13 +6,18 @@ import '../../../../ui/components/app_card.dart';
 import '../../../../ui/components/copy_to_clipboard.dart';
 import '../../../../ui/theme/app_spacing.dart';
 
+/// ProfileSummaryCard represents profile summary card.
+
 class ProfileSummaryCard extends StatelessWidget {
+  /// ProfileSummaryCard handles profile summary card.
   const ProfileSummaryCard({
     required this.user,
     super.key,
   });
 
   final User? user;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +65,10 @@ class ProfileSummaryCard extends StatelessWidget {
   }
 }
 
+/// _CopyValueRow represents copy value row.
+
 class _CopyValueRow extends StatelessWidget {
+  /// _CopyValueRow handles copy value row.
   const _CopyValueRow({
     required this.label,
     required this.value,
@@ -68,6 +76,8 @@ class _CopyValueRow extends StatelessWidget {
 
   final String label;
   final String value;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

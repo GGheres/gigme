@@ -1,6 +1,9 @@
 import '../../../core/utils/json_utils.dart';
 
+/// TicketProductModel represents ticket product model.
+
 class TicketProductModel {
+  /// TicketProductModel handles ticket product model.
   factory TicketProductModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TicketProductModel(
@@ -15,6 +18,8 @@ class TicketProductModel {
       isActive: asBool(map['isActive']),
     );
   }
+
+  /// TicketProductModel handles ticket product model.
   TicketProductModel({
     required this.id,
     required this.eventId,
@@ -35,6 +40,8 @@ class TicketProductModel {
   final int soldCount;
   final bool isActive;
 
+  /// label handles internal label behavior.
+
   String get label {
     if (name.trim().isNotEmpty) return name.trim();
     switch (type) {
@@ -49,7 +56,10 @@ class TicketProductModel {
   }
 }
 
+/// TransferProductModel represents transfer product model.
+
 class TransferProductModel {
+  /// TransferProductModel handles transfer product model.
   factory TransferProductModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TransferProductModel(
@@ -65,6 +75,8 @@ class TransferProductModel {
       isActive: asBool(map['isActive']),
     );
   }
+
+  /// TransferProductModel handles transfer product model.
   TransferProductModel({
     required this.id,
     required this.eventId,
@@ -87,6 +99,8 @@ class TransferProductModel {
   final int soldCount;
   final bool isActive;
 
+  /// label handles internal label behavior.
+
   String get label {
     if (name.trim().isNotEmpty) return name.trim();
     switch (direction) {
@@ -100,6 +114,8 @@ class TransferProductModel {
     }
   }
 
+  /// infoLabel handles info label.
+
   String get infoLabel {
     final time = asString(info['time']);
     final pickup = asString(info['pickupPoint']);
@@ -110,7 +126,10 @@ class TransferProductModel {
   }
 }
 
+/// EventProductsModel represents event products model.
+
 class EventProductsModel {
+  /// EventProductsModel handles event products model.
   factory EventProductsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return EventProductsModel(
@@ -119,13 +138,18 @@ class EventProductsModel {
           asList(map['transfers']).map(TransferProductModel.fromJson).toList(),
     );
   }
+
+  /// EventProductsModel handles event products model.
   EventProductsModel({required this.tickets, required this.transfers});
 
   final List<TicketProductModel> tickets;
   final List<TransferProductModel> transfers;
 }
 
+/// PromoValidationModel represents promo validation model.
+
 class PromoValidationModel {
+  /// PromoValidationModel handles promo validation model.
   factory PromoValidationModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PromoValidationModel(
@@ -138,6 +162,8 @@ class PromoValidationModel {
       reason: asString(map['reason']),
     );
   }
+
+  /// PromoValidationModel handles promo validation model.
   PromoValidationModel({
     required this.valid,
     required this.code,
@@ -157,11 +183,16 @@ class PromoValidationModel {
   final String reason;
 }
 
+/// OrderSelectionModel represents order selection model.
+
 class OrderSelectionModel {
+  /// OrderSelectionModel handles order selection model.
   OrderSelectionModel({required this.productId, required this.quantity});
 
   final String productId;
   final int quantity;
+
+  /// toJson handles to json.
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'productId': productId,
@@ -169,7 +200,10 @@ class OrderSelectionModel {
       };
 }
 
+/// CreateOrderPayload represents create order payload.
+
 class CreateOrderPayload {
+  /// CreateOrderPayload creates order payload.
   CreateOrderPayload({
     required this.eventId,
     required this.paymentMethod,
@@ -186,6 +220,8 @@ class CreateOrderPayload {
   final List<OrderSelectionModel> transferItems;
   final String promoCode;
 
+  /// toJson handles to json.
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'eventId': eventId,
@@ -198,7 +234,10 @@ class CreateOrderPayload {
   }
 }
 
+/// PaymentInstructionsModel represents payment instructions model.
+
 class PaymentInstructionsModel {
+  /// PaymentInstructionsModel handles payment instructions model.
   factory PaymentInstructionsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PaymentInstructionsModel(
@@ -213,6 +252,8 @@ class PaymentInstructionsModel {
       displayMessage: asString(map['displayMessage']),
     );
   }
+
+  /// PaymentInstructionsModel handles payment instructions model.
   PaymentInstructionsModel({
     required this.phoneNumber,
     required this.usdtWallet,
@@ -236,7 +277,10 @@ class PaymentInstructionsModel {
   final String displayMessage;
 }
 
+/// PaymentSettingsModel represents payment settings model.
+
 class PaymentSettingsModel {
+  /// PaymentSettingsModel handles payment settings model.
   factory PaymentSettingsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PaymentSettingsModel(
@@ -255,6 +299,8 @@ class PaymentSettingsModel {
       sbpDescription: asString(map['sbpDescription']),
     );
   }
+
+  /// PaymentSettingsModel handles payment settings model.
   PaymentSettingsModel({
     required this.phoneNumber,
     required this.usdtWallet,
@@ -285,6 +331,8 @@ class PaymentSettingsModel {
   final String qrDescription;
   final String sbpDescription;
 
+  /// descriptionForMethod handles description for method.
+
   String descriptionForMethod(String method) {
     switch (method.toUpperCase()) {
       case 'PHONE':
@@ -299,6 +347,8 @@ class PaymentSettingsModel {
         return '';
     }
   }
+
+  /// isMethodEnabled reports whether method enabled condition is met.
 
   bool isMethodEnabled(String method) {
     switch (method.toUpperCase()) {
@@ -316,7 +366,10 @@ class PaymentSettingsModel {
   }
 }
 
+/// OrderModel represents order model.
+
 class OrderModel {
+  /// OrderModel handles order model.
   factory OrderModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderModel(
@@ -339,6 +392,8 @@ class OrderModel {
       redeemedAt: asDateTime(map['redeemedAt']),
     );
   }
+
+  /// OrderModel handles order model.
   OrderModel({
     required this.id,
     required this.userId,
@@ -378,7 +433,10 @@ class OrderModel {
   final DateTime? redeemedAt;
 }
 
+/// OrderUserModel represents order user model.
+
 class OrderUserModel {
+  /// OrderUserModel handles order user model.
   factory OrderUserModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderUserModel(
@@ -389,6 +447,8 @@ class OrderUserModel {
       username: asString(map['username']),
     );
   }
+
+  /// OrderUserModel handles order user model.
   OrderUserModel({
     required this.id,
     required this.telegramId,
@@ -403,6 +463,8 @@ class OrderUserModel {
   final String lastName;
   final String username;
 
+  /// displayName handles display name.
+
   String get displayName {
     final fullName = [firstName, lastName]
         .where((item) => item.trim().isNotEmpty)
@@ -414,7 +476,10 @@ class OrderUserModel {
   }
 }
 
+/// OrderItemModel represents order item model.
+
 class OrderItemModel {
+  /// OrderItemModel handles order item model.
   factory OrderItemModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderItemModel(
@@ -429,6 +494,8 @@ class OrderItemModel {
       meta: asMap(map['meta']),
     );
   }
+
+  /// OrderItemModel handles order item model.
   OrderItemModel({
     required this.id,
     required this.orderId,
@@ -452,7 +519,10 @@ class OrderItemModel {
   final Map<String, dynamic> meta;
 }
 
+/// TicketModel represents ticket model.
+
 class TicketModel {
+  /// TicketModel handles ticket model.
   factory TicketModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TicketModel(
@@ -468,6 +538,8 @@ class TicketModel {
       createdAt: asDateTime(map['createdAt']),
     );
   }
+
+  /// TicketModel handles ticket model.
   TicketModel({
     required this.id,
     required this.orderId,
@@ -492,13 +564,18 @@ class TicketModel {
   final DateTime? redeemedAt;
   final DateTime? createdAt;
 
+  /// status handles internal status behavior.
+
   String get status {
     if (orderStatus.trim().isNotEmpty) return orderStatus;
     return redeemedAt == null ? 'PAID' : 'REDEEMED';
   }
 }
 
+/// OrderDetailModel represents order detail model.
+
 class OrderDetailModel {
+  /// OrderDetailModel handles order detail model.
   factory OrderDetailModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderDetailModel(
@@ -510,6 +587,8 @@ class OrderDetailModel {
           PaymentInstructionsModel.fromJson(map['paymentInstructions']),
     );
   }
+
+  /// OrderDetailModel handles order detail model.
   OrderDetailModel({
     required this.order,
     required this.user,
@@ -525,7 +604,10 @@ class OrderDetailModel {
   final PaymentInstructionsModel paymentInstructions;
 }
 
+/// OrderSummaryModel represents order summary model.
+
 class OrderSummaryModel {
+  /// OrderSummaryModel handles order summary model.
   factory OrderSummaryModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrderSummaryModel(
@@ -533,13 +615,18 @@ class OrderSummaryModel {
       user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
     );
   }
+
+  /// OrderSummaryModel handles order summary model.
   OrderSummaryModel({required this.order, required this.user});
 
   final OrderModel order;
   final OrderUserModel? user;
 }
 
+/// OrdersListModel represents orders list model.
+
 class OrdersListModel {
+  /// OrdersListModel handles orders list model.
   factory OrdersListModel.fromJson(dynamic json) {
     final map = asMap(json);
     return OrdersListModel(
@@ -547,13 +634,18 @@ class OrdersListModel {
       total: asInt(map['total']),
     );
   }
+
+  /// OrdersListModel handles orders list model.
   OrdersListModel({required this.items, required this.total});
 
   final List<OrderSummaryModel> items;
   final int total;
 }
 
+/// AdminBotMessageModel represents admin bot message model.
+
 class AdminBotMessageModel {
+  /// AdminBotMessageModel handles admin bot message model.
   factory AdminBotMessageModel.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminBotMessageModel(
@@ -579,6 +671,8 @@ class AdminBotMessageModel {
       createdAt: asDateTime(map['createdAt']),
     );
   }
+
+  /// AdminBotMessageModel handles admin bot message model.
 
   AdminBotMessageModel({
     required this.id,
@@ -614,7 +708,11 @@ class AdminBotMessageModel {
   final String userLastName;
   final DateTime? createdAt;
 
+  /// isIncoming reports whether incoming condition is met.
+
   bool get isIncoming => direction == 'INCOMING';
+
+  /// contactLabel handles contact label.
 
   String get contactLabel {
     final userFullName = [userFirstName, userLastName]
@@ -637,7 +735,10 @@ class AdminBotMessageModel {
   }
 }
 
+/// AdminBotMessagesListModel represents admin bot messages list model.
+
 class AdminBotMessagesListModel {
+  /// AdminBotMessagesListModel handles admin bot messages list model.
   factory AdminBotMessagesListModel.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminBotMessagesListModel(
@@ -646,25 +747,35 @@ class AdminBotMessagesListModel {
     );
   }
 
+  /// AdminBotMessagesListModel handles admin bot messages list model.
+
   AdminBotMessagesListModel({required this.items, required this.total});
 
   final List<AdminBotMessageModel> items;
   final int total;
 }
 
+/// MyTicketsModel represents my tickets model.
+
 class MyTicketsModel {
+  /// MyTicketsModel handles my tickets model.
   factory MyTicketsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return MyTicketsModel(
       items: asList(map['items']).map(TicketModel.fromJson).toList(),
     );
   }
+
+  /// MyTicketsModel handles my tickets model.
   MyTicketsModel({required this.items});
 
   final List<TicketModel> items;
 }
 
+/// AdminStatsBreakdownModel represents admin stats breakdown model.
+
 class AdminStatsBreakdownModel {
+  /// AdminStatsBreakdownModel handles admin stats breakdown model.
   factory AdminStatsBreakdownModel.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminStatsBreakdownModel(
@@ -678,6 +789,8 @@ class AdminStatsBreakdownModel {
       transferDirectionCounts: _parseCountMap(map['transferDirectionCounts']),
     );
   }
+
+  /// AdminStatsBreakdownModel handles admin stats breakdown model.
   AdminStatsBreakdownModel({
     required this.eventId,
     required this.eventTitle,
@@ -698,13 +811,18 @@ class AdminStatsBreakdownModel {
   final Map<String, int> ticketTypeCounts;
   final Map<String, int> transferDirectionCounts;
 
+  /// _parseCountMap parses count map.
+
   static Map<String, int> _parseCountMap(dynamic value) {
     final source = asMap(value);
     return source.map((key, item) => MapEntry(key.toUpperCase(), asInt(item)));
   }
 }
 
+/// AdminStatsModel represents admin stats model.
+
 class AdminStatsModel {
+  /// AdminStatsModel handles admin stats model.
   factory AdminStatsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return AdminStatsModel(
@@ -713,13 +831,18 @@ class AdminStatsModel {
           asList(map['events']).map(AdminStatsBreakdownModel.fromJson).toList(),
     );
   }
+
+  /// AdminStatsModel handles admin stats model.
   AdminStatsModel({required this.global, required this.events});
 
   final AdminStatsBreakdownModel global;
   final List<AdminStatsBreakdownModel> events;
 }
 
+/// TicketRedeemResultModel represents ticket redeem result model.
+
 class TicketRedeemResultModel {
+  /// TicketRedeemResultModel handles ticket redeem result model.
   factory TicketRedeemResultModel.fromJson(dynamic json) {
     final map = asMap(json);
     return TicketRedeemResultModel(
@@ -727,13 +850,18 @@ class TicketRedeemResultModel {
       orderStatus: asString(map['orderStatus']).toUpperCase(),
     );
   }
+
+  /// TicketRedeemResultModel handles ticket redeem result model.
   TicketRedeemResultModel({required this.ticket, required this.orderStatus});
 
   final TicketModel ticket;
   final String orderStatus;
 }
 
+/// SbpQrModel represents sbp qr model.
+
 class SbpQrModel {
+  /// SbpQrModel handles sbp qr model.
   factory SbpQrModel.fromJson(dynamic json) {
     final map = asMap(json);
     return SbpQrModel(
@@ -748,6 +876,8 @@ class SbpQrModel {
       updatedAt: asDateTime(map['updatedAt']),
     );
   }
+
+  /// SbpQrModel handles sbp qr model.
   SbpQrModel({
     required this.id,
     required this.orderId,
@@ -771,7 +901,10 @@ class SbpQrModel {
   final DateTime? updatedAt;
 }
 
+/// CreateSbpQrOrderResponseModel represents create sbp qr order response model.
+
 class CreateSbpQrOrderResponseModel {
+  /// CreateSbpQrOrderResponseModel creates sbp qr order response model.
   factory CreateSbpQrOrderResponseModel.fromJson(dynamic json) {
     final map = asMap(json);
     return CreateSbpQrOrderResponseModel(
@@ -779,6 +912,8 @@ class CreateSbpQrOrderResponseModel {
       sbpQr: SbpQrModel.fromJson(map['sbpQr']),
     );
   }
+
+  /// CreateSbpQrOrderResponseModel creates sbp qr order response model.
   CreateSbpQrOrderResponseModel({
     required this.order,
     required this.sbpQr,
@@ -788,7 +923,10 @@ class CreateSbpQrOrderResponseModel {
   final SbpQrModel sbpQr;
 }
 
+/// SbpQrStatusResponseModel represents sbp qr status response model.
+
 class SbpQrStatusResponseModel {
+  /// SbpQrStatusResponseModel handles sbp qr status response model.
   factory SbpQrStatusResponseModel.fromJson(dynamic json) {
     final map = asMap(json);
     return SbpQrStatusResponseModel(
@@ -804,6 +942,8 @@ class SbpQrStatusResponseModel {
           : OrderDetailModel.fromJson(map['detail']),
     );
   }
+
+  /// SbpQrStatusResponseModel handles sbp qr status response model.
   SbpQrStatusResponseModel({
     required this.orderId,
     required this.qrcId,

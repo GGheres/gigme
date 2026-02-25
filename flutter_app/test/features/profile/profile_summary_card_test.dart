@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gigme_flutter/core/models/user.dart';
 import 'package:gigme_flutter/features/profile/presentation/widgets/profile_summary_card.dart';
 
+/// main is the application entry point.
+
 void main() {
   testWidgets('renders user and balance chips', (tester) async {
     final user = User(

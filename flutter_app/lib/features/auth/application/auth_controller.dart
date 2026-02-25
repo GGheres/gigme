@@ -16,7 +16,10 @@ import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../data/auth_repository.dart';
 import 'auth_state.dart';
 
+/// AuthController represents auth controller.
+
 class AuthController extends ChangeNotifier {
+  /// AuthController authenticates controller.
   AuthController({
     required this.config,
     required this.repository,
@@ -32,9 +35,13 @@ class AuthController extends ChangeNotifier {
   final VkOAuthStateStorage vkOAuthStateStorage;
 
   AuthState _state = AuthState.loading();
+
+  /// state exposes the current state value.
   AuthState get state => _state;
 
   StartupLink _startupLink = const StartupLink();
+
+  /// startupLink handles startup link.
   StartupLink get startupLink => _startupLink;
   bool _startupLinkConsumed = false;
   StreamSubscription<Uri>? _standaloneLinkSub;
@@ -42,6 +49,8 @@ class AuthController extends ChangeNotifier {
   Uri? _launchUri;
 
   bool _initialized = false;
+
+  /// initialize handles internal initialize behavior.
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -129,6 +138,8 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// loginWithTelegram handles login with telegram.
+
   Future<void> loginWithTelegram(String initData) async {
     _state = AuthState.loading();
     notifyListeners();
@@ -147,6 +158,8 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// loginWithVk handles login with vk.
 
   Future<void> loginWithVk({
     required String accessToken,
@@ -172,6 +185,8 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// loginWithVkCode handles login with vk code.
 
   Future<void> loginWithVkCode({
     required String code,
@@ -202,6 +217,8 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// loginWithVkMiniApp handles login with vk mini app.
+
   Future<void> loginWithVkMiniApp({
     required String launchParams,
   }) async {
@@ -225,6 +242,8 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// refreshMe handles refresh me.
+
   Future<void> refreshMe() async {
     final token = _state.token;
     if (token == null || token.isEmpty) return;
@@ -245,11 +264,15 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// logout handles internal logout behavior.
+
   Future<void> logout() async {
     await tokenStorage.clearToken();
     _state = AuthState.unauthenticated();
     notifyListeners();
   }
+
+  /// applySession handles apply session.
 
   Future<void> applySession(AuthSession session) async {
     await _persistSession(session: session);
@@ -259,6 +282,8 @@ class AuthController extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  /// retryAuth handles retry auth.
 
   Future<void> retryAuth() async {
     if (kIsWeb) {
@@ -308,6 +333,8 @@ class AuthController extends ChangeNotifier {
     await loginWithTelegram(initData);
   }
 
+  /// _restorePersistedSession handles restore persisted session.
+
   Future<bool> _restorePersistedSession() async {
     final persisted = await tokenStorage.readSession();
     if (persisted == null || persisted.token.trim().isEmpty) {
@@ -342,6 +369,8 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// _restoreLegacyTokenSession handles restore legacy token session.
+
   Future<bool> _restoreLegacyTokenSession() async {
     final persistedToken = await tokenStorage.readToken();
     if (persistedToken == null || persistedToken.trim().isEmpty) {
@@ -369,6 +398,8 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// _persistSession handles persist session.
+
   Future<void> _persistSession({
     required AuthSession session,
     String? telegramInitData,
@@ -384,6 +415,8 @@ class AuthController extends ChangeNotifier {
     await tokenStorage.clearTelegramInitData();
   }
 
+  /// _resolveTelegramInitDataOrSaved handles resolve telegram init data or saved.
+
   Future<String?> _resolveTelegramInitDataOrSaved() async {
     final fromRuntime = _resolveTelegramInitData();
     if (fromRuntime != null && fromRuntime.isNotEmpty) {
@@ -391,6 +424,8 @@ class AuthController extends ChangeNotifier {
     }
     return tokenStorage.readTelegramInitData();
   }
+
+  /// _reauthenticateWithStoredTelegramInitData handles reauthenticate with stored telegram init data.
 
   Future<bool> _reauthenticateWithStoredTelegramInitData() async {
     final initData = await tokenStorage.readTelegramInitData();
@@ -414,11 +449,15 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// _isUnauthorizedError reports whether unauthorized error condition is met.
+
   bool _isUnauthorizedError(Object error) {
     if (error is! AppException) return false;
     final statusCode = error.statusCode ?? 0;
     return statusCode == 401 || statusCode == 403;
   }
+
+  /// _claimPendingReferralIfNeeded claims pending referral if needed.
 
   Future<void> _claimPendingReferralIfNeeded({required String token}) async {
     final eventId = _startupLink.eventId;
@@ -447,11 +486,15 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// consumeStartupLink handles consume startup link.
+
   StartupLink? consumeStartupLink() {
     if (_startupLinkConsumed || !_startupLink.hasEvent) return null;
     _startupLinkConsumed = true;
     return _startupLink;
   }
+
+  /// _resolveTelegramInitData handles resolve telegram init data.
 
   String? _resolveTelegramInitData() {
     final fromBridge = TelegramWebAppBridge.getInitData();
@@ -463,11 +506,15 @@ class AuthController extends ChangeNotifier {
     return _extractInitDataFromUri(Uri.base);
   }
 
+  /// _resolveVkAuthCredentials handles resolve vk auth credentials.
+
   VkAuthCredentials? _resolveVkAuthCredentials() {
     final fromLaunchUri = parseVkAuthCredentialsFromUri(_launchUri);
     if (fromLaunchUri != null) return fromLaunchUri;
     return parseVkAuthCredentialsFromUri(Uri.base);
   }
+
+  /// _resolveVkAuthCodeCredentials handles resolve vk auth code credentials.
 
   Future<VkAuthCodeCredentials?> _resolveVkAuthCodeCredentials() async {
     final fromLaunchUri = parseVkAuthCodeCredentialsFromUri(_launchUri);
@@ -492,6 +539,8 @@ class AuthController extends ChangeNotifier {
     );
   }
 
+  /// _resolveVkMiniAppLaunchParams handles resolve vk mini app launch params.
+
   String? _resolveVkMiniAppLaunchParams() {
     final fromLaunchUri = extractVkMiniAppLaunchParams(_launchUri);
     if (fromLaunchUri != null && fromLaunchUri.isNotEmpty) {
@@ -500,6 +549,8 @@ class AuthController extends ChangeNotifier {
     return extractVkMiniAppLaunchParams(Uri.base);
   }
 
+  /// _resolveVkAuthError handles resolve vk auth error.
+
   String? _resolveVkAuthError() {
     final fromLaunchUri = parseVkAuthErrorFromUri(_launchUri);
     if (fromLaunchUri != null && fromLaunchUri.isNotEmpty) {
@@ -507,6 +558,8 @@ class AuthController extends ChangeNotifier {
     }
     return parseVkAuthErrorFromUri(Uri.base);
   }
+
+  /// _mapVkAuthError maps vk auth error.
 
   String _mapVkAuthError(Object error) {
     if (error is AppException) {
@@ -543,6 +596,8 @@ class AuthController extends ChangeNotifier {
     return error.toString();
   }
 
+  /// _extractInitDataFromUri extracts init data from uri.
+
   String? _extractInitDataFromUri(Uri? uri) {
     if (uri == null) return null;
 
@@ -572,6 +627,8 @@ class AuthController extends ChangeNotifier {
     return null;
   }
 
+  /// _startStandaloneLinkListener handles start standalone link listener.
+
   Future<void> _startStandaloneLinkListener() async {
     if (_standaloneListenerStarted || config.isTelegramWebMode) return;
     _standaloneListenerStarted = true;
@@ -590,11 +647,15 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// _handleStandaloneUri handles standalone uri.
+
   Future<void> _handleStandaloneUri(Uri uri) async {
     final initData = _extractInitDataFromUri(uri);
     if (initData == null || initData.isEmpty) return;
     await loginWithTelegram(initData);
   }
+
+  /// dispose releases resources held by this instance.
 
   @override
   void dispose() {

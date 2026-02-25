@@ -23,6 +23,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 )
 
+// main is the executable entry point.
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -211,6 +212,7 @@ func main() {
 	_ = srv.Shutdown(ctxShutdown)
 }
 
+// corsMiddleware handles cors middleware.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

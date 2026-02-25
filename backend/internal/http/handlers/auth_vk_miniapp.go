@@ -14,10 +14,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// authVKMiniAppRequest represents auth v k mini app request.
 type authVKMiniAppRequest struct {
 	LaunchParams string `json:"launchParams" validate:"required"`
 }
 
+// AuthVKMiniApp authenticates v k mini app.
 func (h *Handler) AuthVKMiniApp(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 
@@ -90,6 +92,7 @@ func (h *Handler) AuthVKMiniApp(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ensureVKMiniAppUser handles ensure v k mini app user.
 func (h *Handler) ensureVKMiniAppUser(ctx context.Context, vkUserID int64, telegramID int64) (models.User, bool, error) {
 	existing, err := h.repo.GetUserByTelegramID(ctx, telegramID)
 	if err == nil {
@@ -112,6 +115,7 @@ func (h *Handler) ensureVKMiniAppUser(ctx context.Context, vkUserID int64, teleg
 	return created, true, nil
 }
 
+// parseVKMiniAppLaunchMeta parses v k mini app launch meta.
 func parseVKMiniAppLaunchMeta(raw string) (string, string, bool) {
 	query := strings.TrimSpace(raw)
 	if query == "" {

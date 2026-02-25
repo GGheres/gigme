@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'app_text_field.dart';
 
+/// InputField represents input field.
+
 class InputField extends StatelessWidget {
+  /// InputField handles input field.
   const InputField({
     this.controller,
     this.initialValue,
@@ -49,6 +52,8 @@ class InputField extends StatelessWidget {
   final VoidCallback? onTap;
   final ValueChanged<String>? onChanged;
   final FormFieldValidator<String>? validator;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

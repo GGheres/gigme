@@ -19,6 +19,7 @@ import (
 	"gigme/backend/internal/config"
 )
 
+// TestStandaloneAuthExchange verifies standalone auth exchange behavior.
 func TestStandaloneAuthExchange(t *testing.T) {
 	const botToken = "123456:test_bot_token"
 	authDate := time.Now().Unix()
@@ -84,6 +85,7 @@ func TestStandaloneAuthExchange(t *testing.T) {
 	}
 }
 
+// signLoginWidgetPayload signs login widget payload.
 func signLoginWidgetPayload(botToken string, values url.Values) string {
 	keys := make([]string, 0, len(values))
 	for key := range values {

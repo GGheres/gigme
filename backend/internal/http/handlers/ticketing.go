@@ -22,11 +22,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// orderSelectionRequest represents order selection request.
 type orderSelectionRequest struct {
 	ProductID string `json:"productId"`
 	Quantity  int    `json:"quantity"`
 }
 
+// createOrderRequest represents create order request.
 type createOrderRequest struct {
 	EventID          int64                   `json:"eventId"`
 	PaymentMethod    string                  `json:"paymentMethod"`
@@ -36,29 +38,35 @@ type createOrderRequest struct {
 	PromoCode        string                  `json:"promoCode"`
 }
 
+// validatePromoRequest represents validate promo request.
 type validatePromoRequest struct {
 	EventID       int64  `json:"eventId"`
 	Code          string `json:"code"`
 	SubtotalCents int64  `json:"subtotalCents"`
 }
 
+// cancelOrderRequest represents cancel order request.
 type cancelOrderRequest struct {
 	Reason string `json:"reason"`
 }
 
+// deleteAdminOrderRequest represents delete admin order request.
 type deleteAdminOrderRequest struct {
 	Password string `json:"password"`
 }
 
+// redeemTicketRequest represents redeem ticket request.
 type redeemTicketRequest struct {
 	QRPayload string `json:"qrPayload"`
 }
 
+// adminRedeemTicketRequest represents admin redeem ticket request.
 type adminRedeemTicketRequest struct {
 	TicketID  string `json:"ticketId"`
 	QRPayload string `json:"qrPayload"`
 }
 
+// createSbpQRCodeRequest represents create sbp q r code request.
 type createSbpQRCodeRequest struct {
 	EventID       int64                   `json:"eventId"`
 	TicketItems   []orderSelectionRequest `json:"ticketItems"`
@@ -67,6 +75,7 @@ type createSbpQRCodeRequest struct {
 	RedirectURL   string                  `json:"redirectUrl"`
 }
 
+// upsertPaymentSettingsRequest represents upsert payment settings request.
 type upsertPaymentSettingsRequest struct {
 	PhoneNumber      *string `json:"phoneNumber"`
 	USDTWallet       *string `json:"usdtWallet"`
@@ -83,11 +92,13 @@ type upsertPaymentSettingsRequest struct {
 	SBPDescription   *string `json:"sbpDescription"`
 }
 
+// createSbpQRCodeResponse represents create sbp q r code response.
 type createSbpQRCodeResponse struct {
 	Order models.OrderDetail `json:"order"`
 	SBPQR models.SbpQR       `json:"sbpQr"`
 }
 
+// sbpQRStatusResponse represents sbp q r status response.
 type sbpQRStatusResponse struct {
 	OrderID       string              `json:"orderId"`
 	QRCID         string              `json:"qrcId"`
@@ -104,32 +115,39 @@ const (
 	adminOrderDeletePassword = "FUCKSHIT"
 )
 
+// listOrdersResponse represents list orders response.
 type listOrdersResponse struct {
 	Items []models.OrderSummary `json:"items"`
 	Total int                   `json:"total"`
 }
 
+// ticketProductsResponse represents ticket products response.
 type ticketProductsResponse struct {
 	Tickets   []models.TicketProduct   `json:"tickets"`
 	Transfers []models.TransferProduct `json:"transfers"`
 }
 
+// promoCodesResponse represents promo codes response.
 type promoCodesResponse struct {
 	Items []models.PromoCode `json:"items"`
 }
 
+// ticketProductsListResponse represents ticket products list response.
 type ticketProductsListResponse struct {
 	Items []models.TicketProduct `json:"items"`
 }
 
+// transferProductsListResponse represents transfer products list response.
 type transferProductsListResponse struct {
 	Items []models.TransferProduct `json:"items"`
 }
 
+// myTicketsResponse represents my tickets response.
 type myTicketsResponse struct {
 	Items []models.Ticket `json:"items"`
 }
 
+// CreateOrder creates order.
 func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -177,6 +195,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, detail)
 }
 
+// CreateSBPQRCodePayment creates s b p q r code payment.
 func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -285,6 +304,7 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// GetSBPQRCodePaymentStatus returns s b p q r code payment status.
 func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -434,6 +454,7 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, response)
 }
 
+// ValidatePromoCode validates promo code.
 func (h *Handler) ValidatePromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var req validatePromoRequest
@@ -457,6 +478,7 @@ func (h *Handler) ValidatePromoCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// ListEventProducts lists event products.
 func (h *Handler) ListEventProducts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	eventID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -476,6 +498,7 @@ func (h *Handler) ListEventProducts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ticketProductsResponse{Tickets: tickets, Transfers: transfers})
 }
 
+// ListMyOrders lists my orders.
 func (h *Handler) ListMyOrders(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -497,6 +520,7 @@ func (h *Handler) ListMyOrders(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, listOrdersResponse{Items: items, Total: total})
 }
 
+// ListMyTickets lists my tickets.
 func (h *Handler) ListMyTickets(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -526,6 +550,7 @@ func (h *Handler) ListMyTickets(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, myTicketsResponse{Items: items})
 }
 
+// ListAdminOrders lists admin orders.
 func (h *Handler) ListAdminOrders(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_orders"); !ok {
@@ -575,6 +600,7 @@ func (h *Handler) ListAdminOrders(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, listOrdersResponse{Items: items, Total: total})
 }
 
+// GetAdminOrder returns admin order.
 func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_get_order"); !ok {
@@ -601,6 +627,7 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, detail)
 }
 
+// ConfirmOrder handles confirm order.
 func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_confirm_order"); !ok {
@@ -660,6 +687,7 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, detail)
 }
 
+// DeleteAdminOrder deletes admin order.
 func (h *Handler) DeleteAdminOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_order"); !ok {
@@ -692,6 +720,7 @@ func (h *Handler) DeleteAdminOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// CancelOrder handles cancel order.
 func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_cancel_order"); !ok {
@@ -723,6 +752,7 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, detail)
 }
 
+// RedeemTicket handles redeem ticket.
 func (h *Handler) RedeemTicket(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_redeem_ticket"); !ok {
@@ -752,6 +782,7 @@ func (h *Handler) RedeemTicket(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// AdminRedeemTicket handles admin redeem ticket.
 func (h *Handler) AdminRedeemTicket(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_redeem_ticket"); !ok {
@@ -794,6 +825,7 @@ func (h *Handler) AdminRedeemTicket(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// AdminStats handles admin stats.
 func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_stats"); !ok {
@@ -821,12 +853,14 @@ func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stats)
 }
 
+// GetPaymentSettings returns payment settings.
 func (h *Handler) GetPaymentSettings(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
 	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx))
 }
 
+// GetAdminPaymentSettings returns admin payment settings.
 func (h *Handler) GetAdminPaymentSettings(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_get_payment_settings"); !ok {
@@ -837,6 +871,7 @@ func (h *Handler) GetAdminPaymentSettings(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx))
 }
 
+// UpsertAdminPaymentSettings handles upsert admin payment settings.
 func (h *Handler) UpsertAdminPaymentSettings(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_upsert_payment_settings"); !ok {
@@ -873,6 +908,7 @@ func (h *Handler) UpsertAdminPaymentSettings(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, saved)
 }
 
+// ListAdminTicketProducts lists admin ticket products.
 func (h *Handler) ListAdminTicketProducts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_ticket_products"); !ok {
@@ -894,6 +930,7 @@ func (h *Handler) ListAdminTicketProducts(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, ticketProductsListResponse{Items: items})
 }
 
+// CreateAdminTicketProduct creates admin ticket product.
 func (h *Handler) CreateAdminTicketProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_create_ticket_product"); !ok {
@@ -919,6 +956,7 @@ func (h *Handler) CreateAdminTicketProduct(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusCreated, item)
 }
 
+// PatchAdminTicketProduct updates admin ticket product.
 func (h *Handler) PatchAdminTicketProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_patch_ticket_product"); !ok {
@@ -944,6 +982,7 @@ func (h *Handler) PatchAdminTicketProduct(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, item)
 }
 
+// DeleteAdminTicketProduct deletes admin ticket product.
 func (h *Handler) DeleteAdminTicketProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_ticket_product"); !ok {
@@ -963,6 +1002,7 @@ func (h *Handler) DeleteAdminTicketProduct(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// ListAdminTransferProducts lists admin transfer products.
 func (h *Handler) ListAdminTransferProducts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_transfer_products"); !ok {
@@ -984,6 +1024,7 @@ func (h *Handler) ListAdminTransferProducts(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, transferProductsListResponse{Items: items})
 }
 
+// CreateAdminTransferProduct creates admin transfer product.
 func (h *Handler) CreateAdminTransferProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_create_transfer_product"); !ok {
@@ -1009,6 +1050,7 @@ func (h *Handler) CreateAdminTransferProduct(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusCreated, item)
 }
 
+// PatchAdminTransferProduct updates admin transfer product.
 func (h *Handler) PatchAdminTransferProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_patch_transfer_product"); !ok {
@@ -1034,6 +1076,7 @@ func (h *Handler) PatchAdminTransferProduct(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, item)
 }
 
+// DeleteAdminTransferProduct deletes admin transfer product.
 func (h *Handler) DeleteAdminTransferProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_transfer_product"); !ok {
@@ -1053,6 +1096,7 @@ func (h *Handler) DeleteAdminTransferProduct(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// ListAdminPromoCodes lists admin promo codes.
 func (h *Handler) ListAdminPromoCodes(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_promo_codes"); !ok {
@@ -1074,6 +1118,7 @@ func (h *Handler) ListAdminPromoCodes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, promoCodesResponse{Items: items})
 }
 
+// CreateAdminPromoCode creates admin promo code.
 func (h *Handler) CreateAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_create_promo_code"); !ok {
@@ -1099,6 +1144,7 @@ func (h *Handler) CreateAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, item)
 }
 
+// PatchAdminPromoCode updates admin promo code.
 func (h *Handler) PatchAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_patch_promo_code"); !ok {
@@ -1124,6 +1170,7 @@ func (h *Handler) PatchAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+// DeleteAdminPromoCode deletes admin promo code.
 func (h *Handler) DeleteAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_promo_code"); !ok {
@@ -1143,6 +1190,7 @@ func (h *Handler) DeleteAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// sendTicketQrToBot handles send ticket qr to bot.
 func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) error {
 	if h.telegram == nil {
 		return nil
@@ -1162,6 +1210,7 @@ func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) 
 	return nil
 }
 
+// sendPaymentConfirmedToBot handles send payment confirmed to bot.
 func (h *Handler) sendPaymentConfirmedToBot(userTelegramID int64, order models.Order) error {
 	if h.telegram == nil || userTelegramID <= 0 {
 		return nil
@@ -1185,6 +1234,7 @@ func (h *Handler) sendPaymentConfirmedToBot(userTelegramID int64, order models.O
 	return h.telegram.SendMessage(userTelegramID, strings.Join(lines, "\n"))
 }
 
+// enqueuePaymentConfirmedNotification handles enqueue payment confirmed notification.
 func (h *Handler) enqueuePaymentConfirmedNotification(ctx context.Context, order models.Order) error {
 	if order.UserID <= 0 {
 		return nil
@@ -1217,6 +1267,7 @@ func (h *Handler) enqueuePaymentConfirmedNotification(ctx context.Context, order
 	return err
 }
 
+// buildPaymentInstructions builds payment instructions.
 func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings models.PaymentSettings) models.PaymentInstructions {
 	amountText := formatAmount(order.TotalCents)
 	currency := strings.TrimSpace(order.Currency)
@@ -1272,6 +1323,7 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 	return instructions
 }
 
+// loadPaymentSettings loads payment settings.
 func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSettings {
 	settings := models.PaymentSettings{
 		PhoneNumber:      strings.TrimSpace(h.cfg.PhoneNumber),
@@ -1327,6 +1379,7 @@ func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSetting
 	return settings
 }
 
+// mergePaymentSettings merges payment settings.
 func mergePaymentSettings(current models.PaymentSettings, req upsertPaymentSettingsRequest) models.PaymentSettings {
 	merged := current
 	if req.PhoneNumber != nil {
@@ -1374,6 +1427,7 @@ func mergePaymentSettings(current models.PaymentSettings, req upsertPaymentSetti
 	return merged
 }
 
+// hasAny reports whether any exists.
 func (r upsertPaymentSettingsRequest) hasAny() bool {
 	return r.PhoneNumber != nil ||
 		r.USDTWallet != nil ||
@@ -1390,6 +1444,7 @@ func (r upsertPaymentSettingsRequest) hasAny() bool {
 		r.SBPDescription != nil
 }
 
+// isPaymentMethodEnabled reports whether payment method enabled condition is met.
 func isPaymentMethodEnabled(method string, settings models.PaymentSettings) bool {
 	switch strings.ToUpper(strings.TrimSpace(method)) {
 	case models.PaymentMethodPhone:
@@ -1405,6 +1460,7 @@ func isPaymentMethodEnabled(method string, settings models.PaymentSettings) bool
 	}
 }
 
+// applyPaymentTextTemplate handles apply payment text template.
 func applyPaymentTextTemplate(template string, order models.Order, amountText string, fallback string) string {
 	out := strings.TrimSpace(template)
 	if out == "" {
@@ -1417,6 +1473,7 @@ func applyPaymentTextTemplate(template string, order models.Order, amountText st
 	return out
 }
 
+// handleTicketingError handles ticketing error.
 func (h *Handler) handleTicketingError(logger interface {
 	Error(string, ...any)
 	Warn(string, ...any)
@@ -1453,10 +1510,12 @@ func (h *Handler) handleTicketingError(logger interface {
 	}
 }
 
+// isAdminOrderDeletePasswordValid reports whether admin order delete password valid condition is met.
 func isAdminOrderDeletePasswordValid(password string) bool {
 	return strings.TrimSpace(password) == adminOrderDeletePassword
 }
 
+// mapSelections maps selections.
 func mapSelections(items []orderSelectionRequest) []models.OrderProductSelection {
 	out := make([]models.OrderProductSelection, 0, len(items))
 	for _, item := range items {
@@ -1468,6 +1527,7 @@ func mapSelections(items []orderSelectionRequest) []models.OrderProductSelection
 	return out
 }
 
+// parseProductFilters parses product filters.
 func parseProductFilters(r *http.Request) (*int64, *bool, error) {
 	var eventID *int64
 	if raw := strings.TrimSpace(r.URL.Query().Get("event_id")); raw != "" {
@@ -1488,6 +1548,7 @@ func parseProductFilters(r *http.Request) (*int64, *bool, error) {
 	return eventID, active, nil
 }
 
+// parseIntQuery parses int query.
 func parseIntQuery(r *http.Request, key string, fallback int) int {
 	raw := strings.TrimSpace(r.URL.Query().Get(key))
 	if raw == "" {
@@ -1500,6 +1561,7 @@ func parseIntQuery(r *http.Request, key string, fallback int) int {
 	return parsed
 }
 
+// resolveOrderIDParam handles resolve order i d param.
 func resolveOrderIDParam(r *http.Request) string {
 	orderID := strings.TrimSpace(chi.URLParam(r, "id"))
 	if orderID != "" {
@@ -1508,6 +1570,7 @@ func resolveOrderIDParam(r *http.Request) string {
 	return strings.TrimSpace(chi.URLParam(r, "orderId"))
 }
 
+// formatAmount formats amount.
 func formatAmount(cents int64) string {
 	dollars := cents / 100
 	rest := cents % 100
@@ -1517,12 +1580,14 @@ func formatAmount(cents int64) string {
 	return fmt.Sprintf("%d.%02d", dollars, rest)
 }
 
+// hasTochkaSBPConfig reports whether tochka s b p config exists.
 func (h *Handler) hasTochkaSBPConfig() bool {
 	return h.tochka != nil &&
 		strings.TrimSpace(h.cfg.Tochka.MerchantID) != "" &&
 		strings.TrimSpace(h.cfg.Tochka.AccountID) != ""
 }
 
+// resolveSBPRedirectURL handles resolve s b p redirect u r l.
 func (h *Handler) resolveSBPRedirectURL(requestURL, orderID string) string {
 	redirectURL := strings.TrimSpace(requestURL)
 	if redirectURL == "" {
@@ -1536,6 +1601,7 @@ func (h *Handler) resolveSBPRedirectURL(requestURL, orderID string) string {
 	return redirectURL
 }
 
+// attachSBPInstructions handles attach s b p instructions.
 func (h *Handler) attachSBPInstructions(detail *models.OrderDetail, sbpQR *models.SbpQR) {
 	if detail == nil || sbpQR == nil {
 		return
@@ -1547,6 +1613,7 @@ func (h *Handler) attachSBPInstructions(detail *models.OrderDetail, sbpQR *model
 	}
 }
 
+// normalizeProviderStatus normalizes provider status.
 func normalizeProviderStatus(status string) string {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "ACCEPTED":
@@ -1560,6 +1627,7 @@ func normalizeProviderStatus(status string) string {
 	}
 }
 
+// isPaidOrderStatus reports whether paid order status condition is met.
 func isPaidOrderStatus(status string) bool {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "PAID", "CONFIRMED":
@@ -1569,6 +1637,7 @@ func isPaidOrderStatus(status string) bool {
 	}
 }
 
+// isRedeemedOrderStatus reports whether redeemed order status condition is met.
 func isRedeemedOrderStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), models.OrderStatusRedeemed)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TestRedeemTicketAtomicity verifies redeem ticket atomicity behavior.
 func TestRedeemTicketAtomicity(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -81,6 +82,7 @@ func TestRedeemTicketAtomicity(t *testing.T) {
 	}
 }
 
+// insertTicketingTestUser handles insert ticketing test user.
 func insertTicketingTestUser(ctx context.Context, pool *pgxpool.Pool, telegramID int64) (int64, error) {
 	var id int64
 	err := pool.QueryRow(ctx, `
@@ -90,6 +92,7 @@ RETURNING id;`, telegramID, "ticket_test").Scan(&id)
 	return id, err
 }
 
+// insertTicketingTestEvent handles insert ticketing test event.
 func insertTicketingTestEvent(ctx context.Context, pool *pgxpool.Pool, ownerID int64) (int64, error) {
 	var id int64
 	err := pool.QueryRow(ctx, `
@@ -99,6 +102,7 @@ RETURNING id;`, ownerID).Scan(&id)
 	return id, err
 }
 
+// insertConfirmedOrderWithTicket handles insert confirmed order with ticket.
 func insertConfirmedOrderWithTicket(ctx context.Context, pool *pgxpool.Pool, userID, eventID int64) (string, string, string, string, error) {
 	var orderID string
 	if err := pool.QueryRow(ctx, `

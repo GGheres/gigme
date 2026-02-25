@@ -8,7 +8,10 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// AdminProductsPage represents admin products page.
+
 class AdminProductsPage extends ConsumerStatefulWidget {
+  /// AdminProductsPage handles admin products page.
   const AdminProductsPage({
     super.key,
     this.embedded = false,
@@ -18,9 +21,13 @@ class AdminProductsPage extends ConsumerStatefulWidget {
   final bool embedded;
   final int? initialEventId;
 
+  /// createState creates state.
+
   @override
   ConsumerState<AdminProductsPage> createState() => _AdminProductsPageState();
 }
+
+/// _AdminProductsPageState represents admin products page state.
 
 class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _eventCtrl = TextEditingController();
@@ -54,6 +61,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   bool _paymentQrEnabled = true;
   bool _sbpEnabled = true;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +74,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _transferPriceCtrl.text = '0';
     unawaited(_load());
   }
+
+  /// dispose releases resources held by this instance.
 
   @override
   void dispose() {
@@ -87,6 +98,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _transferNotesCtrl.dispose();
     super.dispose();
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -129,6 +142,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  /// _createTicketProduct creates ticket product.
+
   Future<void> _createTicketProduct() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     final eventId = int.tryParse(_eventCtrl.text.trim()) ?? 0;
@@ -156,6 +171,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// _createTransferProduct creates transfer product.
 
   Future<void> _createTransferProduct() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -190,6 +207,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  /// _deleteTicketProduct deletes ticket product.
+
   Future<void> _deleteTicketProduct(String id) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
@@ -206,6 +225,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  /// _deleteTransferProduct deletes transfer product.
+
   Future<void> _deleteTransferProduct(String id) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
@@ -221,6 +242,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// _toggleTicketProductVisibility handles toggle ticket product visibility.
 
   Future<void> _toggleTicketProductVisibility(TicketProductModel item) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -245,6 +268,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  /// _toggleTransferProductVisibility handles toggle transfer product visibility.
+
   Future<void> _toggleTransferProductVisibility(
       TransferProductModel item) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -268,6 +293,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// _savePaymentSettings saves payment settings.
 
   Future<void> _savePaymentSettings() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -302,6 +329,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     final body = _buildBody(context);
@@ -317,6 +346,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       body: body,
     );
   }
+
+  /// _buildBody builds body.
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
@@ -660,11 +691,15 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     );
   }
 
+  /// _showMessage handles show message.
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  /// _applyPaymentSettings handles apply payment settings.
 
   void _applyPaymentSettings(PaymentSettingsModel settings) {
     _paymentPhoneCtrl.text = settings.phoneNumber;

@@ -1,3 +1,4 @@
+/// asMap handles as map.
 Map<String, dynamic> asMap(dynamic value) {
   if (value is Map<String, dynamic>) return value;
   if (value is Map) {
@@ -6,15 +7,21 @@ Map<String, dynamic> asMap(dynamic value) {
   return <String, dynamic>{};
 }
 
+/// asList handles as list.
+
 List<dynamic> asList(dynamic value) {
   if (value is List) return value;
   return <dynamic>[];
 }
 
+/// asString handles as string.
+
 String asString(dynamic value, {String fallback = ''}) {
   if (value == null) return fallback;
   return value.toString();
 }
+
+/// asInt handles as int.
 
 int asInt(dynamic value, {int fallback = 0}) {
   if (value is int) return value;
@@ -23,12 +30,16 @@ int asInt(dynamic value, {int fallback = 0}) {
   return fallback;
 }
 
+/// asDouble handles as double.
+
 double asDouble(dynamic value, {double fallback = 0.0}) {
   if (value is double) return value;
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value) ?? fallback;
   return fallback;
 }
+
+/// asBool handles as bool.
 
 bool asBool(dynamic value, {bool fallback = false}) {
   if (value is bool) return value;
@@ -40,6 +51,8 @@ bool asBool(dynamic value, {bool fallback = false}) {
   if (value is num) return value != 0;
   return fallback;
 }
+
+/// asDateTime handles as date time.
 
 DateTime? asDateTime(dynamic value) {
   final raw = asString(value);

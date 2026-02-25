@@ -8,6 +8,8 @@ import 'package:gigme_flutter/core/error/app_exception.dart';
 import 'package:gigme_flutter/core/network/api_client.dart';
 import 'package:gigme_flutter/core/utils/json_utils.dart';
 
+/// main is the application entry point.
+
 void main() {
   group('ApiClient', () {
     test('retries GET on 5xx and succeeds', () async {
@@ -61,21 +63,31 @@ void main() {
   });
 }
 
+/// MockResponse represents mock response.
+
 class MockResponse {
+  /// MockResponse handles mock response.
   const MockResponse({required this.statusCode, required this.body});
 
   final int statusCode;
   final dynamic body;
 }
 
+/// SequenceAdapter represents sequence adapter.
+
 class SequenceAdapter implements HttpClientAdapter {
+  /// SequenceAdapter handles sequence adapter.
   SequenceAdapter({required Map<String, List<MockResponse>> responses})
       : _responses = responses;
 
   final Map<String, List<MockResponse>> _responses;
   final Map<String, int> _calls = <String, int>{};
 
+  /// callsFor handles calls for.
+
   int callsFor(String key) => _calls[key] ?? 0;
+
+  /// fetch handles internal fetch behavior.
 
   @override
   Future<ResponseBody> fetch(
@@ -106,6 +118,8 @@ class SequenceAdapter implements HttpClientAdapter {
       },
     );
   }
+
+  /// close releases associated resources.
 
   @override
   void close({bool force = false}) {}

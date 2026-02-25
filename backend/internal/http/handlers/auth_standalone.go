@@ -11,6 +11,7 @@ import (
 	"gigme/backend/internal/auth"
 )
 
+// standaloneAuthExchangeRequest represents standalone auth exchange request.
 type standaloneAuthExchangeRequest struct {
 	ID               int64             `json:"id"`
 	FirstName        string            `json:"first_name"`
@@ -22,7 +23,9 @@ type standaloneAuthExchangeRequest struct {
 	AdditionalFields map[string]string `json:"-"`
 }
 
+// UnmarshalJSON handles unmarshal j s o n.
 func (r *standaloneAuthExchangeRequest) UnmarshalJSON(data []byte) error {
+	// alias represents alias.
 	type alias struct {
 		ID        int64  `json:"id"`
 		FirstName string `json:"first_name"`
@@ -73,6 +76,7 @@ func (r *standaloneAuthExchangeRequest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// parseStandaloneAuthAdditionalField parses standalone auth additional field.
 func parseStandaloneAuthAdditionalField(raw json.RawMessage) (string, bool) {
 	var asString string
 	if err := json.Unmarshal(raw, &asString); err == nil {
@@ -92,6 +96,7 @@ func parseStandaloneAuthAdditionalField(raw json.RawMessage) (string, bool) {
 	return "", false
 }
 
+// standaloneAuthExchangeResponse represents standalone auth exchange response.
 type standaloneAuthExchangeResponse struct {
 	InitData string `json:"initData"`
 }
@@ -342,6 +347,7 @@ var standaloneAuthTemplate = template.Must(template.New("standalone_auth").Parse
 </html>
 `))
 
+// StandaloneAuthPage handles standalone auth page.
 func (h *Handler) StandaloneAuthPage(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	botUsername := strings.TrimPrefix(strings.TrimSpace(h.cfg.TelegramUser), "@")
@@ -360,6 +366,7 @@ func (h *Handler) StandaloneAuthPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// StandaloneAuthExchange handles standalone auth exchange.
 func (h *Handler) StandaloneAuthExchange(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 

@@ -6,6 +6,7 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// TestBuildEventCardResolvesRelativePhotoFallback verifies build event card resolves relative photo fallback behavior.
 func TestBuildEventCardResolvesRelativePhotoFallback(t *testing.T) {
 	eventID := int64(42)
 	job := models.NotificationJob{
@@ -33,6 +34,7 @@ func TestBuildEventCardResolvesRelativePhotoFallback(t *testing.T) {
 	}
 }
 
+// TestBuildEventCardUsesResolvedPhotoWhenPreviewUnavailable verifies build event card uses resolved photo when preview unavailable behavior.
 func TestBuildEventCardUsesResolvedPhotoWhenPreviewUnavailable(t *testing.T) {
 	job := models.NotificationJob{
 		Payload: map[string]interface{}{
@@ -52,6 +54,7 @@ func TestBuildEventCardUsesResolvedPhotoWhenPreviewUnavailable(t *testing.T) {
 	}
 }
 
+// TestNormalizePhotoURLProtocolRelative verifies normalize photo u r l protocol relative behavior.
 func TestNormalizePhotoURLProtocolRelative(t *testing.T) {
 	got := normalizePhotoURL("//cdn.spacefestival.fun/e.jpg", "https://api.spacefestival.fun/api")
 	want := "https://cdn.spacefestival.fun/e.jpg"
@@ -60,6 +63,7 @@ func TestNormalizePhotoURLProtocolRelative(t *testing.T) {
 	}
 }
 
+// TestBuildMediaPreviewCandidatesPreferAPIPrefixForBaseURL verifies build media preview candidates prefer a p i prefix for base u r l behavior.
 func TestBuildMediaPreviewCandidatesPreferAPIPrefixForBaseURL(t *testing.T) {
 	got := buildMediaPreviewCandidates(17, "", "https://spacefestival.fun")
 	if len(got) < 2 {
@@ -73,6 +77,7 @@ func TestBuildMediaPreviewCandidatesPreferAPIPrefixForBaseURL(t *testing.T) {
 	}
 }
 
+// TestTruncateRunesKeepsLimit verifies truncate runes keeps limit behavior.
 func TestTruncateRunesKeepsLimit(t *testing.T) {
 	got := truncateRunes("123456", 5)
 	if got != "1234…" {
@@ -83,6 +88,7 @@ func TestTruncateRunesKeepsLimit(t *testing.T) {
 	}
 }
 
+// containsString handles contains string.
 func containsString(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {

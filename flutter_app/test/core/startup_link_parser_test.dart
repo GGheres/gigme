@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gigme_flutter/core/utils/startup_link.dart';
 
+/// main is the application entry point.
+
 void main() {
   group('StartupLinkParser', () {
     test('parses startapp query with private event key and referral code', () {

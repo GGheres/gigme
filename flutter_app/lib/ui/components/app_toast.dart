@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+/// AppToastTone represents app toast tone.
+
 enum AppToastTone {
   info,
   success,
@@ -9,8 +11,13 @@ enum AppToastTone {
   error,
 }
 
+/// AppToast represents app toast.
+
 class AppToast {
+  /// AppToast handles app toast.
   const AppToast._();
+
+  /// show handles internal show behavior.
 
   static void show(
     BuildContext context, {
@@ -27,6 +34,8 @@ class AppToast {
       ),
     );
   }
+
+  /// _backgroundFor handles background for.
 
   static Color _backgroundFor(AppToastTone tone) {
     switch (tone) {

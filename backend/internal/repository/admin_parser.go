@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// CreateAdminParserSource creates a new parser source configuration for admins.
 func (r *Repository) CreateAdminParserSource(ctx context.Context, createdBy int64, sourceType, input, title string, isActive bool) (models.AdminParserSource, error) {
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO admin_event_parser_sources (source_type, input, title, is_active, created_by)
@@ -26,6 +27,7 @@ RETURNING id, source_type, input, title, is_active, last_parsed_at, created_by, 
 	return scanAdminParserSource(row)
 }
 
+// ListAdminParserSources returns parser sources ordered by creation time with total count.
 func (r *Repository) ListAdminParserSources(ctx context.Context, limit, offset int) ([]models.AdminParserSource, int, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT id, source_type, input, title, is_active, last_parsed_at, created_by, created_at, updated_at,
@@ -75,6 +77,7 @@ LIMIT $1 OFFSET $2;`, limit, offset)
 	return items, total, nil
 }
 
+// GetAdminParserSource loads a parser source by its identifier.
 func (r *Repository) GetAdminParserSource(ctx context.Context, id int64) (models.AdminParserSource, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT id, source_type, input, title, is_active, last_parsed_at, created_by, created_at, updated_at
@@ -83,6 +86,7 @@ WHERE id = $1;`, id)
 	return scanAdminParserSource(row)
 }
 
+// SetAdminParserSourceActive toggles the active flag for a parser source.
 func (r *Repository) SetAdminParserSourceActive(ctx context.Context, id int64, active bool) error {
 	cmd, err := r.pool.Exec(ctx, `
 UPDATE admin_event_parser_sources
@@ -97,6 +101,7 @@ WHERE id = $2;`, active, id)
 	return nil
 }
 
+// TouchAdminParserSourceParsed updates parser source timestamps after a successful parse run.
 func (r *Repository) TouchAdminParserSourceParsed(ctx context.Context, id int64) error {
 	cmd, err := r.pool.Exec(ctx, `
 UPDATE admin_event_parser_sources
@@ -111,6 +116,7 @@ WHERE id = $1;`, id)
 	return nil
 }
 
+// CreateAdminParsedEvent stores a parsed event candidate produced by a parser run.
 func (r *Repository) CreateAdminParsedEvent(
 	ctx context.Context,
 	sourceID *int64,
@@ -149,6 +155,7 @@ RETURNING id, source_id, source_type, input, name, date_time, location, descript
 	return scanAdminParsedEvent(row)
 }
 
+// ListAdminParsedEvents returns parsed events with optional status/source filters and total count.
 func (r *Repository) ListAdminParsedEvents(ctx context.Context, status string, sourceID *int64, limit, offset int) ([]models.AdminParsedEvent, int, error) {
 	clauses := make([]string, 0)
 	args := make([]interface{}, 0)
@@ -196,6 +203,7 @@ FROM admin_event_parser_events`
 	return items, total, nil
 }
 
+// GetAdminParsedEvent fetches a parsed event candidate by id.
 func (r *Repository) GetAdminParsedEvent(ctx context.Context, id int64) (models.AdminParsedEvent, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT id, source_id, source_type, input, name, date_time, location, description, links,
@@ -205,6 +213,7 @@ WHERE id = $1;`, id)
 	return scanAdminParsedEvent(row)
 }
 
+// RejectAdminParsedEvent marks a parsed event as rejected when it has not been imported yet.
 func (r *Repository) RejectAdminParsedEvent(ctx context.Context, id int64) error {
 	cmd, err := r.pool.Exec(ctx, `
 UPDATE admin_event_parser_events
@@ -219,6 +228,7 @@ WHERE id = $1 AND status <> 'imported';`, id)
 	return nil
 }
 
+// DeleteAdminParsedEvent permanently removes a parsed event candidate.
 func (r *Repository) DeleteAdminParsedEvent(ctx context.Context, id int64) error {
 	cmd, err := r.pool.Exec(ctx, `DELETE FROM admin_event_parser_events WHERE id = $1`, id)
 	if err != nil {
@@ -230,6 +240,7 @@ func (r *Repository) DeleteAdminParsedEvent(ctx context.Context, id int64) error
 	return nil
 }
 
+// ImportAdminParsedEvent creates a real event from parsed data and marks the parsed row as imported.
 func (r *Repository) ImportAdminParsedEvent(ctx context.Context, parsedEventID, importedBy int64, event models.Event, media []string) (int64, error) {
 	var eventID int64
 	filters := event.Filters
@@ -302,6 +313,7 @@ WHERE id = $1;`, parsedEventID, eventID, importedBy); err != nil {
 	return eventID, err
 }
 
+// scanAdminParserSource maps a parser source row into the domain model.
 func scanAdminParserSource(row pgx.Row) (models.AdminParserSource, error) {
 	var item models.AdminParserSource
 	var title sql.NullString
@@ -329,6 +341,7 @@ func scanAdminParserSource(row pgx.Row) (models.AdminParserSource, error) {
 	return item, nil
 }
 
+// scanAdminParsedEvent maps a parsed event row into the domain model.
 func scanAdminParsedEvent(row pgx.Row) (models.AdminParsedEvent, error) {
 	var item models.AdminParsedEvent
 	var sourceID sql.NullInt64
@@ -384,6 +397,7 @@ func scanAdminParsedEvent(row pgx.Row) (models.AdminParsedEvent, error) {
 	return item, nil
 }
 
+// scanAdminParsedEventWithTotal maps a parsed event row and extracts window total from the same row.
 func scanAdminParsedEventWithTotal(rows pgx.Rows) (models.AdminParsedEvent, int, error) {
 	var item models.AdminParsedEvent
 	var sourceID sql.NullInt64

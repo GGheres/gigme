@@ -4,10 +4,15 @@ import '../../../core/network/providers.dart';
 import '../../../core/utils/json_utils.dart';
 import '../domain/ticketing_models.dart';
 
+/// TicketingRepository represents ticketing repository.
+
 class TicketingRepository {
+  /// TicketingRepository handles ticketing repository.
   TicketingRepository(this._ref);
 
   final Ref _ref;
+
+  /// getEventProducts returns event products.
 
   Future<EventProductsModel> getEventProducts({
     required String token,
@@ -20,6 +25,8 @@ class TicketingRepository {
           retry: false,
         );
   }
+
+  /// validatePromo validates promo.
 
   Future<PromoValidationModel> validatePromo({
     required String token,
@@ -39,6 +46,8 @@ class TicketingRepository {
         );
   }
 
+  /// createOrder creates order.
+
   Future<OrderDetailModel> createOrder({
     required String token,
     required CreateOrderPayload payload,
@@ -50,6 +59,8 @@ class TicketingRepository {
           decoder: OrderDetailModel.fromJson,
         );
   }
+
+  /// createSbpQrOrder creates sbp qr order.
 
   Future<CreateSbpQrOrderResponseModel> createSbpQrOrder({
     required String token,
@@ -73,6 +84,8 @@ class TicketingRepository {
         );
   }
 
+  /// getSbpQrStatus returns sbp qr status.
+
   Future<SbpQrStatusResponseModel> getSbpQrStatus({
     required String token,
     required String orderId,
@@ -85,6 +98,8 @@ class TicketingRepository {
         );
   }
 
+  /// getPaymentSettings returns payment settings.
+
   Future<PaymentSettingsModel> getPaymentSettings({
     required String token,
   }) {
@@ -96,6 +111,8 @@ class TicketingRepository {
         );
   }
 
+  /// getAdminPaymentSettings returns admin payment settings.
+
   Future<PaymentSettingsModel> getAdminPaymentSettings({
     required String token,
   }) {
@@ -106,6 +123,8 @@ class TicketingRepository {
           retry: false,
         );
   }
+
+  /// upsertAdminPaymentSettings handles upsert admin payment settings.
 
   Future<PaymentSettingsModel> upsertAdminPaymentSettings({
     required String token,
@@ -147,6 +166,8 @@ class TicketingRepository {
         );
   }
 
+  /// listMyOrders lists my orders.
+
   Future<OrdersListModel> listMyOrders({
     required String token,
     int limit = 50,
@@ -163,6 +184,8 @@ class TicketingRepository {
         );
   }
 
+  /// listMyTickets lists my tickets.
+
   Future<MyTicketsModel> listMyTickets({
     required String token,
     int? eventId,
@@ -176,6 +199,8 @@ class TicketingRepository {
           decoder: MyTicketsModel.fromJson,
         );
   }
+
+  /// listAdminOrders lists admin orders.
 
   Future<OrdersListModel> listAdminOrders({
     required String token,
@@ -202,6 +227,8 @@ class TicketingRepository {
         );
   }
 
+  /// listAdminBotMessages lists admin bot messages.
+
   Future<AdminBotMessagesListModel> listAdminBotMessages({
     required String token,
     int? chatId,
@@ -220,6 +247,8 @@ class TicketingRepository {
         );
   }
 
+  /// replyAdminBotMessage handles reply admin bot message.
+
   Future<void> replyAdminBotMessage({
     required String token,
     required int chatId,
@@ -236,6 +265,8 @@ class TicketingRepository {
         );
   }
 
+  /// getAdminOrder returns admin order.
+
   Future<OrderDetailModel> getAdminOrder({
     required String token,
     required String orderId,
@@ -247,6 +278,8 @@ class TicketingRepository {
           retry: false,
         );
   }
+
+  /// confirmOrder handles confirm order.
 
   Future<OrderDetailModel> confirmOrder({
     required String token,
@@ -260,6 +293,8 @@ class TicketingRepository {
         );
   }
 
+  /// deleteAdminOrder deletes admin order.
+
   Future<void> deleteAdminOrder({
     required String token,
     required String orderId,
@@ -272,6 +307,8 @@ class TicketingRepository {
           decoder: (_) {},
         );
   }
+
+  /// cancelOrder handles cancel order.
 
   Future<OrderDetailModel> cancelOrder({
     required String token,
@@ -287,6 +324,8 @@ class TicketingRepository {
           decoder: OrderDetailModel.fromJson,
         );
   }
+
+  /// redeemTicket handles redeem ticket.
 
   Future<TicketRedeemResultModel> redeemTicket({
     required String token,
@@ -304,6 +343,8 @@ class TicketingRepository {
         );
   }
 
+  /// getAdminStats returns admin stats.
+
   Future<AdminStatsModel> getAdminStats({
     required String token,
     int? eventId,
@@ -317,6 +358,8 @@ class TicketingRepository {
           decoder: AdminStatsModel.fromJson,
         );
   }
+
+  /// listAdminTicketProducts lists admin ticket products.
 
   Future<List<TicketProductModel>> listAdminTicketProducts({
     required String token,
@@ -336,6 +379,8 @@ class TicketingRepository {
       },
     );
   }
+
+  /// createAdminTicketProduct creates admin ticket product.
 
   Future<TicketProductModel> createAdminTicketProduct({
     required String token,
@@ -362,6 +407,8 @@ class TicketingRepository {
         );
   }
 
+  /// patchAdminTicketProduct updates admin ticket product.
+
   Future<TicketProductModel> patchAdminTicketProduct({
     required String token,
     required String productId,
@@ -381,6 +428,8 @@ class TicketingRepository {
         );
   }
 
+  /// deleteAdminTicketProduct deletes admin ticket product.
+
   Future<void> deleteAdminTicketProduct({
     required String token,
     required String productId,
@@ -391,6 +440,8 @@ class TicketingRepository {
           decoder: (_) {},
         );
   }
+
+  /// listAdminTransferProducts lists admin transfer products.
 
   Future<List<TransferProductModel>> listAdminTransferProducts({
     required String token,
@@ -410,6 +461,8 @@ class TicketingRepository {
       },
     );
   }
+
+  /// createAdminTransferProduct creates admin transfer product.
 
   Future<TransferProductModel> createAdminTransferProduct({
     required String token,
@@ -438,6 +491,8 @@ class TicketingRepository {
         );
   }
 
+  /// patchAdminTransferProduct updates admin transfer product.
+
   Future<TransferProductModel> patchAdminTransferProduct({
     required String token,
     required String productId,
@@ -459,6 +514,8 @@ class TicketingRepository {
         );
   }
 
+  /// deleteAdminTransferProduct deletes admin transfer product.
+
   Future<void> deleteAdminTransferProduct({
     required String token,
     required String productId,
@@ -469,6 +526,8 @@ class TicketingRepository {
           decoder: (_) {},
         );
   }
+
+  /// listAdminPromoCodes lists admin promo codes.
 
   Future<List<PromoCodeViewModel>> listAdminPromoCodes({
     required String token,
@@ -488,6 +547,8 @@ class TicketingRepository {
       },
     );
   }
+
+  /// createAdminPromoCode creates admin promo code.
 
   Future<PromoCodeViewModel> createAdminPromoCode({
     required String token,
@@ -517,6 +578,8 @@ class TicketingRepository {
         );
   }
 
+  /// patchAdminPromoCode updates admin promo code.
+
   Future<PromoCodeViewModel> patchAdminPromoCode({
     required String token,
     required String promoId,
@@ -545,6 +608,8 @@ class TicketingRepository {
         );
   }
 
+  /// deleteAdminPromoCode deletes admin promo code.
+
   Future<void> deleteAdminPromoCode({
     required String token,
     required String promoId,
@@ -557,7 +622,10 @@ class TicketingRepository {
   }
 }
 
+/// PromoCodeViewModel represents promo code view model.
+
 class PromoCodeViewModel {
+  /// PromoCodeViewModel handles promo code view model.
   factory PromoCodeViewModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PromoCodeViewModel(
@@ -573,6 +641,8 @@ class PromoCodeViewModel {
       isActive: asBool(map['isActive']),
     );
   }
+
+  /// PromoCodeViewModel handles promo code view model.
   PromoCodeViewModel({
     required this.id,
     required this.code,
@@ -599,4 +669,6 @@ class PromoCodeViewModel {
 }
 
 final ticketingRepositoryProvider =
+
+    /// TicketingRepository handles ticketing repository.
     Provider<TicketingRepository>((ref) => TicketingRepository(ref));

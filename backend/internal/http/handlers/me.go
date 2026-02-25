@@ -9,11 +9,13 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// updateLocationRequest represents update location request.
 type updateLocationRequest struct {
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
 }
 
+// updatePushTokenRequest represents update push token request.
 type updatePushTokenRequest struct {
 	Token      string `json:"token"`
 	Platform   string `json:"platform"`
@@ -22,6 +24,7 @@ type updatePushTokenRequest struct {
 	Locale     string `json:"locale"`
 }
 
+// Me handles internal me behavior.
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -47,6 +50,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
+// UpdateLocation updates location.
 func (h *Handler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -80,6 +84,7 @@ func (h *Handler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// UpsertPushToken handles upsert push token.
 func (h *Handler) UpsertPushToken(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())

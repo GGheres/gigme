@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// createEventRequest represents create event request.
 type createEventRequest struct {
 	Title              string   `json:"title"`
 	Description        string   `json:"description"`
@@ -38,12 +39,14 @@ type createEventRequest struct {
 	ContactSnapchat    string   `json:"contactSnapchat"`
 }
 
+// promoteEventRequest represents promote event request.
 type promoteEventRequest struct {
 	PromotedUntil   *string `json:"promotedUntil"`
 	DurationMinutes *int    `json:"durationMinutes"`
 	Clear           bool    `json:"clear"`
 }
 
+// commentRequest represents comment request.
 type commentRequest struct {
 	Body string `json:"body"`
 }
@@ -74,6 +77,7 @@ var (
 	errTooManyFilters = errors.New("too many filters")
 )
 
+// normalizeEventFilters normalizes event filters.
 func normalizeEventFilters(filters []string, limit int) ([]string, error) {
 	if len(filters) == 0 {
 		return nil, nil
@@ -105,6 +109,7 @@ func normalizeEventFilters(filters []string, limit int) ([]string, error) {
 	return out, nil
 }
 
+// parseEventFiltersQuery parses event filters query.
 func parseEventFiltersQuery(r *http.Request) ([]string, error) {
 	raw := r.URL.Query().Get("filters")
 	if raw == "" {
@@ -113,6 +118,7 @@ func parseEventFiltersQuery(r *http.Request) ([]string, error) {
 	return normalizeEventFilters([]string{raw}, 0)
 }
 
+// normalizeAccessKeys normalizes access keys.
 func normalizeAccessKeys(values []string, limit int) []string {
 	if len(values) == 0 {
 		return nil
@@ -147,6 +153,7 @@ func normalizeAccessKeys(values []string, limit int) []string {
 	return out
 }
 
+// parseAccessKeysQuery parses access keys query.
 func parseAccessKeysQuery(r *http.Request) []string {
 	if r == nil {
 		return nil
@@ -167,6 +174,7 @@ func parseAccessKeysQuery(r *http.Request) []string {
 	return normalizeAccessKeys([]string{raw}, maxAccessKeys)
 }
 
+// accessKeyFromRequest handles access key from request.
 func accessKeyFromRequest(r *http.Request) string {
 	if r == nil {
 		return ""
@@ -188,6 +196,7 @@ func accessKeyFromRequest(r *http.Request) string {
 	return raw
 }
 
+// generateAccessKey handles generate access key.
 func generateAccessKey() (string, error) {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
@@ -196,6 +205,7 @@ func generateAccessKey() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
+// allowPrivateEvent handles allow private event.
 func (h *Handler) allowPrivateEvent(ctx context.Context, event models.Event, userID int64, accessKey string) bool {
 	if !event.IsPrivate {
 		return true
@@ -215,6 +225,7 @@ func (h *Handler) allowPrivateEvent(ctx context.Context, event models.Event, use
 	return false
 }
 
+// CreateEvent creates event.
 func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -437,6 +448,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// NearbyEvents handles nearby events.
 func (h *Handler) NearbyEvents(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, _ := middleware.UserIDFromContext(r.Context())
@@ -474,6 +486,7 @@ func (h *Handler) NearbyEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, markers)
 }
 
+// Feed handles internal feed behavior.
 func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, _ := middleware.UserIDFromContext(r.Context())
@@ -511,6 +524,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+// GetEvent returns event.
 func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	eventID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -583,6 +597,7 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	logger.Info("action", "action", "get_event", "status", "success", "event_id", eventID, "user_id", userID, "participants_count", len(participants), "media_count", len(media))
 }
 
+// JoinEvent joins event.
 func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -667,6 +682,7 @@ func (h *Handler) JoinEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
 }
 
+// LeaveEvent leaves event.
 func (h *Handler) LeaveEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -699,6 +715,7 @@ func (h *Handler) LeaveEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
 }
 
+// LikeEvent likes event.
 func (h *Handler) LikeEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -745,6 +762,7 @@ func (h *Handler) LikeEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "likesCount": count, "isLiked": true})
 }
 
+// UnlikeEvent removes like from event.
 func (h *Handler) UnlikeEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -776,6 +794,7 @@ func (h *Handler) UnlikeEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true, "likesCount": count, "isLiked": false})
 }
 
+// ListEventComments lists event comments.
 func (h *Handler) ListEventComments(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, _ := middleware.UserIDFromContext(r.Context())
@@ -823,6 +842,7 @@ func (h *Handler) ListEventComments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, comments)
 }
 
+// AddEventComment handles add event comment.
 func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -901,6 +921,7 @@ func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 	logger.Info("action", "action", "add_comment", "status", "success", "event_id", eventID, "user_id", userID)
 }
 
+// PromoteEvent handles promote event.
 func (h *Handler) PromoteEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "promote_event"); !ok {
@@ -975,6 +996,7 @@ func (h *Handler) PromoteEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// parseLatLng parses lat lng.
 func parseLatLng(r *http.Request) (*float64, *float64) {
 	q := r.URL.Query()
 	latRaw := q.Get("lat")
@@ -993,6 +1015,7 @@ func parseLatLng(r *http.Request) (*float64, *float64) {
 	return &latVal, &lngVal
 }
 
+// parseRadiusM parses radius m.
 func parseRadiusM(r *http.Request) int {
 	raw := r.URL.Query().Get("radiusM")
 	if raw == "" {
@@ -1005,6 +1028,7 @@ func parseRadiusM(r *http.Request) int {
 	return value
 }
 
+// publicBaseURL handles public base u r l.
 func publicBaseURL(r *http.Request) string {
 	if r == nil {
 		return ""
@@ -1028,6 +1052,7 @@ func publicBaseURL(r *http.Request) string {
 	return proto + "://" + host
 }
 
+// forwardedHeaderValue handles forwarded header value.
 func forwardedHeaderValue(value string) string {
 	if value == "" {
 		return ""

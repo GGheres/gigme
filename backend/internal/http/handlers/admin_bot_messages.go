@@ -12,16 +12,19 @@ import (
 
 const maxAdminBotReplyRunes = 4096
 
+// adminBotMessagesResponse represents admin bot messages response.
 type adminBotMessagesResponse struct {
 	Items []models.AdminBotMessage `json:"items"`
 	Total int                      `json:"total"`
 }
 
+// adminBotReplyRequest represents admin bot reply request.
 type adminBotReplyRequest struct {
 	ChatID int64  `json:"chatId"`
 	Text   string `json:"text"`
 }
 
+// ListAdminBotMessages lists admin bot messages.
 func (h *Handler) ListAdminBotMessages(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_list_bot_messages"); !ok {
@@ -48,6 +51,7 @@ func (h *Handler) ListAdminBotMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, adminBotMessagesResponse{Items: items, Total: total})
 }
 
+// ReplyAdminBotMessage handles reply admin bot message.
 func (h *Handler) ReplyAdminBotMessage(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	adminTelegramID, ok := h.requireAdmin(logger, w, r, "admin_reply_bot_message")
@@ -106,6 +110,7 @@ func (h *Handler) ReplyAdminBotMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// parseChatIDQuery parses chat i d query.
 func parseChatIDQuery(r *http.Request) (*int64, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get("chat_id"))
 	if raw == "" {

@@ -10,12 +10,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// adminAuthRequest represents admin auth request.
 type adminAuthRequest struct {
 	Username   string `json:"username"`
 	Password   string `json:"password"`
 	TelegramID *int64 `json:"telegramId"`
 }
 
+// AuthAdmin authenticates admin.
 func (h *Handler) AuthAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var req adminAuthRequest
@@ -88,6 +90,7 @@ func (h *Handler) AuthAdmin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// resolveAdminTelegramID handles resolve admin telegram i d.
 func (h *Handler) resolveAdminTelegramID(requested *int64) (int64, bool) {
 	if requested != nil && *requested > 0 {
 		return *requested, true

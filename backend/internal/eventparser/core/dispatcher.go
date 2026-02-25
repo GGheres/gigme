@@ -11,10 +11,12 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+// Dispatcher represents dispatcher.
 type Dispatcher struct {
 	parsers map[SourceType]Parser
 }
 
+// NewDispatcher creates dispatcher.
 func NewDispatcher(parsers map[SourceType]Parser) *Dispatcher {
 	cloned := make(map[SourceType]Parser, len(parsers))
 	for k, v := range parsers {
@@ -23,10 +25,12 @@ func NewDispatcher(parsers map[SourceType]Parser) *Dispatcher {
 	return &Dispatcher{parsers: cloned}
 }
 
+// ParseEvent parses event.
 func (d *Dispatcher) ParseEvent(ctx context.Context, input string) (*EventData, error) {
 	return d.ParseEventWithSource(ctx, input, SourceAuto)
 }
 
+// ParseEventWithSource parses event with source.
 func (d *Dispatcher) ParseEventWithSource(ctx context.Context, input string, explicit SourceType) (*EventData, error) {
 	events, err := d.ParseEventsWithSource(ctx, input, explicit)
 	if err != nil {
@@ -38,6 +42,7 @@ func (d *Dispatcher) ParseEventWithSource(ctx context.Context, input string, exp
 	return events[0], nil
 }
 
+// ParseEventsWithSource parses events with source.
 func (d *Dispatcher) ParseEventsWithSource(ctx context.Context, input string, explicit SourceType) ([]*EventData, error) {
 	if d == nil {
 		return nil, errors.New("dispatcher is nil")
@@ -101,6 +106,7 @@ func (d *Dispatcher) ParseEventsWithSource(ctx context.Context, input string, ex
 	return normalizeEvents([]*EventData{item}), nil
 }
 
+// SourceFromURL handles source from u r l.
 func SourceFromURL(u *url.URL) SourceType {
 	if u == nil {
 		return SourceWeb
@@ -128,6 +134,7 @@ func SourceFromURL(u *url.URL) SourceType {
 	}
 }
 
+// parseHTTPURL parses h t t p u r l.
 func parseHTTPURL(raw string) (*url.URL, bool) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -160,6 +167,7 @@ func parseHTTPURL(raw string) (*url.URL, bool) {
 	return nil, false
 }
 
+// normalizeTelegramChannel normalizes telegram channel.
 func normalizeTelegramChannel(input string) (string, bool) {
 	raw := strings.TrimSpace(strings.TrimPrefix(input, "@"))
 	if raw == "" {
@@ -177,6 +185,7 @@ func normalizeTelegramChannel(input string) (string, bool) {
 	return raw, true
 }
 
+// normalizeEvents normalizes events.
 func normalizeEvents(items []*EventData) []*EventData {
 	out := make([]*EventData, 0, len(items))
 	for _, item := range items {

@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:gigme_flutter/core/models/event_card.dart';
 import 'package:gigme_flutter/features/events/presentation/widgets/event_card_tile.dart';
 
+/// main is the application entry point.
+
 void main() {
   testWidgets('renders event card content', (tester) async {
     final event = EventCard(

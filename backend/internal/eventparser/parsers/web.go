@@ -17,11 +17,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// WebParser represents web parser.
 type WebParser struct {
 	fetcher core.Fetcher
 	logger  *slog.Logger
 }
 
+// NewWebParser creates web parser.
 func NewWebParser(fetcher core.Fetcher, logger *slog.Logger) *WebParser {
 	if logger == nil {
 		logger = slog.Default()
@@ -29,6 +31,7 @@ func NewWebParser(fetcher core.Fetcher, logger *slog.Logger) *WebParser {
 	return &WebParser{fetcher: fetcher, logger: logger}
 }
 
+// Parse parses the provided input.
 func (p *WebParser) Parse(ctx context.Context, input string) (*core.EventData, error) {
 	if p == nil || p.fetcher == nil {
 		return nil, fmt.Errorf("web parser is not configured")
@@ -66,6 +69,7 @@ func (p *WebParser) Parse(ctx context.Context, input string) (*core.EventData, e
 	return fallback, nil
 }
 
+// parseJSONLDEvent parses j s o n l d event.
 func parseJSONLDEvent(doc *goquery.Document) *core.EventData {
 	best := &core.EventData{}
 	bestScore := 0
@@ -93,6 +97,7 @@ func parseJSONLDEvent(doc *goquery.Document) *core.EventData {
 	return best
 }
 
+// collectJSONObjects handles collect j s o n objects.
 func collectJSONObjects(payload interface{}) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0)
 	switch v := payload.(type) {
@@ -109,6 +114,7 @@ func collectJSONObjects(payload interface{}) []map[string]interface{} {
 	return out
 }
 
+// eventFromJSONLDMap handles event from j s o n l d map.
 func eventFromJSONLDMap(m map[string]interface{}) *core.EventData {
 	if !isJSONLDEventType(m["@type"]) {
 		return nil
@@ -137,6 +143,7 @@ func eventFromJSONLDMap(m map[string]interface{}) *core.EventData {
 	return event
 }
 
+// isJSONLDEventType reports whether j s o n l d event type condition is met.
 func isJSONLDEventType(value interface{}) bool {
 	switch v := value.(type) {
 	case string:
@@ -151,6 +158,7 @@ func isJSONLDEventType(value interface{}) bool {
 	return false
 }
 
+// parseJSONLDLocation parses j s o n l d location.
 func parseJSONLDLocation(value interface{}) string {
 	switch v := value.(type) {
 	case string:
@@ -187,6 +195,7 @@ func parseJSONLDLocation(value interface{}) string {
 	return ""
 }
 
+// parseJSONLDLinks parses j s o n l d links.
 func parseJSONLDLinks(m map[string]interface{}) []string {
 	links := make([]string, 0)
 	if v := stringField(m, "url"); v != "" {
@@ -207,6 +216,7 @@ func parseJSONLDLinks(m map[string]interface{}) []string {
 	return extract.MergeLinks(links)
 }
 
+// parseFallbackWebEvent parses fallback web event.
 func parseFallbackWebEvent(doc *goquery.Document, pageURL string) *core.EventData {
 	event := &core.EventData{}
 	event.Name = extract.NormalizeText(doc.Find("h1").First().Text())
@@ -256,6 +266,7 @@ func parseFallbackWebEvent(doc *goquery.Document, pageURL string) *core.EventDat
 	return event
 }
 
+// collectDocLinks handles collect doc links.
 func collectDocLinks(doc *goquery.Document, pageURL string) []string {
 	base, _ := url.Parse(pageURL)
 	links := make([]string, 0)
@@ -279,6 +290,7 @@ func collectDocLinks(doc *goquery.Document, pageURL string) []string {
 	return extract.MergeLinks(links)
 }
 
+// parseDateValue parses date value.
 func parseDateValue(raw string) *time.Time {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -298,6 +310,7 @@ func parseDateValue(raw string) *time.Time {
 	return parsed
 }
 
+// stringField handles string field.
 func stringField(m map[string]interface{}, key string) string {
 	if m == nil {
 		return ""

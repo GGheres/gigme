@@ -4,7 +4,10 @@ import 'action_buttons.dart';
 import 'app_card.dart';
 import '../theme/app_spacing.dart';
 
+/// LoadingState represents loading state.
+
 class LoadingState extends StatelessWidget {
+  /// LoadingState handles loading state.
   const LoadingState({
     this.title = 'Загрузка',
     this.subtitle = 'Подождите пару секунд',
@@ -15,6 +18,8 @@ class LoadingState extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool compact;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +51,10 @@ class LoadingState extends StatelessWidget {
   }
 }
 
+/// EmptyState represents empty state.
+
 class EmptyState extends StatelessWidget {
+  /// EmptyState handles empty state.
   const EmptyState({
     required this.title,
     required this.subtitle,
@@ -61,6 +69,8 @@ class EmptyState extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
   final IconData icon;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +98,10 @@ class EmptyState extends StatelessWidget {
   }
 }
 
+/// ErrorState represents error state.
+
 class ErrorState extends StatelessWidget {
+  /// ErrorState handles error state.
   const ErrorState({
     required this.message,
     this.onRetry,
@@ -99,6 +112,8 @@ class ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
   final String retryLabel;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

@@ -24,16 +24,19 @@ const (
 	parserImportMinStartLead = 5 * time.Minute
 )
 
+// adminParserSourcesResponse represents admin parser sources response.
 type adminParserSourcesResponse struct {
 	Items []models.AdminParserSource `json:"items"`
 	Total int                        `json:"total"`
 }
 
+// adminParsedEventsResponse represents admin parsed events response.
 type adminParsedEventsResponse struct {
 	Items []models.AdminParsedEvent `json:"items"`
 	Total int                       `json:"total"`
 }
 
+// createParserSourceRequest represents create parser source request.
 type createParserSourceRequest struct {
 	SourceType string `json:"sourceType"`
 	Input      string `json:"input"`
@@ -41,15 +44,18 @@ type createParserSourceRequest struct {
 	IsActive   *bool  `json:"isActive"`
 }
 
+// updateParserSourceRequest represents update parser source request.
 type updateParserSourceRequest struct {
 	IsActive *bool `json:"isActive"`
 }
 
+// parseInputRequest represents parse input request.
 type parseInputRequest struct {
 	SourceType string `json:"sourceType"`
 	Input      string `json:"input"`
 }
 
+// parseInputResponse represents parse input response.
 type parseInputResponse struct {
 	Item  *models.AdminParsedEvent  `json:"item,omitempty"`
 	Items []models.AdminParsedEvent `json:"items,omitempty"`
@@ -57,15 +63,18 @@ type parseInputResponse struct {
 	Error string                    `json:"error,omitempty"`
 }
 
+// geocodeLocationRequest represents geocode location request.
 type geocodeLocationRequest struct {
 	Query string `json:"query"`
 	Limit int    `json:"limit"`
 }
 
+// geocodeLocationResponse represents geocode location response.
 type geocodeLocationResponse struct {
 	Items []geocode.Result `json:"items"`
 }
 
+// importParsedEventRequest represents import parsed event request.
 type importParsedEventRequest struct {
 	Title       *string  `json:"title"`
 	Description *string  `json:"description"`
@@ -78,6 +87,7 @@ type importParsedEventRequest struct {
 	Filters     []string `json:"filters"`
 }
 
+// ListParserSources lists parser sources.
 func (h *Handler) ListParserSources(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_list_sources"); !ok {
@@ -107,6 +117,7 @@ func (h *Handler) ListParserSources(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, adminParserSourcesResponse{Items: items, Total: total})
 }
 
+// CreateParserSource creates parser source.
 func (h *Handler) CreateParserSource(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_create_source"); !ok {
@@ -148,6 +159,7 @@ func (h *Handler) CreateParserSource(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, item)
 }
 
+// UpdateParserSource updates parser source.
 func (h *Handler) UpdateParserSource(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_update_source"); !ok {
@@ -182,6 +194,7 @@ func (h *Handler) UpdateParserSource(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// ParseParserSource parses parser source.
 func (h *Handler) ParseParserSource(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_parse_source"); !ok {
@@ -223,6 +236,7 @@ func (h *Handler) ParseParserSource(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// ParseParserInput parses parser input.
 func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_parse_input"); !ok {
@@ -262,6 +276,7 @@ func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// GeocodeParserLocation handles geocode parser location.
 func (h *Handler) GeocodeParserLocation(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_geocode"); !ok {
@@ -295,6 +310,7 @@ func (h *Handler) GeocodeParserLocation(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, geocodeLocationResponse{Items: items})
 }
 
+// ListParsedEvents lists parsed events.
 func (h *Handler) ListParsedEvents(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_list_events"); !ok {
@@ -334,6 +350,7 @@ func (h *Handler) ListParsedEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, adminParsedEventsResponse{Items: items, Total: total})
 }
 
+// RejectParsedEvent rejects parsed event.
 func (h *Handler) RejectParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_reject_event"); !ok {
@@ -358,6 +375,7 @@ func (h *Handler) RejectParsedEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// DeleteParsedEvent deletes parsed event.
 func (h *Handler) DeleteParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_delete_event"); !ok {
@@ -382,6 +400,7 @@ func (h *Handler) DeleteParsedEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// ImportParsedEvent imports parsed event.
 func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_import_event"); !ok {
@@ -510,6 +529,7 @@ func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// parseAndStore parses and store.
 func (h *Handler) parseAndStore(ctx context.Context, sourceID *int64, sourceType parsercore.SourceType, input string) ([]models.AdminParsedEvent, error) {
 	if sourceType == "" {
 		sourceType = parsercore.SourceAuto
@@ -582,6 +602,7 @@ func (h *Handler) parseAndStore(ctx context.Context, sourceID *int64, sourceType
 	return out, nil
 }
 
+// normalizeParserSourceType normalizes parser source type.
 func normalizeParserSourceType(raw string) (parsercore.SourceType, error) {
 	sourceType := parsercore.SourceType(strings.ToLower(strings.TrimSpace(raw)))
 	if sourceType == "" {
@@ -593,6 +614,7 @@ func normalizeParserSourceType(raw string) (parsercore.SourceType, error) {
 	return sourceType, nil
 }
 
+// firstString handles first string.
 func firstString(preferred *string, fallback string) string {
 	if preferred != nil {
 		return strings.TrimSpace(*preferred)
@@ -600,6 +622,7 @@ func firstString(preferred *string, fallback string) string {
 	return strings.TrimSpace(fallback)
 }
 
+// parseEventTime parses event time.
 func parseEventTime(raw string) (time.Time, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -614,6 +637,7 @@ func parseEventTime(raw string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("invalid time")
 }
 
+// normalizeImportedStartsAt normalizes imported starts at.
 func normalizeImportedStartsAt(startsAt time.Time, now time.Time) (time.Time, bool) {
 	base := startsAt.UTC()
 	if base.IsZero() {
@@ -626,6 +650,7 @@ func normalizeImportedStartsAt(startsAt time.Time, now time.Time) (time.Time, bo
 	return base, false
 }
 
+// normalizeImportMedia normalizes import media.
 func normalizeImportMedia(explicit []string, links []string, limit int) []string {
 	candidates := explicit
 	if len(candidates) == 0 {
@@ -650,6 +675,7 @@ func normalizeImportMedia(explicit []string, links []string, limit int) []string
 	return out
 }
 
+// extractImageLinks extracts image links.
 func extractImageLinks(links []string) []string {
 	out := make([]string, 0, len(links))
 	for _, link := range links {
@@ -669,6 +695,7 @@ func extractImageLinks(links []string) []string {
 	return out
 }
 
+// normalizeImportLinks normalizes import links.
 func normalizeImportLinks(explicit []string, parsed []string, limit int) []string {
 	candidates := explicit
 	if len(candidates) == 0 {

@@ -9,6 +9,7 @@ import (
 
 const accessTokenTTL = 15 * time.Minute
 
+// AccessClaims represents access claims.
 type AccessClaims struct {
 	UserID     int64 `json:"uid"`
 	TelegramID int64 `json:"tgid"`
@@ -17,6 +18,7 @@ type AccessClaims struct {
 	jwt.RegisteredClaims
 }
 
+// SignAccessToken signs access token.
 func SignAccessToken(secret string, userID int64, telegramID int64, isNew bool, isAdmin bool) (string, error) {
 	claims := AccessClaims{
 		UserID:     userID,
@@ -34,6 +36,7 @@ func SignAccessToken(secret string, userID int64, telegramID int64, isNew bool, 
 	return token.SignedString([]byte(secret))
 }
 
+// ParseAccessToken parses access token.
 func ParseAccessToken(secret string, tokenString string) (*AccessClaims, error) {
 	parsed, err := jwt.ParseWithClaims(tokenString, &AccessClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if token.Method != jwt.SigningMethodHS256 {

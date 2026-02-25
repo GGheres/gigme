@@ -1,7 +1,10 @@
 import '../utils/json_utils.dart';
 import 'user.dart';
 
+/// AuthSession represents auth session.
+
 class AuthSession {
+  /// AuthSession authenticates session.
 
   factory AuthSession.fromJson(dynamic json) {
     final map = asMap(json);
@@ -11,6 +14,8 @@ class AuthSession {
       isNew: asBool(map['isNew']),
     );
   }
+
+  /// AuthSession authenticates session.
   AuthSession({
     required this.accessToken,
     required this.user,

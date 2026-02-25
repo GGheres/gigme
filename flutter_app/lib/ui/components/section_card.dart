@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'app_card.dart';
 import '../theme/app_spacing.dart';
 
+/// SectionCard represents section card.
+
 class SectionCard extends StatelessWidget {
+  /// SectionCard handles section card.
   const SectionCard({
     required this.title,
     required this.child,
@@ -20,6 +23,8 @@ class SectionCard extends StatelessWidget {
   final Widget? trailing;
   final EdgeInsetsGeometry padding;
   final AppCardVariant variant;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

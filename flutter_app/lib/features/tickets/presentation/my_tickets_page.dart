@@ -17,23 +17,34 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// MyTicketsPage represents my tickets page.
+
 class MyTicketsPage extends ConsumerStatefulWidget {
+  /// MyTicketsPage handles my tickets page.
   const MyTicketsPage({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<MyTicketsPage> createState() => _MyTicketsPageState();
 }
+
+/// _MyTicketsPageState represents my tickets page state.
 
 class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
   bool _loading = true;
   String? _error;
   List<TicketModel> _tickets = <TicketModel>[];
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
+
+  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -67,6 +78,8 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
       });
     }
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +216,8 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
       ),
     );
   }
+
+  /// _handleBack handles back.
 
   void _handleBack() {
     if (Navigator.of(context).canPop()) {

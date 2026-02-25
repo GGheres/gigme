@@ -23,6 +23,7 @@ import (
 	"gigme/backend/internal/repository"
 )
 
+// main is the executable entry point.
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -94,11 +95,13 @@ func main() {
 	}
 }
 
+// TelegramSender represents telegram sender.
 type TelegramSender interface {
 	SendMessageWithMarkup(chatID int64, text string, markup *integrations.ReplyMarkup) error
 	SendPhotoWithMarkup(chatID int64, photoURL, caption string, markup *integrations.ReplyMarkup) error
 }
 
+// handleJob handles job.
 func handleJob(ctx context.Context, repo *repository.Repository, telegram TelegramSender, baseURL, apiBaseURL string, job models.NotificationJob, logger *slog.Logger) error {
 	if logger == nil {
 		logger = slog.Default()
@@ -166,6 +169,7 @@ func handleJob(ctx context.Context, repo *repository.Repository, telegram Telegr
 	return nil
 }
 
+// notificationMessage represents notification message.
 type notificationMessage struct {
 	Text       string
 	PhotoURLs  []string
@@ -173,6 +177,7 @@ type notificationMessage struct {
 	ButtonText string
 }
 
+// buildNotification builds notification.
 func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) notificationMessage {
 	title := payloadString(job.Payload, "title")
 	eventURL := buildEventURL(baseURL, extractEventID(job))
@@ -223,6 +228,7 @@ func buildNotification(job models.NotificationJob, baseURL, apiBaseURL string) n
 	}
 }
 
+// buildEventCard builds event card.
 func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading string) notificationMessage {
 	title := payloadString(job.Payload, "title")
 	startsAt := formatStartsAt(payloadString(job.Payload, "startsAt"))
@@ -256,6 +262,7 @@ func buildEventCard(job models.NotificationJob, baseURL, apiBaseURL, heading str
 	}
 }
 
+// buildCommentNotification builds comment notification.
 func buildCommentNotification(job models.NotificationJob, baseURL, apiBaseURL string) notificationMessage {
 	title := payloadString(job.Payload, "title")
 	commenter := payloadString(job.Payload, "commenterName")
@@ -287,6 +294,7 @@ func buildCommentNotification(job models.NotificationJob, baseURL, apiBaseURL st
 	}
 }
 
+// payloadString handles payload string.
 func payloadString(payload map[string]interface{}, key string) string {
 	if payload == nil {
 		return ""
@@ -305,6 +313,7 @@ func payloadString(payload map[string]interface{}, key string) string {
 	}
 }
 
+// extractEventID extracts event i d.
 func extractEventID(job models.NotificationJob) int64 {
 	if job.EventID != nil {
 		return *job.EventID
@@ -312,6 +321,7 @@ func extractEventID(job models.NotificationJob) int64 {
 	return payloadInt64(job.Payload, "eventId")
 }
 
+// payloadInt64 handles payload int64.
 func payloadInt64(payload map[string]interface{}, key string) int64 {
 	if payload == nil {
 		return 0
@@ -336,6 +346,7 @@ func payloadInt64(payload map[string]interface{}, key string) int64 {
 	return 0
 }
 
+// formatStartsAt formats starts at.
 func formatStartsAt(value string) string {
 	if value == "" {
 		return ""
@@ -347,6 +358,7 @@ func formatStartsAt(value string) string {
 	return parsed.Format("2006-01-02 15:04")
 }
 
+// buttonText handles button text.
 func buttonText(url string) string {
 	if url == "" {
 		return ""
@@ -354,6 +366,7 @@ func buttonText(url string) string {
 	return "Открыть событие"
 }
 
+// buildEventURL builds event u r l.
 func buildEventURL(baseURL string, eventID int64) string {
 	baseURL = normalizeWebAppBaseURL(baseURL)
 	if baseURL == "" || eventID <= 0 {
@@ -374,6 +387,7 @@ func buildEventURL(baseURL string, eventID int64) string {
 	return parsed.String()
 }
 
+// normalizeWebAppBaseURL normalizes web app base u r l.
 func normalizeWebAppBaseURL(raw string) string {
 	base := strings.TrimSpace(raw)
 	if base == "" {
@@ -403,6 +417,7 @@ func normalizeWebAppBaseURL(raw string) string {
 	return parsed.String()
 }
 
+// buildMediaPreviewURL builds media preview u r l.
 func buildMediaPreviewURL(baseURL string, eventID int64) string {
 	if baseURL == "" || eventID <= 0 {
 		return ""
@@ -418,6 +433,7 @@ func buildMediaPreviewURL(baseURL string, eventID int64) string {
 	return parsed.String()
 }
 
+// buildNotificationPhotoURLs builds notification photo u r ls.
 func buildNotificationPhotoURLs(job models.NotificationJob, baseURL, apiBaseURL string) []string {
 	mediaBaseURL := strings.TrimSpace(apiBaseURL)
 	if mediaBaseURL == "" {
@@ -437,6 +453,7 @@ func buildNotificationPhotoURLs(job models.NotificationJob, baseURL, apiBaseURL 
 	)
 }
 
+// buildMediaPreviewCandidates builds media preview candidates.
 func buildMediaPreviewCandidates(eventID int64, apiBaseURL, baseURL string) []string {
 	return appendUniqueStrings(
 		nil,
@@ -447,6 +464,7 @@ func buildMediaPreviewCandidates(eventID int64, apiBaseURL, baseURL string) []st
 	)
 }
 
+// buildAPIBaseURL builds a p i base u r l.
 func buildAPIBaseURL(baseURL string) string {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
@@ -458,6 +476,7 @@ func buildAPIBaseURL(baseURL string) string {
 	return parsed.String()
 }
 
+// normalizePhotoURL normalizes photo u r l.
 func normalizePhotoURL(raw string, baseURLs ...string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -500,6 +519,7 @@ func normalizePhotoURL(raw string, baseURLs ...string) string {
 	return ""
 }
 
+// appendUniqueStrings handles append unique strings.
 func appendUniqueStrings(target []string, values ...string) []string {
 	if target == nil {
 		target = make([]string, 0, len(values))
@@ -523,6 +543,7 @@ func appendUniqueStrings(target []string, values ...string) []string {
 	return target
 }
 
+// withTitle configures title.
 func withTitle(prefix, title string) string {
 	trimmed := strings.TrimSpace(title)
 	if trimmed == "" {
@@ -531,6 +552,7 @@ func withTitle(prefix, title string) string {
 	return fmt.Sprintf("%s: %s", prefix, trimmed)
 }
 
+// mergeEventIDIntoFragment merges event i d into fragment.
 func mergeEventIDIntoFragment(fragment string, eventID int64) string {
 	if eventID <= 0 {
 		return fragment
@@ -553,6 +575,7 @@ func mergeEventIDIntoFragment(fragment string, eventID int64) string {
 	return fragment
 }
 
+// truncateRunes handles truncate runes.
 func truncateRunes(value string, max int) string {
 	if max <= 0 || value == "" {
 		return ""
@@ -573,16 +596,19 @@ func truncateRunes(value string, max int) string {
 	return string(out) + "…"
 }
 
+// broadcastPayload represents broadcast payload.
 type broadcastPayload struct {
 	Message string            `json:"message"`
 	Buttons []broadcastButton `json:"buttons"`
 }
 
+// broadcastButton represents broadcast button.
 type broadcastButton struct {
 	Text string `json:"text"`
 	URL  string `json:"url"`
 }
 
+// processBroadcastJobs handles process broadcast jobs.
 func processBroadcastJobs(ctx context.Context, repo *repository.Repository, telegram TelegramSender, jobs []models.AdminBroadcastJob, limiter *time.Ticker, logger *slog.Logger) error {
 	if logger == nil {
 		logger = slog.Default()
@@ -616,6 +642,7 @@ func processBroadcastJobs(ctx context.Context, repo *repository.Repository, tele
 	return nil
 }
 
+// loadBroadcastPayload loads broadcast payload.
 func loadBroadcastPayload(ctx context.Context, repo *repository.Repository, broadcastID int64) (broadcastPayload, error) {
 	record, err := repo.GetAdminBroadcast(ctx, broadcastID)
 	if err != nil {
@@ -638,6 +665,7 @@ func loadBroadcastPayload(ctx context.Context, repo *repository.Repository, broa
 	return payload, nil
 }
 
+// handleBroadcastJob handles broadcast job.
 func handleBroadcastJob(ctx context.Context, repo *repository.Repository, telegram TelegramSender, job models.AdminBroadcastJob, payload broadcastPayload, limiter *time.Ticker, logger *slog.Logger) error {
 	if logger == nil {
 		logger = slog.Default()
@@ -696,6 +724,7 @@ func handleBroadcastJob(ctx context.Context, repo *repository.Repository, telegr
 	return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "failed", attempts, lastErr.Error())
 }
 
+// buildBroadcastMarkup builds broadcast markup.
 func buildBroadcastMarkup(buttons []broadcastButton) *integrations.ReplyMarkup {
 	if len(buttons) == 0 {
 		return nil

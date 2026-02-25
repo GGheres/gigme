@@ -13,14 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Repository represents repository.
 type Repository struct {
 	pool *pgxpool.Pool
 }
 
+// New creates the requested data.
 func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// UpsertUser handles upsert user.
 func (r *Repository) UpsertUser(ctx context.Context, user models.User) (models.User, bool, error) {
 	query := `
 INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, last_seen_at)
@@ -53,6 +56,7 @@ RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, r
 	return out, isNew, err
 }
 
+// GetUserByID returns user by i d.
 func (r *Repository) GetUserByID(ctx context.Context, id int64) (models.User, error) {
 	row := r.pool.QueryRow(ctx, `SELECT id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at FROM users WHERE id = $1`, id)
 	var out models.User
@@ -72,6 +76,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id int64) (models.User, er
 	return out, err
 }
 
+// UpdateUserLocation updates user location.
 func (r *Repository) UpdateUserLocation(ctx context.Context, userID int64, lat, lng float64) error {
 	_, err := r.pool.Exec(ctx, `
 UPDATE users
@@ -82,6 +87,7 @@ WHERE id = $1;`, userID, lng, lat)
 	return err
 }
 
+// AddUserTokens handles add user tokens.
 func (r *Repository) AddUserTokens(ctx context.Context, userID int64, amount int64) (int64, error) {
 	row := r.pool.QueryRow(ctx, `
 UPDATE users
@@ -96,6 +102,7 @@ RETURNING balance_tokens;`, userID, amount)
 	return balance, nil
 }
 
+// GetNearbyUserIDs returns nearby user i ds.
 func (r *Repository) GetNearbyUserIDs(ctx context.Context, lat, lng float64, radiusMeters int, excludeUserID int64, seenAfter *time.Time, limit int) ([]int64, error) {
 	query := `
 SELECT id
@@ -131,6 +138,7 @@ LIMIT $6;`
 	return out, rows.Err()
 }
 
+// CountUserEventsLastHour handles count user events last hour.
 func (r *Repository) CountUserEventsLastHour(ctx context.Context, userID int64) (int, error) {
 	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM events WHERE creator_user_id = $1 AND created_at >= now() - interval '1 hour'`, userID)
 	var count int
@@ -140,6 +148,7 @@ func (r *Repository) CountUserEventsLastHour(ctx context.Context, userID int64) 
 	return count, nil
 }
 
+// CreateEvent creates event.
 func (r *Repository) CreateEvent(ctx context.Context, event models.Event) (int64, error) {
 	filters := event.Filters
 	if filters == nil {
@@ -190,6 +199,7 @@ INSERT INTO events (
 	return id, nil
 }
 
+// InsertEventMedia handles insert event media.
 func (r *Repository) InsertEventMedia(ctx context.Context, eventID int64, urls []string) error {
 	if len(urls) == 0 {
 		return nil
@@ -209,6 +219,7 @@ func (r *Repository) InsertEventMedia(ctx context.Context, eventID int64, urls [
 	return nil
 }
 
+// GetEventMarkers returns event markers.
 func (r *Repository) GetEventMarkers(ctx context.Context, userID int64, from, to *time.Time, lat, lng *float64, radiusMeters int, filters []string, accessKeys []string) ([]models.EventMarker, error) {
 	query := `
 SELECT e.id, e.title, e.starts_at,
@@ -267,6 +278,7 @@ LIMIT 500;`
 	return markers, rows.Err()
 }
 
+// GetFeed returns feed.
 func (r *Repository) GetFeed(ctx context.Context, userID int64, limit, offset int, lat, lng *float64, radiusMeters int, filters []string, accessKeys []string) ([]models.Event, error) {
 	query := `
 SELECT e.id, e.title, e.description, e.starts_at, e.ends_at,
@@ -382,6 +394,7 @@ LIMIT $2 OFFSET $3;`
 	return out, rows.Err()
 }
 
+// ListLandingEvents lists landing events.
 func (r *Repository) ListLandingEvents(ctx context.Context, limit, offset int) ([]models.Event, int, error) {
 	if limit <= 0 {
 		limit = 50
@@ -454,6 +467,7 @@ LIMIT $1 OFFSET $2;`, limit, offset)
 	return out, total, nil
 }
 
+// GetLandingContent returns landing content.
 func (r *Repository) GetLandingContent(ctx context.Context) (models.LandingContent, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT hero_eyebrow, hero_title, hero_description, hero_primary_cta_label,
@@ -489,6 +503,7 @@ WHERE id = 1;`)
 	return out, nil
 }
 
+// UpsertLandingContent handles upsert landing content.
 func (r *Repository) UpsertLandingContent(ctx context.Context, content models.LandingContent) error {
 	_, err := r.pool.Exec(ctx, `
 INSERT INTO landing_content (
@@ -524,6 +539,7 @@ ON CONFLICT (id) DO UPDATE SET
 	return err
 }
 
+// ListUserEvents lists user events.
 func (r *Repository) ListUserEvents(ctx context.Context, userID int64, limit, offset int) ([]models.UserEvent, int, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT e.id, e.title, e.starts_at,
@@ -560,6 +576,7 @@ LIMIT $2 OFFSET $3;`, userID, limit, offset)
 	return out, total, nil
 }
 
+// GetEventByID returns event by i d.
 func (r *Repository) GetEventByID(ctx context.Context, eventID int64) (models.Event, error) {
 	query := `
 SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
@@ -643,6 +660,7 @@ WHERE e.id = $1;`
 	return e, nil
 }
 
+// GetParticipantsPreview returns participants preview.
 func (r *Repository) GetParticipantsPreview(ctx context.Context, eventID int64, limit int) ([]models.Participant, error) {
 	query := `
 SELECT p.user_id, COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS name, p.joined_at
@@ -669,6 +687,7 @@ LIMIT $2;`
 	return out, rows.Err()
 }
 
+// IsUserJoined reports whether user joined condition is met.
 func (r *Repository) IsUserJoined(ctx context.Context, eventID, userID int64) (bool, error) {
 	row := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = $1 AND user_id = $2)`, eventID, userID)
 	var exists bool
@@ -678,26 +697,31 @@ func (r *Repository) IsUserJoined(ctx context.Context, eventID, userID int64) (b
 	return exists, nil
 }
 
+// JoinEvent joins event.
 func (r *Repository) JoinEvent(ctx context.Context, eventID, userID int64) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO event_participants (event_id, user_id, status) VALUES ($1, $2, 'joined') ON CONFLICT DO NOTHING`, eventID, userID)
 	return err
 }
 
+// LeaveEvent leaves event.
 func (r *Repository) LeaveEvent(ctx context.Context, eventID, userID int64) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2`, eventID, userID)
 	return err
 }
 
+// LikeEvent likes event.
 func (r *Repository) LikeEvent(ctx context.Context, eventID, userID int64) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO event_likes (event_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, eventID, userID)
 	return err
 }
 
+// UnlikeEvent removes like from event.
 func (r *Repository) UnlikeEvent(ctx context.Context, eventID, userID int64) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM event_likes WHERE event_id = $1 AND user_id = $2`, eventID, userID)
 	return err
 }
 
+// IsEventLiked reports whether event liked condition is met.
 func (r *Repository) IsEventLiked(ctx context.Context, eventID, userID int64) (bool, error) {
 	row := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM event_likes WHERE event_id = $1 AND user_id = $2)`, eventID, userID)
 	var exists bool
@@ -707,6 +731,7 @@ func (r *Repository) IsEventLiked(ctx context.Context, eventID, userID int64) (b
 	return exists, nil
 }
 
+// CountEventLikes handles count event likes.
 func (r *Repository) CountEventLikes(ctx context.Context, eventID int64) (int, error) {
 	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM event_likes WHERE event_id = $1`, eventID)
 	var count int
@@ -716,6 +741,7 @@ func (r *Repository) CountEventLikes(ctx context.Context, eventID int64) (int, e
 	return count, nil
 }
 
+// CountEventComments handles count event comments.
 func (r *Repository) CountEventComments(ctx context.Context, eventID int64) (int, error) {
 	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM event_comments WHERE event_id = $1`, eventID)
 	var count int
@@ -725,6 +751,7 @@ func (r *Repository) CountEventComments(ctx context.Context, eventID int64) (int
 	return count, nil
 }
 
+// AddEventComment handles add event comment.
 func (r *Repository) AddEventComment(ctx context.Context, eventID, userID int64, body string) (models.EventComment, error) {
 	query := `
 WITH inserted AS (
@@ -744,6 +771,7 @@ JOIN users u ON u.id = inserted.user_id;`
 	return comment, nil
 }
 
+// ListEventComments lists event comments.
 func (r *Repository) ListEventComments(ctx context.Context, eventID int64, limit, offset int) ([]models.EventComment, error) {
 	rows, err := r.pool.Query(ctx, `
 SELECT c.id, c.event_id, c.user_id, c.body, c.created_at,
@@ -768,6 +796,7 @@ LIMIT $2 OFFSET $3;`, eventID, limit, offset)
 	return comments, rows.Err()
 }
 
+// DeleteEventComment deletes event comment.
 func (r *Repository) DeleteEventComment(ctx context.Context, commentID int64) (int64, error) {
 	row := r.pool.QueryRow(ctx, `DELETE FROM event_comments WHERE id = $1 RETURNING event_id`, commentID)
 	var eventID int64
@@ -777,6 +806,7 @@ func (r *Repository) DeleteEventComment(ctx context.Context, commentID int64) (i
 	return eventID, nil
 }
 
+// GetEventCreatorUserID returns event creator user i d.
 func (r *Repository) GetEventCreatorUserID(ctx context.Context, eventID int64) (int64, error) {
 	row := r.pool.QueryRow(ctx, `SELECT creator_user_id FROM events WHERE id = $1`, eventID)
 	var userID int64
@@ -786,6 +816,7 @@ func (r *Repository) GetEventCreatorUserID(ctx context.Context, eventID int64) (
 	return userID, nil
 }
 
+// CreateNotificationJob creates notification job.
 func (r *Repository) CreateNotificationJob(ctx context.Context, job models.NotificationJob) (int64, error) {
 	payload, err := json.Marshal(job.Payload)
 	if err != nil {
@@ -802,6 +833,7 @@ RETURNING id;`, job.UserID, job.EventID, job.Kind, job.RunAt, payload, job.Statu
 	return id, nil
 }
 
+// CreateNotificationJobsForAllUsers creates notification jobs for all users.
 func (r *Repository) CreateNotificationJobsForAllUsers(ctx context.Context, eventID int64, kind string, runAt time.Time, payload map[string]interface{}) (int64, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -817,6 +849,7 @@ FROM users;`, eventID, kind, runAt, payloadBytes)
 	return command.RowsAffected(), nil
 }
 
+// FetchDueNotificationJobs handles fetch due notification jobs.
 func (r *Repository) FetchDueNotificationJobs(ctx context.Context, limit int) ([]models.NotificationJob, error) {
 	query := `
 WITH cte AS (
@@ -860,12 +893,14 @@ RETURNING n.id, n.user_id, n.event_id, n.kind, n.run_at, n.payload, n.status, n.
 	return jobs, nil
 }
 
+// UpdateNotificationJobStatus updates notification job status.
 func (r *Repository) UpdateNotificationJobStatus(ctx context.Context, jobID int64, status string, attempts int, lastError string, nextRun *time.Time) error {
 	query := `UPDATE notification_jobs SET status = $1, attempts = $2, last_error = $3, run_at = COALESCE($4, run_at), updated_at = now() WHERE id = $5`
 	_, err := r.pool.Exec(ctx, query, status, attempts, nullString(lastError), nextRun, jobID)
 	return err
 }
 
+// RequeueStaleProcessing handles requeue stale processing.
 func (r *Repository) RequeueStaleProcessing(ctx context.Context, staleAfter time.Duration) error {
 	query := `UPDATE notification_jobs SET status = 'pending', updated_at = now() WHERE status = 'processing' AND updated_at <= now() - $1::interval`
 	interval := fmt.Sprintf("%d seconds", int(staleAfter.Seconds()))
@@ -873,6 +908,7 @@ func (r *Repository) RequeueStaleProcessing(ctx context.Context, staleAfter time
 	return err
 }
 
+// GetEventStart returns event start.
 func (r *Repository) GetEventStart(ctx context.Context, eventID int64) (time.Time, error) {
 	row := r.pool.QueryRow(ctx, `SELECT starts_at FROM events WHERE id = $1`, eventID)
 	var t time.Time
@@ -882,6 +918,7 @@ func (r *Repository) GetEventStart(ctx context.Context, eventID int64) (time.Tim
 	return t, nil
 }
 
+// nullString handles null string.
 func nullString(val string) interface{} {
 	if val == "" {
 		return nil
@@ -889,6 +926,7 @@ func nullString(val string) interface{} {
 	return val
 }
 
+// nullInt64Ptr handles null int64 ptr.
 func nullInt64Ptr(val *int64) interface{} {
 	if val == nil || *val <= 0 {
 		return nil
@@ -896,6 +934,7 @@ func nullInt64Ptr(val *int64) interface{} {
 	return *val
 }
 
+// GetEventTitle returns event title.
 func (r *Repository) GetEventTitle(ctx context.Context, eventID int64) (string, error) {
 	row := r.pool.QueryRow(ctx, `SELECT title FROM events WHERE id = $1`, eventID)
 	var title string
@@ -905,6 +944,7 @@ func (r *Repository) GetEventTitle(ctx context.Context, eventID int64) (string, 
 	return title, nil
 }
 
+// GetUserTelegramID returns user telegram i d.
 func (r *Repository) GetUserTelegramID(ctx context.Context, userID int64) (int64, error) {
 	row := r.pool.QueryRow(ctx, `SELECT telegram_id FROM users WHERE id = $1`, userID)
 	var tid int64
@@ -914,6 +954,7 @@ func (r *Repository) GetUserTelegramID(ctx context.Context, userID int64) (int64
 	return tid, nil
 }
 
+// GetEventCapacity returns event capacity.
 func (r *Repository) GetEventCapacity(ctx context.Context, eventID int64) (*int, error) {
 	row := r.pool.QueryRow(ctx, `SELECT capacity FROM events WHERE id = $1`, eventID)
 	var cap *int
@@ -923,6 +964,7 @@ func (r *Repository) GetEventCapacity(ctx context.Context, eventID int64) (*int,
 	return cap, nil
 }
 
+// CountParticipants handles count participants.
 func (r *Repository) CountParticipants(ctx context.Context, eventID int64) (int, error) {
 	row := r.pool.QueryRow(ctx, `SELECT count(*) FROM event_participants WHERE event_id = $1`, eventID)
 	var count int
@@ -932,6 +974,7 @@ func (r *Repository) CountParticipants(ctx context.Context, eventID int64) (int,
 	return count, nil
 }
 
+// WithTx configures tx.
 func (r *Repository) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -944,6 +987,7 @@ func (r *Repository) WithTx(ctx context.Context, fn func(pgx.Tx) error) error {
 	return tx.Commit(ctx)
 }
 
+// CreateEventWithMedia creates event with media.
 func (r *Repository) CreateEventWithMedia(ctx context.Context, event models.Event, media []string) (int64, error) {
 	var eventID int64
 	filters := event.Filters
@@ -998,6 +1042,7 @@ INSERT INTO events (
 	})
 }
 
+// ListEventMedia lists event media.
 func (r *Repository) ListEventMedia(ctx context.Context, eventID int64) ([]string, error) {
 	rows, err := r.pool.Query(ctx, `SELECT url FROM event_media WHERE event_id = $1 ORDER BY id ASC`, eventID)
 	if err != nil {
@@ -1015,11 +1060,13 @@ func (r *Repository) ListEventMedia(ctx context.Context, eventID int64) ([]strin
 	return out, rows.Err()
 }
 
+// SetEventHidden sets event hidden.
 func (r *Repository) SetEventHidden(ctx context.Context, eventID int64, hidden bool) error {
 	_, err := r.pool.Exec(ctx, `UPDATE events SET is_hidden = $1, updated_at = now() WHERE id = $2`, hidden, eventID)
 	return err
 }
 
+// SetEventLandingPublished sets event landing published.
 func (r *Repository) SetEventLandingPublished(ctx context.Context, eventID int64, published bool) error {
 	command, err := r.pool.Exec(ctx, `
 UPDATE events
@@ -1035,6 +1082,7 @@ WHERE id = $2;`, published, eventID)
 	return nil
 }
 
+// UpdateEventWithMedia updates event with media.
 func (r *Repository) UpdateEventWithMedia(ctx context.Context, event models.Event, media []string, replaceMedia bool) error {
 	filters := event.Filters
 	if filters == nil {
@@ -1095,6 +1143,7 @@ WHERE id = $15;`,
 	})
 }
 
+// SetEventPromotedUntil sets event promoted until.
 func (r *Repository) SetEventPromotedUntil(ctx context.Context, eventID int64, until *time.Time) error {
 	command, err := r.pool.Exec(ctx, `UPDATE events SET promoted_until = $1, updated_at = now() WHERE id = $2`, until, eventID)
 	if err != nil {
@@ -1106,6 +1155,7 @@ func (r *Repository) SetEventPromotedUntil(ctx context.Context, eventID int64, u
 	return nil
 }
 
+// DeleteEvent deletes event.
 func (r *Repository) DeleteEvent(ctx context.Context, eventID int64) error {
 	command, err := r.pool.Exec(ctx, `DELETE FROM events WHERE id = $1`, eventID)
 	if err != nil {
@@ -1117,6 +1167,7 @@ func (r *Repository) DeleteEvent(ctx context.Context, eventID int64) error {
 	return nil
 }
 
+// ensurePool handles ensure pool.
 func (r *Repository) ensurePool() error {
 	if r.pool == nil {
 		return fmt.Errorf("db pool is nil")

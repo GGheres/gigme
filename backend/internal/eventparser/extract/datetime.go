@@ -51,6 +51,7 @@ var (
 	ampmSpaceRE    = regexp.MustCompile(`(?i)\b(\d{1,2}(?::\d{2})?)\s*(am|pm)\b`)
 )
 
+// layoutSpec represents layout spec.
 type layoutSpec struct {
 	layout  string
 	hasYear bool
@@ -98,6 +99,7 @@ var dateLayouts = []layoutSpec{
 	{layout: "January 2", hasYear: false},
 }
 
+// ExtractDateCandidates extracts date candidates.
 func ExtractDateCandidates(text string) []string {
 	normalized := NormalizeText(text)
 	if normalized == "" {
@@ -124,6 +126,7 @@ func ExtractDateCandidates(text string) []string {
 	return out
 }
 
+// ParseDateTime parses date time.
 func ParseDateTime(text string) (*time.Time, error) {
 	candidates := ExtractDateCandidates(text)
 	if len(candidates) == 0 {
@@ -137,6 +140,7 @@ func ParseDateTime(text string) (*time.Time, error) {
 	return nil, fmt.Errorf("unable to parse date from %q", strings.Join(candidates, "; "))
 }
 
+// parseCandidate parses candidate.
 func parseCandidate(candidate string) *time.Time {
 	normalized := normalizeDateInput(candidate)
 	if normalized == "" {
@@ -156,6 +160,7 @@ func parseCandidate(candidate string) *time.Time {
 	return nil
 }
 
+// normalizeDateInput normalizes date input.
 func normalizeDateInput(candidate string) string {
 	s := strings.TrimSpace(candidate)
 	s = strings.ReplaceAll(s, "\u00a0", " ")
@@ -168,6 +173,7 @@ func normalizeDateInput(candidate string) string {
 	return strings.TrimSpace(s)
 }
 
+// replaceRussianMonths handles replace russian months.
 func replaceRussianMonths(s string) string {
 	keys := make([]string, 0, len(ruMonthToEN))
 	for k := range ruMonthToEN {

@@ -19,11 +19,13 @@ const (
 	QRCTypeDynamic = "02"
 )
 
+// Config represents config.
 type Config struct {
 	BaseURL      string
 	CustomerCode string
 }
 
+// Client represents client.
 type Client struct {
 	baseURL      string
 	customerCode string
@@ -32,15 +34,18 @@ type Client struct {
 	logger       *slog.Logger
 }
 
+// APIError represents a p i error.
 type APIError struct {
 	StatusCode int
 	Body       string
 }
 
+// Error handles internal error behavior.
 func (e *APIError) Error() string {
 	return fmt.Sprintf("tochka api status %d: %s", e.StatusCode, e.Body)
 }
 
+// RegisterQRCodeRequest represents register q r code request.
 type RegisterQRCodeRequest struct {
 	Amount         *int64               `json:"amount,omitempty"`
 	Currency       string               `json:"currency,omitempty"`
@@ -52,12 +57,14 @@ type RegisterQRCodeRequest struct {
 	RedirectURL    string               `json:"redirectUrl,omitempty"`
 }
 
+// QRCodeRequestParams represents q r code request params.
 type QRCodeRequestParams struct {
 	Width     int    `json:"width"`
 	Height    int    `json:"height"`
 	MediaType string `json:"mediaType,omitempty"`
 }
 
+// QRCodeContent represents q r code content.
 type QRCodeContent struct {
 	Width     int    `json:"width"`
 	Height    int    `json:"height"`
@@ -65,12 +72,14 @@ type QRCodeContent struct {
 	Content   string `json:"content"`
 }
 
+// RegisteredQRCode represents registered q r code.
 type RegisteredQRCode struct {
 	Payload string         `json:"payload"`
 	QRCID   string         `json:"qrcId"`
 	Image   *QRCodeContent `json:"image,omitempty"`
 }
 
+// QRCode represents q r code.
 type QRCode struct {
 	Status            string         `json:"status"`
 	Payload           string         `json:"payload"`
@@ -90,6 +99,7 @@ type QRCode struct {
 	SourceName        string         `json:"sourceName"`
 }
 
+// QRCodePaymentStatus represents q r code payment status.
 type QRCodePaymentStatus struct {
 	QRCID   string `json:"qrcId"`
 	Code    string `json:"code"`
@@ -98,30 +108,36 @@ type QRCodePaymentStatus struct {
 	TrxID   string `json:"trxId"`
 }
 
+// registerQRCodeRequestEnvelope represents register q r code request envelope.
 type registerQRCodeRequestEnvelope struct {
 	Data RegisterQRCodeRequest `json:"Data"`
 }
 
+// registerQRCodeResponseEnvelope represents register q r code response envelope.
 type registerQRCodeResponseEnvelope struct {
 	Data RegisteredQRCode `json:"Data"`
 }
 
+// getQRCodeResponseEnvelope represents get q r code response envelope.
 type getQRCodeResponseEnvelope struct {
 	Data QRCode `json:"Data"`
 }
 
+// listQRCodesResponseEnvelope represents list q r codes response envelope.
 type listQRCodesResponseEnvelope struct {
 	Data struct {
 		QRCodeList []QRCode `json:"qrCodeList"`
 	} `json:"Data"`
 }
 
+// paymentStatusesResponseEnvelope represents payment statuses response envelope.
 type paymentStatusesResponseEnvelope struct {
 	Data struct {
 		PaymentList []QRCodePaymentStatus `json:"paymentList"`
 	} `json:"Data"`
 }
 
+// NewClient creates client.
 func NewClient(cfg Config, tm *TokenManager, httpClient *http.Client, logger *slog.Logger) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 15 * time.Second}
@@ -139,6 +155,7 @@ func NewClient(cfg Config, tm *TokenManager, httpClient *http.Client, logger *sl
 	}
 }
 
+// RegisterQRCode handles register q r code.
 func (c *Client) RegisterQRCode(ctx context.Context, merchantID, accountID string, in RegisterQRCodeRequest) (RegisteredQRCode, []byte, error) {
 	var out RegisteredQRCode
 	pathPart := fmt.Sprintf("/sbp/v1.0/qr-code/merchant/%s/%s", url.PathEscape(strings.TrimSpace(merchantID)), url.PathEscape(strings.TrimSpace(accountID)))
@@ -160,6 +177,7 @@ func (c *Client) RegisterQRCode(ctx context.Context, merchantID, accountID strin
 	return resp.Data, body, nil
 }
 
+// GetQRCode returns q r code.
 func (c *Client) GetQRCode(ctx context.Context, qrcID string) (QRCode, []byte, error) {
 	var out QRCode
 	pathPart := fmt.Sprintf("/sbp/v1.0/qr-code/%s", url.PathEscape(strings.TrimSpace(qrcID)))
@@ -174,6 +192,7 @@ func (c *Client) GetQRCode(ctx context.Context, qrcID string) (QRCode, []byte, e
 	return resp.Data, body, nil
 }
 
+// ListQRCodes lists q r codes.
 func (c *Client) ListQRCodes(ctx context.Context, legalID string) ([]QRCode, []byte, error) {
 	pathPart := fmt.Sprintf("/sbp/v1.0/qr-code/legal-entity/%s", url.PathEscape(strings.TrimSpace(legalID)))
 	body, err := c.do(ctx, http.MethodGet, pathPart, nil)
@@ -187,6 +206,7 @@ func (c *Client) ListQRCodes(ctx context.Context, legalID string) ([]QRCode, []b
 	return resp.Data.QRCodeList, body, nil
 }
 
+// GetQRCodesPaymentStatus returns q r codes payment status.
 func (c *Client) GetQRCodesPaymentStatus(ctx context.Context, qrcIDs []string) ([]QRCodePaymentStatus, []byte, error) {
 	clean := make([]string, 0, len(qrcIDs))
 	for _, id := range qrcIDs {
@@ -212,10 +232,12 @@ func (c *Client) GetQRCodesPaymentStatus(ctx context.Context, qrcIDs []string) (
 	return resp.Data.PaymentList, body, nil
 }
 
+// IsPaidStatus reports whether paid status condition is met.
 func IsPaidStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), "Accepted")
 }
 
+// do handles internal do behavior.
 func (c *Client) do(ctx context.Context, method, pathPart string, payload []byte) ([]byte, error) {
 	if c.tokens == nil {
 		return nil, fmt.Errorf("tochka token manager is required")

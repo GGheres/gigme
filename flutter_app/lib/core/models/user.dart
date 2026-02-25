@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// User represents user.
+
 class User {
+  /// User handles internal user behavior.
   factory User.fromJson(dynamic json) {
     final map = asMap(json);
     return User(
@@ -15,6 +18,8 @@ class User {
       balanceTokens: asInt(map['balanceTokens']),
     );
   }
+
+  /// User handles internal user behavior.
   User({
     required this.id,
     required this.telegramId,
@@ -37,6 +42,8 @@ class User {
   final int ratingCount;
   final int balanceTokens;
 
+  /// toJson handles to json.
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
@@ -51,6 +58,8 @@ class User {
     };
   }
 
+  /// displayName handles display name.
+
   String get displayName {
     final full = [firstName, lastName]
         .where((e) => e.trim().isNotEmpty)
@@ -61,7 +70,11 @@ class User {
     return 'User';
   }
 
+  /// handle handles the requested data.
+
   String get handle => username.trim().isEmpty ? '' : '@${username.trim()}';
+
+  /// copyWith handles copy with.
 
   User copyWith({
     int? id,

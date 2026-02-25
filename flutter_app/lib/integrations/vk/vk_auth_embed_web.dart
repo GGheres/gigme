@@ -16,6 +16,8 @@ typedef VkAuthErrorCallback = void Function(String errorMessage);
 
 int _vkEmbedViewSeed = 0;
 
+/// buildVkAuthEmbed builds vk auth embed.
+
 Widget? buildVkAuthEmbed({
   required Uri helperUri,
   required VkAuthCodeCallback onAuthCode,
@@ -28,7 +30,10 @@ Widget? buildVkAuthEmbed({
   );
 }
 
+/// _VkAuthEmbedFrame represents vk auth embed frame.
+
 class _VkAuthEmbedFrame extends StatefulWidget {
+  /// _VkAuthEmbedFrame handles vk auth embed frame.
   const _VkAuthEmbedFrame({
     required this.helperUri,
     required this.onAuthCode,
@@ -39,9 +44,13 @@ class _VkAuthEmbedFrame extends StatefulWidget {
   final VkAuthCodeCallback onAuthCode;
   final VkAuthErrorCallback onError;
 
+  /// createState creates state.
+
   @override
   State<_VkAuthEmbedFrame> createState() => _VkAuthEmbedFrameState();
 }
+
+/// _VkAuthEmbedFrameState represents vk auth embed frame state.
 
 class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
   late final String _viewType;
@@ -49,6 +58,8 @@ class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
   late final String _expectedOrigin;
   StreamSubscription<html.MessageEvent>? _messageSub;
   bool _completed = false;
+
+  /// initState handles init state.
 
   @override
   void initState() {
@@ -77,6 +88,8 @@ class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
     _messageSub = html.window.onMessage.listen(_handleMessage);
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _messageSub?.cancel();
@@ -84,10 +97,14 @@ class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
     super.dispose();
   }
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     return HtmlElementView(viewType: _viewType);
   }
+
+  /// _handleMessage handles message.
 
   void _handleMessage(html.MessageEvent event) {
     if (!mounted) return;
@@ -125,6 +142,8 @@ class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
     widget.onAuthCode(code, state, deviceId);
   }
 
+  /// _withEmbedFlag configures embed flag.
+
   Uri _withEmbedFlag(Uri uri) {
     return uri.replace(
       queryParameters: <String, String>{
@@ -133,6 +152,8 @@ class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
       },
     );
   }
+
+  /// _parseMessagePayload parses message payload.
 
   Map<String, dynamic>? _parseMessagePayload(dynamic messageData) {
     if (messageData is String) {
@@ -148,6 +169,8 @@ class _VkAuthEmbedFrameState extends State<_VkAuthEmbedFrame> {
     }
     return _decodeJsonObject(raw);
   }
+
+  /// _decodeJsonObject decodes json object.
 
   Map<String, dynamic>? _decodeJsonObject(String value) {
     try {

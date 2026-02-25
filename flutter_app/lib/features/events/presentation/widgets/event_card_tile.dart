@@ -11,7 +11,10 @@ import '../../../../ui/theme/app_colors.dart';
 import '../../../../ui/theme/app_radii.dart';
 import '../../../../ui/theme/app_spacing.dart';
 
+/// EventCardTile represents event card tile.
+
 class EventCardTile extends StatelessWidget {
+  /// EventCardTile handles event card tile.
   const EventCardTile({
     required this.event,
     required this.onTap,
@@ -30,6 +33,8 @@ class EventCardTile extends StatelessWidget {
   final LatLng? referencePoint;
   final String accessKey;
   final bool likeLoading;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +200,8 @@ class EventCardTile extends StatelessWidget {
     );
   }
 
+  /// _distanceText handles distance text.
+
   String? _distanceText() {
     if (referencePoint == null) return null;
     final km = haversineKm(
@@ -207,7 +214,10 @@ class EventCardTile extends StatelessWidget {
   }
 }
 
+/// _StatBadge represents stat badge.
+
 class _StatBadge extends StatelessWidget {
+  /// _StatBadge handles stat badge.
   const _StatBadge({
     required this.icon,
     required this.value,
@@ -217,6 +227,8 @@ class _StatBadge extends StatelessWidget {
   final IconData icon;
   final int value;
   final TextStyle? textStyle;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +268,10 @@ class _StatBadge extends StatelessWidget {
   }
 }
 
+/// _LikeBadge represents like badge.
+
 class _LikeBadge extends StatelessWidget {
+  /// _LikeBadge likes badge.
   const _LikeBadge({
     required this.likesCount,
     required this.isLiked,
@@ -270,6 +285,8 @@ class _LikeBadge extends StatelessWidget {
   final VoidCallback onTap;
   final bool loading;
   final TextStyle? textStyle;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -346,7 +363,10 @@ class _LikeBadge extends StatelessWidget {
   }
 }
 
+/// _DistanceBadge represents distance badge.
+
 class _DistanceBadge extends StatelessWidget {
+  /// _DistanceBadge handles distance badge.
   const _DistanceBadge({
     required this.distanceText,
     this.textStyle,
@@ -355,11 +375,14 @@ class _DistanceBadge extends StatelessWidget {
   final String distanceText;
   final TextStyle? textStyle;
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final textColor =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -393,7 +416,10 @@ class _DistanceBadge extends StatelessWidget {
   }
 }
 
+/// _CardMedia represents card media.
+
 class _CardMedia extends StatelessWidget {
+  /// _CardMedia handles card media.
   const _CardMedia({
     required this.event,
     required this.apiUrl,
@@ -407,6 +433,8 @@ class _CardMedia extends StatelessWidget {
   final String accessKey;
   final String? distanceText;
   final double mediaSize;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -475,8 +503,13 @@ class _CardMedia extends StatelessWidget {
   }
 }
 
+/// _PlaceholderImage represents placeholder image.
+
 class _PlaceholderImage extends StatelessWidget {
+  /// _PlaceholderImage handles placeholder image.
   const _PlaceholderImage();
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

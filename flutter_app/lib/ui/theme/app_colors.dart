@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// AppColors represents app colors.
+
 class AppColors {
+  /// AppColors handles app colors.
   const AppColors._();
 
   static const Color background = Color(0xFF101A35);
@@ -41,8 +44,13 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0xFF1A2B55),
+
+      /// Color handles internal color behavior.
       Color(0xFF101E43),
+
+      /// Color handles internal color behavior.
       Color(0xFF0A1228),
     ],
     stops: <double>[0.0, 0.55, 1.0],
@@ -52,8 +60,13 @@ class AppColors {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0xFF1A2B55),
+
+      /// Color handles internal color behavior.
       Color(0xFF111E41),
+
+      /// Color handles internal color behavior.
       Color(0xFF0A1228),
     ],
     stops: <double>[0.0, 0.48, 1.0],
@@ -63,7 +76,10 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0xFFFFFFFF),
+
+      /// Color handles internal color behavior.
       Color(0xFFF5F8FF),
     ],
   );
@@ -72,8 +88,13 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0x66335FCB),
+
+      /// Color handles internal color behavior.
       Color(0x55325BAF),
+
+      /// Color handles internal color behavior.
       Color(0x552A4C95),
     ],
   );
@@ -82,7 +103,10 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0xFF5868F9),
+
+      /// Color handles internal color behavior.
       Color(0xFF6B7AFB),
     ],
   );
@@ -91,7 +115,10 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0xFF2AC9C5),
+
+      /// Color handles internal color behavior.
       Color(0xFF59D7B4),
     ],
   );
@@ -100,7 +127,10 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
+      /// Color handles internal color behavior.
       Color(0xFFD74242),
+
+      /// Color handles internal color behavior.
       Color(0xFFEF6060),
     ],
   );

@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// TestTelegramParserFixture verifies telegram parser fixture behavior.
 func TestTelegramParserFixture(t *testing.T) {
 	html := `
 <div class="tgme_widget_message_text">Просто анонс без даты</div>
@@ -44,6 +45,7 @@ func TestTelegramParserFixture(t *testing.T) {
 	}
 }
 
+// TestWebParserJSONLDAndFallbackFixtures verifies web parser j s o n l d and fallback fixtures behavior.
 func TestWebParserJSONLDAndFallbackFixtures(t *testing.T) {
 	jsonLDHTML := `
 <script type="application/ld+json">
@@ -105,6 +107,7 @@ func TestWebParserJSONLDAndFallbackFixtures(t *testing.T) {
 	}
 }
 
+// TestTelegramParserParsesAllMessagesForLast24HoursWithImage verifies telegram parser parses all messages for last24 hours with image behavior.
 func TestTelegramParserParsesAllMessagesForLast24HoursWithImage(t *testing.T) {
 	now := time.Now().UTC()
 	recent := now.Add(-3 * time.Hour).Format(time.RFC3339)
@@ -166,6 +169,7 @@ Place: River Park</div>
 	}
 }
 
+// TestTelegramParserReturnsPartialResultsWhenNextPageFails verifies telegram parser returns partial results when next page fails behavior.
 func TestTelegramParserReturnsPartialResultsWhenNextPageFails(t *testing.T) {
 	recent := time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)
 	firstPage := fmt.Sprintf(`
@@ -194,6 +198,7 @@ Place: Main Hall</div>
 	}
 }
 
+// TestTelegramParserFallsBackWhenNoMessagesInLast24Hours verifies telegram parser falls back when no messages in last24 hours behavior.
 func TestTelegramParserFallsBackWhenNoMessagesInLast24Hours(t *testing.T) {
 	old := time.Now().UTC().Add(-48 * time.Hour).Format(time.RFC3339)
 	html := fmt.Sprintf(`
@@ -225,6 +230,7 @@ func TestTelegramParserFallsBackWhenNoMessagesInLast24Hours(t *testing.T) {
 	}
 }
 
+// TestTelegramParserSinglePostURLParsesOnlyTargetMessage verifies telegram parser single post u r l parses only target message behavior.
 func TestTelegramParserSinglePostURLParsesOnlyTargetMessage(t *testing.T) {
 	old := time.Now().UTC().Add(-72 * time.Hour).Format(time.RFC3339)
 	html := fmt.Sprintf(`
@@ -277,6 +283,7 @@ func TestTelegramParserSinglePostURLParsesOnlyTargetMessage(t *testing.T) {
 	}
 }
 
+// TestTelegramParserMediaOrderFollowsMessageAndSkipsAvatar verifies telegram parser media order follows message and skips avatar behavior.
 func TestTelegramParserMediaOrderFollowsMessageAndSkipsAvatar(t *testing.T) {
 	now := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 	html := fmt.Sprintf(`

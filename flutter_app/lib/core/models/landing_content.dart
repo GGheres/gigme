@@ -1,6 +1,9 @@
 import '../utils/json_utils.dart';
 
+/// LandingContent represents landing content.
+
 class LandingContent {
+  /// LandingContent handles landing content.
   const LandingContent({
     required this.heroEyebrow,
     required this.heroTitle,
@@ -12,6 +15,8 @@ class LandingContent {
     required this.partnersDescription,
     required this.footerText,
   });
+
+  /// LandingContent handles landing content.
 
   factory LandingContent.fromJson(dynamic json) {
     final map = asMap(json);
@@ -27,6 +32,8 @@ class LandingContent {
       footerText: asString(map['footerText']),
     ).withFallbackDefaults();
   }
+
+  /// LandingContent handles landing content.
 
   factory LandingContent.defaults() {
     return const LandingContent(
@@ -55,6 +62,8 @@ class LandingContent {
   final String partnersDescription;
   final String footerText;
 
+  /// copyWith handles copy with.
+
   LandingContent copyWith({
     String? heroEyebrow,
     String? heroTitle,
@@ -79,6 +88,8 @@ class LandingContent {
     );
   }
 
+  /// withFallbackDefaults configures fallback defaults.
+
   LandingContent withFallbackDefaults() {
     final defaults = LandingContent.defaults();
     return LandingContent(
@@ -96,6 +107,8 @@ class LandingContent {
     );
   }
 
+  /// toJson handles to json.
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'heroEyebrow': heroEyebrow.trim(),
@@ -110,6 +123,8 @@ class LandingContent {
     };
   }
 }
+
+/// _pick handles internal pick behavior.
 
 String _pick(String raw, String fallback) {
   final value = raw.trim();

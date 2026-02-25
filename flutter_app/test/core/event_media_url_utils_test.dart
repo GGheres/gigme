@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gigme_flutter/core/utils/event_media_url_utils.dart';
 
+/// main is the application entry point.
+
 void main() {
   test('builds proxy media url for absolute api base', () {
     final result = buildEventMediaProxyUrl(

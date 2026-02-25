@@ -1,6 +1,8 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+/// _webApp handles web app.
+
 JSObject? _webApp() {
   final telegram = globalContext['Telegram'];
   if (telegram is! JSObject) return null;
@@ -9,6 +11,8 @@ JSObject? _webApp() {
   return app;
 }
 
+/// _readTrimmedJsString reads trimmed js string.
+
 String? _readTrimmedJsString(JSAny? value) {
   if (value is! JSString) return null;
   final text = value.toDart.trim();
@@ -16,13 +20,19 @@ String? _readTrimmedJsString(JSAny? value) {
   return text;
 }
 
+/// isAvailable reports whether available condition is met.
+
 bool isAvailable() => _webApp() != null;
+
+/// getInitData returns init data.
 
 String? getInitData() {
   final app = _webApp();
   if (app == null) return null;
   return _readTrimmedJsString(app['initData']);
 }
+
+/// startParam handles start param.
 
 String? startParam() {
   final app = _webApp();
@@ -36,6 +46,8 @@ String? startParam() {
 
   return _readTrimmedJsString(unsafe['startParam']);
 }
+
+/// isLikelyMobileBrowser reports whether likely mobile browser condition is met.
 
 bool isLikelyMobileBrowser() {
   final navigator = globalContext['navigator'];
@@ -51,6 +63,8 @@ bool isLikelyMobileBrowser() {
       userAgent.contains('ipod') ||
       userAgent.contains('mobile');
 }
+
+/// openLink handles open link.
 
 void openLink(String url) {
   final app = _webApp();
@@ -71,6 +85,8 @@ void openLink(String url) {
   );
 }
 
+/// openPopup handles open popup.
+
 bool openPopup(String url) {
   final trimmed = url.trim();
   if (trimmed.isEmpty) return false;
@@ -86,6 +102,8 @@ bool openPopup(String url) {
   );
   return popup != null;
 }
+
+/// redirect redirects the user to a target URL.
 
 void redirect(String url) {
   final trimmed = url.trim();
@@ -105,6 +123,8 @@ void redirect(String url) {
     <JSAny?>[trimmed.toJS, '_self'.toJS],
   );
 }
+
+/// showToast handles show toast.
 
 void showToast(String message) {
   final app = _webApp();
@@ -127,6 +147,8 @@ void showToast(String message) {
     );
   }
 }
+
+/// readyAndExpand handles ready and expand.
 
 void readyAndExpand() {
   final app = _webApp();

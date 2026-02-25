@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Config represents config.
 type Config struct {
 	Env           string
 	HTTPAddr      string
@@ -34,6 +35,7 @@ type Config struct {
 	Logging       LoggingConfig
 }
 
+// TochkaConfig represents tochka config.
 type TochkaConfig struct {
 	ClientID     string
 	ClientSecret string
@@ -46,6 +48,7 @@ type TochkaConfig struct {
 	RedirectURL  string
 }
 
+// S3Config represents s3 config.
 type S3Config struct {
 	Endpoint       string
 	PublicEndpoint string
@@ -56,12 +59,14 @@ type S3Config struct {
 	UseSSL         bool
 }
 
+// LoggingConfig represents logging config.
 type LoggingConfig struct {
 	Level  string
 	Format string
 	File   string
 }
 
+// Load loads data from the underlying source.
 func Load() (*Config, error) {
 	hmacSecret := strings.TrimSpace(os.Getenv("HMAC_SECRET"))
 	if hmacSecret == "" {
@@ -132,6 +137,7 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// getenv handles internal getenv behavior.
 func getenv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -139,6 +145,7 @@ func getenv(key, def string) string {
 	return def
 }
 
+// getenvAny handles getenv any.
 func getenvAny(keys []string, def string) string {
 	for _, key := range keys {
 		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
@@ -148,6 +155,7 @@ func getenvAny(keys []string, def string) string {
 	return def
 }
 
+// getenvBool handles getenv bool.
 func getenvBool(key string, def bool) bool {
 	v := os.Getenv(key)
 	if v == "" {
@@ -160,6 +168,7 @@ func getenvBool(key string, def bool) bool {
 	return parsed
 }
 
+// parseIDSet parses i d set.
 func parseIDSet(val string) map[int64]struct{} {
 	set := make(map[int64]struct{})
 	for _, part := range strings.Split(val, ",") {

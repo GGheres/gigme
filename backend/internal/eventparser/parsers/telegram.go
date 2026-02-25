@@ -25,11 +25,13 @@ var (
 	tgMultiSpaceRE    = regexp.MustCompile(`\s+`)
 )
 
+// TelegramParser represents telegram parser.
 type TelegramParser struct {
 	fetcher core.Fetcher
 	logger  *slog.Logger
 }
 
+// NewTelegramParser creates telegram parser.
 func NewTelegramParser(fetcher core.Fetcher, logger *slog.Logger) *TelegramParser {
 	if logger == nil {
 		logger = slog.Default()
@@ -37,6 +39,7 @@ func NewTelegramParser(fetcher core.Fetcher, logger *slog.Logger) *TelegramParse
 	return &TelegramParser{fetcher: fetcher, logger: logger}
 }
 
+// Parse parses the provided input.
 func (p *TelegramParser) Parse(ctx context.Context, input string) (*core.EventData, error) {
 	events, err := p.ParseMany(ctx, input)
 	if err != nil {
@@ -48,6 +51,7 @@ func (p *TelegramParser) Parse(ctx context.Context, input string) (*core.EventDa
 	return events[0], nil
 }
 
+// ParseMany parses many.
 func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.EventData, error) {
 	if p == nil || p.fetcher == nil {
 		return nil, fmt.Errorf("telegram parser is not configured")
@@ -241,6 +245,7 @@ func (p *TelegramParser) ParseMany(ctx context.Context, input string) ([]*core.E
 	return items, nil
 }
 
+// telegramInputSpec represents telegram input spec.
 type telegramInputSpec struct {
 	Channel       string
 	PageURL       string
@@ -249,6 +254,7 @@ type telegramInputSpec struct {
 	IsSinglePost  bool
 }
 
+// normalizeTelegramInput normalizes telegram input.
 func normalizeTelegramInput(input string) (telegramInputSpec, error) {
 	trimmed := strings.TrimSpace(strings.TrimPrefix(input, "@"))
 	if trimmed == "" {
@@ -315,6 +321,7 @@ func normalizeTelegramInput(input string) (telegramInputSpec, error) {
 	return buildSpec(trimmed, 0)
 }
 
+// collectHrefs handles collect hrefs.
 func collectHrefs(sel *goquery.Selection, pageURL string) []string {
 	base, _ := url.Parse(pageURL)
 	links := make([]string, 0)
@@ -338,6 +345,7 @@ func collectHrefs(sel *goquery.Selection, pageURL string) []string {
 	return extract.MergeLinks(links)
 }
 
+// collectTelegramMediaLinks handles collect telegram media links.
 func collectTelegramMediaLinks(sel *goquery.Selection, pageURL string) []string {
 	base, _ := url.Parse(pageURL)
 	media := make([]string, 0)
@@ -368,6 +376,7 @@ func collectTelegramMediaLinks(sel *goquery.Selection, pageURL string) []string 
 	return extract.MergeLinks(media)
 }
 
+// isLikelyImageURL reports whether likely image u r l condition is met.
 func isLikelyImageURL(raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u == nil {
@@ -381,6 +390,7 @@ func isLikelyImageURL(raw string) bool {
 		strings.HasSuffix(path, ".gif")
 }
 
+// resolveHTTPURL handles resolve h t t p u r l.
 func resolveHTTPURL(base *url.URL, raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -399,6 +409,7 @@ func resolveHTTPURL(base *url.URL, raw string) string {
 	return u.String()
 }
 
+// parseTelegramMessageDate parses telegram message date.
 func parseTelegramMessageDate(message *goquery.Selection) *time.Time {
 	timeNode := message.Find("a.tgme_widget_message_date time").First()
 	if timeNode.Length() == 0 {
@@ -426,6 +437,7 @@ func parseTelegramMessageDate(message *goquery.Selection) *time.Time {
 	return nil
 }
 
+// parseDirectPostFallback parses direct post fallback.
 func (p *TelegramParser) parseDirectPostFallback(ctx context.Context, directURL string) (*core.EventData, error) {
 	directURL = strings.TrimSpace(directURL)
 	if directURL == "" {
@@ -463,6 +475,7 @@ func (p *TelegramParser) parseDirectPostFallback(ctx context.Context, directURL 
 	return event, nil
 }
 
+// filterTelegramSinglePostLinks handles filter telegram single post links.
 func filterTelegramSinglePostLinks(links []string, channel string, targetPostID int64) []string {
 	if len(links) == 0 || channel == "" || targetPostID <= 0 {
 		return links
@@ -495,6 +508,7 @@ func filterTelegramSinglePostLinks(links []string, channel string, targetPostID 
 	return extract.MergeLinks(out)
 }
 
+// isValidTelegramChannel reports whether valid telegram channel condition is met.
 func isValidTelegramChannel(channel string) bool {
 	if channel == "" {
 		return false
@@ -508,6 +522,7 @@ func isValidTelegramChannel(channel string) bool {
 	return true
 }
 
+// extractTelegramMessageText extracts telegram message text.
 func extractTelegramMessageText(sel *goquery.Selection) string {
 	if sel == nil || sel.Length() == 0 {
 		return ""
@@ -519,6 +534,7 @@ func extractTelegramMessageText(sel *goquery.Selection) string {
 	return normalizeTelegramMultilineText(b.String())
 }
 
+// appendTelegramTextNode handles append telegram text node.
 func appendTelegramTextNode(b *strings.Builder, node *htmlnode.Node) {
 	if b == nil || node == nil {
 		return
@@ -551,6 +567,7 @@ func appendTelegramTextNode(b *strings.Builder, node *htmlnode.Node) {
 	}
 }
 
+// isBlockTag reports whether block tag condition is met.
 func isBlockTag(tag string) bool {
 	switch tag {
 	case "p", "div", "li", "ul", "ol", "blockquote":
@@ -560,6 +577,7 @@ func isBlockTag(tag string) bool {
 	}
 }
 
+// appendLineBreak handles append line break.
 func appendLineBreak(b *strings.Builder, allowDouble bool) {
 	if b == nil || b.Len() == 0 {
 		return
@@ -577,6 +595,7 @@ func appendLineBreak(b *strings.Builder, allowDouble bool) {
 	b.WriteByte('\n')
 }
 
+// normalizeTelegramMultilineText normalizes telegram multiline text.
 func normalizeTelegramMultilineText(raw string) string {
 	raw = html.UnescapeString(raw)
 	raw = strings.ReplaceAll(raw, "\r\n", "\n")
@@ -599,6 +618,7 @@ func normalizeTelegramMultilineText(raw string) string {
 	return extract.NormalizeText(result)
 }
 
+// parseTelegramPostID parses telegram post i d.
 func parseTelegramPostID(dataPost string) int64 {
 	dataPost = strings.TrimSpace(dataPost)
 	if dataPost == "" {
@@ -615,6 +635,7 @@ func parseTelegramPostID(dataPost string) int64 {
 	return id
 }
 
+// telegramBeforeURL handles telegram before u r l.
 func telegramBeforeURL(baseURL string, before int64) string {
 	if before <= 0 {
 		return baseURL

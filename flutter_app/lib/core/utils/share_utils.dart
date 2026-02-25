@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+/// buildEventShareUrl builds event share url.
+
 String buildEventShareUrl({
   required int eventId,
   String? eventKey,
@@ -29,11 +31,15 @@ String buildEventShareUrl({
   return 'event:$eventId';
 }
 
+/// _buildStartParam builds start param.
+
 String _buildStartParam(int eventId, String? key, String? refCode) {
   final keyPart = (key != null && key.isNotEmpty) ? '_$key' : '';
   final refPart = (refCode != null && refCode.isNotEmpty) ? '__r_$refCode' : '';
   return 'e_$eventId$keyPart$refPart';
 }
+
+/// _sanitize handles internal sanitize behavior.
 
 String? _sanitize(String? raw, int max) {
   if (raw == null) return null;

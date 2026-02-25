@@ -8,6 +8,7 @@ import (
 	"gigme/backend/internal/eventparser/extract"
 )
 
+// buildEventFromText builds event from text.
 func buildEventFromText(text string, links ...[]string) *core.EventData {
 	normalized := extract.NormalizeText(text)
 	name := extract.GuessName(normalized)
@@ -25,6 +26,7 @@ func buildEventFromText(text string, links ...[]string) *core.EventData {
 	}
 }
 
+// eventScore handles event score.
 func eventScore(event *core.EventData) int {
 	if event == nil {
 		return 0
@@ -48,6 +50,7 @@ func eventScore(event *core.EventData) int {
 	return score
 }
 
+// normalizeURL normalizes u r l.
 func normalizeURL(input string) string {
 	trimmed := strings.TrimSpace(input)
 	u, err := url.Parse(trimmed)

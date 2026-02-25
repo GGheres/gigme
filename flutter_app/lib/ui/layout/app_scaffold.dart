@@ -6,7 +6,10 @@ import '../theme/app_breakpoints.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
+/// AppScaffold represents app scaffold.
+
 class AppScaffold extends StatelessWidget {
+  /// AppScaffold handles app scaffold.
   const AppScaffold({
     required this.child,
     this.title,
@@ -43,6 +46,8 @@ class AppScaffold extends StatelessWidget {
   final Color? backgroundColor;
   final Color? titleColor;
   final Color? subtitleColor;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -122,8 +127,13 @@ class AppScaffold extends StatelessWidget {
   }
 }
 
+/// _ScaffoldBackdrop represents scaffold backdrop.
+
 class _ScaffoldBackdrop extends StatelessWidget {
+  /// _ScaffoldBackdrop handles scaffold backdrop.
   const _ScaffoldBackdrop();
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,7 @@ package ticketing
 
 import "time"
 
+// PromoRule represents promo rule.
 type PromoRule struct {
 	Code         string
 	DiscountType string
@@ -14,12 +15,14 @@ type PromoRule struct {
 	IsActive     bool
 }
 
+// PromoValidationInput represents promo validation input.
 type PromoValidationInput struct {
 	Now           time.Time
 	EventID       int64
 	SubtotalCents int64
 }
 
+// PromoValidationOutput represents promo validation output.
 type PromoValidationOutput struct {
 	Valid         bool
 	DiscountCents int64
@@ -37,6 +40,7 @@ const (
 	PromoReasonBadDiscount = "unsupported_discount_type"
 )
 
+// ValidatePromo validates promo.
 func ValidatePromo(rule PromoRule, in PromoValidationInput) PromoValidationOutput {
 	if in.SubtotalCents <= 0 {
 		return PromoValidationOutput{Valid: false, Reason: PromoReasonBadSubtotal}
@@ -75,6 +79,7 @@ func ValidatePromo(rule PromoRule, in PromoValidationInput) PromoValidationOutpu
 	}
 }
 
+// applyDiscount handles apply discount.
 func applyDiscount(discountType string, value int64, subtotalCents int64) int64 {
 	if value <= 0 || subtotalCents <= 0 {
 		return 0

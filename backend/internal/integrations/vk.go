@@ -16,11 +16,13 @@ const (
 	defaultVKAPIVersion = "5.199"
 )
 
+// VKAuthError represents v k auth error.
 type VKAuthError struct {
 	Code    int
 	Message string
 }
 
+// Error handles internal error behavior.
 func (e *VKAuthError) Error() string {
 	if e == nil {
 		return "vk auth error"
@@ -31,6 +33,7 @@ func (e *VKAuthError) Error() string {
 	return fmt.Sprintf("vk auth error %d: %s", e.Code, strings.TrimSpace(e.Message))
 }
 
+// VKUser represents v k user.
 type VKUser struct {
 	ID         int64
 	FirstName  string
@@ -39,18 +42,21 @@ type VKUser struct {
 	PhotoURL   string
 }
 
+// VKClient represents v k client.
 type VKClient struct {
 	client  *http.Client
 	baseURL string
 	version string
 }
 
+// NewVKClient creates v k client.
 func NewVKClient() *VKClient {
 	return &VKClient{
 		client: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
+// GetUser returns user.
 func (c *VKClient) GetUser(ctx context.Context, accessToken string) (VKUser, error) {
 	token := strings.TrimSpace(accessToken)
 	if token == "" {

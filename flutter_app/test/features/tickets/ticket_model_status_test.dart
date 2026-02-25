@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gigme_flutter/features/tickets/domain/ticketing_models.dart';
 
+/// main is the application entry point.
+
 void main() {
   group('TicketModel.status', () {
     test('uses orderStatus from backend when provided', () {

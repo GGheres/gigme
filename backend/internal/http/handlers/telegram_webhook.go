@@ -19,11 +19,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// telegramUpdate represents telegram update.
 type telegramUpdate struct {
 	Message       *telegramMessage       `json:"message"`
 	CallbackQuery *telegramCallbackQuery `json:"callback_query"`
 }
 
+// telegramMessage represents telegram message.
 type telegramMessage struct {
 	MessageID int          `json:"message_id"`
 	Text      string       `json:"text"`
@@ -32,10 +34,12 @@ type telegramMessage struct {
 	From      telegramFrom `json:"from"`
 }
 
+// telegramChat represents telegram chat.
 type telegramChat struct {
 	ID int64 `json:"id"`
 }
 
+// telegramFrom represents telegram from.
 type telegramFrom struct {
 	ID        int64  `json:"id"`
 	Username  string `json:"username"`
@@ -43,6 +47,7 @@ type telegramFrom struct {
 	LastName  string `json:"last_name"`
 }
 
+// telegramCallbackQuery represents telegram callback query.
 type telegramCallbackQuery struct {
 	ID      string           `json:"id"`
 	From    telegramFrom     `json:"from"`
@@ -56,6 +61,7 @@ var adminReplyPayloadRe = regexp.MustCompile(`(?i)(?:reply|chat)_(\d+)`)
 var adminReplyCallbackDataRe = regexp.MustCompile(`(?i)^reply:(\d+)$`)
 var adminReplyHintCallbackDataRe = regexp.MustCompile(`(?i)^reply_hint:(\d+)$`)
 
+// parseStartPayload parses start payload.
 func parseStartPayload(payload string) (int64, string) {
 	payload = strings.TrimSpace(payload)
 	if payload == "" {
@@ -82,6 +88,7 @@ func parseStartPayload(payload string) (int64, string) {
 	return 0, ""
 }
 
+// TelegramWebhook handles telegram webhook.
 func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	var update telegramUpdate
@@ -195,6 +202,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// isAdminTelegramID reports whether admin telegram i d condition is met.
 func (h *Handler) isAdminTelegramID(telegramID int64) bool {
 	if h == nil || h.cfg == nil || telegramID <= 0 {
 		return false
@@ -203,6 +211,7 @@ func (h *Handler) isAdminTelegramID(telegramID int64) bool {
 	return ok
 }
 
+// handleTelegramCallbackQuery handles telegram callback query.
 func (h *Handler) handleTelegramCallbackQuery(logger *slog.Logger, query *telegramCallbackQuery) {
 	if h == nil || h.telegram == nil || query == nil {
 		return
@@ -246,6 +255,7 @@ func (h *Handler) handleTelegramCallbackQuery(logger *slog.Logger, query *telegr
 
 }
 
+// handleAdminTelegramMessage handles admin telegram message.
 func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.Logger, message *telegramMessage, text string) bool {
 	if h == nil || h.telegram == nil || message == nil {
 		return false
@@ -341,6 +351,7 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 	return false
 }
 
+// setAdminReplyTarget sets admin reply target.
 func (h *Handler) setAdminReplyTarget(adminTelegramID int64, chatID int64) {
 	if h == nil || adminTelegramID <= 0 || chatID <= 0 {
 		return
@@ -350,6 +361,7 @@ func (h *Handler) setAdminReplyTarget(adminTelegramID int64, chatID int64) {
 	h.adminReplyTarget[adminTelegramID] = chatID
 }
 
+// clearAdminReplyTarget handles clear admin reply target.
 func (h *Handler) clearAdminReplyTarget(adminTelegramID int64) {
 	if h == nil || adminTelegramID <= 0 {
 		return
@@ -359,6 +371,7 @@ func (h *Handler) clearAdminReplyTarget(adminTelegramID int64) {
 	delete(h.adminReplyTarget, adminTelegramID)
 }
 
+// adminReplyTargetFor handles admin reply target for.
 func (h *Handler) adminReplyTargetFor(adminTelegramID int64) (int64, bool) {
 	if h == nil || adminTelegramID <= 0 {
 		return 0, false
@@ -369,6 +382,7 @@ func (h *Handler) adminReplyTargetFor(adminTelegramID int64) (int64, bool) {
 	return chatID, ok
 }
 
+// parseAdminReplyCommand parses admin reply command.
 func parseAdminReplyCommand(text string) (int64, string, bool) {
 	fields := strings.Fields(strings.TrimSpace(text))
 	if len(fields) < 3 {
@@ -389,6 +403,7 @@ func parseAdminReplyCommand(text string) (int64, string, bool) {
 	return chatID, replyText, true
 }
 
+// parseAdminReplyTargetCommand parses admin reply target command.
 func parseAdminReplyTargetCommand(text string) (int64, bool) {
 	fields := strings.Fields(strings.TrimSpace(text))
 	if len(fields) < 2 {
@@ -405,6 +420,7 @@ func parseAdminReplyTargetCommand(text string) (int64, bool) {
 	return chatID, true
 }
 
+// parseAdminReplyPayload parses admin reply payload.
 func parseAdminReplyPayload(payload string) (int64, bool) {
 	match := adminReplyPayloadRe.FindStringSubmatch(strings.TrimSpace(payload))
 	if len(match) < 2 {
@@ -417,6 +433,7 @@ func parseAdminReplyPayload(payload string) (int64, bool) {
 	return chatID, true
 }
 
+// parseAdminReplyCallbackData parses admin reply callback data.
 func parseAdminReplyCallbackData(data string) (int64, bool, bool) {
 	raw := strings.TrimSpace(data)
 	match := adminReplyCallbackDataRe.FindStringSubmatch(raw)
@@ -440,6 +457,7 @@ func parseAdminReplyCallbackData(data string) (int64, bool, bool) {
 	return 0, false, false
 }
 
+// adminReplyUsageText handles admin reply usage text.
 func adminReplyUsageText(chatID int64, botUsername string) string {
 	lines := []string{
 		"Команда ответа пользователю:",
@@ -456,6 +474,7 @@ func adminReplyUsageText(chatID int64, botUsername string) string {
 	return strings.Join(lines, "\n")
 }
 
+// storeIncomingBotMessage handles store incoming bot message.
 func (h *Handler) storeIncomingBotMessage(ctx context.Context, logger *slog.Logger, message *telegramMessage, text string) {
 	if h == nil || h.repo == nil || message == nil || message.Chat.ID <= 0 {
 		return
@@ -481,6 +500,7 @@ func (h *Handler) storeIncomingBotMessage(ctx context.Context, logger *slog.Logg
 	}
 }
 
+// storeOutgoingBotMessage handles store outgoing bot message.
 func (h *Handler) storeOutgoingBotMessage(ctx context.Context, logger *slog.Logger, chatID int64, adminTelegramID int64, text string) {
 	if h == nil || h.repo == nil || chatID <= 0 {
 		return
@@ -498,6 +518,7 @@ func (h *Handler) storeOutgoingBotMessage(ctx context.Context, logger *slog.Logg
 	}
 }
 
+// buildEventCardText builds event card text.
 func buildEventCardText(event models.Event) string {
 	lines := make([]string, 0, 4)
 	lines = append(lines, "Событие")
@@ -517,6 +538,7 @@ func buildEventCardText(event models.Event) string {
 	return out
 }
 
+// resolveEventMediaURL handles resolve event media u r l.
 func resolveEventMediaURL(ctx context.Context, h *Handler, eventID int64, accessKey string) string {
 	if h == nil || h.repo == nil || eventID <= 0 {
 		return ""
@@ -541,6 +563,7 @@ func resolveEventMediaURL(ctx context.Context, h *Handler, eventID int64, access
 	return ""
 }
 
+// buildEventURL builds event u r l.
 func buildEventURL(baseURL string, eventID int64, accessKey string) string {
 	if baseURL == "" || eventID <= 0 {
 		return ""
@@ -566,6 +589,7 @@ func buildEventURL(baseURL string, eventID int64, accessKey string) string {
 	return parsed.String()
 }
 
+// buildMediaPreviewURL builds media preview u r l.
 func buildMediaPreviewURL(baseURL string, eventID int64, accessKey string) string {
 	if baseURL == "" || eventID <= 0 {
 		return ""
@@ -586,6 +610,7 @@ func buildMediaPreviewURL(baseURL string, eventID int64, accessKey string) strin
 	return parsed.String()
 }
 
+// mergeEventIDIntoFragment merges event i d into fragment.
 func mergeEventIDIntoFragment(fragment string, eventID int64) string {
 	if eventID <= 0 {
 		return fragment
@@ -607,6 +632,7 @@ func mergeEventIDIntoFragment(fragment string, eventID int64) string {
 	return fragment
 }
 
+// normalizeWebAppBaseURL normalizes web app base u r l.
 func normalizeWebAppBaseURL(raw string) string {
 	base := strings.TrimSpace(raw)
 	if base == "" {

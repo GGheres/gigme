@@ -4,7 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/json_utils.dart';
 
+/// PurchaseTicketDraft represents purchase ticket draft.
+
 class PurchaseTicketDraft {
+  /// PurchaseTicketDraft handles purchase ticket draft.
   PurchaseTicketDraft({
     required this.ticketQuantities,
     required this.selectedTransferId,
@@ -13,6 +16,8 @@ class PurchaseTicketDraft {
     required this.promoCode,
     required this.showPaymentCheckout,
   });
+
+  /// PurchaseTicketDraft handles purchase ticket draft.
 
   factory PurchaseTicketDraft.fromJson(dynamic json) {
     final map = asMap(json);
@@ -45,6 +50,8 @@ class PurchaseTicketDraft {
   final String promoCode;
   final bool showPaymentCheckout;
 
+  /// hasMeaningfulData reports whether meaningful data exists.
+
   bool get hasMeaningfulData {
     final hasTickets = ticketQuantities.values.any((value) => value > 0);
     return hasTickets ||
@@ -53,6 +60,8 @@ class PurchaseTicketDraft {
         promoCode.trim().isNotEmpty ||
         showPaymentCheckout;
   }
+
+  /// toJson handles to json.
 
   Map<String, dynamic> toJson() {
     final cleanQuantities = <String, int>{};
@@ -73,8 +82,12 @@ class PurchaseTicketDraft {
   }
 }
 
+/// PurchaseTicketDraftStore represents purchase ticket draft store.
+
 class PurchaseTicketDraftStore {
   static const String _storagePrefix = 'gigme_purchase_ticket_draft_';
+
+  /// load loads data from the underlying source.
 
   Future<PurchaseTicketDraft?> load({required int eventId}) async {
     if (eventId <= 0) return null;
@@ -93,6 +106,8 @@ class PurchaseTicketDraftStore {
     }
   }
 
+  /// save persists data to storage.
+
   Future<void> save({
     required int eventId,
     required PurchaseTicketDraft draft,
@@ -107,11 +122,15 @@ class PurchaseTicketDraftStore {
     await prefs.setString(_key(eventId), jsonEncode(draft.toJson()));
   }
 
+  /// clear handles internal clear behavior.
+
   Future<void> clear({required int eventId}) async {
     if (eventId <= 0) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key(eventId));
   }
+
+  /// _key handles internal key behavior.
 
   String _key(int eventId) => '$_storagePrefix$eventId';
 }

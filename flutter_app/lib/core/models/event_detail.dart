@@ -2,17 +2,26 @@ import '../utils/json_utils.dart';
 import 'event_card.dart';
 import 'participant.dart';
 
+/// EventDetail represents event detail.
+
 class EventDetail {
+  /// EventDetail handles event detail.
 
   factory EventDetail.fromJson(dynamic json) {
     final map = asMap(json);
     return EventDetail(
       event: EventCard.fromJson(map['event']),
-      participants: asList(map['participants']).map(Participant.fromJson).toList(),
-      media: asList(map['media']).map((e) => asString(e)).where((e) => e.isNotEmpty).toList(),
+      participants:
+          asList(map['participants']).map(Participant.fromJson).toList(),
+      media: asList(map['media'])
+          .map((e) => asString(e))
+          .where((e) => e.isNotEmpty)
+          .toList(),
       isJoined: asBool(map['isJoined']),
     );
   }
+
+  /// EventDetail handles event detail.
   EventDetail({
     required this.event,
     required this.participants,
@@ -24,6 +33,8 @@ class EventDetail {
   final List<Participant> participants;
   final List<String> media;
   final bool isJoined;
+
+  /// copyWith handles copy with.
 
   EventDetail copyWith({
     EventCard? event,

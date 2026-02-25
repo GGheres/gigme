@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// TestGeneratePKCECodeVerifier verifies generate p k c e code verifier behavior.
 func TestGeneratePKCECodeVerifier(t *testing.T) {
 	verifier, err := GeneratePKCECodeVerifier(64)
 	if err != nil {
@@ -27,6 +28,7 @@ func TestGeneratePKCECodeVerifier(t *testing.T) {
 	}
 }
 
+// TestBuildAndParseVKOAuthState verifies build and parse v k o auth state behavior.
 func TestBuildAndParseVKOAuthState(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	state, err := BuildVKOAuthState(
@@ -55,6 +57,7 @@ func TestBuildAndParseVKOAuthState(t *testing.T) {
 	}
 }
 
+// TestParseVKOAuthStateRejectsTamperedData verifies parse v k o auth state rejects tampered data behavior.
 func TestParseVKOAuthStateRejectsTamperedData(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	state, err := BuildVKOAuthState(
@@ -74,6 +77,7 @@ func TestParseVKOAuthStateRejectsTamperedData(t *testing.T) {
 	}
 }
 
+// TestParseVKOAuthStateRejectsExpiredState verifies parse v k o auth state rejects expired state behavior.
 func TestParseVKOAuthStateRejectsExpiredState(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	state, err := BuildVKOAuthState(
@@ -92,6 +96,7 @@ func TestParseVKOAuthStateRejectsExpiredState(t *testing.T) {
 	}
 }
 
+// TestParseVKOAuthStateAcceptsDoubleEncodedState verifies parse v k o auth state accepts double encoded state behavior.
 func TestParseVKOAuthStateAcceptsDoubleEncodedState(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	state, err := BuildVKOAuthState(
@@ -115,6 +120,7 @@ func TestParseVKOAuthStateAcceptsDoubleEncodedState(t *testing.T) {
 	}
 }
 
+// TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob verifies parse v k o auth state accepts legacy raw signature blob behavior.
 func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	payload := vkOAuthStatePayload{
@@ -147,6 +153,7 @@ func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlob(t *testing.T) {
 	}
 }
 
+// TestParseVKOAuthStateAcceptsLegacyRawSignatureBlobWithSeparator verifies parse v k o auth state accepts legacy raw signature blob with separator behavior.
 func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlobWithSeparator(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	payload := vkOAuthStatePayload{
@@ -173,6 +180,7 @@ func TestParseVKOAuthStateAcceptsLegacyRawSignatureBlobWithSeparator(t *testing.
 	}
 }
 
+// TestParseVKOAuthStateLegacyRawSignatureWithDotAndBraceBytes verifies parse v k o auth state legacy raw signature with dot and brace bytes behavior.
 func TestParseVKOAuthStateLegacyRawSignatureWithDotAndBraceBytes(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	const secret = "secret"
@@ -218,6 +226,7 @@ func TestParseVKOAuthStateLegacyRawSignatureWithDotAndBraceBytes(t *testing.T) {
 	t.Fatal("could not generate legacy signature containing both '.' and '}'")
 }
 
+// TestParseVKOAuthStateAcceptsVKRepackedLegacyState verifies parse v k o auth state accepts v k repacked legacy state behavior.
 func TestParseVKOAuthStateAcceptsVKRepackedLegacyState(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	const secret = "secret"
@@ -254,6 +263,7 @@ func TestParseVKOAuthStateAcceptsVKRepackedLegacyState(t *testing.T) {
 	}
 }
 
+// TestBuildPKCECodeChallenge verifies build p k c e code challenge behavior.
 func TestBuildPKCECodeChallenge(t *testing.T) {
 	const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 	const expected = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"

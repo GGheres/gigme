@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 
 import '../../integrations/telegram/telegram_web_app_bridge.dart';
 
+/// StartupLink represents startup link.
+
 class StartupLink {
+  /// StartupLink handles startup link.
   const StartupLink({
     this.eventId,
     this.eventKey,
@@ -13,7 +16,11 @@ class StartupLink {
   final String? eventKey;
   final String? refCode;
 
+  /// hasEvent reports whether event exists.
+
   bool get hasEvent => eventId != null && eventId! > 0;
+
+  /// copyWith handles copy with.
 
   StartupLink copyWith({
     int? eventId,
@@ -28,13 +35,22 @@ class StartupLink {
   }
 }
 
+/// StartupLinkParser represents startup link parser.
+
 class StartupLinkParser {
+  /// parseFromUriForTesting parses from uri for testing.
   @visibleForTesting
   static StartupLink parseFromUriForTesting(Uri uri) => _fromUri(uri);
 
+  /// parseStartParamForTesting parses start param for testing.
+
   @visibleForTesting
   static StartupLink parseStartParamForTesting(String? value) =>
+
+      /// _fromStartParam handles from start param.
       _fromStartParam(value);
+
+  /// parse parses the provided input.
 
   static StartupLink parse() {
     final fromLocation = _fromUri(Uri.base);
@@ -52,6 +68,8 @@ class StartupLinkParser {
 
     return const StartupLink();
   }
+
+  /// _fromUri handles from uri.
 
   static StartupLink _fromUri(Uri uri) {
     final params = _mergeLocationParams(uri);
@@ -80,6 +98,8 @@ class StartupLinkParser {
     return const StartupLink();
   }
 
+  /// _mergeLocationParams merges location params.
+
   static Map<String, String> _mergeLocationParams(Uri uri) {
     final merged = <String, String>{
       ..._parseFragmentParams(uri.fragment),
@@ -87,6 +107,8 @@ class StartupLinkParser {
     };
     return merged;
   }
+
+  /// _parseFragmentParams parses fragment params.
 
   static Map<String, String> _parseFragmentParams(String fragment) {
     final raw = fragment.trim();
@@ -111,6 +133,8 @@ class StartupLinkParser {
     return out;
   }
 
+  /// _parseQueryLikeString parses query like string.
+
   static Map<String, String> _parseQueryLikeString(String raw) {
     var value = raw.trim();
     if (value.isEmpty) {
@@ -130,6 +154,8 @@ class StartupLinkParser {
     }
   }
 
+  /// _extractStartParam extracts start param.
+
   static String? _extractStartParam(Map<String, String> params) {
     const keys = <String>[
       'startapp',
@@ -147,6 +173,8 @@ class StartupLinkParser {
     }
     return null;
   }
+
+  /// _extractStartParamFromInitData extracts start param from init data.
 
   static String? _extractStartParamFromInitData(String? rawInitData) {
     final value = (rawInitData ?? '').trim();
@@ -166,6 +194,8 @@ class StartupLinkParser {
     if (parsed.isEmpty) return null;
     return _extractStartParam(parsed);
   }
+
+  /// _fromStartParam handles from start param.
 
   static StartupLink _fromStartParam(String? value) {
     final raw = value?.trim() ?? '';
@@ -191,6 +221,8 @@ class StartupLinkParser {
     if (eventId == null) return const StartupLink();
     return StartupLink(eventId: eventId);
   }
+
+  /// _parseEventStartParam parses event start param.
 
   static StartupLink _parseEventStartParam(String raw) {
     if (!raw.toLowerCase().startsWith('e_')) {
@@ -232,17 +264,23 @@ class StartupLinkParser {
     );
   }
 
+  /// _parseEventId parses event id.
+
   static int? _parseEventId(String? raw) {
     final value = int.tryParse((raw ?? '').trim());
     if (value == null || value <= 0) return null;
     return value;
   }
 
+  /// _sanitizeKey handles sanitize key.
+
   static String? _sanitizeKey(String? raw) {
     final value = (raw ?? '').trim();
     if (value.isEmpty || value.length > 64) return null;
     return value;
   }
+
+  /// _sanitizeRef handles sanitize ref.
 
   static String? _sanitizeRef(String? raw) {
     final value = (raw ?? '').trim();

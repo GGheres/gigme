@@ -8,6 +8,7 @@ import (
 	"gigme/backend/internal/eventparser/core"
 )
 
+// TestInstagramAndVKReturnTypedErrorsWhenBlocked verifies instagram and v k return typed errors when blocked behavior.
 func TestInstagramAndVKReturnTypedErrorsWhenBlocked(t *testing.T) {
 	fetcher := &fakeFetcher{responses: map[string]fakeResponse{
 		"https://instagram.com/p/blocked": {

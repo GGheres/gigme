@@ -12,11 +12,13 @@ const referralBonusTokens int64 = 100
 
 const maxReferralCodeLength = 32
 
+// referralClaimRequest represents referral claim request.
 type referralClaimRequest struct {
 	EventID int64  `json:"eventId"`
 	RefCode string `json:"refCode"`
 }
 
+// ReferralCode handles referral code.
 func (h *Handler) ReferralCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -39,6 +41,7 @@ func (h *Handler) ReferralCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"code": code})
 }
 
+// ClaimReferral claims referral.
 func (h *Handler) ClaimReferral(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())

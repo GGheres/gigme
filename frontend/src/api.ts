@@ -1,5 +1,6 @@
 import { logDebug, logError, logWarn } from './logger'
 
+// getDefaultOrigin returns default origin.
 function getDefaultOrigin(): string {
   if (typeof window === 'undefined') return ''
   const origin = window.location?.origin
@@ -15,6 +16,7 @@ function getDefaultOrigin(): string {
   return ''
 }
 
+// normalizeApiUrl normalizes api url.
 function normalizeApiUrl(value: string): string {
   const trimmed = value.trim().replace(/^['"]|['"]$/g, '')
   const origin = getDefaultOrigin()
@@ -32,6 +34,7 @@ function normalizeApiUrl(value: string): string {
   return `https://${trimmed.replace(/^\/+/, '')}`
 }
 
+// validateApiUrl validates api url.
 function validateApiUrl(value: string): string | null {
   if (!value || value === 'null') {
     return 'API URL is missing. Set VITE_API_URL (frontend/.env) to https://your-api-host'
@@ -53,8 +56,10 @@ export const API_URL_ERROR = validateApiUrl(API_URL)
 
 const NGROK_SKIP_HEADER = 'ngrok-skip-browser-warning'
 const NGROK_HOST_RE = /ngrok-free\.app|ngrok\.io/i
+// shouldSkipNgrokWarning reports whether should skip ngrok warning.
 const shouldSkipNgrokWarning = () => NGROK_HOST_RE.test(API_URL)
 
+// buildApiUrl builds api url.
 function buildApiUrl(path: string): string {
   if (API_URL_ERROR) {
     throw new Error(API_URL_ERROR)
@@ -376,6 +381,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, token?: stri
   }
 }
 
+// authTelegram authenticates telegram.
 export function authTelegram(initData: string) {
   return apiFetch<{ accessToken: string; user: User }>('/auth/telegram', {
     method: 'POST',
@@ -383,6 +389,7 @@ export function authTelegram(initData: string) {
   })
 }
 
+// updateLocation updates location.
 export function updateLocation(token: string, lat: number, lng: number) {
   return apiFetch<{ ok: boolean }>(
     '/me/location',
@@ -391,15 +398,18 @@ export function updateLocation(token: string, lat: number, lng: number) {
   )
 }
 
+// getMe returns me.
 export function getMe(token: string) {
   return apiFetch<User>('/me', {}, token)
 }
 
+// getMyEvents returns my events.
 export function getMyEvents(token: string, limit = 20, offset = 0) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   return apiFetch<UserEventsResponse>(`/events/mine?${params.toString()}`, {}, token)
 }
 
+// topupToken handles topup token.
 export function topupToken(token: string, amount: number) {
   return apiFetch<{ balanceTokens: number }>(
     '/wallet/topup/token',
@@ -408,6 +418,7 @@ export function topupToken(token: string, amount: number) {
   )
 }
 
+// topupCard handles topup card.
 export function topupCard(token: string) {
   return apiFetch<{ paymentUrl?: string; invoiceId?: string }>(
     '/wallet/topup/card',
@@ -416,10 +427,12 @@ export function topupCard(token: string) {
   )
 }
 
+// getReferralCode returns referral code.
 export function getReferralCode(token: string) {
   return apiFetch<ReferralCodeResponse>('/referrals/my-code', {}, token)
 }
 
+// claimReferral claims referral.
 export function claimReferral(token: string, payload: { eventId: number; refCode: string }) {
   return apiFetch<ReferralClaimResponse>(
     '/referrals/claim',
@@ -428,6 +441,7 @@ export function claimReferral(token: string, payload: { eventId: number; refCode
   )
 }
 
+// getNearby returns nearby.
 export function getNearby(
   token: string,
   lat: number,
@@ -452,6 +466,7 @@ export function getNearby(
   return apiFetch<EventMarker[]>(`/events/nearby?${params.toString()}`, {}, token)
 }
 
+// getFeed returns feed.
 export function getFeed(
   token: string,
   lat: number,
@@ -478,6 +493,7 @@ export function getFeed(
   return apiFetch<EventCard[]>(`/events/feed?${params.toString()}`, {}, token)
 }
 
+// getEvent returns event.
 export function getEvent(token: string, id: number, accessKey?: string) {
   const params = new URLSearchParams()
   if (accessKey) {
@@ -487,6 +503,7 @@ export function getEvent(token: string, id: number, accessKey?: string) {
   return apiFetch<EventDetail>(`/events/${id}${suffix}`, {}, token)
 }
 
+// createEvent creates event.
 export function createEvent(token: string, payload: {
   title: string
   description: string
@@ -512,6 +529,7 @@ export function createEvent(token: string, payload: {
   )
 }
 
+// joinEvent joins event.
 export function joinEvent(token: string, id: number, accessKey?: string) {
   const params = new URLSearchParams()
   if (accessKey) {
@@ -521,6 +539,7 @@ export function joinEvent(token: string, id: number, accessKey?: string) {
   return apiFetch<{ ok: boolean }>(`/events/${id}/join${suffix}`, { method: 'POST' }, token)
 }
 
+// leaveEvent leaves event.
 export function leaveEvent(token: string, id: number, accessKey?: string) {
   const params = new URLSearchParams()
   if (accessKey) {
@@ -530,18 +549,22 @@ export function leaveEvent(token: string, id: number, accessKey?: string) {
   return apiFetch<{ ok: boolean }>(`/events/${id}/leave${suffix}`, { method: 'POST' }, token)
 }
 
+// promoteEvent handles promote event.
 export function promoteEvent(token: string, id: number, payload: PromoteRequest) {
   return apiFetch<{ ok: boolean }>(`/events/${id}/promote`, { method: 'POST', body: JSON.stringify(payload) }, token)
 }
 
+// updateEventAdmin updates event admin.
 export function updateEventAdmin(token: string, id: number, payload: AdminEventUpdate) {
   return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }, token)
 }
 
+// deleteEventAdmin deletes event admin.
 export function deleteEventAdmin(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/events/${id}`, { method: 'DELETE' }, token)
 }
 
+// adminListUsers handles admin list users.
 export function adminListUsers(
   token: string,
   params: { search?: string; blocked?: 'true' | 'false'; limit?: number; offset?: number } = {}
@@ -555,10 +578,12 @@ export function adminListUsers(
   return apiFetch<AdminUsersResponse>(`/admin/users${suffix}`, {}, token)
 }
 
+// adminGetUser handles admin get user.
 export function adminGetUser(token: string, id: number) {
   return apiFetch<AdminUserDetailResponse>(`/admin/users/${id}`, {}, token)
 }
 
+// adminBlockUser handles admin block user.
 export function adminBlockUser(token: string, id: number, reason: string) {
   return apiFetch<{ ok: boolean }>(
     `/admin/users/${id}/block`,
@@ -567,10 +592,12 @@ export function adminBlockUser(token: string, id: number, reason: string) {
   )
 }
 
+// adminUnblockUser handles admin unblock user.
 export function adminUnblockUser(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/users/${id}/unblock`, { method: 'POST' }, token)
 }
 
+// adminCreateBroadcast handles admin create broadcast.
 export function adminCreateBroadcast(
   token: string,
   payload: {
@@ -588,24 +615,29 @@ export function adminCreateBroadcast(
   )
 }
 
+// adminStartBroadcast handles admin start broadcast.
 export function adminStartBroadcast(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/broadcasts/${id}/start`, { method: 'POST' }, token)
 }
 
+// adminListBroadcasts handles admin list broadcasts.
 export function adminListBroadcasts(token: string, limit = 50, offset = 0) {
   const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   return apiFetch<AdminBroadcastsResponse>(`/admin/broadcasts?${qs.toString()}`, {}, token)
 }
 
+// adminGetBroadcast handles admin get broadcast.
 export function adminGetBroadcast(token: string, id: number) {
   return apiFetch<AdminBroadcast>(`/admin/broadcasts/${id}`, {}, token)
 }
 
+// adminListParserSources handles admin list parser sources.
 export function adminListParserSources(token: string, limit = 50, offset = 0) {
   const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   return apiFetch<AdminParserSourcesResponse>(`/admin/parser/sources?${qs.toString()}`, {}, token)
 }
 
+// adminCreateParserSource handles admin create parser source.
 export function adminCreateParserSource(
   token: string,
   payload: { sourceType?: string; input: string; title?: string; isActive?: boolean }
@@ -613,6 +645,7 @@ export function adminCreateParserSource(
   return apiFetch<AdminParserSource>('/admin/parser/sources', { method: 'POST', body: JSON.stringify(payload) }, token)
 }
 
+// adminUpdateParserSource handles admin update parser source.
 export function adminUpdateParserSource(token: string, id: number, payload: { isActive: boolean }) {
   return apiFetch<{ ok: boolean }>(
     `/admin/parser/sources/${id}`,
@@ -621,14 +654,17 @@ export function adminUpdateParserSource(token: string, id: number, payload: { is
   )
 }
 
+// adminParseSource handles admin parse source.
 export function adminParseSource(token: string, id: number) {
   return apiFetch<AdminParserParseResponse>(`/admin/parser/sources/${id}/parse`, { method: 'POST' }, token)
 }
 
+// adminParseInput handles admin parse input.
 export function adminParseInput(token: string, payload: { sourceType?: string; input: string }) {
   return apiFetch<AdminParserParseResponse>('/admin/parser/parse', { method: 'POST', body: JSON.stringify(payload) }, token)
 }
 
+// adminGeocodeLocation handles admin geocode location.
 export function adminGeocodeLocation(token: string, payload: { query: string; limit?: number }) {
   return apiFetch<{ items: GeocodeResult[] }>(
     '/admin/parser/geocode',
@@ -637,6 +673,7 @@ export function adminGeocodeLocation(token: string, payload: { query: string; li
   )
 }
 
+// adminListParsedEvents handles admin list parsed events.
 export function adminListParsedEvents(
   token: string,
   params: { status?: string; sourceId?: number; limit?: number; offset?: number } = {}
@@ -650,6 +687,7 @@ export function adminListParsedEvents(
   return apiFetch<AdminParsedEventsResponse>(`/admin/parser/events${suffix}`, {}, token)
 }
 
+// adminImportParsedEvent handles admin import parsed event.
 export function adminImportParsedEvent(
   token: string,
   id: number,
@@ -672,18 +710,22 @@ export function adminImportParsedEvent(
   )
 }
 
+// adminRejectParsedEvent handles admin reject parsed event.
 export function adminRejectParsedEvent(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/parser/events/${id}/reject`, { method: 'POST' }, token)
 }
 
+// adminDeleteParsedEvent handles admin delete parsed event.
 export function adminDeleteParsedEvent(token: string, id: number) {
   return apiFetch<{ ok: boolean }>(`/admin/parser/events/${id}`, { method: 'DELETE' }, token)
 }
 
+// adminLogin handles admin login.
 export function adminLogin(payload: { username: string; password: string; telegramId?: number }) {
   return apiFetch<AdminLoginResponse>('/auth/admin', { method: 'POST', body: JSON.stringify(payload) })
 }
 
+// likeEvent likes event.
 export function likeEvent(token: string, id: number, accessKey?: string) {
   const params = new URLSearchParams()
   if (accessKey) {
@@ -697,6 +739,7 @@ export function likeEvent(token: string, id: number, accessKey?: string) {
   )
 }
 
+// unlikeEvent removes like from event.
 export function unlikeEvent(token: string, id: number, accessKey?: string) {
   const params = new URLSearchParams()
   if (accessKey) {
@@ -710,6 +753,7 @@ export function unlikeEvent(token: string, id: number, accessKey?: string) {
   )
 }
 
+// getEventComments returns event comments.
 export function getEventComments(token: string, id: number, limit = 50, offset = 0, accessKey?: string) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   if (accessKey) {
@@ -718,6 +762,7 @@ export function getEventComments(token: string, id: number, limit = 50, offset =
   return apiFetch<EventComment[]>(`/events/${id}/comments?${params.toString()}`, {}, token)
 }
 
+// addEventComment handles add event comment.
 export function addEventComment(token: string, id: number, body: string, accessKey?: string) {
   const params = new URLSearchParams()
   if (accessKey) {
@@ -731,6 +776,7 @@ export function addEventComment(token: string, id: number, body: string, accessK
   )
 }
 
+// presignMedia handles presign media.
 export function presignMedia(token: string, payload: {
   fileName: string
   contentType: string
@@ -743,6 +789,7 @@ export function presignMedia(token: string, payload: {
   )
 }
 
+// uploadMedia handles upload media.
 export async function uploadMedia(token: string, file: File) {
   const form = new FormData()
   form.append('file', file)

@@ -8,7 +8,10 @@ import '../../../core/models/user_event.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/profile_repository.dart';
 
+/// ProfileState represents profile state.
+
 class ProfileState {
+  /// ProfileState handles profile state.
 
   factory ProfileState.initial() => const ProfileState(
         loading: false,
@@ -18,6 +21,8 @@ class ProfileState {
         events: <UserEvent>[],
         total: 0,
       );
+
+  /// ProfileState handles profile state.
   const ProfileState({
     required this.loading,
     required this.error,
@@ -33,6 +38,8 @@ class ProfileState {
   final User? user;
   final List<UserEvent> events;
   final int total;
+
+  /// copyWith handles copy with.
 
   ProfileState copyWith({
     bool? loading,
@@ -53,7 +60,10 @@ class ProfileState {
   }
 }
 
+/// ProfileController represents profile controller.
+
 class ProfileController extends ChangeNotifier {
+  /// ProfileController handles profile controller.
   ProfileController({
     required this.ref,
     required this.repository,
@@ -63,9 +73,15 @@ class ProfileController extends ChangeNotifier {
   final ProfileRepository repository;
 
   ProfileState _state = ProfileState.initial();
+
+  /// state exposes the current state value.
   ProfileState get state => _state;
 
+  /// _token handles internal token behavior.
+
   String? get _token => ref.read(authControllerProvider).state.token;
+
+  /// load loads data from the underlying source.
 
   Future<void> load() async {
     final token = _token;
@@ -102,6 +118,8 @@ class ProfileController extends ChangeNotifier {
     }
   }
 
+  /// topupTokens handles topup tokens.
+
   Future<void> topupTokens(int amount) async {
     final token = _token;
     if (token == null || token.trim().isEmpty) return;
@@ -110,7 +128,8 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await repository.topupToken(token: token, amount: amount);
+      final response =
+          await repository.topupToken(token: token, amount: amount);
       final current = _state.user;
       final updated = current?.copyWith(balanceTokens: response.balanceTokens);
 
@@ -127,7 +146,8 @@ class ProfileController extends ChangeNotifier {
   }
 }
 
-final profileControllerProvider = ChangeNotifierProvider<ProfileController>((ref) {
+final profileControllerProvider =
+    ChangeNotifierProvider<ProfileController>((ref) {
   final controller = ProfileController(
     ref: ref,
     repository: ref.watch(profileRepositoryProvider),

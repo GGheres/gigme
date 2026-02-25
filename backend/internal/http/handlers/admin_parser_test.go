@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// TestNormalizeImportedStartsAt verifies normalize imported starts at behavior.
 func TestNormalizeImportedStartsAt(t *testing.T) {
 	now := time.Date(2026, time.January, 2, 10, 0, 0, 0, time.UTC)
 

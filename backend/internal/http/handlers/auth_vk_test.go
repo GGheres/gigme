@@ -2,6 +2,7 @@ package handlers
 
 import "testing"
 
+// TestVKExternalTelegramID verifies v k external telegram i d behavior.
 func TestVKExternalTelegramID(t *testing.T) {
 	tests := []struct {
 		name string

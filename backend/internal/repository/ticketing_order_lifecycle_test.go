@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// TestDeleteOrderPaidWithItems verifies delete order paid with items behavior.
 func TestDeleteOrderPaidWithItems(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -65,6 +66,7 @@ func TestDeleteOrderPaidWithItems(t *testing.T) {
 	}
 }
 
+// TestCancelOrderPaidWithItems verifies cancel order paid with items behavior.
 func TestCancelOrderPaidWithItems(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -119,6 +121,7 @@ func TestCancelOrderPaidWithItems(t *testing.T) {
 	}
 }
 
+// insertPaidOrderWithTicketItem handles insert paid order with ticket item.
 func insertPaidOrderWithTicketItem(ctx context.Context, pool *pgxpool.Pool, userID, eventID int64, quantity int) (string, string, error) {
 	var productID string
 	if err := pool.QueryRow(ctx, `

@@ -8,6 +8,7 @@ import (
 
 var multiSpaceRE = regexp.MustCompile(`\s+`)
 
+// NormalizeText normalizes text.
 func NormalizeText(s string) string {
 	s = html.UnescapeString(s)
 	s = strings.ReplaceAll(s, "\r\n", "\n")
@@ -24,6 +25,7 @@ func NormalizeText(s string) string {
 	return strings.TrimSpace(strings.Join(out, "\n"))
 }
 
+// GuessName handles guess name.
 func GuessName(text string) string {
 	normalized := NormalizeText(text)
 	if normalized == "" {

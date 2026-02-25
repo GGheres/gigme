@@ -16,6 +16,7 @@ const (
 	referralCodeMaxRetries = 5
 )
 
+// GetOrCreateReferralCode returns or create referral code.
 func (r *Repository) GetOrCreateReferralCode(ctx context.Context, userID int64) (string, error) {
 	var code string
 	if err := r.pool.QueryRow(ctx, `SELECT code FROM referral_codes WHERE owner_user_id = $1`, userID).Scan(&code); err == nil {
@@ -52,6 +53,7 @@ ON CONFLICT (owner_user_id) DO NOTHING;`, candidate, userID)
 	return "", errors.New("referral code unavailable")
 }
 
+// ClaimReferral claims referral.
 func (r *Repository) ClaimReferral(ctx context.Context, inviteeID, eventID int64, refCode string, bonus int64, isNew bool) (bool, int64, int64, error) {
 	if !isNew {
 		return false, 0, 0, nil
@@ -130,6 +132,7 @@ RETURNING balance_tokens;`, inviteeID, bonus).Scan(&inviteeBalance); err != nil 
 	return true, inviterBalance, inviteeBalance, nil
 }
 
+// generateReferralCode handles generate referral code.
 func generateReferralCode() (string, error) {
 	buf := make([]byte, referralCodeBytes)
 	if _, err := rand.Read(buf); err != nil {
@@ -138,6 +141,7 @@ func generateReferralCode() (string, error) {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf), nil
 }
 
+// isUniqueViolation reports whether unique violation condition is met.
 func isUniqueViolation(err error) bool {
 	pgErr, ok := err.(*pgconn.PgError)
 	return ok && pgErr.Code == "23505"

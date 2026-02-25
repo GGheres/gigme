@@ -14,11 +14,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// TouchUserLastSeen updates user last seen.
 func (r *Repository) TouchUserLastSeen(ctx context.Context, userID int64) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET last_seen_at = now(), updated_at = now() WHERE id = $1`, userID)
 	return err
 }
 
+// GetUserByTelegramID returns user by telegram i d.
 func (r *Repository) GetUserByTelegramID(ctx context.Context, telegramID int64) (models.User, error) {
 	row := r.pool.QueryRow(ctx, `SELECT id, telegram_id, username, first_name, last_name, photo_url, rating, rating_count, balance_tokens, created_at, updated_at FROM users WHERE telegram_id = $1`, telegramID)
 	var out models.User
@@ -40,6 +42,7 @@ func (r *Repository) GetUserByTelegramID(ctx context.Context, telegramID int64) 
 	return out, nil
 }
 
+// EnsureUserByTelegramID handles ensure user by telegram i d.
 func (r *Repository) EnsureUserByTelegramID(ctx context.Context, telegramID int64, username, firstName, lastName string) (models.User, error) {
 	user, err := r.GetUserByTelegramID(ctx, telegramID)
 	if err == nil {
@@ -77,6 +80,7 @@ RETURNING id, telegram_id, username, first_name, last_name, photo_url, rating, r
 	return out, nil
 }
 
+// IsUserBlocked reports whether user blocked condition is met.
 func (r *Repository) IsUserBlocked(ctx context.Context, userID int64) (bool, error) {
 	row := r.pool.QueryRow(ctx, `SELECT is_blocked FROM users WHERE id = $1`, userID)
 	var blocked bool
@@ -86,16 +90,19 @@ func (r *Repository) IsUserBlocked(ctx context.Context, userID int64) (bool, err
 	return blocked, nil
 }
 
+// BlockUser handles block user.
 func (r *Repository) BlockUser(ctx context.Context, userID int64, reason string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET is_blocked = true, blocked_reason = $2, blocked_at = now(), updated_at = now() WHERE id = $1`, userID, nullString(reason))
 	return err
 }
 
+// UnblockUser handles unblock user.
 func (r *Repository) UnblockUser(ctx context.Context, userID int64) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET is_blocked = false, blocked_reason = NULL, blocked_at = NULL, updated_at = now() WHERE id = $1`, userID)
 	return err
 }
 
+// GetAdminUser returns admin user.
 func (r *Repository) GetAdminUser(ctx context.Context, userID int64) (models.AdminUser, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT id, telegram_id, username, first_name, last_name, photo_url,
@@ -153,6 +160,7 @@ WHERE id = $1;`, userID)
 	return out, nil
 }
 
+// ListAdminUsers lists admin users.
 func (r *Repository) ListAdminUsers(ctx context.Context, search string, blocked *bool, limit, offset int) ([]models.AdminUser, int, error) {
 	clauses := make([]string, 0)
 	args := make([]interface{}, 0)
@@ -250,6 +258,7 @@ FROM users`
 	return items, total, nil
 }
 
+// CreateAdminBroadcast creates admin broadcast.
 func (r *Repository) CreateAdminBroadcast(ctx context.Context, adminUserID int64, audience string, payload map[string]interface{}) (int64, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -266,11 +275,13 @@ RETURNING id;`, adminUserID, audience, payloadBytes)
 	return id, nil
 }
 
+// UpdateAdminBroadcastStatus updates admin broadcast status.
 func (r *Repository) UpdateAdminBroadcastStatus(ctx context.Context, broadcastID int64, status string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE admin_broadcasts SET status = $1, updated_at = now() WHERE id = $2`, status, broadcastID)
 	return err
 }
 
+// InsertAdminBroadcastJobsForAll handles insert admin broadcast jobs for all.
 func (r *Repository) InsertAdminBroadcastJobsForAll(ctx context.Context, broadcastID int64) (int64, error) {
 	command, err := r.pool.Exec(ctx, `
 INSERT INTO admin_broadcast_jobs (broadcast_id, target_user_id)
@@ -283,6 +294,7 @@ WHERE is_blocked = false AND telegram_id IS NOT NULL;`, broadcastID)
 	return command.RowsAffected(), nil
 }
 
+// InsertAdminBroadcastJobsForSelected handles insert admin broadcast jobs for selected.
 func (r *Repository) InsertAdminBroadcastJobsForSelected(ctx context.Context, broadcastID int64, userIDs []int64) (int64, error) {
 	if len(userIDs) == 0 {
 		return 0, nil
@@ -298,6 +310,7 @@ WHERE id = ANY($2) AND is_blocked = false AND telegram_id IS NOT NULL;`, broadca
 	return command.RowsAffected(), nil
 }
 
+// InsertAdminBroadcastJobsForFilter handles insert admin broadcast jobs for filter.
 func (r *Repository) InsertAdminBroadcastJobsForFilter(ctx context.Context, broadcastID int64, minBalance *int64, lastSeenAfter *time.Time) (int64, error) {
 	clauses := []string{"is_blocked = false", "telegram_id IS NOT NULL"}
 	args := []interface{}{broadcastID}
@@ -324,6 +337,7 @@ WHERE %s;`, strings.Join(clauses, " AND "))
 	return command.RowsAffected(), nil
 }
 
+// FetchPendingAdminBroadcastJobs handles fetch pending admin broadcast jobs.
 func (r *Repository) FetchPendingAdminBroadcastJobs(ctx context.Context, limit int) ([]models.AdminBroadcastJob, error) {
 	query := `
 WITH cte AS (
@@ -361,17 +375,20 @@ RETURNING j.id, j.broadcast_id, j.target_user_id, j.status, j.attempts, COALESCE
 	return jobs, nil
 }
 
+// UpdateAdminBroadcastJobStatus updates admin broadcast job status.
 func (r *Repository) UpdateAdminBroadcastJobStatus(ctx context.Context, jobID int64, status string, attempts int, lastError string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE admin_broadcast_jobs SET status = $1, attempts = $2, last_error = $3, updated_at = now() WHERE id = $4`, status, attempts, nullString(lastError), jobID)
 	return err
 }
 
+// RequeueStaleAdminBroadcastJobs handles requeue stale admin broadcast jobs.
 func (r *Repository) RequeueStaleAdminBroadcastJobs(ctx context.Context, staleAfter time.Duration) error {
 	interval := fmt.Sprintf("%d seconds", int(staleAfter.Seconds()))
 	_, err := r.pool.Exec(ctx, `UPDATE admin_broadcast_jobs SET status = 'pending', updated_at = now() WHERE status = 'processing' AND updated_at <= now() - $1::interval`, interval)
 	return err
 }
 
+// ListAdminBroadcasts lists admin broadcasts.
 func (r *Repository) ListAdminBroadcasts(ctx context.Context, limit, offset int) ([]models.AdminBroadcast, int, error) {
 	query := `
 SELECT b.id, b.admin_user_id, b.audience, b.payload, b.status, b.created_at, b.updated_at,
@@ -429,6 +446,7 @@ LIMIT $1 OFFSET $2;`
 	return items, total, nil
 }
 
+// GetAdminBroadcast returns admin broadcast.
 func (r *Repository) GetAdminBroadcast(ctx context.Context, broadcastID int64) (models.AdminBroadcast, error) {
 	query := `
 SELECT b.id, b.admin_user_id, b.audience, b.payload, b.status, b.created_at, b.updated_at,
@@ -468,6 +486,7 @@ WHERE b.id = $1;`
 	return item, nil
 }
 
+// FinalizeAdminBroadcast handles finalize admin broadcast.
 func (r *Repository) FinalizeAdminBroadcast(ctx context.Context, broadcastID int64) (bool, error) {
 	row := r.pool.QueryRow(ctx, `
 SELECT

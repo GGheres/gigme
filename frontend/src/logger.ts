@@ -17,6 +17,7 @@ type LogPayload = {
   userAgent?: string
 }
 
+// normalizeLevel normalizes level.
 function normalizeLevel(value: string | null | undefined): LogLevel {
   const lower = (value || '').toLowerCase().trim()
   if (lower === 'debug' || lower === 'info' || lower === 'warn' || lower === 'warning' || lower === 'error' || lower === 'off') {
@@ -25,6 +26,7 @@ function normalizeLevel(value: string | null | undefined): LogLevel {
   return 'info'
 }
 
+// normalizeBool normalizes bool.
 function normalizeBool(value: string | null | undefined): boolean | null {
   if (value == null) return null
   const lower = value.toLowerCase().trim()
@@ -33,6 +35,7 @@ function normalizeBool(value: string | null | undefined): boolean | null {
   return null
 }
 
+// getDefaultOrigin returns default origin.
 function getDefaultOrigin(): string {
   if (typeof window === 'undefined') return ''
   const origin = window.location?.origin
@@ -48,6 +51,7 @@ function getDefaultOrigin(): string {
   return ''
 }
 
+// normalizeApiUrl normalizes api url.
 function normalizeApiUrl(value: string): string {
   const trimmed = value.trim().replace(/^['"]|['"]$/g, '')
   const origin = getDefaultOrigin()
@@ -65,6 +69,7 @@ function normalizeApiUrl(value: string): string {
   return `https://${trimmed.replace(/^\/+/, '')}`
 }
 
+// resolveLogEndpoint handles resolve log endpoint.
 function resolveLogEndpoint(): string | null {
   const rawEndpoint = String(import.meta.env.VITE_LOG_ENDPOINT || '').trim()
   if (rawEndpoint) {
@@ -83,6 +88,7 @@ function resolveLogEndpoint(): string | null {
 }
 
 let logToken: string | null = null
+// setLogToken sets log token.
 export const setLogToken = (token: string | null) => {
   logToken = token
 }
@@ -97,10 +103,12 @@ const storageToServer = normalizeBool(storageToServerRaw)
 const logToServer = storageToServer ?? envToServer ?? Boolean(import.meta.env.DEV)
 const logEndpoint = resolveLogEndpoint()
 
+// shouldLog reports whether should log.
 function shouldLog(level: LogLevel) {
   return levelOrder[level] >= levelOrder[activeLevel]
 }
 
+// sendToServer handles send to server.
 function sendToServer(payload: LogPayload) {
   if (!logToServer || !logEndpoint) return
   if (typeof window === 'undefined') return
@@ -121,6 +129,7 @@ function sendToServer(payload: LogPayload) {
   })
 }
 
+// emit emits a log record to configured outputs.
 function emit(level: LogLevel, message: string, meta?: Record<string, unknown>) {
   if (!shouldLog(level)) return
   const payload = meta ? { ...meta } : undefined
@@ -154,9 +163,14 @@ function emit(level: LogLevel, message: string, meta?: Record<string, unknown>) 
   })
 }
 
+// logDebug handles log debug.
 export const logDebug = (message: string, meta?: Record<string, unknown>) => emit('debug', message, meta)
+// logInfo handles log info.
 export const logInfo = (message: string, meta?: Record<string, unknown>) => emit('info', message, meta)
+// logWarn handles log warn.
 export const logWarn = (message: string, meta?: Record<string, unknown>) => emit('warn', message, meta)
+// logError handles log error.
 export const logError = (message: string, meta?: Record<string, unknown>) => emit('error', message, meta)
 
+// getActiveLogLevel returns active log level.
 export const getActiveLogLevel = () => activeLevel

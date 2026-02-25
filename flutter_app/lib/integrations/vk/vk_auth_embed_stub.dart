@@ -7,6 +7,8 @@ typedef VkAuthCodeCallback = void Function(
 );
 typedef VkAuthErrorCallback = void Function(String errorMessage);
 
+/// buildVkAuthEmbed builds vk auth embed.
+
 Widget? buildVkAuthEmbed({
   required Uri helperUri,
   required VkAuthCodeCallback onAuthCode,

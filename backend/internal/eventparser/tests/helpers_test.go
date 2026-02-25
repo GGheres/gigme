@@ -10,16 +10,19 @@ import (
 	"gigme/backend/internal/eventparser/parsers"
 )
 
+// fakeResponse represents fake response.
 type fakeResponse struct {
 	body   []byte
 	status int
 	err    error
 }
 
+// fakeFetcher represents fake fetcher.
 type fakeFetcher struct {
 	responses map[string]fakeResponse
 }
 
+// Get returns the requested value.
 func (f *fakeFetcher) Get(_ context.Context, rawURL string, _ map[string]string) ([]byte, int, error) {
 	if f == nil {
 		return nil, 0, fmt.Errorf("fetcher is nil")
@@ -35,6 +38,7 @@ func (f *fakeFetcher) Get(_ context.Context, rawURL string, _ map[string]string)
 	return nil, 404, fmt.Errorf("no fake response for %s; available: %v", rawURL, keys)
 }
 
+// newTestDispatcher creates test dispatcher.
 func newTestDispatcher(fetcher core.Fetcher) *core.Dispatcher {
 	logger := slog.New(slog.NewTextHandler(ioDiscard{}, nil))
 	return core.NewDispatcher(map[core.SourceType]core.Parser{
@@ -45,6 +49,8 @@ func newTestDispatcher(fetcher core.Fetcher) *core.Dispatcher {
 	})
 }
 
+// ioDiscard represents io discard.
 type ioDiscard struct{}
 
+// Write writes the requested data.
 func (ioDiscard) Write(p []byte) (int, error) { return len(p), nil }

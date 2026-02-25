@@ -12,15 +12,18 @@ import (
 	"time"
 )
 
+// TelegramClient represents telegram client.
 type TelegramClient struct {
 	token  string
 	client *http.Client
 }
 
+// WebAppInfo represents web app info.
 type WebAppInfo struct {
 	URL string `json:"url"`
 }
 
+// InlineKeyboardButton represents inline keyboard button.
 type InlineKeyboardButton struct {
 	Text         string          `json:"text"`
 	URL          string          `json:"url,omitempty"`
@@ -29,14 +32,17 @@ type InlineKeyboardButton struct {
 	CopyText     *CopyTextButton `json:"copy_text,omitempty"`
 }
 
+// CopyTextButton represents copy text button.
 type CopyTextButton struct {
 	Text string `json:"text"`
 }
 
+// ReplyMarkup represents reply markup.
 type ReplyMarkup struct {
 	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
 }
 
+// NewTelegramClient creates telegram client.
 func NewTelegramClient(token string) *TelegramClient {
 	return &TelegramClient{
 		token:  token,
@@ -44,10 +50,12 @@ func NewTelegramClient(token string) *TelegramClient {
 	}
 }
 
+// SendMessage handles send message.
 func (t *TelegramClient) SendMessage(chatID int64, text string) error {
 	return t.SendMessageWithMarkup(chatID, text, nil)
 }
 
+// SendMessageWithMarkup handles send message with markup.
 func (t *TelegramClient) SendMessageWithMarkup(chatID int64, text string, markup *ReplyMarkup) error {
 	payload := map[string]interface{}{
 		"chat_id": chatID,
@@ -59,6 +67,7 @@ func (t *TelegramClient) SendMessageWithMarkup(chatID int64, text string, markup
 	return t.post("sendMessage", payload)
 }
 
+// SendPhotoWithMarkup handles send photo with markup.
 func (t *TelegramClient) SendPhotoWithMarkup(chatID int64, photoURL, caption string, markup *ReplyMarkup) error {
 	payload := map[string]interface{}{
 		"chat_id": chatID,
@@ -73,6 +82,7 @@ func (t *TelegramClient) SendPhotoWithMarkup(chatID int64, photoURL, caption str
 	return t.post("sendPhoto", payload)
 }
 
+// SendPhotoBytes handles send photo bytes.
 func (t *TelegramClient) SendPhotoBytes(chatID int64, filename string, photo []byte, caption string, markup *ReplyMarkup) error {
 	if len(photo) == 0 {
 		return fmt.Errorf("photo is empty")
@@ -129,6 +139,7 @@ func (t *TelegramClient) SendPhotoBytes(chatID int64, filename string, photo []b
 	return nil
 }
 
+// AnswerCallbackQuery handles answer callback query.
 func (t *TelegramClient) AnswerCallbackQuery(callbackQueryID string, text string) error {
 	callbackQueryID = strings.TrimSpace(callbackQueryID)
 	if callbackQueryID == "" {
@@ -144,6 +155,7 @@ func (t *TelegramClient) AnswerCallbackQuery(callbackQueryID string, text string
 	return t.post("answerCallbackQuery", payload)
 }
 
+// post handles internal post behavior.
 func (t *TelegramClient) post(method string, payload map[string]interface{}) error {
 	body, _ := json.Marshal(payload)
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/%s", t.token, method)

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// TestValidatePromoPercent verifies validate promo percent behavior.
 func TestValidatePromoPercent(t *testing.T) {
 	now := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
 	limit := 10
@@ -34,6 +35,7 @@ func TestValidatePromoPercent(t *testing.T) {
 	}
 }
 
+// TestValidatePromoOutOfWindow verifies validate promo out of window behavior.
 func TestValidatePromoOutOfWindow(t *testing.T) {
 	now := time.Date(2026, 2, 11, 12, 0, 0, 0, time.UTC)
 	activeFrom := now.Add(24 * time.Hour)
@@ -55,6 +57,7 @@ func TestValidatePromoOutOfWindow(t *testing.T) {
 	}
 }
 
+// TestValidatePromoUsageLimit verifies validate promo usage limit behavior.
 func TestValidatePromoUsageLimit(t *testing.T) {
 	limit := 1
 	result := ValidatePromo(PromoRule{

@@ -7,6 +7,7 @@ import (
 	"gigme/backend/internal/repository"
 )
 
+// BlockedUserMiddleware handles blocked user middleware.
 func BlockedUserMiddleware(repo *repository.Repository, adminTGIDs map[int64]struct{}) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +45,7 @@ func BlockedUserMiddleware(repo *repository.Repository, adminTGIDs map[int64]str
 	}
 }
 
+// writeBlocked writes blocked.
 func writeBlocked(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusForbidden)

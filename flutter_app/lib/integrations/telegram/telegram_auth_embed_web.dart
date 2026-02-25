@@ -11,6 +11,8 @@ typedef TelegramAuthInitDataCallback = void Function(String initData);
 
 int _embedViewSeed = 0;
 
+/// buildTelegramAuthEmbed builds telegram auth embed.
+
 Widget? buildTelegramAuthEmbed({
   required Uri helperUri,
   required TelegramAuthInitDataCallback onInitData,
@@ -21,7 +23,10 @@ Widget? buildTelegramAuthEmbed({
   );
 }
 
+/// _TelegramAuthEmbedFrame represents telegram auth embed frame.
+
 class _TelegramAuthEmbedFrame extends StatefulWidget {
+  /// _TelegramAuthEmbedFrame handles telegram auth embed frame.
   const _TelegramAuthEmbedFrame({
     required this.helperUri,
     required this.onInitData,
@@ -30,10 +35,16 @@ class _TelegramAuthEmbedFrame extends StatefulWidget {
   final Uri helperUri;
   final TelegramAuthInitDataCallback onInitData;
 
+  /// createState creates state.
+
   @override
   State<_TelegramAuthEmbedFrame> createState() =>
+
+      /// _TelegramAuthEmbedFrameState handles telegram auth embed frame state.
       _TelegramAuthEmbedFrameState();
 }
+
+/// _TelegramAuthEmbedFrameState represents telegram auth embed frame state.
 
 class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
   late final String _viewType;
@@ -41,6 +52,8 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
   late final String _expectedOrigin;
   StreamSubscription<html.MessageEvent>? _messageSub;
   bool _completed = false;
+
+  /// initState handles init state.
 
   @override
   void initState() {
@@ -69,6 +82,8 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
     _messageSub = html.window.onMessage.listen(_handleMessage);
   }
 
+  /// dispose releases resources held by this instance.
+
   @override
   void dispose() {
     _messageSub?.cancel();
@@ -76,10 +91,14 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
     super.dispose();
   }
 
+  /// build renders the widget tree for this component.
+
   @override
   Widget build(BuildContext context) {
     return HtmlElementView(viewType: _viewType);
   }
+
+  /// _handleMessage handles message.
 
   void _handleMessage(html.MessageEvent event) {
     if (_completed || !mounted) return;
@@ -96,6 +115,8 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
     widget.onInitData(initData);
   }
 
+  /// _withEmbedFlag configures embed flag.
+
   Uri _withEmbedFlag(Uri uri) {
     return uri.replace(
       queryParameters: <String, String>{
@@ -104,6 +125,8 @@ class _TelegramAuthEmbedFrameState extends State<_TelegramAuthEmbedFrame> {
       },
     );
   }
+
+  /// _parseInitDataFromMessage parses init data from message.
 
   String? _parseInitDataFromMessage(dynamic messageData) {
     Map<String, dynamic>? payload;

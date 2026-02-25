@@ -8,6 +8,7 @@ import (
 	"gigme/backend/internal/auth"
 )
 
+// contextKey represents context key.
 type contextKey string
 
 const (
@@ -17,26 +18,31 @@ const (
 	isAdminKey    contextKey = "is_admin"
 )
 
+// UserIDFromContext handles user i d from context.
 func UserIDFromContext(ctx context.Context) (int64, bool) {
 	val, ok := ctx.Value(userIDKey).(int64)
 	return val, ok
 }
 
+// TelegramIDFromContext handles telegram i d from context.
 func TelegramIDFromContext(ctx context.Context) (int64, bool) {
 	val, ok := ctx.Value(telegramIDKey).(int64)
 	return val, ok
 }
 
+// IsNewFromContext reports whether new from context condition is met.
 func IsNewFromContext(ctx context.Context) (bool, bool) {
 	val, ok := ctx.Value(isNewKey).(bool)
 	return val, ok
 }
 
+// IsAdminFromContext reports whether admin from context condition is met.
 func IsAdminFromContext(ctx context.Context) (bool, bool) {
 	val, ok := ctx.Value(isAdminKey).(bool)
 	return val, ok
 }
 
+// AuthMiddleware authenticates middleware.
 func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +70,7 @@ func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 	}
 }
 
+// OptionalAuthMiddleware handles optional auth middleware.
 func OptionalAuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

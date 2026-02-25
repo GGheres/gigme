@@ -7,6 +7,7 @@ import (
 	"gigme/backend/internal/eventparser/extract"
 )
 
+// TestParseDateTimeEnglishAndRussian verifies parse date time english and russian behavior.
 func TestParseDateTimeEnglishAndRussian(t *testing.T) {
 	tests := []struct {
 		name  string

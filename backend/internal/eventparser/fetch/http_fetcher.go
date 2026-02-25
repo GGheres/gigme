@@ -16,6 +16,7 @@ import (
 
 const defaultUserAgent = "Mozilla/5.0 (compatible; GigmeEventParser/1.0; +https://gigme.app)"
 
+// HTTPFetcher represents h t t p fetcher.
 type HTTPFetcher struct {
 	client      *http.Client
 	retries     int
@@ -28,6 +29,7 @@ type HTTPFetcher struct {
 	rand   *rand.Rand
 }
 
+// HTTPFetcherConfig represents h t t p fetcher config.
 type HTTPFetcherConfig struct {
 	Timeout      time.Duration
 	Retries      int
@@ -37,10 +39,12 @@ type HTTPFetcherConfig struct {
 	RateBurst    int
 }
 
+// NewHTTPFetcher creates h t t p fetcher.
 func NewHTTPFetcher(logger *slog.Logger) *HTTPFetcher {
 	return NewHTTPFetcherWithConfig(logger, HTTPFetcherConfig{})
 }
 
+// NewHTTPFetcherWithConfig creates h t t p fetcher with config.
 func NewHTTPFetcherWithConfig(logger *slog.Logger, cfg HTTPFetcherConfig) *HTTPFetcher {
 	if logger == nil {
 		logger = slog.Default()
@@ -86,6 +90,7 @@ func NewHTTPFetcherWithConfig(logger *slog.Logger, cfg HTTPFetcherConfig) *HTTPF
 	}
 }
 
+// Get returns the requested value.
 func (f *HTTPFetcher) Get(ctx context.Context, rawURL string, headers map[string]string) ([]byte, int, error) {
 	if f == nil {
 		return nil, 0, errors.New("fetcher is nil")
@@ -128,6 +133,7 @@ func (f *HTTPFetcher) Get(ctx context.Context, rawURL string, headers map[string
 	return nil, 0, lastErr
 }
 
+// doRequest handles do request.
 func (f *HTTPFetcher) doRequest(ctx context.Context, rawURL string, headers map[string]string) ([]byte, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -156,6 +162,7 @@ func (f *HTTPFetcher) doRequest(ctx context.Context, rawURL string, headers map[
 	return body, resp.StatusCode, nil
 }
 
+// sleepBackoff handles sleep backoff.
 func (f *HTTPFetcher) sleepBackoff(ctx context.Context, attempt int) error {
 	d := backoffDuration(f.baseBackoff, attempt, f.jitter)
 	if d > f.maxBackoff {
@@ -171,6 +178,7 @@ func (f *HTTPFetcher) sleepBackoff(ctx context.Context, attempt int) error {
 	}
 }
 
+// jitter handles internal jitter behavior.
 func (f *HTTPFetcher) jitter(max int64) int64 {
 	if max <= 0 {
 		return 0
@@ -180,6 +188,7 @@ func (f *HTTPFetcher) jitter(max int64) int64 {
 	return f.rand.Int63n(max + 1)
 }
 
+// shouldRetryStatus reports whether should retry status.
 func shouldRetryStatus(status int) bool {
 	if status == http.StatusTooManyRequests {
 		return true
@@ -187,6 +196,7 @@ func shouldRetryStatus(status int) bool {
 	return status >= 500 && status <= 599
 }
 
+// isTransientError reports whether transient error condition is met.
 func isTransientError(err error) bool {
 	if err == nil {
 		return false

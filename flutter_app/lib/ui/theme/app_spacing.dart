@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 
+/// AppSpacing represents app spacing.
+
 class AppSpacing {
+  /// AppSpacing handles app spacing.
   const AppSpacing._();
 
   static const double xxs = 4;

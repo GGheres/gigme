@@ -6,6 +6,7 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// UpsertUserPushToken handles upsert user push token.
 func (r *Repository) UpsertUserPushToken(ctx context.Context, token models.UserPushToken) error {
 	_, err := r.pool.Exec(ctx, `
 INSERT INTO user_push_tokens (

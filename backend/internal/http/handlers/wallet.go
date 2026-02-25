@@ -12,10 +12,12 @@ const maxTopupTokens int64 = 1_000_000
 
 var errInvalidTopupAmount = errors.New("invalid topup amount")
 
+// topupTokenRequest represents topup token request.
 type topupTokenRequest struct {
 	Amount int64 `json:"amount"`
 }
 
+// validateTopupAmount validates topup amount.
 func validateTopupAmount(amount int64) error {
 	if amount < 1 || amount > maxTopupTokens {
 		return errInvalidTopupAmount
@@ -23,6 +25,7 @@ func validateTopupAmount(amount int64) error {
 	return nil
 }
 
+// TopupToken handles topup token.
 func (h *Handler) TopupToken(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	userID, ok := middleware.UserIDFromContext(r.Context())
@@ -59,6 +62,7 @@ func (h *Handler) TopupToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// TopupCard handles topup card.
 func (h *Handler) TopupCard(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
 	if _, ok := middleware.UserIDFromContext(r.Context()); !ok {

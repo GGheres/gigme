@@ -6,6 +6,7 @@ import (
 	"gigme/backend/internal/models"
 )
 
+// TestNormalizeProviderStatus verifies normalize provider status behavior.
 func TestNormalizeProviderStatus(t *testing.T) {
 	t.Parallel()
 
@@ -32,6 +33,7 @@ func TestNormalizeProviderStatus(t *testing.T) {
 	}
 }
 
+// TestApplyPaymentTextTemplate verifies apply payment text template behavior.
 func TestApplyPaymentTextTemplate(t *testing.T) {
 	t.Parallel()
 
@@ -52,6 +54,7 @@ func TestApplyPaymentTextTemplate(t *testing.T) {
 	}
 }
 
+// TestMergePaymentSettingsDefaultsNetwork verifies merge payment settings defaults network behavior.
 func TestMergePaymentSettingsDefaultsNetwork(t *testing.T) {
 	t.Parallel()
 
@@ -72,6 +75,7 @@ func TestMergePaymentSettingsDefaultsNetwork(t *testing.T) {
 	}
 }
 
+// TestMergePaymentSettingsUpdatesMethodVisibility verifies merge payment settings updates method visibility behavior.
 func TestMergePaymentSettingsUpdatesMethodVisibility(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +104,7 @@ func TestMergePaymentSettingsUpdatesMethodVisibility(t *testing.T) {
 	}
 }
 
+// TestIsPaymentMethodEnabled verifies is payment method enabled behavior.
 func TestIsPaymentMethodEnabled(t *testing.T) {
 	t.Parallel()
 
@@ -124,6 +129,7 @@ func TestIsPaymentMethodEnabled(t *testing.T) {
 	}
 }
 
+// TestIsAdminOrderDeletePasswordValid verifies is admin order delete password valid behavior.
 func TestIsAdminOrderDeletePasswordValid(t *testing.T) {
 	t.Parallel()
 

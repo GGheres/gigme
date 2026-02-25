@@ -13,12 +13,19 @@ import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 
+/// SettingsScreen represents settings screen.
+
 class SettingsScreen extends ConsumerStatefulWidget {
+  /// SettingsScreen handles settings screen.
   const SettingsScreen({super.key});
+
+  /// createState creates state.
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
+
+/// _SettingsScreenState represents settings screen state.
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
@@ -26,11 +33,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loggingOut = false;
   bool _localRemindersEnabled = true;
 
+  /// initState handles init state.
+
   @override
   void initState() {
     super.initState();
     unawaited(_loadSettings());
   }
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +91,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  /// _loadSettings loads settings.
+
   Future<void> _loadSettings() async {
     final enabled = await ref.read(localReminderServiceProvider).isEnabled();
     if (!mounted) return;
@@ -88,6 +101,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _localRemindersEnabled = enabled;
     });
   }
+
+  /// _setLocalRemindersEnabled sets local reminders enabled.
 
   Future<void> _setLocalRemindersEnabled(bool enabled) async {
     setState(() {
@@ -119,6 +134,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     }
   }
+
+  /// _confirmAndLogout handles confirm and logout.
 
   Future<void> _confirmAndLogout() async {
     final shouldLogout = await showDialog<bool>(
@@ -168,6 +185,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     }
   }
+
+  /// _handleBack handles back.
 
   void _handleBack() {
     if (Navigator.of(context).canPop()) {

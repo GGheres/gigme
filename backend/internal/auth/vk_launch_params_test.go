@@ -2,6 +2,7 @@ package auth
 
 import "testing"
 
+// TestValidateVKLaunchParamsSuccess verifies validate v k launch params success behavior.
 func TestValidateVKLaunchParamsSuccess(t *testing.T) {
 	const (
 		query  = "vk_user_id=494075&vk_app_id=6736218&vk_is_app_user=1&vk_are_notifications_enabled=1&vk_language=ru&vk_access_token_settings=&vk_platform=android&sign=htQFduJpLxz7ribXRZpDFUH-XEUhC9rBPTJkjUFEkRA"
@@ -23,6 +24,7 @@ func TestValidateVKLaunchParamsSuccess(t *testing.T) {
 	}
 }
 
+// TestValidateVKLaunchParamsInvalidSign verifies validate v k launch params invalid sign behavior.
 func TestValidateVKLaunchParamsInvalidSign(t *testing.T) {
 	const (
 		query  = "vk_user_id=494075&vk_app_id=6736218&vk_platform=android&sign=invalid-sign"
@@ -35,6 +37,7 @@ func TestValidateVKLaunchParamsInvalidSign(t *testing.T) {
 	}
 }
 
+// TestValidateVKLaunchParamsEncodedValue verifies validate v k launch params encoded value behavior.
 func TestValidateVKLaunchParamsEncodedValue(t *testing.T) {
 	const (
 		query  = "q=1&vk_user_id=111111&vk_app_id=111111&vk_is_app_user=1&vk_are_notifications_enabled=1&vk_language=ru&vk_access_token_settings=&vk_platform=andr%26oid&sign=f3d_AUYiYKEnG-pc9KpG_ZvHB8UEwS-ZeqwnIpgjqJE"
@@ -56,6 +59,7 @@ func TestValidateVKLaunchParamsEncodedValue(t *testing.T) {
 	}
 }
 
+// TestBuildVKMiniAppUsername verifies build v k mini app username behavior.
 func TestBuildVKMiniAppUsername(t *testing.T) {
 	if got := BuildVKMiniAppUsername(100); got != "vk100" {
 		t.Fatalf("BuildVKMiniAppUsername(100) = %q", got)

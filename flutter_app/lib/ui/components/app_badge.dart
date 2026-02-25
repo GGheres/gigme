@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 
+/// AppBadgeVariant represents app badge variant.
+
 enum AppBadgeVariant {
   neutral,
   accent,
@@ -12,7 +14,10 @@ enum AppBadgeVariant {
   info,
 }
 
+/// AppBadge represents app badge.
+
 class AppBadge extends StatelessWidget {
+  /// AppBadge handles app badge.
   const AppBadge({
     required this.label,
     this.variant = AppBadgeVariant.neutral,
@@ -25,6 +30,8 @@ class AppBadge extends StatelessWidget {
   final AppBadgeVariant variant;
   final EdgeInsetsGeometry padding;
   final TextStyle? textStyle;
+
+  /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +53,10 @@ class AppBadge extends StatelessWidget {
   }
 }
 
+/// _BadgeStyle represents badge style.
+
 class _BadgeStyle {
+  /// _BadgeStyle handles badge style.
   const _BadgeStyle({
     required this.background,
     required this.border,
@@ -57,6 +67,8 @@ class _BadgeStyle {
   final Color border;
   final Color foreground;
 }
+
+/// _styleFor handles style for.
 
 _BadgeStyle _styleFor(AppBadgeVariant variant, {required bool isDark}) {
   final textPrimary =
