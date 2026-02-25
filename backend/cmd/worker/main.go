@@ -667,7 +667,25 @@ func handleBroadcastJob(ctx context.Context, repo *repository.Repository, telegr
 		if sendErr == nil {
 			return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "sent", attempts, "")
 		}
-		lastErr = sendErr
+		if markup != nil {
+			// Keep broadcast delivery resilient: fallback to plain text when markup is rejected.
+			plainErr := telegram.SendMessageWithMarkup(chatID, payload.Message, nil)
+			if plainErr == nil {
+				logger.Warn(
+					"broadcast_markup_rejected_plain_fallback_sent",
+					"job_id",
+					job.ID,
+					"broadcast_id",
+					job.BroadcastID,
+					"error",
+					sendErr,
+				)
+				return repo.UpdateAdminBroadcastJobStatus(ctx, job.ID, "sent", attempts, "")
+			}
+			lastErr = fmt.Errorf("send with markup failed: %v; fallback failed: %w", sendErr, plainErr)
+		} else {
+			lastErr = sendErr
+		}
 		if attempts < 3 {
 			time.Sleep(time.Second * time.Duration(1<<(attempts-1)))
 		}
