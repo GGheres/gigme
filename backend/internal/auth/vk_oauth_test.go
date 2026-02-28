@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -112,6 +113,58 @@ func TestParseVKOAuthStateAcceptsDoubleEncodedState(t *testing.T) {
 
 	doubleEncoded := base64.RawURLEncoding.EncodeToString([]byte(state))
 	parsed, err := ParseVKOAuthState(doubleEncoded, "secret", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != "abc123-verifier" {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+	}
+}
+
+// TestParseVKOAuthStateAcceptsRepeatedQueryEscapedState verifies parse v k o auth state accepts repeated query escaped state behavior.
+func TestParseVKOAuthStateAcceptsRepeatedQueryEscapedState(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	state, err := BuildVKOAuthState(
+		"secret",
+		"abc123-verifier",
+		"https://spacefestival.fun/space_app/auth",
+		"/space_app",
+		now,
+	)
+	if err != nil {
+		t.Fatalf("BuildVKOAuthState() error = %v", err)
+	}
+
+	escaped := state
+	for i := 0; i < 3; i++ {
+		escaped = url.QueryEscape(escaped)
+	}
+
+	parsed, err := ParseVKOAuthState(escaped, "secret", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != "abc123-verifier" {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+	}
+}
+
+// TestParseVKOAuthStateAcceptsQuotedState verifies parse v k o auth state accepts quoted state behavior.
+func TestParseVKOAuthStateAcceptsQuotedState(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	state, err := BuildVKOAuthState(
+		"secret",
+		"abc123-verifier",
+		"https://spacefestival.fun/space_app/auth",
+		"/space_app",
+		now,
+	)
+	if err != nil {
+		t.Fatalf("BuildVKOAuthState() error = %v", err)
+	}
+
+	quoted := url.QueryEscape(`"` + state + `"`)
+	parsed, err := ParseVKOAuthState(quoted, "secret", now.Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("ParseVKOAuthState() error = %v", err)
 	}
@@ -249,6 +302,40 @@ func TestParseVKOAuthStateAcceptsVKRepackedLegacyState(t *testing.T) {
 	legacyState := base64.RawURLEncoding.EncodeToString(legacyBytes)
 
 	parsed, err := ParseVKOAuthState(legacyState, secret, now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ParseVKOAuthState() error = %v", err)
+	}
+	if parsed.CodeVerifier != payload.CodeVerifier {
+		t.Fatalf("CodeVerifier = %q", parsed.CodeVerifier)
+	}
+	if parsed.RedirectURI != payload.RedirectURI {
+		t.Fatalf("RedirectURI = %q", parsed.RedirectURI)
+	}
+	if parsed.Next != payload.Next {
+		t.Fatalf("Next = %q", parsed.Next)
+	}
+}
+
+// TestParseVKOAuthStateAcceptsLegacyStdBase64State verifies parse v k o auth state accepts legacy standard base64 state behavior.
+func TestParseVKOAuthStateAcceptsLegacyStdBase64State(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	payload := vkOAuthStatePayload{
+		CodeVerifier: "abc123-verifier",
+		RedirectURI:  "https://spacefestival.fun/space_app/auth",
+		Next:         "/space_app",
+		ExpiresAt:    now.Add(10 * time.Minute).Unix(),
+	}
+
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json.Marshal(payload) error = %v", err)
+	}
+
+	signatureRaw := signVKOAuthStateRaw("secret", rawPayload)
+	legacyBytes := append(rawPayload, signatureRaw...)
+	legacyState := base64.StdEncoding.EncodeToString(legacyBytes)
+
+	parsed, err := ParseVKOAuthState(legacyState, "secret", now.Add(2*time.Minute))
 	if err != nil {
 		t.Fatalf("ParseVKOAuthState() error = %v", err)
 	}

@@ -248,7 +248,15 @@ func (h *Handler) authVKCodeFlow(
 
 	state, err := auth.ParseVKOAuthState(req.State, h.cfg.JWTSecret, time.Now())
 	if err != nil {
-		logger.Warn("action", "action", "auth_vk", "status", "invalid_state")
+		logger.Warn(
+			"action", "action", "auth_vk",
+			"status", "invalid_state",
+			"error", err,
+			"state_len", len(req.State),
+			"state_has_dot", strings.Contains(req.State, "."),
+			"state_has_percent", strings.Contains(req.State, "%"),
+			"state_has_space", strings.Contains(req.State, " "),
+		)
 		writeError(w, http.StatusUnauthorized, "invalid vk auth state")
 		return
 	}

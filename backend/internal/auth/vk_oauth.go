@@ -105,28 +105,87 @@ func ParseVKOAuthState(
 		return VKOAuthState{}, ErrInvalidVKOAuthState
 	}
 
-	if parsed, ok := parseVKOAuthStateCurrent(trimmedState, secret, now); ok {
-		return parsed, nil
-	}
-
-	if parsed, ok := parseVKOAuthStateLegacy(trimmedState, secret, now); ok {
-		return parsed, nil
-	}
-
-	unescaped, err := url.QueryUnescape(trimmedState)
-	if err == nil {
-		unescaped = strings.TrimSpace(unescaped)
-		if unescaped != "" && unescaped != trimmedState {
-			if parsed, ok := parseVKOAuthStateCurrent(unescaped, secret, now); ok {
-				return parsed, nil
-			}
-			if parsed, ok := parseVKOAuthStateLegacy(unescaped, secret, now); ok {
-				return parsed, nil
-			}
+	for _, candidate := range collectVKOAuthStateCandidates(trimmedState) {
+		if parsed, ok := parseVKOAuthStateCandidate(candidate, secret, now); ok {
+			return parsed, nil
 		}
 	}
 
 	return VKOAuthState{}, ErrInvalidVKOAuthState
+}
+
+// parseVKOAuthStateCandidate parses v k o auth state candidate.
+func parseVKOAuthStateCandidate(state string, secret string, now time.Time) (VKOAuthState, bool) {
+	if parsed, ok := parseVKOAuthStateCurrent(state, secret, now); ok {
+		return parsed, true
+	}
+	if parsed, ok := parseVKOAuthStateLegacy(state, secret, now); ok {
+		return parsed, true
+	}
+	return VKOAuthState{}, false
+}
+
+// collectVKOAuthStateCandidates handles collect v k o auth state candidates.
+func collectVKOAuthStateCandidates(state string) []string {
+	queue := []string{strings.TrimSpace(state)}
+	seen := make(map[string]struct{}, 8)
+	out := make([]string, 0, 8)
+
+	for len(queue) > 0 {
+		candidate := strings.TrimSpace(queue[0])
+		queue = queue[1:]
+		if candidate == "" {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		out = append(out, candidate)
+
+		unquoted := trimWrappingQuotes(candidate)
+		if unquoted != "" && unquoted != candidate {
+			queue = append(queue, unquoted)
+		}
+
+		if unescaped, err := url.QueryUnescape(candidate); err == nil {
+			unescaped = strings.TrimSpace(unescaped)
+			if unescaped != "" && unescaped != candidate {
+				queue = append(queue, unescaped)
+			}
+		}
+
+		if unescaped, err := url.PathUnescape(candidate); err == nil {
+			unescaped = strings.TrimSpace(unescaped)
+			if unescaped != "" && unescaped != candidate {
+				queue = append(queue, unescaped)
+			}
+		}
+
+		if strings.Contains(candidate, " ") {
+			withPlus := strings.ReplaceAll(candidate, " ", "+")
+			if withPlus != candidate {
+				queue = append(queue, withPlus)
+			}
+		}
+	}
+
+	return out
+}
+
+// trimWrappingQuotes trims wrapping quotes from value.
+func trimWrappingQuotes(value string) string {
+	trimmed := strings.TrimSpace(value)
+	for len(trimmed) >= 2 {
+		first := trimmed[0]
+		last := trimmed[len(trimmed)-1]
+		if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
+			trimmed = strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+			continue
+		}
+		break
+	}
+	return trimmed
 }
 
 // parseVKOAuthStateCurrent parses v k o auth state current.
@@ -163,8 +222,8 @@ func parseVKOAuthStateLegacy(
 	secret string,
 	now time.Time,
 ) (VKOAuthState, bool) {
-	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(state))
-	if err != nil || len(decoded) == 0 {
+	decoded, ok := decodeVKOAuthStateBase64(state)
+	if !ok || len(decoded) == 0 {
 		return VKOAuthState{}, false
 	}
 
@@ -222,6 +281,28 @@ func parseVKOAuthStateLegacy(
 		return VKOAuthState{}, false
 	}
 	return parsed, true
+}
+
+// decodeVKOAuthStateBase64 decodes vk oauth state base64.
+func decodeVKOAuthStateBase64(state string) ([]byte, bool) {
+	trimmedState := strings.TrimSpace(state)
+	if trimmedState == "" {
+		return nil, false
+	}
+
+	encodings := []*base64.Encoding{
+		base64.RawURLEncoding,
+		base64.URLEncoding,
+		base64.RawStdEncoding,
+		base64.StdEncoding,
+	}
+	for _, encoding := range encodings {
+		decoded, err := encoding.DecodeString(trimmedState)
+		if err == nil && len(decoded) > 0 {
+			return decoded, true
+		}
+	}
+	return nil, false
 }
 
 // parseVKOAuthPayload parses v k o auth payload.
