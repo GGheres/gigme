@@ -522,12 +522,23 @@ class AuthController extends ChangeNotifier {
         fromLaunchUri ?? parseVkAuthCodeCredentialsFromUri(Uri.base);
     if (parsedFromUri == null) return null;
 
+    final persistedState = (await vkOAuthStateStorage.readState() ?? '').trim();
     final stateFromUri = parsedFromUri.state.trim();
+    final shouldPreferPersistedState = persistedState.isNotEmpty &&
+        (stateFromUri.isEmpty || !stateFromUri.contains('.'));
+
+    if (shouldPreferPersistedState) {
+      return VkAuthCodeCredentials(
+        code: parsedFromUri.code,
+        state: persistedState,
+        deviceId: parsedFromUri.deviceId,
+      );
+    }
+
     if (stateFromUri.isNotEmpty) {
       return parsedFromUri;
     }
 
-    final persistedState = (await vkOAuthStateStorage.readState() ?? '').trim();
     if (persistedState.isEmpty) {
       return null;
     }
