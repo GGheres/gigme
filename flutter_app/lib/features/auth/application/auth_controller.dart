@@ -197,9 +197,17 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final persistedState =
+          (await vkOAuthStateStorage.readState() ?? '').trim();
+      final incomingState = state.trim();
+      final shouldUsePersistedState = persistedState.isNotEmpty &&
+          (incomingState.isEmpty || !incomingState.contains('.'));
+      final stateForExchange =
+          shouldUsePersistedState ? persistedState : incomingState;
+
       final session = await repository.loginWithVkCode(
         code: code,
-        state: state,
+        state: stateForExchange,
         deviceId: deviceId,
       );
       await _persistSession(session: session);
