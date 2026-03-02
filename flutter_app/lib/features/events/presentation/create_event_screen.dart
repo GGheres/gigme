@@ -243,24 +243,122 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     _scheduleDraftSave();
   }
 
+  int get _requiredSectionsTotal => 4;
+
+  int _requiredSectionsDone() {
+    var done = 0;
+    if (_titleCtrl.text.trim().isNotEmpty &&
+        _descriptionCtrl.text.trim().isNotEmpty) {
+      done++;
+    }
+    if (_startsAt != null) {
+      done++;
+    }
+    if (_validateUnifiedContact(_contactCtrl.text.trim()) == null) {
+      done++;
+    }
+    if (_selectedPoint != null) {
+      done++;
+    }
+    return done;
+  }
+
+  double _requiredProgress() {
+    final total = _requiredSectionsTotal;
+    if (total == 0) return 0;
+    final progress = _requiredSectionsDone() / total;
+    return progress.clamp(0, 1);
+  }
+
+  List<String> _requiredMissingSections() {
+    final missing = <String>[];
+    if (_titleCtrl.text.trim().isEmpty ||
+        _descriptionCtrl.text.trim().isEmpty) {
+      missing.add('основная информация');
+    }
+    if (_startsAt == null) {
+      missing.add('дата начала');
+    }
+    if (_validateUnifiedContact(_contactCtrl.text.trim()) != null) {
+      missing.add('контакт');
+    }
+    if (_selectedPoint == null) {
+      missing.add('локация');
+    }
+    return missing;
+  }
+
+  String _draftStatusLabel() {
+    if (_submitting) {
+      return 'Публикация в процессе';
+    }
+    if (_uploading) {
+      return 'Загрузка файлов';
+    }
+    if (_restoringDraft) {
+      return 'Восстанавливаем черновик';
+    }
+    return 'Черновик сохраняется автоматически';
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = ref.watch(locationControllerProvider).state;
-
     _selectedPoint ??= location.userLocation ?? location.center;
+    final theme = Theme.of(context);
+    final requiredDone = _requiredSectionsDone();
+    final requiredProgress = _requiredProgress();
+    final missingSections = _requiredMissingSections();
 
     return AppScaffold(
       title: 'Создать событие',
-      subtitle: 'Короткая форма с понятными шагами',
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      subtitle: 'Пошаговая форма с автосохранением',
+      titleColor: theme.colorScheme.onSurface,
+      subtitleColor: theme.colorScheme.onSurface.withValues(alpha: 0.75),
       scrollable: true,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            SectionCard(
+              title: 'Готовность к публикации',
+              subtitle:
+                  'Обязательные шаги: $requiredDone/$_requiredSectionsTotal',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 8,
+                      value: requiredProgress,
+                      backgroundColor:
+                          theme.colorScheme.outline.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _draftStatusLabel(),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  if (missingSections.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        for (final section in missingSections)
+                          Chip(
+                            label: Text('Заполните: $section'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
             SectionCard(
               title: '1. Основная информация',
               subtitle: 'Название, описание и формат события',
@@ -494,6 +592,14 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
               icon: const Icon(Icons.check_circle_outline_rounded),
               onPressed: (_submitting || _uploading) ? null : _submit,
               expand: true,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              missingSections.isEmpty
+                  ? 'Все обязательные данные заполнены. Можно публиковать.'
+                  : 'Перед публикацией заполните: ${missingSections.join(', ')}.',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
           ],

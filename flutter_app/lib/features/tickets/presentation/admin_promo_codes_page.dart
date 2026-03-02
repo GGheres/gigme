@@ -3,6 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 
@@ -160,139 +168,180 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: const Text('Админ-промокоды'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
+      title: 'Промокоды',
+      subtitle: 'Управление скидками и лимитами',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: _loading
+          ? const Center(
+              child: LoadingState(
+                title: 'Загрузка промокодов',
+                subtitle: 'Получаем актуальные скидки',
+              ),
+            )
           : ListView(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.zero,
               children: [
                 if ((_error ?? '').trim().isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(_error!,
-                        style: const TextStyle(color: Colors.red)),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: ErrorState(
+                      message: _error!,
+                      onRetry: _load,
+                    ),
                   ),
-                TextField(
-                  controller: _eventIdCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: 'ID события (необязательный фильтр)'),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _codeCtrl,
-                        decoration: const InputDecoration(labelText: 'Код'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        // ignore: deprecated_member_use
-                        value: _discountType,
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'PERCENT', child: Text('PERCENT')),
-                          DropdownMenuItem(
-                              value: 'FIXED', child: Text('FIXED')),
-                        ],
-                        onChanged: (value) =>
-                            setState(() => _discountType = value ?? 'PERCENT'),
-                        decoration:
-                            const InputDecoration(labelText: 'Тип скидки'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _valueCtrl,
+                SectionCard(
+                  title: 'Создать промокод',
+                  subtitle: 'Настройте тип, диапазон и лимит применений',
+                  child: Column(
+                    children: [
+                      InputField(
+                        controller: _eventIdCtrl,
                         keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: 'Значение'),
+                        label: 'ID события (необязательный фильтр)',
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _usageLimitCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                            labelText: 'Лимит использований'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _activeFromCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Активен с (ISO-8601)'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _activeToCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Активен до (ISO-8601)'),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _busy ? null : _createPromo,
-                        child: Text(_busy ? 'Подождите…' : 'Создать промокод'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Row(
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
                         children: [
-                          Checkbox(
-                            value: _activeOnly,
-                            onChanged: (value) =>
-                                setState(() => _activeOnly = value ?? false),
+                          Expanded(
+                            child: InputField(
+                              controller: _codeCtrl,
+                              label: 'Код',
+                            ),
                           ),
-                          const Expanded(child: Text('Только активные')),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              // ignore: deprecated_member_use
+                              value: _discountType,
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'PERCENT',
+                                  child: Text('PERCENT'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'FIXED',
+                                  child: Text('FIXED'),
+                                ),
+                              ],
+                              onChanged: (value) => setState(
+                                () => _discountType = value ?? 'PERCENT',
+                              ),
+                              decoration: const InputDecoration(
+                                  labelText: 'Тип скидки'),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                FilledButton.tonal(
-                  onPressed: _load,
-                  child: const Text('Обновить список'),
-                ),
-                const SizedBox(height: 14),
-                Text('Промокоды (${_items.length})',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                ..._items.map(
-                  (item) => Card(
-                    child: ListTile(
-                      title: Text(
-                          '${item.code} · ${item.discountType} ${item.value}'),
-                      subtitle: Text(
-                        'Использовано ${item.usedCount}/${item.usageLimit ?? '∞'} · Событие ${item.eventId ?? 'ALL'} · Активен: ${item.isActive}',
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InputField(
+                              controller: _valueCtrl,
+                              keyboardType: TextInputType.number,
+                              label: 'Значение',
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: InputField(
+                              controller: _usageLimitCtrl,
+                              keyboardType: TextInputType.number,
+                              label: 'Лимит использований',
+                            ),
+                          ),
+                        ],
                       ),
-                      trailing: IconButton(
-                        onPressed: _busy ? null : () => _deletePromo(item.id),
-                        icon: const Icon(Icons.delete_outline),
+                      const SizedBox(height: AppSpacing.xs),
+                      InputField(
+                        controller: _activeFromCtrl,
+                        label: 'Активен с (ISO-8601)',
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.xs),
+                      InputField(
+                        controller: _activeToCtrl,
+                        label: 'Активен до (ISO-8601)',
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: PrimaryButton(
+                              onPressed: _busy ? null : _createPromo,
+                              label: _busy ? 'Подождите…' : 'Создать промокод',
+                              expand: true,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: _activeOnly,
+                                  onChanged: (value) => setState(
+                                    () => _activeOnly = value ?? false,
+                                  ),
+                                ),
+                                const Expanded(child: Text('Только активные')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      SecondaryButton(
+                        onPressed: _load,
+                        label: 'Обновить список',
+                        outline: true,
+                        expand: true,
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SectionCard(
+                  title: 'Промокоды (${_items.length})',
+                  child: _items.isEmpty
+                      ? const EmptyState(
+                          title: 'Промокодов нет',
+                          subtitle:
+                              'Создайте первый промокод или снимите фильтры.',
+                        )
+                      : Column(
+                          children: [
+                            for (final item in _items)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.xs),
+                                child: AppCard(
+                                  variant: AppCardVariant.plain,
+                                  child: ListTile(
+                                    title: Text(
+                                      '${item.code} · ${item.discountType} ${item.value}',
+                                    ),
+                                    subtitle: Text(
+                                      'Использовано ${item.usedCount}/${item.usageLimit ?? '∞'} · Событие ${item.eventId ?? 'ALL'} · Активен: ${item.isActive}',
+                                    ),
+                                    trailing: IconButton(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _deletePromo(item.id),
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                 ),
               ],
             ),
@@ -303,6 +352,6 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
 
   void _showMessage(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    AppToast.show(context, message: text);
   }
 }

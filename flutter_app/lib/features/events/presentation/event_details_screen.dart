@@ -16,18 +16,21 @@ import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
-import '../../../ui/components/app_card.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_states.dart';
 import '../../../ui/components/copy_to_clipboard.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/components/app_toast.dart';
+import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/data/ticketing_repository.dart';
 import '../../tickets/presentation/purchase_ticket_flow.dart';
 import '../application/events_controller.dart';
 import '../data/events_repository.dart';
 
-/// TODO handles t o d o.
-
-// TODO(ui-migration): migrate details/comments/participants blocks to AppScaffold and App* components.
 class EventDetailsScreen extends ConsumerStatefulWidget {
   /// EventDetailsScreen handles event details screen.
   const EventDetailsScreen({
@@ -50,7 +53,7 @@ class EventDetailsScreen extends ConsumerStatefulWidget {
 class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   EventDetail? _detail;
   List<EventComment> _comments = <EventComment>[];
-  String _commentInput = '';
+  final TextEditingController _commentCtrl = TextEditingController();
 
   bool _loading = true;
   bool _joining = false;
@@ -70,6 +73,14 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   void initState() {
     super.initState();
     unawaited(_load());
+  }
+
+  /// dispose releases resources held by this instance.
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
   }
 
   /// _load loads data from the underlying source.
@@ -138,7 +149,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   Widget build(BuildContext context) {
     final detail = _detail;
     final config = ref.watch(appConfigProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final apiUrl = config.apiUrl;
     final authState = ref.watch(authControllerProvider).state;
     final inAdminRoute =
@@ -153,8 +163,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             : (widget.eventKey ?? '').trim());
     final sanitizedDescription =
         detail == null ? '' : _stripCoordinatesText(detail.event.description);
+    final theme = Theme.of(context);
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Назад',
@@ -217,338 +228,420 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const SizedBox.shrink()
+      title: 'Детали события',
+      subtitle: detail == null
+          ? 'Проверяем данные'
+          : 'Начало: ${formatDateTime(detail.event.startsAt)}',
+      titleColor: theme.colorScheme.onSurface,
+      subtitleColor: theme.colorScheme.onSurface.withValues(alpha: 0.74),
+      child: _loading
+          ? const Center(
+              child: LoadingState(
+                title: 'Загрузка события',
+                subtitle: 'Получаем описание, контакты и комментарии',
+              ),
+            )
           : (_error != null)
-              ? Center(child: Text(_error!))
+              ? Center(
+                  child: ErrorState(
+                    message: _error!,
+                    onRetry: _load,
+                  ),
+                )
               : (detail == null)
-                  ? const Center(child: Text('Событие не найдено'))
-                  : AppCard(
-                      margin: const EdgeInsets.all(14),
-                      variant: AppCardVariant.plain,
-                      borderRadius: 20,
+                  ? Center(
+                      child: EmptyState(
+                        title: 'Событие не найдено',
+                        subtitle:
+                            'Попробуйте вернуться в ленту и обновить список.',
+                        actionLabel: 'Обновить',
+                        onAction: _load,
+                      ),
+                    )
+                  : ListView(
                       padding: EdgeInsets.zero,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.backgroundDeep.withValues(alpha: 0.28)
-                              : AppColors.surfaceMuted.withValues(alpha: 0.3),
-                        ),
-                        child: ListView(
-                          padding: const EdgeInsets.all(14),
-                          children: [
-                            Text(
-                              detail.event.title,
-                              style: Theme.of(context).textTheme.headlineSmall,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(formatDateTime(detail.event.startsAt)),
-                            if (detail.event.endsAt != null)
-                              Text(
-                                  'Завершение: ${formatDateTime(detail.event.endsAt)}'),
-                            const SizedBox(height: 10),
-                            if (detail.media.isNotEmpty)
-                              SizedBox(
-                                height: 210,
-                                child: PageView.builder(
-                                  itemCount: detail.media.length,
-                                  itemBuilder: (context, index) {
-                                    final fallbackUrl =
-                                        detail.media[index].trim();
-                                    final proxyUrl = buildEventMediaProxyUrl(
-                                      apiUrl: apiUrl,
-                                      eventId: detail.event.id,
-                                      index: index,
-                                      accessKey: detailAccessKey,
-                                    );
-                                    final imageUrl = proxyUrl.isNotEmpty
-                                        ? proxyUrl
-                                        : fallbackUrl;
-                                    final fallbackImageUrl =
-                                        proxyUrl.isNotEmpty ? fallbackUrl : '';
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: imageUrl.isEmpty
-                                            ? Container(
-                                                color: const Color(0xFFE8F0F4),
-                                                child: const Icon(Icons
-                                                    .broken_image_outlined),
-                                              )
-                                            : Image.network(
-                                                imageUrl,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, _, __) {
-                                                  if (fallbackImageUrl
-                                                          .isNotEmpty &&
-                                                      fallbackImageUrl !=
-                                                          imageUrl) {
-                                                    return Image.network(
-                                                      fallbackImageUrl,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder:
-                                                          (context, _, __) =>
-                                                              Container(
-                                                        color: const Color(
-                                                            0xFFE8F0F4),
-                                                        child: const Icon(Icons
-                                                            .broken_image_outlined),
+                      children: [
+                        SectionCard(
+                          title: detail.event.title,
+                          subtitle: _eventMetaSubtitle(detail: detail),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (detail.media.isNotEmpty)
+                                SizedBox(
+                                  height: 210,
+                                  child: PageView.builder(
+                                    itemCount: detail.media.length,
+                                    itemBuilder: (context, index) {
+                                      final fallbackUrl =
+                                          detail.media[index].trim();
+                                      final proxyUrl = buildEventMediaProxyUrl(
+                                        apiUrl: apiUrl,
+                                        eventId: detail.event.id,
+                                        index: index,
+                                        accessKey: detailAccessKey,
+                                      );
+                                      final imageUrl = proxyUrl.isNotEmpty
+                                          ? proxyUrl
+                                          : fallbackUrl;
+                                      final fallbackImageUrl =
+                                          proxyUrl.isNotEmpty
+                                              ? fallbackUrl
+                                              : '';
+                                      return Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          child: imageUrl.isEmpty
+                                              ? Container(
+                                                  color:
+                                                      const Color(0xFFE8F0F4),
+                                                  child: const Icon(
+                                                    Icons.broken_image_outlined,
+                                                  ),
+                                                )
+                                              : Image.network(
+                                                  imageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (context, _, __) {
+                                                    if (fallbackImageUrl
+                                                            .isNotEmpty &&
+                                                        fallbackImageUrl !=
+                                                            imageUrl) {
+                                                      return Image.network(
+                                                        fallbackImageUrl,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder:
+                                                            (context, _, __) =>
+                                                                Container(
+                                                          color: const Color(
+                                                              0xFFE8F0F4),
+                                                          child: const Icon(Icons
+                                                              .broken_image_outlined),
+                                                        ),
+                                                      );
+                                                    }
+                                                    return Container(
+                                                      color: const Color(
+                                                          0xFFE8F0F4),
+                                                      child: const Icon(
+                                                        Icons
+                                                            .broken_image_outlined,
                                                       ),
                                                     );
-                                                  }
-                                                  return Container(
-                                                    color:
-                                                        const Color(0xFFE8F0F4),
-                                                    child: const Icon(Icons
-                                                        .broken_image_outlined),
-                                                  );
-                                                },
-                                              ),
-                                      ),
-                                    );
-                                  },
+                                                  },
+                                                ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                            const SizedBox(height: 12),
-                            if (sanitizedDescription.isNotEmpty)
-                              Text(sanitizedDescription),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                Chip(
-                                    label: Text(
-                                        '👥 ${detail.event.participantsCount}')),
-                                _buildLikeChip(detail: detail),
-                                Chip(
-                                    label: Text(
-                                        '💬 ${detail.event.commentsCount}')),
-                                if (detail.event.capacity != null)
+                              if (detail.media.isNotEmpty)
+                                const SizedBox(height: AppSpacing.sm),
+                              if (sanitizedDescription.isNotEmpty)
+                                Text(sanitizedDescription),
+                              const SizedBox(height: AppSpacing.sm),
+                              Wrap(
+                                spacing: AppSpacing.xs,
+                                runSpacing: AppSpacing.xs,
+                                children: [
                                   Chip(
                                     label: Text(
-                                      '🎟️ ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
+                                      '👥 ${detail.event.participantsCount}',
                                     ),
                                   ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: _hasAnyProducts
-                                        ? () => showPurchaseTicketFlow(
-                                              context,
-                                              eventId: detail.event.id,
-                                            )
-                                        : null,
-                                    child: const Text('КУПИТЬ билет'),
+                                  _buildLikeChip(detail: detail),
+                                  Chip(
+                                    label: Text(
+                                        '💬 ${detail.event.commentsCount}'),
+                                  ),
+                                  if (detail.event.capacity != null)
+                                    Chip(
+                                      label: Text(
+                                        '🎟️ ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: PrimaryButton(
+                                      label: 'Купить билет',
+                                      onPressed: _hasAnyProducts
+                                          ? () => showPurchaseTicketFlow(
+                                                context,
+                                                eventId: detail.event.id,
+                                              )
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  Expanded(
+                                    child: SecondaryButton(
+                                      label: 'Поделиться',
+                                      icon: const Icon(Icons.share_outlined),
+                                      outline: true,
+                                      onPressed: _sharing ? null : _share,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              if (!detail.isJoined)
+                                SecondaryButton(
+                                  label: _joining
+                                      ? 'Выполняется…'
+                                      : 'Присоединиться',
+                                  onPressed:
+                                      _joining ? null : () => _join(detail),
+                                  expand: true,
+                                  outline: true,
+                                ),
+                              if (detail.isJoined)
+                                SecondaryButton(
+                                  label: _joining ? 'Выполняется…' : 'Покинуть',
+                                  onPressed:
+                                      _joining ? null : () => _leave(detail),
+                                  expand: true,
+                                  outline: true,
+                                ),
+                              const SizedBox(height: AppSpacing.xs),
+                              SecondaryButton(
+                                label: 'Открыть на карте',
+                                icon: const Icon(Icons.location_on_outlined),
+                                onPressed: () => _openMap(detail),
+                                expand: true,
+                                outline: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (detail.isJoined) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          SectionCard(
+                            title: 'Контакты',
+                            subtitle: 'Доступны после присоединения к событию',
+                            child: _ContactsBlock(detail: detail),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        SectionCard(
+                          title: 'Комментарии',
+                          subtitle: 'Всего: ${_comments.length}',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_comments.isEmpty)
+                                const EmptyState(
+                                  title: 'Комментариев пока нет',
+                                  subtitle:
+                                      'Оставьте первый комментарий, чтобы начать обсуждение.',
+                                )
+                              else
+                                ..._comments.map(
+                                  (comment) => ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(comment.userName),
+                                    subtitle: Text(comment.body),
+                                    trailing: isAdmin
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                formatDateTime(
+                                                  comment.createdAt,
+                                                ),
+                                                style:
+                                                    theme.textTheme.labelSmall,
+                                              ),
+                                              IconButton(
+                                                tooltip: 'Удалить комментарий',
+                                                onPressed: _deletingCommentIds
+                                                        .contains(comment.id)
+                                                    ? null
+                                                    : () => _deleteComment(
+                                                          comment: comment,
+                                                        ),
+                                                icon: _deletingCommentIds
+                                                        .contains(comment.id)
+                                                    ? const SizedBox(
+                                                        width: 18,
+                                                        height: 18,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                        ),
+                                                      )
+                                                    : const Icon(
+                                                        Icons.delete_outline,
+                                                      ),
+                                              ),
+                                            ],
+                                          )
+                                        : Text(
+                                            formatDateTime(comment.createdAt),
+                                            style: theme.textTheme.labelSmall,
+                                          ),
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                OutlinedButton.icon(
-                                  onPressed: _sharing ? null : _share,
-                                  icon: const Icon(Icons.share_outlined),
-                                  label: const Text('Поделиться'),
-                                ),
-                              ],
-                            ),
-                            if (!detail.isJoined) ...[
-                              const SizedBox(height: 8),
-                              OutlinedButton(
-                                onPressed: _joining
+                              const SizedBox(height: AppSpacing.xs),
+                              InputField(
+                                controller: _commentCtrl,
+                                minLines: 2,
+                                maxLines: 4,
+                                maxLength: 400,
+                                label: 'Добавить комментарий',
+                              ),
+                              PrimaryButton(
+                                label:
+                                    _sendingComment ? 'Отправка…' : 'Отправить',
+                                onPressed: _sendingComment
                                     ? null
-                                    : () async {
-                                        setState(() => _joining = true);
-                                        try {
-                                          final events = ref
-                                              .read(eventsControllerProvider);
-                                          await events.joinEvent(
-                                            eventId: detail.event.id,
-                                            accessKey: widget.eventKey,
-                                          );
-                                          await _load();
-                                        } catch (error) {
-                                          _showMessage('$error');
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() => _joining = false);
-                                          }
-                                        }
-                                      },
-                                child: Text(_joining
-                                    ? 'Выполняется…'
-                                    : 'Присоединиться'),
+                                    : () => _sendComment(detail: detail),
+                                expand: true,
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                final lat = detail.event.lat;
-                                final lng = detail.event.lng;
-                                launchUrl(Uri.parse(
-                                    'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng'));
-                              },
-                              icon: const Icon(Icons.location_on_outlined),
-                              label: const Text('Открыть на карте'),
-                            ),
-                            if (detail.isJoined) ...[
-                              const SizedBox(height: 16),
-                              _ContactsBlock(detail: detail),
-                            ],
-                            const SizedBox(height: 16),
-                            Text('Комментарии',
-                                style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 8),
-                            if (_comments.isEmpty)
-                              const Text('Комментариев пока нет')
-                            else
-                              ..._comments.map(
-                                (comment) => ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(comment.userName),
-                                  subtitle: Text(comment.body),
-                                  trailing: isAdmin
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              formatDateTime(comment.createdAt),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .labelSmall,
-                                            ),
-                                            IconButton(
-                                              tooltip: 'Удалить комментарий',
-                                              onPressed: _deletingCommentIds
-                                                      .contains(comment.id)
-                                                  ? null
-                                                  : () => _deleteComment(
-                                                      comment: comment),
-                                              icon: _deletingCommentIds
-                                                      .contains(comment.id)
-                                                  ? const SizedBox(
-                                                      width: 18,
-                                                      height: 18,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
-                                                    )
-                                                  : const Icon(
-                                                      Icons.delete_outline),
-                                            ),
-                                          ],
-                                        )
-                                      : Text(
-                                          formatDateTime(comment.createdAt),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelSmall,
-                                        ),
-                                ),
-                              ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              minLines: 2,
-                              maxLines: 4,
-                              maxLength: 400,
-                              decoration: const InputDecoration(
-                                  labelText: 'Добавить комментарий'),
-                              onChanged: (value) => _commentInput = value,
-                            ),
-                            FilledButton(
-                              onPressed: _sendingComment
-                                  ? null
-                                  : () async {
-                                      final body = _commentInput.trim();
-                                      if (body.isEmpty) {
-                                        _showMessage(
-                                            'Комментарий не может быть пустым');
-                                        return;
-                                      }
-
-                                      setState(() => _sendingComment = true);
-                                      try {
-                                        await ref
-                                            .read(eventsControllerProvider)
-                                            .addComment(
-                                              eventId: detail.event.id,
-                                              body: body,
-                                              accessKey: widget.eventKey,
-                                            );
-                                        _commentInput = '';
-                                        await _load();
-                                      } catch (error) {
-                                        _showMessage('$error');
-                                      } finally {
-                                        if (mounted) {
-                                          setState(
-                                              () => _sendingComment = false);
-                                        }
-                                      }
-                                    },
-                              child: Text(
-                                  _sendingComment ? 'Отправка…' : 'Отправить'),
-                            ),
-                            if (detail.isJoined) ...[
-                              const SizedBox(height: 10),
-                              OutlinedButton(
-                                onPressed: _joining
-                                    ? null
-                                    : () async {
-                                        setState(() => _joining = true);
-                                        try {
-                                          await ref
-                                              .read(eventsControllerProvider)
-                                              .leaveEvent(
-                                                eventId: detail.event.id,
-                                                accessKey: widget.eventKey,
-                                              );
-                                          await _load();
-                                        } catch (error) {
-                                          _showMessage('$error');
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() => _joining = false);
-                                          }
-                                        }
-                                      },
-                                child: Text(
-                                    _joining ? 'Выполняется…' : 'Покинуть'),
-                              ),
-                            ],
-                            const SizedBox(height: 10),
-                            Text(
-                              'Участники',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            ...detail.participants
-                                .map((participant) => ListTile(
-                                      dense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: const Icon(
-                                          Icons.person_outline_rounded),
-                                      title: Text(participant.name),
-                                      subtitle: Text(
-                                          formatDateTime(participant.joinedAt)),
-                                    )),
-                            const SizedBox(height: 16),
-                            FilledButton.icon(
-                              onPressed: () =>
-                                  _exitDetails(inAdminRoute: inAdminRoute),
-                              icon: const Icon(Icons.home_outlined),
-                              label:
-                                  Text(inAdminRoute ? 'В админку' : 'В ленту'),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SectionCard(
+                          title: 'Участники',
+                          subtitle: 'Всего: ${detail.participants.length}',
+                          child: detail.participants.isEmpty
+                              ? const EmptyState(
+                                  title: 'Пока нет участников',
+                                  subtitle:
+                                      'Событие только начинает собирать аудиторию.',
+                                )
+                              : Column(
+                                  children: [
+                                    for (final participant
+                                        in detail.participants)
+                                      ListTile(
+                                        dense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: const Icon(
+                                          Icons.person_outline_rounded,
+                                        ),
+                                        title: Text(participant.name),
+                                        subtitle: Text(
+                                          formatDateTime(participant.joinedAt),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
+                          label:
+                              inAdminRoute ? 'Вернуться в админку' : 'В ленту',
+                          icon: const Icon(Icons.home_outlined),
+                          onPressed: () =>
+                              _exitDetails(inAdminRoute: inAdminRoute),
+                          expand: true,
+                          outline: true,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                      ],
                     ),
     );
+  }
+
+  /// _eventMetaSubtitle handles event meta subtitle.
+
+  String _eventMetaSubtitle({required EventDetail detail}) {
+    final starts = formatDateTime(detail.event.startsAt);
+    if (detail.event.endsAt == null) {
+      return 'Начало: $starts';
+    }
+    return 'Начало: $starts · Завершение: ${formatDateTime(detail.event.endsAt)}';
+  }
+
+  /// _join handles join.
+
+  Future<void> _join(EventDetail detail) async {
+    setState(() => _joining = true);
+    try {
+      final events = ref.read(eventsControllerProvider);
+      await events.joinEvent(
+        eventId: detail.event.id,
+        accessKey: widget.eventKey,
+      );
+      await _load();
+    } catch (error) {
+      _showMessage('$error', tone: AppToastTone.error);
+    } finally {
+      if (mounted) {
+        setState(() => _joining = false);
+      }
+    }
+  }
+
+  /// _leave handles leave.
+
+  Future<void> _leave(EventDetail detail) async {
+    setState(() => _joining = true);
+    try {
+      await ref.read(eventsControllerProvider).leaveEvent(
+            eventId: detail.event.id,
+            accessKey: widget.eventKey,
+          );
+      await _load();
+    } catch (error) {
+      _showMessage('$error', tone: AppToastTone.error);
+    } finally {
+      if (mounted) {
+        setState(() => _joining = false);
+      }
+    }
+  }
+
+  /// _openMap handles open map.
+
+  Future<void> _openMap(EventDetail detail) async {
+    final lat = detail.event.lat;
+    final lng = detail.event.lng;
+    final uri = Uri.parse(
+      'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng',
+    );
+    final opened = await launchUrl(uri);
+    if (!opened) {
+      _showMessage('Не удалось открыть карту', tone: AppToastTone.error);
+    }
+  }
+
+  /// _sendComment handles send comment.
+
+  Future<void> _sendComment({required EventDetail detail}) async {
+    final body = _commentCtrl.text.trim();
+    if (body.isEmpty) {
+      _showMessage('Комментарий не может быть пустым',
+          tone: AppToastTone.error);
+      return;
+    }
+
+    setState(() => _sendingComment = true);
+    try {
+      await ref.read(eventsControllerProvider).addComment(
+            eventId: detail.event.id,
+            body: body,
+            accessKey: widget.eventKey,
+          );
+      if (!mounted) return;
+      _commentCtrl.clear();
+      await _load();
+    } catch (error) {
+      _showMessage('$error', tone: AppToastTone.error);
+    } finally {
+      if (mounted) {
+        setState(() => _sendingComment = false);
+      }
+    }
   }
 
   /// _share handles internal share behavior.
@@ -1207,10 +1300,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
   /// _showMessage handles show message.
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppToastTone tone = AppToastTone.info,
+  }) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(context, message: message, tone: tone);
   }
 }
 
@@ -1295,10 +1390,7 @@ class _ContactsBlock extends StatelessWidget {
     if (rows.isEmpty) return const SizedBox.shrink();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Контакты', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 6),
         ...rows.map((row) {
           return ListTile(
             contentPadding: EdgeInsets.zero,

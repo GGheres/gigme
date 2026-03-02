@@ -11,6 +11,12 @@ import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../tickets/presentation/admin_orders_page.dart';
 import '../../tickets/presentation/admin_bot_messages_page.dart';
@@ -192,9 +198,26 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     }
 
     if (_accessDenied) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Админка')),
-        body: const Center(child: Text('Доступ запрещен (401/403).')),
+      return AppScaffold(
+        appBar: AppBar(
+          title: const Text('Админка'),
+          leading: IconButton(
+            onPressed: () => context.go(AppRoutes.profile),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+        ),
+        title: 'Доступ ограничен',
+        subtitle: 'У текущего пользователя нет прав администратора',
+        titleColor: Theme.of(context).colorScheme.onSurface,
+        subtitleColor:
+            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+        child: Center(
+          child: ErrorState(
+            message: 'Доступ запрещен (401/403).',
+            onRetry: () => context.go(AppRoutes.profile),
+            retryLabel: 'Вернуться в профиль',
+          ),
+        ),
       );
     }
 
@@ -246,42 +269,56 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   }
 
   Widget _buildAdminLogin() {
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(title: const Text('Вход в админку')),
-      body: Center(
+      title: 'Админ-доступ',
+      subtitle: 'Авторизуйтесь для управления пользователями и заказами',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 520),
           child: ListView(
-            padding: const EdgeInsets.all(16),
-            shrinkWrap: true,
+            padding: const EdgeInsets.all(AppSpacing.md),
             children: [
-              TextField(
-                controller: _adminLoginCtrl,
-                decoration: const InputDecoration(labelText: 'Логин'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _adminPasswordCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Пароль'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _adminTelegramIdCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                    labelText: 'Telegram ID (необязательно)'),
-              ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: _adminLoginBusy ? null : _handleAdminLogin,
-                child: Text(_adminLoginBusy ? 'Вход…' : 'Войти'),
+              SectionCard(
+                title: 'Вход',
+                subtitle: 'Используйте учетные данные администратора',
+                child: Column(
+                  children: [
+                    InputField(
+                      controller: _adminLoginCtrl,
+                      label: 'Логин',
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    InputField(
+                      controller: _adminPasswordCtrl,
+                      label: 'Пароль',
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    InputField(
+                      controller: _adminTelegramIdCtrl,
+                      keyboardType: TextInputType.number,
+                      label: 'Telegram ID (необязательно)',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    PrimaryButton(
+                      onPressed: _adminLoginBusy ? null : _handleAdminLogin,
+                      label: _adminLoginBusy ? 'Вход…' : 'Войти',
+                      expand: true,
+                    ),
+                  ],
+                ),
               ),
               if ((_adminLoginError ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _adminLoginError!,
-                  style: const TextStyle(color: Colors.red),
+                const SizedBox(height: AppSpacing.sm),
+                ErrorState(
+                  message: _adminLoginError!,
+                  onRetry: _adminLoginBusy ? null : _handleAdminLogin,
+                  retryLabel: 'Повторить',
                 ),
               ],
             ],

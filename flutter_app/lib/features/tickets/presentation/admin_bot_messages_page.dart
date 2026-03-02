@@ -5,6 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/providers.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -191,44 +199,69 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
 
     final body = Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+        SectionCard(
+          title: 'Фильтр чата',
+          subtitle: 'Оставьте поле пустым, чтобы показать все сообщения',
+          child: Column(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _chatIdCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Chat ID (необязательно)',
+              InputField(
+                controller: _chatIdCtrl,
+                keyboardType: TextInputType.number,
+                label: 'Chat ID (необязательно)',
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: PrimaryButton(
+                      onPressed: _loading ? null : _load,
+                      label: _loading ? 'Загрузка…' : 'Применить фильтр',
+                      expand: true,
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _load,
-                child: const Text('Фильтр'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonal(
-                onPressed: () {
-                  _chatIdCtrl.clear();
-                  unawaited(_load());
-                },
-                child: const Text('Сброс'),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: SecondaryButton(
+                      onPressed: () {
+                        _chatIdCtrl.clear();
+                        unawaited(_load());
+                      },
+                      label: 'Сбросить',
+                      outline: true,
+                      expand: true,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
+        const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: LoadingState(
+                    title: 'Загрузка сообщений',
+                    subtitle: 'Получаем переписку с пользователями',
+                  ),
+                )
               : (_error != null)
-                  ? Center(child: Text(_error!))
+                  ? Center(
+                      child: ErrorState(
+                        message: _error!,
+                        onRetry: _load,
+                      ),
+                    )
                   : items.isEmpty
-                      ? const Center(child: Text('Сообщений нет'))
+                      ? const Center(
+                          child: EmptyState(
+                            title: 'Сообщений нет',
+                            subtitle:
+                                'По текущему фильтру переписка не найдена.',
+                          ),
+                        )
                       : ListView.builder(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.zero,
                           itemCount: items.length,
                           itemBuilder: (context, index) {
                             final item = items[index];
@@ -240,68 +273,79 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
                                 : colorScheme.primaryContainer
                                     .withValues(alpha: 0.46);
 
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: cardColor,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.black12),
-                              ),
-                              child: Padding(
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppSpacing.xs),
+                              child: AppCard(
+                                variant: AppCardVariant.plain,
                                 padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Chip(
-                                          label: Text(
-                                            isIncoming
-                                                ? 'Входящее'
-                                                : 'Исходящее',
-                                          ),
+                                        Row(
+                                          children: [
+                                            Chip(
+                                              label: Text(
+                                                isIncoming
+                                                    ? 'Входящее'
+                                                    : 'Исходящее',
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(_formatDate(item.createdAt)),
+                                          ],
                                         ),
-                                        const Spacer(),
-                                        Text(_formatDate(item.createdAt)),
+                                        Text(
+                                          item.contactLabel,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        SelectableText(item.text),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: AppSpacing.xs,
+                                          runSpacing: AppSpacing.xs,
+                                          children: [
+                                            SecondaryButton(
+                                              onPressed: _sending
+                                                  ? null
+                                                  : () => _promptReply(item),
+                                              icon: const Icon(
+                                                  Icons.reply_rounded),
+                                              label: 'Ответить',
+                                              outline: true,
+                                            ),
+                                            SecondaryButton(
+                                              onPressed: () =>
+                                                  _openBot(item.chatId),
+                                              icon: const Icon(
+                                                  Icons.open_in_new_rounded),
+                                              label: 'Открыть бота',
+                                              outline: true,
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                _chatIdCtrl.text =
+                                                    '${item.chatId}';
+                                                unawaited(_load());
+                                              },
+                                              child: const Text('Показать чат'),
+                                            ),
+                                          ],
+                                        ),
                                       ],
                                     ),
-                                    Text(
-                                      item.contactLabel,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    SelectableText(item.text),
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        FilledButton.tonalIcon(
-                                          onPressed: _sending
-                                              ? null
-                                              : () => _promptReply(item),
-                                          icon: const Icon(Icons.reply_rounded),
-                                          label: const Text('Ответить'),
-                                        ),
-                                        FilledButton.tonalIcon(
-                                          onPressed: () =>
-                                              _openBot(item.chatId),
-                                          icon: const Icon(
-                                              Icons.open_in_new_rounded),
-                                          label: const Text('Открыть бота'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            _chatIdCtrl.text = '${item.chatId}';
-                                            unawaited(_load());
-                                          },
-                                          child: const Text('Показать чат'),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             );
@@ -313,7 +357,7 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
 
     if (widget.embedded) return body;
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: const Text('Сообщения бота'),
         actions: [
@@ -323,7 +367,12 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
           ),
         ],
       ),
-      body: body,
+      title: 'Сообщения бота',
+      subtitle: 'Мониторинг диалогов и быстрые ответы',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: body,
     );
   }
 
@@ -343,7 +392,6 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(context, message: message);
   }
 }

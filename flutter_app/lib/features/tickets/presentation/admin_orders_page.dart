@@ -7,6 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -102,14 +109,19 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     final body = _buildBody(context, items);
     if (widget.embedded) return body;
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: const Text('Админ-заказы'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
-      body: body,
+      title: 'Заказы',
+      subtitle: 'Мониторинг платежей и статусов',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: body,
     );
   }
 
@@ -118,51 +130,80 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   Widget _buildBody(BuildContext context, List<OrderSummaryModel> items) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+        SectionCard(
+          title: 'Фильтры',
+          subtitle: 'Сузьте выдачу по событию и статусу',
+          child: Column(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _eventIdCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'ID события'),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: InputField(
+                      controller: _eventIdCtrl,
+                      keyboardType: TextInputType.number,
+                      label: 'ID события',
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      // ignore: deprecated_member_use
+                      value: _status,
+                      decoration: const InputDecoration(labelText: 'Статус'),
+                      items: const [
+                        DropdownMenuItem(value: '', child: Text('Все')),
+                        DropdownMenuItem(
+                            value: 'PENDING', child: Text('PENDING')),
+                        DropdownMenuItem(value: 'PAID', child: Text('PAID')),
+                        DropdownMenuItem(
+                          value: 'CONFIRMED',
+                          child: Text('CONFIRMED'),
+                        ),
+                        DropdownMenuItem(
+                            value: 'CANCELED', child: Text('CANCELED')),
+                        DropdownMenuItem(
+                            value: 'REDEEMED', child: Text('REDEEMED')),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _status = value ?? ''),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  // ignore: deprecated_member_use
-                  value: _status,
-                  decoration: const InputDecoration(labelText: 'Статус'),
-                  items: const [
-                    DropdownMenuItem(value: '', child: Text('Все')),
-                    DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
-                    DropdownMenuItem(value: 'PAID', child: Text('PAID')),
-                    DropdownMenuItem(
-                        value: 'CONFIRMED', child: Text('CONFIRMED')),
-                    DropdownMenuItem(
-                        value: 'CANCELED', child: Text('CANCELED')),
-                    DropdownMenuItem(
-                        value: 'REDEEMED', child: Text('REDEEMED')),
-                  ],
-                  onChanged: (value) => setState(() => _status = value ?? ''),
-                ),
+              const SizedBox(height: AppSpacing.xs),
+              PrimaryButton(
+                onPressed: _loading ? null : _load,
+                label: _loading ? 'Загрузка…' : 'Применить фильтры',
+                expand: true,
               ),
-              const SizedBox(width: 8),
-              FilledButton(onPressed: _load, child: const Text('Загрузить')),
             ],
           ),
         ),
+        const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: LoadingState(
+                    title: 'Загрузка заказов',
+                    subtitle: 'Получаем последние платежи',
+                  ),
+                )
               : (_error != null)
-                  ? Center(child: Text(_error!))
+                  ? Center(
+                      child: ErrorState(
+                        message: _error!,
+                        onRetry: _load,
+                      ),
+                    )
                   : items.isEmpty
-                      ? const Center(child: Text('Заказов нет'))
+                      ? const Center(
+                          child: EmptyState(
+                            title: 'Заказов нет',
+                            subtitle: 'Попробуйте изменить фильтры поиска.',
+                          ),
+                        )
                       : ListView.builder(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.zero,
                           itemCount: items.length,
                           itemBuilder: (context, index) {
                             final item = items[index];
@@ -180,67 +221,71 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                                 userHandle != userDisplay.trim()) {
                               subtitleLines.add(userHandle);
                             }
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: statusTint(status, context),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.black12),
-                              ),
-                              child: ListTile(
-                                onTap: () => context
-                                    .push(AppRoutes.adminOrderDetail(order.id)),
-                                title: Text(order.eventTitle.isEmpty
-                                    ? 'Событие #${order.eventId}'
-                                    : order.eventTitle),
-                                subtitle: Text(
-                                  subtitleLines.join('\n'),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (userTelegramId > 0)
-                                      IconButton(
-                                        tooltip: 'Диалог',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () => context.push(
-                                          AppRoutes.adminBotMessagesForChat(
-                                              userTelegramId),
-                                        ),
-                                        icon: const Icon(Icons.forum_outlined),
-                                      ),
-                                    if (userTelegramId > 0)
-                                      IconButton(
-                                        tooltip: 'Открыть бота',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () =>
-                                            _openBotForUser(userTelegramId),
-                                        icon: const Icon(
-                                            Icons.open_in_new_rounded),
-                                      ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Chip(
-                                          label: Text(status),
-                                          backgroundColor:
-                                              statusColor(status, context)
-                                                  .withValues(alpha: 0.12),
-                                          side: BorderSide(
-                                            color: statusColor(status, context),
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppSpacing.sm),
+                              child: AppCard(
+                                variant: AppCardVariant.plain,
+                                child: ListTile(
+                                  onTap: () => context.push(
+                                    AppRoutes.adminOrderDetail(order.id),
+                                  ),
+                                  title: Text(
+                                    order.eventTitle.isEmpty
+                                        ? 'Событие #${order.eventId}'
+                                        : order.eventTitle,
+                                  ),
+                                  subtitle: Text(subtitleLines.join('\n')),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (userTelegramId > 0)
+                                        IconButton(
+                                          tooltip: 'Диалог',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () => context.push(
+                                            AppRoutes.adminBotMessagesForChat(
+                                              userTelegramId,
+                                            ),
                                           ),
-                                          labelStyle: TextStyle(
-                                            color: statusColor(status, context),
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                          icon:
+                                              const Icon(Icons.forum_outlined),
                                         ),
-                                        Text(formatMoney(order.totalCents)),
-                                      ],
-                                    ),
-                                  ],
+                                      if (userTelegramId > 0)
+                                        IconButton(
+                                          tooltip: 'Открыть бота',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () =>
+                                              _openBotForUser(userTelegramId),
+                                          icon: const Icon(
+                                              Icons.open_in_new_rounded),
+                                        ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Chip(
+                                            label: Text(status),
+                                            backgroundColor:
+                                                statusColor(status, context)
+                                                    .withValues(alpha: 0.12),
+                                            side: BorderSide(
+                                              color:
+                                                  statusColor(status, context),
+                                            ),
+                                            labelStyle: TextStyle(
+                                              color:
+                                                  statusColor(status, context),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(formatMoney(order.totalCents)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );

@@ -70,10 +70,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
 
     return AppScaffold(
-      title: 'Вход',
+      title: 'Вход в SPACE',
       subtitle: !canUseVkLogin
-          ? 'Авторизация в SPACE через Telegram'
-          : 'Авторизация в SPACE через Telegram или VK',
+          ? 'Быстрый вход через Telegram'
+          : 'Быстрый вход через Telegram или VK',
       showBackgroundDecor: true,
       titleColor: Theme.of(context).colorScheme.onSurface,
       subtitleColor:
@@ -85,7 +85,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           child: ListView(
             children: [
               SectionCard(
-                title: !canUseVkLogin ? 'Telegram Login' : 'Web Login',
+                title: 'Продолжить',
                 subtitle: _subtitleForMode(config.authMode),
                 child: _buildStandaloneContent(
                   state: state,
@@ -93,6 +93,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   standaloneHelperUri: standaloneHelperUri,
                   canUseVkLogin: canUseVkLogin,
                 ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _buildTrustSignalsCard(
+                canUseVkLogin: canUseVkLogin,
+                config: config,
               ),
             ],
           ),
@@ -113,7 +118,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final canUseStandaloneHelper = standaloneHelperUri != null;
 
     return AppScaffold(
-      title: 'Вход',
+      title: 'Вход в SPACE',
       subtitle: canUseVkLogin
           ? 'Быстрый вход через Telegram или VK'
           : 'Быстрый вход через Telegram',
@@ -127,7 +132,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           child: ListView(
             children: [
               SectionCard(
-                title: 'SPACE',
+                title: 'Продолжить',
                 subtitle: _subtitleForMode(config.authMode),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,12 +148,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           message: error,
                           onRetry: () =>
                               ref.read(authControllerProvider).retryAuth(),
-                          retryLabel: 'Повторить вход',
+                          retryLabel: 'Повторить',
                         ),
                         const SizedBox(height: AppSpacing.sm),
                       ],
                       PrimaryButton(
-                        label: 'Повторить Telegram Login',
+                        label: 'Войти через Telegram',
                         onPressed: () =>
                             ref.read(authControllerProvider).retryAuth(),
                         icon: const Icon(Icons.telegram_rounded),
@@ -156,7 +161,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       if (canUseStandaloneHelper) ...[
                         const SizedBox(height: AppSpacing.xs),
                         SecondaryButton(
-                          label: 'Открыть Telegram Login',
+                          label: 'Открыть Telegram в браузере',
                           outline: true,
                           onPressed: () async {
                             if (kIsWeb) {
@@ -195,6 +200,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _buildTrustSignalsCard(
+                canUseVkLogin: canUseVkLogin,
+                config: config,
               ),
             ],
           ),
@@ -236,8 +246,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ],
         PrimaryButton(
           label: config.authMode == AuthMode.telegramWeb
-              ? 'Повторить Telegram Login'
-              : 'Повторить авторизацию',
+              ? 'Войти через Telegram'
+              : 'Продолжить через Telegram',
           onPressed: () => ref.read(authControllerProvider).retryAuth(),
           icon: const Icon(Icons.telegram_rounded),
         ),
@@ -258,7 +268,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             controller: _initDataController,
             minLines: 3,
             maxLines: 8,
-            label: 'Telegram initData',
+            label: 'initData Telegram',
             hint: 'Вставьте initData после входа в helper',
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -274,7 +284,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           if (standaloneHelperUri != null) ...[
             const SizedBox(height: AppSpacing.xs),
             SecondaryButton(
-              label: 'Открыть auth helper',
+              label: 'Открыть helper',
               outline: true,
               onPressed: () async {
                 await launchUrl(
@@ -286,7 +296,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ],
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Поток: открыть helper -> получить deep link с initData -> войти в SPACE.',
+            'Порядок: helper -> deep link с initData -> вход в SPACE.',
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
@@ -300,10 +310,53 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String _subtitleForMode(AuthMode mode) {
     switch (mode) {
       case AuthMode.telegramWeb:
-        return 'Mode A: Telegram Web auth via initData';
+        return 'Без пароля, сессия подтверждается через Telegram';
       case AuthMode.standalone:
-        return 'Mode B: standalone auth via deep link + initData';
+        return 'Для standalone используйте helper и initData';
     }
+  }
+
+  /// _buildTrustSignalsCard builds trust signals card.
+
+  Widget _buildTrustSignalsCard({
+    required bool canUseVkLogin,
+    required AppConfig config,
+  }) {
+    final signals = <_AuthSignal>[
+      const _AuthSignal(
+        icon: Icons.lock_outline_rounded,
+        text: 'Сессия подтверждается через Telegram, пароль не требуется.',
+      ),
+      const _AuthSignal(
+        icon: Icons.verified_user_outlined,
+        text: 'Доступ открывается только после валидации токена на сервере.',
+      ),
+      _AuthSignal(
+        icon: Icons.devices_outlined,
+        text: config.authMode == AuthMode.telegramWeb
+            ? 'Вход оптимизирован для web и mobile.'
+            : 'Для standalone используйте helper из официального контура.',
+      ),
+      if (canUseVkLogin)
+        const _AuthSignal(
+          icon: Icons.open_in_new_rounded,
+          text: 'VK доступен как резервный метод входа.',
+        ),
+    ];
+
+    return SectionCard(
+      title: 'Прозрачный вход',
+      subtitle: 'Что происходит при авторизации',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < signals.length; i++) ...[
+            _AuthSignalTile(signal: signals[i]),
+            if (i != signals.length - 1) const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+      ),
+    );
   }
 
   /// _canUseVkLogin reports whether can use vk login.
@@ -516,5 +569,53 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       await launchUrl(standaloneHelperUri,
           mode: LaunchMode.externalApplication);
     });
+  }
+}
+
+/// _AuthSignal represents auth signal.
+
+class _AuthSignal {
+  /// _AuthSignal handles auth signal.
+  const _AuthSignal({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+}
+
+/// _AuthSignalTile represents auth signal tile.
+
+class _AuthSignalTile extends StatelessWidget {
+  /// _AuthSignalTile handles auth signal tile.
+  const _AuthSignalTile({
+    required this.signal,
+  });
+
+  final _AuthSignal signal;
+
+  /// build renders the widget tree for this component.
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          signal.icon,
+          size: 18,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: Text(
+            signal.text,
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
   }
 }

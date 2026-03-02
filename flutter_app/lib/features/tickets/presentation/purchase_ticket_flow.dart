@@ -8,8 +8,15 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/network/providers.dart';
 import '../../../core/notifications/providers.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/copy_to_clipboard.dart';
+import '../../../ui/components/input_field.dart';
+import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/purchase_ticket_draft_store.dart';
 import '../data/ticketing_repository.dart';
@@ -277,7 +284,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     if (token.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Authorization required';
+        _error = 'Требуется авторизация';
       });
       return;
     }
@@ -388,7 +395,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     }
     final subtotal = _subtotalCents;
     if (subtotal <= 0) {
-      _showMessage('Select tickets first');
+      _showMessage('Сначала выберите билеты');
       return;
     }
 
@@ -432,7 +439,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           OrderSelectionModel(productId: entry.key, quantity: entry.value));
     }
     if (ticketItems.isEmpty) {
-      _showMessage('Select at least one ticket');
+      _showMessage('Выберите хотя бы один билет');
       return;
     }
 
@@ -509,23 +516,47 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return AppScaffold(
+        appBar: AppBar(
+          title: const Text('Покупка билета'),
+          leading: IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ),
+        title: 'Оформление заказа',
+        subtitle: 'Подготавливаем данные',
+        titleColor: Theme.of(context).colorScheme.onSurface,
+        subtitleColor:
+            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+        child: const Center(
+          child: LoadingState(
+            title: 'Загрузка билетов',
+            subtitle: 'Получаем доступные продукты и способы оплаты',
+          ),
+        ),
+      );
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _loadProducts,
-                child: const Text('Retry'),
-              ),
-            ],
+      return AppScaffold(
+        appBar: AppBar(
+          title: const Text('Покупка билета'),
+          leading: IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ),
+        title: 'Оформление заказа',
+        subtitle: 'Не удалось загрузить данные',
+        titleColor: Theme.of(context).colorScheme.onSurface,
+        subtitleColor:
+            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+        child: Center(
+          child: ErrorState(
+            message: _error!,
+            onRetry: _loadProducts,
+            retryLabel: 'Повторить',
           ),
         ),
       );
@@ -559,15 +590,24 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     final products = _products;
     final availablePaymentMethods = _availablePaymentMethods;
     if (products == null) {
-      return const Center(child: Text('Products unavailable'));
+      return const Center(
+        child: EmptyState(
+          title: 'Товары недоступны',
+          subtitle: 'Не удалось получить список билетов для этого события.',
+        ),
+      );
     }
 
     final activeTransfers = _activeTransfers(products);
     final selectedTransfer = _selectedTransfer(products);
     final hasTicketProducts = products.tickets.isNotEmpty;
     final colorScheme = Theme.of(context).colorScheme;
+    final selectedTicketsCount = _ticketQuantities.values
+        .where((qty) => qty > 0)
+        .fold<int>(0, (sum, qty) => sum + qty);
+    final hasOrderDraft = selectedTicketsCount > 0 || selectedTransfer != null;
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: const Text('Покупка билета'),
         leading: IconButton(
@@ -575,9 +615,33 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           icon: const Icon(Icons.close_rounded),
         ),
       ),
-      body: ListView(
+      title: 'Оформление заказа',
+      subtitle: hasOrderDraft
+          ? 'Проверьте шаги и переходите к оплате'
+          : 'Соберите заказ из билетов и опций',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          SectionCard(
+            title: 'Готовность заказа',
+            subtitle:
+                'Билеты: $selectedTicketsCount · К оплате: ${formatMoney(_totalCents)}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasOrderDraft
+                      ? 'Черновик заказа сохраняется автоматически.'
+                      : 'Выберите хотя бы один билет для продолжения.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             '1) Выберите билеты',
             style: Theme.of(context).textTheme.titleMedium,
@@ -586,7 +650,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           if (!hasTicketProducts)
             const _InfoCard(
               text:
-                  'Для этого события пока не настроены типы билетов. Попросите администратора добавить ticket products.',
+                  'Для этого события пока не настроены типы билетов. Попросите администратора добавить билетные продукты.',
             )
           else
             ...products.tickets.map(
@@ -666,26 +730,25 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: InputField(
                   controller: _promoCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Введите промокод',
-                  ),
+                  hint: 'Введите промокод',
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton(
+              const SizedBox(width: AppSpacing.xs),
+              SecondaryButton(
                 onPressed: _validatingPromo ? null : _validatePromo,
-                child: Text(_validatingPromo ? '...' : 'Применить'),
+                label: _validatingPromo ? 'Проверка…' : 'Применить',
+                outline: true,
               ),
             ],
           ),
           if (_promoResult != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               _promoResult!.valid
-                  ? 'Discount: ${formatMoney(_promoResult!.discountCents)}'
-                  : 'Promo invalid: ${_promoResult!.reason}',
+                  ? 'Скидка: ${formatMoney(_promoResult!.discountCents)}'
+                  : 'Промокод не применился: ${_promoResult!.reason}',
               style: TextStyle(
                 color: _promoResult!.valid
                     ? colorScheme.tertiary
@@ -725,9 +788,13 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           ),
           const SizedBox(height: 8),
           _SummaryRow(
-              label: 'Tickets + transfer', value: formatMoney(_subtotalCents)),
+            label: 'Билеты + трансфер',
+            value: formatMoney(_subtotalCents),
+          ),
           _SummaryRow(
-              label: 'Discount', value: '- ${formatMoney(_discountCents)}'),
+            label: 'Скидка',
+            value: '- ${formatMoney(_discountCents)}',
+          ),
           const Divider(),
           _SummaryRow(
             label: 'К оплате',
@@ -735,13 +802,14 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             emphasized: true,
           ),
           const SizedBox(height: 16),
-          FilledButton(
+          PrimaryButton(
+            label: 'Перейти к оплате',
             onPressed: _submitting ||
                     !_hasSelectedTickets ||
                     availablePaymentMethods.isEmpty
                 ? null
                 : _openPaymentCheckout,
-            child: const Text('Перейти к оплате'),
+            expand: true,
           ),
           const SizedBox(height: 10),
           Text(
@@ -765,7 +833,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       case 'PAYMENT_QR':
         return 'Оплата по QR';
       case 'TOCHKA_SBP_QR':
-        return 'SBP QR (Tochka)';
+        return 'СБП QR (Точка)';
       case 'PHONE':
       default:
         return 'Перевод по номеру';
@@ -779,7 +847,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       case 'USDT':
         return 'Кошелек + сеть + сумма';
       case 'PAYMENT_QR':
-        return 'Сканируете QR платежа';
+        return 'Сканируйте QR для оплаты';
       case 'TOCHKA_SBP_QR':
         return 'Динамический QR СБП';
       case 'PHONE':
@@ -804,7 +872,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
 
   void _showMessage(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    AppToast.show(context, message: text);
   }
 }
 
@@ -827,26 +895,24 @@ class PaymentMethodPage extends StatelessWidget {
   Widget build(BuildContext context) {
     String hint;
     if (method == 'USDT') {
-      hint = 'Wallet/network details will be shown after order creation.';
+      hint = 'Реквизиты кошелька и сети появятся после создания заказа.';
     } else if (method == 'PAYMENT_QR') {
-      hint = 'Payment QR data will be generated after order creation.';
+      hint = 'Данные QR-платежа появятся после создания заказа.';
     } else if (method == 'TOCHKA_SBP_QR') {
-      hint = 'A dynamic SBP QR from Tochka will be generated for this order.';
+      hint = 'Для заказа будет создан динамический QR СБП от Точки.';
     } else {
-      hint = 'Phone transfer instructions will be shown after order creation.';
+      hint = 'Реквизиты перевода по номеру появятся после создания заказа.';
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Amount: ${formatMoney(amountCents)}'),
-            const SizedBox(height: 6),
-            Text(hint),
-          ],
-        ),
+    return AppCard(
+      variant: AppCardVariant.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Сумма: ${formatMoney(amountCents)}'),
+          const SizedBox(height: AppSpacing.xs),
+          Text(hint),
+        ],
       ),
     );
   }
@@ -872,49 +938,50 @@ class PurchaseStatusPage extends StatelessWidget {
     final order = detail.order;
     final instructions = detail.paymentInstructions;
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
-        title: const Text('Purchase status'),
+        title: const Text('Статус покупки'),
         leading: IconButton(
           onPressed: onClose,
           icon: const Icon(Icons.close_rounded),
         ),
       ),
-      body: ListView(
+      title: 'Заказ создан',
+      subtitle: 'Ожидаем подтверждение оплаты',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: statusTint(order.status, context),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+          SectionCard(
+            title: 'Ожидаем подтверждение',
+            subtitle: 'Текущий статус: ${order.status}',
+            child: const Row(
               children: [
-                const Icon(Icons.hourglass_top_rounded),
-                const SizedBox(width: 10),
+                Icon(Icons.hourglass_top_rounded),
+                SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
-                    'Waiting for confirmation (${order.status})',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    'Мы проверяем оплату. После подтверждения билет станет активным.',
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           _CopyInfoRow(label: 'Order ID', value: order.id),
           _CopyInfoRow(
-            label: 'Payment method',
+            label: 'Способ оплаты',
             value: order.paymentMethod,
             copyEnabled: false,
           ),
           _CopyInfoRow(
-            label: 'Total',
+            label: 'Сумма',
             value: formatMoney(order.totalCents),
             copyEnabled: false,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.xs),
           if (instructions.displayMessage.trim().isNotEmpty)
             Text(instructions.displayMessage),
           if (instructions.phoneNumber.trim().isNotEmpty)
@@ -935,17 +1002,19 @@ class PurchaseStatusPage extends StatelessWidget {
               value: instructions.usdtMemo,
             ),
           if (instructions.paymentQrData.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.xs),
             _CopyDataCard(
-              title: 'Payment QR payload',
+              title: 'QR payload платежа',
               value: instructions.paymentQrData,
               copyValue: instructions.paymentQrData,
             ),
           ],
-          const SizedBox(height: 14),
-          OutlinedButton(
+          const SizedBox(height: AppSpacing.sm),
+          SecondaryButton(
             onPressed: onClose,
-            child: const Text('Close'),
+            label: 'Закрыть',
+            outline: true,
+            expand: true,
           ),
         ],
       ),
@@ -1018,7 +1087,7 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     final token = _token;
     if (token.isEmpty) {
       if (!mounted) return;
-      setState(() => _error = 'Authorization required');
+      setState(() => _error = 'Требуется авторизация');
       return;
     }
     if (_loading) return;
@@ -1155,12 +1224,12 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
             copyEnabled: false,
           ),
           _CopyInfoRow(
-            label: 'Order status',
+            label: 'Статус заказа',
             value: order.status,
             copyEnabled: false,
           ),
           _CopyInfoRow(
-            label: 'Payment status',
+            label: 'Статус оплаты',
             value: paymentStatus.isEmpty ? 'PENDING' : paymentStatus,
             copyEnabled: false,
           ),
@@ -1202,17 +1271,20 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
               copyValue: qrPayload,
             ),
           const SizedBox(height: 14),
-          FilledButton.icon(
+          PrimaryButton(
             onPressed: _loading
                 ? null
                 : () => unawaited(_pollStatus(scheduleNext: false)),
             icon: const Icon(Icons.refresh_rounded),
-            label: Text(_loading ? 'Проверка…' : 'Проверить оплату'),
+            label: _loading ? 'Проверка…' : 'Проверить оплату',
+            expand: true,
           ),
-          const SizedBox(height: 8),
-          OutlinedButton(
+          const SizedBox(height: AppSpacing.xs),
+          SecondaryButton(
             onPressed: widget.onClose,
-            child: const Text('Закрыть'),
+            label: 'Закрыть',
+            outline: true,
+            expand: true,
           ),
         ],
       ),
@@ -1241,52 +1313,60 @@ class _TicketQuantityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: colorScheme.outline),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: quantity <= 0
-                        ? null
-                        : () => onChanged(max(0, quantity - 1)),
-                    icon: const Icon(Icons.remove_rounded),
-                  ),
-                  SizedBox(
-                    width: 28,
-                    child: Text(
-                      '$quantity',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+    return AppCard(
+      variant: AppCardVariant.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => onChanged(quantity + 1),
-                    icon: const Icon(Icons.add_rounded),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: colorScheme.outline),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: quantity <= 0
+                      ? null
+                      : () => onChanged(max(0, quantity - 1)),
+                  icon: const Icon(Icons.remove_rounded),
+                ),
+                SizedBox(
+                  width: 28,
+                  child: Text(
+                    '$quantity',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => onChanged(quantity + 1),
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1370,14 +1450,9 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    return AppCard(
+      variant: AppCardVariant.plain,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outline),
-      ),
       child: Text(text),
     );
   }
@@ -1407,7 +1482,6 @@ class _PaymentCheckoutPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final config = ref.watch(appConfigProvider);
     final title = _methodTitle(paymentMethod);
     final customSubtitle = paymentSettings?.descriptionForMethod(paymentMethod);
@@ -1432,7 +1506,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
             : config.paymentQrData;
     final isSbp = paymentMethod == 'TOCHKA_SBP_QR';
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: const Text('Реквизиты оплаты'),
         leading: IconButton(
@@ -1440,34 +1514,23 @@ class _PaymentCheckoutPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
       ),
-      body: ListView(
+      title: 'Подтверждение оплаты',
+      subtitle: 'Проверьте реквизиты и завершите оплату',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Оплатите выбранным способом и подтвердите платеж.'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: colorScheme.outline),
-              color: colorScheme.surface,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(subtitle),
-                const SizedBox(height: 10),
-                Text(
-                  'Сумма к оплате: ${formatMoney(amountCents)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ],
+          SectionCard(
+            title: title,
+            subtitle: subtitle,
+            child: Text(
+              'Сумма к оплате: ${formatMoney(amountCents)}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           _PaymentRequisitesBlock(
             paymentMethod: paymentMethod,
             phoneNumber: phoneNumber,
@@ -1476,29 +1539,33 @@ class _PaymentCheckoutPage extends ConsumerWidget {
             usdtMemo: usdtMemo,
             qrData: paymentQrData,
           ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
+          const SizedBox(height: AppSpacing.sm),
+          PrimaryButton(
             onPressed: onPaid,
-            icon: Icon(isSbp
-                ? Icons.qr_code_2_rounded
-                : Icons.check_circle_outline_rounded),
-            label: Text(
-              submitting
-                  ? (isSbp ? 'Создание…' : 'Отправка…')
-                  : (isSbp ? 'Создать SBP QR' : 'Я оплатил(а)'),
+            icon: Icon(
+              isSbp
+                  ? Icons.qr_code_2_rounded
+                  : Icons.check_circle_outline_rounded,
             ),
+            label: submitting
+                ? (isSbp ? 'Создание…' : 'Отправка…')
+                : (isSbp ? 'Создать SBP QR' : 'Я оплатил(а)'),
+            expand: true,
+            loading: submitting,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             isSbp
                 ? 'После нажатия мы создадим динамический SBP QR и начнем автоматическую проверку оплаты.'
                 : 'После нажатия будет создана заявка в статусе PENDING. Админ подтвердит или отклонит оплату.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          const SizedBox(height: 10),
-          OutlinedButton(
+          const SizedBox(height: AppSpacing.xs),
+          SecondaryButton(
             onPressed: onBack,
-            child: const Text('Изменить заказ'),
+            label: 'Изменить заказ',
+            outline: true,
+            expand: true,
           ),
         ],
       ),
@@ -1641,17 +1708,12 @@ class _CopyDataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final valueToCopy = (copyValue ?? value).trim();
     final canCopy = valueToCopy.isNotEmpty;
 
-    return Container(
+    return AppCard(
+      variant: AppCardVariant.plain,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outline),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1659,12 +1721,13 @@ class _CopyDataCard extends StatelessWidget {
           const SizedBox(height: 6),
           SelectableText(value),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
+          SecondaryButton(
             onPressed: canCopy
                 ? () => copyToClipboard(context, text: valueToCopy)
                 : null,
             icon: const Icon(Icons.copy_rounded),
-            label: const Text('Скопировать'),
+            label: 'Скопировать',
+            outline: true,
           ),
         ],
       ),
