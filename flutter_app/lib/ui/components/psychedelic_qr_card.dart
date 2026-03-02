@@ -62,17 +62,11 @@ class PsychedelicQrCard extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.96),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: QrImageView(
-                      data: data,
-                      size: size,
-                      backgroundColor: Colors.white,
-                      eyeStyle: const QrEyeStyle(
-                        eyeShape: QrEyeShape.square,
-                        color: Colors.black,
-                      ),
-                      dataModuleStyle: const QrDataModuleStyle(
-                        dataModuleShape: QrDataModuleShape.square,
-                        color: Colors.black,
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: CustomPaint(
+                        painter: _PsychedelicQrPainter(data: data),
                       ),
                     ),
                   ),
@@ -196,5 +190,119 @@ class _PsychedelicBackdropPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PsychedelicBackdropPainter oldDelegate) {
     return false;
+  }
+}
+
+/// _PsychedelicQrPainter paints QR modules with a psychedelic color pattern.
+
+class _PsychedelicQrPainter extends CustomPainter {
+  /// _PsychedelicQrPainter handles psychedelic qr rendering.
+  _PsychedelicQrPainter({required this.data})
+      : _result = QrValidator.validate(
+          data: data,
+          version: QrVersions.auto,
+          errorCorrectionLevel: QrErrorCorrectLevel.H,
+        );
+
+  static const int _finderPatternLimit = 7;
+  final String data;
+  final QrValidationResult _result;
+
+  /// paint draws the QR code with psychedelic modules.
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final qrCode = _result.qrCode;
+    if (!_result.isValid || qrCode == null || size.shortestSide <= 0) {
+      return;
+    }
+
+    final image = QrImage(qrCode);
+    final moduleCount = image.moduleCount;
+    final shortest = size.shortestSide;
+    final pixelSize = shortest / moduleCount;
+    final insetX = (size.width - (pixelSize * moduleCount)) / 2;
+    final insetY = (size.height - (pixelSize * moduleCount)) / 2;
+
+    final backgroundPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.white;
+    canvas.drawRect(Offset.zero & size, backgroundPaint);
+
+    final modulePaint = Paint()..style = PaintingStyle.fill;
+
+    for (var x = 0; x < moduleCount; x++) {
+      for (var y = 0; y < moduleCount; y++) {
+        if (!image.isDark(y, x)) {
+          continue;
+        }
+
+        modulePaint.color = _moduleColor(
+          x: x,
+          y: y,
+          moduleCount: moduleCount,
+          isFinder: _isFinderPatternPosition(
+            x: x,
+            y: y,
+            moduleCount: moduleCount,
+          ),
+        );
+
+        final left = insetX + (x * pixelSize);
+        final top = insetY + (y * pixelSize);
+        canvas.drawRect(
+          Rect.fromLTWH(left, top, pixelSize, pixelSize),
+          modulePaint,
+        );
+      }
+    }
+  }
+
+  /// _moduleColor returns a per-module psychedelic color.
+
+  Color _moduleColor({
+    required int x,
+    required int y,
+    required int moduleCount,
+    required bool isFinder,
+  }) {
+    if (isFinder) {
+      return const Color(0xFF080808);
+    }
+
+    final nx = x / moduleCount;
+    final ny = y / moduleCount;
+    final radial =
+        math.sqrt(((nx - 0.5) * (nx - 0.5)) + ((ny - 0.5) * (ny - 0.5)));
+    final wave = ((math.sin((nx * 12.8) + (ny * 7.1)) +
+                math.cos((ny * 13.6) - (nx * 5.4))) *
+            0.5) +
+        0.5;
+    final hue = (((nx * 230) + (ny * 140) + (wave * 70)) % 360).toDouble();
+    final saturation = (0.86 - (radial * 0.22)).clamp(0.62, 0.9);
+    final value = (0.3 + (wave * 0.24) - (radial * 0.05)).clamp(0.22, 0.48);
+    return HSVColor.fromAHSV(1, hue, saturation, value).toColor();
+  }
+
+  /// _isFinderPatternPosition checks whether module belongs to finder patterns.
+
+  bool _isFinderPatternPosition({
+    required int x,
+    required int y,
+    required int moduleCount,
+  }) {
+    final inTopLeft = y < _finderPatternLimit && x < _finderPatternLimit;
+    final inTopRight =
+        y < _finderPatternLimit && x >= moduleCount - _finderPatternLimit;
+    final inBottomLeft =
+        y >= moduleCount - _finderPatternLimit && x < _finderPatternLimit;
+    return inTopLeft || inTopRight || inBottomLeft;
+  }
+
+  /// shouldRepaint indicates whether the painter needs a repaint.
+
+  @override
+  bool shouldRepaint(covariant _PsychedelicQrPainter oldDelegate) {
+    return oldDelegate.data != data;
   }
 }
