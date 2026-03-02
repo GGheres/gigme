@@ -3,15 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app/routes.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
+import '../../../ui/components/psychedelic_qr_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
-import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -187,18 +186,9 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                                           .trim()
                                           .isNotEmpty)
                                         Center(
-                                          child: Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.surfaceStrong,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: QrImageView(
-                                              data: ticket.qrPayload,
-                                              size: 180,
-                                              backgroundColor: Colors.white,
-                                            ),
+                                          child: PsychedelicQrCard(
+                                            data: ticket.qrPayload,
+                                            size: 176,
                                           ),
                                         )
                                       else

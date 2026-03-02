@@ -4,13 +4,13 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/network/providers.dart';
 import '../../../core/notifications/providers.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
+import '../../../ui/components/psychedelic_qr_card.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/copy_to_clipboard.dart';
 import '../../../ui/components/input_field.dart';
@@ -1244,19 +1244,9 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
           const SizedBox(height: 14),
           if (qrPayload.isNotEmpty)
             Center(
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outline),
-                ),
-                child: QrImageView(
-                  data: qrPayload,
-                  size: 260,
-                  // White background improves scanner reliability in all themes.
-                  backgroundColor: Colors.white,
-                ),
+              child: PsychedelicQrCard(
+                data: qrPayload,
+                size: 248,
               ),
             )
           else
