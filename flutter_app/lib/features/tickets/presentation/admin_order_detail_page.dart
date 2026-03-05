@@ -182,7 +182,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     final canDelete = status == 'PENDING' ||
         status == 'PAID' ||
         status == 'CONFIRMED' ||
-        status == 'CANCELED';
+        status == 'CANCELED' ||
+        status == 'REDEEMED';
 
     return Scaffold(
       appBar: AppBar(
