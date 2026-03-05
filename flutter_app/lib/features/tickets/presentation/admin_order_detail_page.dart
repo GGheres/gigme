@@ -177,7 +177,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     }
 
     final order = detail.order;
-    final status = order.status;
+    final status = order.status.trim().toUpperCase();
     final userTelegramId = detail.user?.telegramId ?? 0;
     final canDelete = status == 'PENDING' ||
         status == 'PAID' ||
