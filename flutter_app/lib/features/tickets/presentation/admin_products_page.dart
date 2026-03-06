@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/date_time_utils.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
@@ -55,19 +56,29 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _transferTimeCtrl = TextEditingController();
   final TextEditingController _transferPickupCtrl = TextEditingController();
   final TextEditingController _transferNotesCtrl = TextEditingController();
+  final TextEditingController _promoCodeCtrl = TextEditingController();
+  final TextEditingController _promoValueCtrl = TextEditingController();
+  final TextEditingController _promoUsageLimitCtrl = TextEditingController();
 
   String _ticketType = 'SINGLE';
   String _transferDirection = 'THERE';
+  String _promoDiscountType = 'PERCENT';
+  DateTime? _promoActiveFrom;
+  DateTime? _promoActiveTo;
+  bool _promoActiveOnly = false;
 
   bool _loading = true;
   bool _busy = false;
   String? _error;
   List<TicketProductModel> _ticketProducts = <TicketProductModel>[];
   List<TransferProductModel> _transferProducts = <TransferProductModel>[];
+  List<PromoCodeViewModel> _promoCodes = <PromoCodeViewModel>[];
   bool _phoneEnabled = true;
   bool _usdtEnabled = true;
   bool _paymentQrEnabled = true;
   bool _sbpEnabled = true;
+
+  bool get _isPercentPromoDiscount => _promoDiscountType == 'PERCENT';
 
   /// initState handles init state.
 
@@ -80,6 +91,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _paymentUsdtNetworkCtrl.text = 'TRC20';
     _ticketPriceCtrl.text = '0';
     _transferPriceCtrl.text = '0';
+    _promoValueCtrl.text = '10';
     unawaited(_load());
   }
 
@@ -104,6 +116,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _transferTimeCtrl.dispose();
     _transferPickupCtrl.dispose();
     _transferNotesCtrl.dispose();
+    _promoCodeCtrl.dispose();
+    _promoValueCtrl.dispose();
+    _promoUsageLimitCtrl.dispose();
     super.dispose();
   }
 
@@ -133,12 +148,18 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             token: token, eventId: (eventId ?? 0) > 0 ? eventId : null),
         repo.listAdminTransferProducts(
             token: token, eventId: (eventId ?? 0) > 0 ? eventId : null),
+        repo.listAdminPromoCodes(
+          token: token,
+          eventId: (eventId ?? 0) > 0 ? eventId : null,
+          active: _promoActiveOnly ? true : null,
+        ),
       ]);
       if (!mounted) return;
       setState(() {
         _applyPaymentSettings(results[0] as PaymentSettingsModel);
         _ticketProducts = results[1] as List<TicketProductModel>;
         _transferProducts = results[2] as List<TransferProductModel>;
+        _promoCodes = results[3] as List<PromoCodeViewModel>;
         _loading = false;
       });
     } catch (error) {
@@ -213,6 +234,169 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// _createPromoCode creates promo code.
+
+  Future<void> _createPromoCode() async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    final code = _promoCodeCtrl.text.trim();
+    final value = int.tryParse(_promoValueCtrl.text.trim());
+    final usageLimitRaw = _promoUsageLimitCtrl.text.trim();
+    final usageLimit =
+        usageLimitRaw.isEmpty ? null : int.tryParse(usageLimitRaw);
+    final eventIdRaw = _eventCtrl.text.trim();
+    final eventId = eventIdRaw.isEmpty ? null : int.tryParse(eventIdRaw);
+
+    if (token.isEmpty) {
+      _showMessage('Требуется авторизация');
+      return;
+    }
+    if (code.isEmpty) {
+      _showMessage('Введите код промокода');
+      return;
+    }
+    if (value == null || value <= 0) {
+      _showMessage(
+        _isPercentPromoDiscount
+            ? 'Скидка в процентах должна быть больше 0'
+            : 'Скидка в копейках должна быть больше 0',
+      );
+      return;
+    }
+    if (_isPercentPromoDiscount && value > 100) {
+      _showMessage('Процент скидки не может быть больше 100');
+      return;
+    }
+    if (usageLimitRaw.isNotEmpty && (usageLimit == null || usageLimit <= 0)) {
+      _showMessage('Количество срабатываний должно быть больше 0');
+      return;
+    }
+    if (eventIdRaw.isNotEmpty && (eventId == null || eventId <= 0)) {
+      _showMessage('ID события должен быть положительным числом');
+      return;
+    }
+    if (_promoActiveFrom != null &&
+        _promoActiveTo != null &&
+        !_promoActiveTo!.isAfter(_promoActiveFrom!)) {
+      _showMessage('Окончание действия должно быть позже начала');
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(ticketingRepositoryProvider).createAdminPromoCode(
+            token: token,
+            code: code,
+            discountType: _promoDiscountType,
+            value: value,
+            usageLimit: usageLimit,
+            eventId: eventId,
+            activeFrom: _promoActiveFrom?.toUtc().toIso8601String(),
+            activeTo: _promoActiveTo?.toUtc().toIso8601String(),
+            isActive: true,
+          );
+      _showMessage('Промокод создан');
+      _promoCodeCtrl.clear();
+      _promoUsageLimitCtrl.clear();
+      _promoActiveFrom = null;
+      _promoActiveTo = null;
+      if (_isPercentPromoDiscount) {
+        _promoValueCtrl.text = '10';
+      }
+      await _load();
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  /// _deletePromoCode deletes promo code.
+
+  Future<void> _deletePromoCode(String id) async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(ticketingRepositoryProvider)
+          .deleteAdminPromoCode(token: token, promoId: id);
+      _showMessage('Промокод удален');
+      await _load();
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  /// _pickPromoActiveFrom handles pick promo active from.
+
+  Future<void> _pickPromoActiveFrom() async {
+    final initial = _promoActiveFrom ?? DateTime.now();
+    final picked = await _pickPromoDateTime(initial: initial);
+    if (picked == null || !mounted) return;
+    setState(() {
+      _promoActiveFrom = picked;
+      if (_promoActiveTo != null && !_promoActiveTo!.isAfter(picked)) {
+        _promoActiveTo = picked.add(const Duration(hours: 1));
+      }
+    });
+  }
+
+  /// _pickPromoActiveTo handles pick promo active to.
+
+  Future<void> _pickPromoActiveTo() async {
+    final initial = _promoActiveTo ?? _promoActiveFrom ?? DateTime.now();
+    final picked = await _pickPromoDateTime(initial: initial);
+    if (picked == null || !mounted) return;
+    setState(() => _promoActiveTo = picked);
+  }
+
+  /// _pickPromoDateTime handles pick promo date time.
+
+  Future<DateTime?> _pickPromoDateTime({
+    required DateTime initial,
+  }) async {
+    final now = DateTime.now();
+    final firstDate = DateTime(now.year - 5, 1, 1);
+    final lastDate = DateTime(now.year + 10, 12, 31);
+    final date = await showDatePicker(
+      context: context,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      initialDate: DateUtils.dateOnly(initial),
+      helpText: 'Выберите дату',
+      cancelText: 'Отмена',
+      confirmText: 'Далее',
+    );
+    if (date == null || !mounted) {
+      return null;
+    }
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      helpText: 'Выберите время',
+      cancelText: 'Отмена',
+      confirmText: 'Готово',
+    );
+    if (time == null) {
+      return null;
+    }
+
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
   }
 
   /// _deleteTicketProduct deletes ticket product.
@@ -525,6 +709,166 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         ),
         const SizedBox(height: AppSpacing.sm),
         SectionCard(
+          title: 'Создать промокод',
+          subtitle: 'Скидка, лимит срабатываний и период действия',
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: InputField(
+                      controller: _promoCodeCtrl,
+                      label: 'Код промокода',
+                      hint: 'Например SPRING25',
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      // Keep `value` for compatibility with older Flutter SDKs used in CI/Docker.
+                      // ignore: deprecated_member_use
+                      value: _promoDiscountType,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'PERCENT',
+                          child: Text('Процент (%)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'FIXED',
+                          child: Text('Фикс (копейки)'),
+                        ),
+                      ],
+                      onChanged: _busy
+                          ? null
+                          : (value) => setState(
+                                () => _promoDiscountType = value ?? 'PERCENT',
+                              ),
+                      decoration: const InputDecoration(
+                        labelText: 'Тип скидки',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: InputField(
+                      controller: _promoValueCtrl,
+                      keyboardType: TextInputType.number,
+                      label: _isPercentPromoDiscount
+                          ? 'Скидка (%)'
+                          : 'Скидка (копейки)',
+                      hint: _isPercentPromoDiscount
+                          ? 'от 1 до 100'
+                          : 'например 1500 = 15 RUB',
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: InputField(
+                      controller: _promoUsageLimitCtrl,
+                      keyboardType: TextInputType.number,
+                      label: 'Количество срабатываний',
+                      hint: 'Пусто = без лимита',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _DateSelectorField(
+                label: 'Начало действия',
+                value: _promoActiveFrom,
+                onSelect: _pickPromoActiveFrom,
+                onClear: _promoActiveFrom == null
+                    ? null
+                    : () => setState(() => _promoActiveFrom = null),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _DateSelectorField(
+                label: 'Окончание действия',
+                value: _promoActiveTo,
+                onSelect: _pickPromoActiveTo,
+                onClear: _promoActiveTo == null
+                    ? null
+                    : () => setState(() => _promoActiveTo = null),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: PrimaryButton(
+                      onPressed: _busy ? null : _createPromoCode,
+                      label: _busy ? 'Подождите…' : 'Создать промокод',
+                      expand: true,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: _promoActiveOnly,
+                          onChanged: _busy
+                              ? null
+                              : (value) {
+                                  setState(
+                                    () => _promoActiveOnly = value ?? false,
+                                  );
+                                  unawaited(_load());
+                                },
+                        ),
+                        const Expanded(
+                          child: Text('Показывать только активные'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SectionCard(
+          title: 'Промокоды (${_promoCodes.length})',
+          child: _promoCodes.isEmpty
+              ? const EmptyState(
+                  title: 'Промокодов нет',
+                  subtitle: 'Создайте первый промокод для текущего фильтра.',
+                )
+              : Column(
+                  children: [
+                    for (final item in _promoCodes)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: AppCard(
+                          variant: AppCardVariant.plain,
+                          child: ListTile(
+                            title: Text(
+                              '${item.code} · ${_formatPromoDiscount(item)}',
+                            ),
+                            subtitle: Text(
+                              'Срабатываний: ${item.usedCount}/${item.usageLimit ?? '∞'}\n'
+                              'Период: ${_formatPromoDateRange(item.activeFrom, item.activeTo)}\n'
+                              'Событие: ${item.eventId ?? 'ALL'} · Активен: ${item.isActive ? 'да' : 'нет'}',
+                            ),
+                            isThreeLine: true,
+                            trailing: IconButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _deletePromoCode(item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SectionCard(
           title: 'Создать билетный продукт',
           child: Column(
             children: [
@@ -730,6 +1074,23 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     );
   }
 
+  /// _formatPromoDiscount formats promo discount.
+
+  String _formatPromoDiscount(PromoCodeViewModel item) {
+    if (item.discountType == 'FIXED') {
+      return formatMoney(item.value);
+    }
+    return '${item.value}%';
+  }
+
+  /// _formatPromoDateRange formats promo date range.
+
+  String _formatPromoDateRange(DateTime? from, DateTime? to) {
+    final fromText = from == null ? 'без даты начала' : formatDateTime(from);
+    final toText = to == null ? 'без даты окончания' : formatDateTime(to);
+    return '$fromText — $toText';
+  }
+
   /// _showMessage handles show message.
 
   void _showMessage(String message) {
@@ -754,5 +1115,63 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _usdtDescriptionCtrl.text = settings.usdtDescription;
     _qrDescriptionCtrl.text = settings.qrDescription;
     _sbpDescriptionCtrl.text = settings.sbpDescription;
+  }
+}
+
+/// _DateSelectorField represents date selector field.
+
+class _DateSelectorField extends StatelessWidget {
+  /// _DateSelectorField handles date selector field.
+  const _DateSelectorField({
+    required this.label,
+    required this.value,
+    required this.onSelect,
+    this.onClear,
+  });
+
+  final String label;
+  final DateTime? value;
+  final VoidCallback onSelect;
+  final VoidCallback? onClear;
+
+  /// build renders the widget tree for this component.
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value == null ? 'Без ограничения' : formatDateTime(value);
+
+    return AppCard(
+      variant: AppCardVariant.plain,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  text,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onSelect,
+            icon: const Icon(Icons.edit_calendar_outlined),
+            tooltip: 'Выбрать дату и время',
+          ),
+          IconButton(
+            onPressed: onClear,
+            icon: const Icon(Icons.clear_rounded),
+            tooltip: 'Очистить',
+          ),
+        ],
+      ),
+    );
   }
 }
