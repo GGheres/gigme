@@ -817,6 +817,13 @@ class AdminStatsBreakdownModel {
   final Map<String, int> ticketTypeCounts;
   final Map<String, int> transferDirectionCounts;
 
+  /// purchasedTicketsCount handles purchased tickets count.
+
+  int get purchasedTicketsCount => ticketTypeCounts.values.fold(
+        0,
+        (sum, value) => sum + value,
+      );
+
   /// _parseCountMap parses count map.
 
   static Map<String, int> _parseCountMap(dynamic value) {

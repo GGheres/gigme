@@ -154,6 +154,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
                 : 'Событие ${item.eventId}: ${item.eventTitle}'),
             const SizedBox(height: 6),
             Text('Куплено: ${formatMoney(item.purchasedAmountCents)}'),
+            Text('Куплено билетов: ${item.purchasedTicketsCount}'),
             Text('Погашено: ${formatMoney(item.redeemedAmountCents)}'),
             Text('Проверено билетов: ${item.checkedInTickets}'),
             Text('Проверено людей: ${item.checkedInPeople}'),
