@@ -142,17 +142,9 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              'Билет ${ticket.id}',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleSmall,
-                                            ),
-                                          ),
-                                          Chip(
+                                      LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          final headerChip = Chip(
                                             label: Text(status),
                                             backgroundColor:
                                                 statusColor(status, context)
@@ -166,8 +158,46 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                                                   statusColor(status, context),
                                               fontWeight: FontWeight.w600,
                                             ),
-                                          ),
-                                        ],
+                                          );
+                                          final useStackedHeader =
+                                              constraints.maxWidth < 360;
+
+                                          if (useStackedHeader) {
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Билет ${ticket.id}',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleSmall,
+                                                ),
+                                                const SizedBox(
+                                                  height: AppSpacing.xs,
+                                                ),
+                                                headerChip,
+                                              ],
+                                            );
+                                          }
+
+                                          return Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  'Билет ${ticket.id}',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleSmall,
+                                                ),
+                                              ),
+                                              const SizedBox(
+                                                width: AppSpacing.xs,
+                                              ),
+                                              headerChip,
+                                            ],
+                                          );
+                                        },
                                       ),
                                       const SizedBox(height: AppSpacing.xs),
                                       Text(

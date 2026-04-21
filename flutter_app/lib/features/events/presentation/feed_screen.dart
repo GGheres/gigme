@@ -231,28 +231,57 @@ class _FilterBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              AppBadge(
-                label: nearbyOnly ? 'Только рядом' : 'Все регионы',
-                variant: nearbyOnly
-                    ? AppBadgeVariant.accent
-                    : AppBadgeVariant.neutral,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              AppBadge(
-                label: '${activeFilters.length}/$kMaxEventFilters фильтров',
-                variant: AppBadgeVariant.neutral,
-              ),
-              const Spacer(),
-              if (activeFilters.isNotEmpty || nearbyOnly)
-                AppButton(
-                  label: 'Сбросить',
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.sm,
-                  onPressed: onClearFilters,
-                ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final useStackedHeader = constraints.maxWidth < 420;
+              final badges = Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  AppBadge(
+                    label: nearbyOnly ? 'Только рядом' : 'Все регионы',
+                    variant: nearbyOnly
+                        ? AppBadgeVariant.accent
+                        : AppBadgeVariant.neutral,
+                  ),
+                  AppBadge(
+                    label: '${activeFilters.length}/$kMaxEventFilters фильтров',
+                    variant: AppBadgeVariant.neutral,
+                  ),
+                ],
+              );
+              final resetButton = (activeFilters.isNotEmpty || nearbyOnly)
+                  ? AppButton(
+                      label: 'Сбросить',
+                      variant: AppButtonVariant.secondary,
+                      size: AppButtonSize.sm,
+                      onPressed: onClearFilters,
+                    )
+                  : null;
+
+              if (useStackedHeader) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    badges,
+                    if (resetButton != null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      resetButton,
+                    ],
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: badges),
+                  if (resetButton != null) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    resetButton,
+                  ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.xs),
           Theme(

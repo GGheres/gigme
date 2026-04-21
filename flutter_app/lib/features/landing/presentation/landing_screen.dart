@@ -349,6 +349,13 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
             final isTelegramSelected =
                 selectedProvider == _WebLoginProvider.telegram;
             final telegramAvailable = telegramLoginUri != null;
+            final modalViewport = MediaQuery.sizeOf(modalContext);
+            final modalMaxHeight =
+                (modalViewport.height * 0.88).clamp(360.0, 760.0).toDouble();
+            final telegramEmbedHeight =
+                (modalViewport.height * 0.42).clamp(220.0, 460.0).toDouble();
+            final vkEmbedHeight =
+                (modalViewport.height * 0.18).clamp(120.0, 180.0).toDouble();
 
             return AppModal(
               title: 'Вход в SPACE',
@@ -361,8 +368,11 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       width: compactWebModalSize,
                       height: compactWebModalSize,
                     )
-                  : null,
-              scrollBody: isCompactWebModal,
+                  : BoxConstraints(
+                      maxWidth: 720,
+                      maxHeight: modalMaxHeight,
+                    ),
+              scrollBody: true,
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -413,7 +423,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
-                        height: 460,
+                        height: telegramEmbedHeight,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(14),
                           child: DecoratedBox(
@@ -442,7 +452,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
-                        height: 132,
+                        height: vkEmbedHeight,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(14),
                           child: DecoratedBox(

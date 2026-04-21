@@ -974,156 +974,197 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
               );
             }
 
+            final dialogWidth = (MediaQuery.sizeOf(dialogContext).width - 48)
+                .clamp(280.0, 560.0)
+                .toDouble();
+
             return AlertDialog(
               title: const Text('Редактировать событие'),
               content: SizedBox(
-                width: 560,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: titleCtrl,
-                        maxLength: 80,
-                        decoration:
-                            const InputDecoration(labelText: 'Название'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: descriptionCtrl,
-                        minLines: 3,
-                        maxLines: 6,
-                        maxLength: 1000,
-                        decoration:
-                            const InputDecoration(labelText: 'Описание'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: startsAtCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Начало (ISO)',
-                          hintText: '2026-03-18T19:00:00Z',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: endsAtCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Окончание (ISO, пусто = убрать)',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
+                width: dialogWidth,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final useStackedCoordinates = constraints.maxWidth < 420;
+
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: TextField(
-                              controller: latCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              decoration:
-                                  const InputDecoration(labelText: 'Lat'),
+                          TextField(
+                            controller: titleCtrl,
+                            maxLength: 80,
+                            decoration:
+                                const InputDecoration(labelText: 'Название'),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: descriptionCtrl,
+                            minLines: 3,
+                            maxLines: 6,
+                            maxLength: 1000,
+                            decoration:
+                                const InputDecoration(labelText: 'Описание'),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: startsAtCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Начало (ISO)',
+                              hintText: '2026-03-18T19:00:00Z',
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: lngCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
-                              decoration:
-                                  const InputDecoration(labelText: 'Lng'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: endsAtCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Окончание (ISO, пусто = убрать)',
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          if (useStackedCoordinates)
+                            Column(
+                              children: [
+                                TextField(
+                                  controller: latCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration:
+                                      const InputDecoration(labelText: 'Lat'),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: lngCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration:
+                                      const InputDecoration(labelText: 'Lng'),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: latCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Lat',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: lngCtrl,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Lng',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: capacityCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Лимит участников',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Теги (${selectedFilters.length}/$kMaxEventFilters)',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: kEventFilters.map((filter) {
+                              final active =
+                                  selectedFilters.contains(filter.id);
+                              return FilterChip(
+                                selected: active,
+                                label: Text('${filter.icon} ${filter.label}'),
+                                onSelected: (selected) {
+                                  setDialogState(() {
+                                    validationError = null;
+                                    if (selected) {
+                                      if (!active &&
+                                          selectedFilters.length >=
+                                              kMaxEventFilters) {
+                                        validationError =
+                                            'Можно выбрать максимум $kMaxEventFilters фильтра';
+                                        return;
+                                      }
+                                      selectedFilters.add(filter.id);
+                                    } else {
+                                      selectedFilters.remove(filter.id);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: contactTelegramCtrl,
+                            maxLength: 120,
+                            decoration: const InputDecoration(
+                              labelText: 'Telegram @username',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: contactWhatsappCtrl,
+                            maxLength: 120,
+                            decoration:
+                                const InputDecoration(labelText: 'WhatsApp'),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: contactWechatCtrl,
+                            maxLength: 120,
+                            decoration:
+                                const InputDecoration(labelText: 'WeChat'),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: contactMessengerCtrl,
+                            maxLength: 120,
+                            decoration:
+                                const InputDecoration(labelText: 'Messenger'),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: contactSnapchatCtrl,
+                            maxLength: 120,
+                            decoration:
+                                const InputDecoration(labelText: 'Snapchat'),
+                          ),
+                          if ((validationError ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              validationError!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: capacityCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Лимит участников',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Теги (${selectedFilters.length}/$kMaxEventFilters)',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: kEventFilters.map((filter) {
-                          final active = selectedFilters.contains(filter.id);
-                          return FilterChip(
-                            selected: active,
-                            label: Text('${filter.icon} ${filter.label}'),
-                            onSelected: (selected) {
-                              setDialogState(() {
-                                validationError = null;
-                                if (selected) {
-                                  if (!active &&
-                                      selectedFilters.length >=
-                                          kMaxEventFilters) {
-                                    validationError =
-                                        'Можно выбрать максимум $kMaxEventFilters фильтра';
-                                    return;
-                                  }
-                                  selectedFilters.add(filter.id);
-                                } else {
-                                  selectedFilters.remove(filter.id);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: contactTelegramCtrl,
-                        maxLength: 120,
-                        decoration: const InputDecoration(
-                          labelText: 'Telegram @username',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: contactWhatsappCtrl,
-                        maxLength: 120,
-                        decoration:
-                            const InputDecoration(labelText: 'WhatsApp'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: contactWechatCtrl,
-                        maxLength: 120,
-                        decoration: const InputDecoration(labelText: 'WeChat'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: contactMessengerCtrl,
-                        maxLength: 120,
-                        decoration:
-                            const InputDecoration(labelText: 'Messenger'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: contactSnapchatCtrl,
-                        maxLength: 120,
-                        decoration:
-                            const InputDecoration(labelText: 'Snapchat'),
-                      ),
-                      if ((validationError ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          validationError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
               actions: [

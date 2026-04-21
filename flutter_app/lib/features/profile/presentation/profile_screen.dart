@@ -11,6 +11,9 @@ import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/app_button.dart';
+import '../../../ui/components/app_card.dart';
+import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../events/application/events_controller.dart';
 import '../application/profile_controller.dart';
 import 'widgets/profile_summary_card.dart';
@@ -49,7 +52,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       unawaited(ref.read(profileControllerProvider).load());
     }
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: const Text('Профиль'),
         actions: [
@@ -82,16 +85,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
-      body: state.loading && state.user == null
+      child: state.loading && state.user == null
           ? const SizedBox.shrink()
           : RefreshIndicator(
               onRefresh: () => ref.read(profileControllerProvider).load(),
               child: ListView(
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.zero,
                 children: [
                   if ((state.error ?? '').isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Text(
                         state.error!,
                         style: TextStyle(
@@ -100,26 +103,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   if ((state.notice ?? '').isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Text(state.notice!),
                     ),
                   ProfileSummaryCard(
                     user: state.user,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.sm),
                   FilledButton.icon(
                     onPressed: () => context.push(AppRoutes.myTickets),
                     icon: const Icon(Icons.qr_code_rounded),
                     label: const Text('Мои билеты'),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.xs),
                   OutlinedButton.icon(
                     onPressed: () => context.push(AppRoutes.settings),
                     icon: const Icon(Icons.settings_outlined),
                     label: const Text('Настройки'),
                   ),
                   if (kDebugMode) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.xs),
                     AppButton(
                       label: 'UI Preview',
                       variant: AppButtonVariant.ghost,
@@ -127,10 +130,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ],
                   if (isAdmin) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.xs),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
                       children: [
                         AppButton(
                           label: 'Заказы',
@@ -173,18 +176,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  Row(
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xxs,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text('Мои события',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const Spacer(),
+                      Text(
+                        'Мои события',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       Text('${state.total} всего'),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
                   if (state.events.isEmpty)
-                    const Card(
+                    const AppCard(
                       child: Padding(
                         padding: EdgeInsets.all(16),
                         child: Text('Событий пока нет'),
