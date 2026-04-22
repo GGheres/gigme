@@ -3,15 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../ui/components/admin_filter_bar.dart';
+import '../../../ui/components/admin_form_section.dart';
+import '../../../ui/components/admin_list_item.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
+import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
-/// AdminProductsPage represents admin products page.
-
 class AdminProductsPage extends ConsumerStatefulWidget {
-  /// AdminProductsPage handles admin products page.
   const AdminProductsPage({
     super.key,
     this.embedded = false,
@@ -21,15 +26,14 @@ class AdminProductsPage extends ConsumerStatefulWidget {
   final bool embedded;
   final int? initialEventId;
 
-  /// createState creates state.
-
   @override
   ConsumerState<AdminProductsPage> createState() => _AdminProductsPageState();
 }
 
-/// _AdminProductsPageState represents admin products page state.
+class _AdminProductsPageState extends ConsumerState<AdminProductsPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
 
-class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _eventCtrl = TextEditingController();
   final TextEditingController _paymentPhoneCtrl = TextEditingController();
   final TextEditingController _paymentUsdtWalletCtrl = TextEditingController();
@@ -61,11 +65,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   bool _paymentQrEnabled = true;
   bool _sbpEnabled = true;
 
-  /// initState handles init state.
-
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     if ((widget.initialEventId ?? 0) > 0) {
       _eventCtrl.text = '${widget.initialEventId}';
     }
@@ -75,10 +78,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     unawaited(_load());
   }
 
-  /// dispose releases resources held by this instance.
-
   @override
   void dispose() {
+    _tabController.dispose();
     _eventCtrl.dispose();
     _paymentPhoneCtrl.dispose();
     _paymentUsdtWalletCtrl.dispose();
@@ -98,8 +100,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _transferNotesCtrl.dispose();
     super.dispose();
   }
-
-  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -142,8 +142,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
-  /// _createTicketProduct creates ticket product.
-
   Future<void> _createTicketProduct() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     final eventId = int.tryParse(_eventCtrl.text.trim()) ?? 0;
@@ -164,6 +162,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             priceCents: price,
           );
       _showMessage('Билетный продукт создан');
+      _ticketNameCtrl.clear();
       await _load();
     } catch (error) {
       _showMessage('$error');
@@ -171,8 +170,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  /// _createTransferProduct creates transfer product.
 
   Future<void> _createTransferProduct() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -199,6 +196,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         },
       );
       _showMessage('Трансферный продукт создан');
+      _transferNameCtrl.clear();
       await _load();
     } catch (error) {
       _showMessage('$error');
@@ -206,8 +204,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  /// _deleteTicketProduct deletes ticket product.
 
   Future<void> _deleteTicketProduct(String id) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -225,8 +221,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
-  /// _deleteTransferProduct deletes transfer product.
-
   Future<void> _deleteTransferProduct(String id) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
@@ -242,8 +236,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  /// _toggleTicketProductVisibility handles toggle ticket product visibility.
 
   Future<void> _toggleTicketProductVisibility(TicketProductModel item) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -268,8 +260,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
-  /// _toggleTransferProductVisibility handles toggle transfer product visibility.
-
   Future<void> _toggleTransferProductVisibility(
       TransferProductModel item) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -293,8 +283,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  /// _savePaymentSettings saves payment settings.
 
   Future<void> _savePaymentSettings() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -329,8 +317,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     }
   }
 
-  /// build renders the widget tree for this component.
-
   @override
   Widget build(BuildContext context) {
     final body = _buildBody(context);
@@ -340,366 +326,512 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       appBar: AppBar(
         title: const Text('Админ-продукты'),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Обновить',
+          ),
         ],
       ),
       body: body,
     );
   }
 
-  /// _buildBody builds body.
-
   Widget _buildBody(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
 
-    return ListView(
-      padding: const EdgeInsets.all(12),
+    final activeTickets =
+        _ticketProducts.where((p) => p.isActive).length;
+    final activeTransfers =
+        _transferProducts.where((p) => p.isActive).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ScreenHero(
+          title: 'Продукты',
+          subtitle:
+              'Платежные настройки, билетные и трансферные продукты события',
+          leadingIcon: Icons.inventory_2_outlined,
+          metrics: [
+            heroMetric('Билеты', '$activeTickets/${_ticketProducts.length}',
+                icon: Icons.confirmation_number_outlined),
+            heroMetric(
+                'Трансферы', '$activeTransfers/${_transferProducts.length}',
+                icon: Icons.directions_bus_outlined,
+                accent: AppColors.info),
+          ],
+        ),
+        AdminFilterBar(
+          fields: [
+            TextField(
+              controller: _eventCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'ID события',
+                helperText:
+                    'Нужен для создания и фильтрации списков',
+                prefixIcon: Icon(Icons.event_outlined),
+              ),
+              onSubmitted: (_) => _load(),
+            ),
+          ],
+          actions: [
+            FilledButton.icon(
+              onPressed: _busy ? null : _load,
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: const Text('Применить'),
+            ),
+          ],
+        ),
         if ((_error ?? '').trim().isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(_error!, style: const TextStyle(color: Colors.red)),
-          ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Платежные настройки',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 10),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _phoneEnabled,
-                  title: const Text('Показывать оплату по номеру'),
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _phoneEnabled = value),
-                ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _usdtEnabled,
-                  title: const Text('Показывать оплату USDT'),
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _usdtEnabled = value),
-                ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _paymentQrEnabled,
-                  title: const Text('Показывать оплату по QR'),
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _paymentQrEnabled = value),
-                ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _sbpEnabled,
-                  title: const Text('Показывать оплату СБП (Точка)'),
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _sbpEnabled = value),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _paymentPhoneCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'PAYMENT_PHONE_NUMBER',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _paymentUsdtWalletCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'USDT TRC wallet',
-                    hintText: 'Адрес кошелька TRC20',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _paymentUsdtNetworkCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'USDT network',
-                    hintText: 'TRC20',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _paymentUsdtMemoCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'USDT memo/tag (optional)',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _paymentQrDataCtrl,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'PAYMENT_QR_DATA',
-                    hintText:
-                        'order:{order_id};event:{event_id};amount:{amount}',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _phoneDescriptionCtrl,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Описание для оплаты по телефону',
-                    hintText:
-                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _usdtDescriptionCtrl,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Описание для оплаты USDT',
-                    hintText:
-                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _qrDescriptionCtrl,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Описание для PAYMENT_QR',
-                    hintText:
-                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _sbpDescriptionCtrl,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Описание для TOCHKA_SBP_QR',
-                    hintText:
-                        'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _savePaymentSettings,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(
-                      _busy ? 'Подождите…' : 'Сохранить платежные настройки'),
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              0,
+            ),
+            child: InlineStatusBanner(
+              title: 'Не удалось загрузить данные',
+              message: _error!,
+              onRetry: _load,
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _eventCtrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'ID события (обязателен для создания/фильтрации)',
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Где взять ID события: вкладка Парсер после импорта (событие #ID), список на вкладке Лендинг (#ID), либо URL события /space_app/events/<id>.',
-        ),
-        const SizedBox(height: 8),
-        FilledButton.tonal(
-          onPressed: _load,
-          child: const Text('Применить фильтр события'),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Создать билетный продукт',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _ticketNameCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Название продукта (кастом)',
-            hintText: 'Пример: VIP-билет',
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                // ignore: deprecated_member_use
-                value: _ticketType,
-                items: const [
-                  DropdownMenuItem(value: 'SINGLE', child: Text('SINGLE')),
-                  DropdownMenuItem(value: 'GROUP2', child: Text('GROUP2')),
-                  DropdownMenuItem(value: 'GROUP10', child: Text('GROUP10')),
-                ],
-                onChanged: (value) =>
-                    setState(() => _ticketType = value ?? 'SINGLE'),
-                decoration: const InputDecoration(labelText: 'Тип'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _ticketPriceCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Цена в центах'),
-              ),
-            ),
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: const [
+            Tab(icon: Icon(Icons.payments_outlined), text: 'Платежи'),
+            Tab(
+                icon: Icon(Icons.confirmation_number_outlined),
+                text: 'Билеты'),
+            Tab(
+                icon: Icon(Icons.directions_bus_outlined),
+                text: 'Трансферы'),
           ],
         ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: _busy ? null : _createTicketProduct,
-          child: Text(_busy ? 'Подождите…' : 'Создать билетный продукт'),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Создать трансферный продукт',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _transferNameCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Название продукта (кастом)',
-            hintText: 'Пример: Трансфер до площадки',
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          // ignore: deprecated_member_use
-          value: _transferDirection,
-          decoration: const InputDecoration(labelText: 'Направление'),
-          items: const [
-            DropdownMenuItem(value: 'THERE', child: Text('THERE')),
-            DropdownMenuItem(value: 'BACK', child: Text('BACK')),
-            DropdownMenuItem(value: 'ROUNDTRIP', child: Text('ROUNDTRIP')),
-          ],
-          onChanged: (value) =>
-              setState(() => _transferDirection = value ?? 'THERE'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _transferPriceCtrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Цена в центах'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _transferTimeCtrl,
-          decoration: const InputDecoration(labelText: 'Время трансфера'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _transferPickupCtrl,
-          decoration: const InputDecoration(labelText: 'Точка посадки'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _transferNotesCtrl,
-          decoration: const InputDecoration(labelText: 'Примечания'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: _busy ? null : _createTransferProduct,
-          child: Text(_busy ? 'Подождите…' : 'Создать трансферный продукт'),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Билетные продукты (${_ticketProducts.length})',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        ..._ticketProducts.map(
-          (item) => Card(
-            child: ListTile(
-              title: Text('${item.label} · ${formatMoney(item.priceCents)}'),
-              subtitle: Text(
-                'Event ${item.eventId} · code ${item.type} · sold ${item.soldCount} · ${item.isActive ? 'visible' : 'hidden'}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _toggleTicketProductVisibility(item),
-                    icon: Icon(
-                      item.isActive
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _busy ? null : () => _deleteTicketProduct(item.id),
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Трансферные продукты (${_transferProducts.length})',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        ..._transferProducts.map(
-          (item) => Card(
-            child: ListTile(
-              title: Text('${item.label} · ${formatMoney(item.priceCents)}'),
-              subtitle: Text(
-                'Event ${item.eventId} · code ${item.direction} · ${item.infoLabel} · ${item.isActive ? 'visible' : 'hidden'}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _toggleTransferProductVisibility(item),
-                    icon: Icon(
-                      item.isActive
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _busy ? null : () => _deleteTransferProduct(item.id),
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-                ],
-              ),
-            ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildPaymentsTab(),
+              _buildTicketsTab(),
+              _buildTransfersTab(),
+            ],
           ),
         ),
       ],
     );
   }
 
-  /// _showMessage handles show message.
+  // ─────────── Payments tab ───────────
+
+  Widget _buildPaymentsTab() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      children: [
+        AdminFormSection(
+          title: 'Активные методы оплаты',
+          description: 'Тумблеры управляют отображением в интерфейсе покупки.',
+          leadingIcon: Icons.toggle_on_outlined,
+          children: [
+            _paymentSwitch(
+              label: 'Оплата по номеру телефона',
+              value: _phoneEnabled,
+              onChanged: (v) => setState(() => _phoneEnabled = v),
+            ),
+            _paymentSwitch(
+              label: 'Оплата USDT',
+              value: _usdtEnabled,
+              onChanged: (v) => setState(() => _usdtEnabled = v),
+            ),
+            _paymentSwitch(
+              label: 'Оплата по QR',
+              value: _paymentQrEnabled,
+              onChanged: (v) => setState(() => _paymentQrEnabled = v),
+            ),
+            _paymentSwitch(
+              label: 'Оплата СБП (Точка)',
+              value: _sbpEnabled,
+              onChanged: (v) => setState(() => _sbpEnabled = v),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AdminFormSection(
+          title: 'Реквизиты',
+          leadingIcon: Icons.vpn_key_outlined,
+          children: [
+            TextField(
+              controller: _paymentPhoneCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Номер телефона',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+            TextField(
+              controller: _paymentUsdtWalletCtrl,
+              decoration: const InputDecoration(
+                labelText: 'USDT кошелёк',
+                hintText: 'Адрес кошелька',
+                prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+              ),
+            ),
+            TextField(
+              controller: _paymentUsdtNetworkCtrl,
+              decoration: const InputDecoration(
+                labelText: 'USDT network',
+                hintText: 'TRC20',
+                prefixIcon: Icon(Icons.lan_outlined),
+              ),
+            ),
+            TextField(
+              controller: _paymentUsdtMemoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'USDT memo/tag (необязательно)',
+                prefixIcon: Icon(Icons.tag_rounded),
+              ),
+            ),
+            TextField(
+              controller: _paymentQrDataCtrl,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'PAYMENT_QR_DATA',
+                hintText:
+                    'order:{order_id};event:{event_id};amount:{amount}',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AdminFormSection(
+          title: 'Описания для пользователя',
+          description:
+              'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
+          leadingIcon: Icons.text_snippet_outlined,
+          children: [
+            _multilineField(
+                _phoneDescriptionCtrl, 'Описание для оплаты по телефону'),
+            _multilineField(_usdtDescriptionCtrl, 'Описание для оплаты USDT'),
+            _multilineField(_qrDescriptionCtrl, 'Описание для PAYMENT_QR'),
+            _multilineField(_sbpDescriptionCtrl, 'Описание для TOCHKA_SBP_QR'),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        FilledButton.icon(
+          onPressed: _busy ? null : _savePaymentSettings,
+          icon: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save_outlined),
+          label: Text(_busy ? 'Сохраняем…' : 'Сохранить платежные настройки'),
+        ),
+      ],
+    );
+  }
+
+  Widget _paymentSwitch({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile.adaptive(
+      contentPadding: EdgeInsets.zero,
+      value: value,
+      title: Text(label),
+      onChanged: _busy ? null : onChanged,
+    );
+  }
+
+  Widget _multilineField(TextEditingController ctrl, String label) {
+    return TextField(
+      controller: ctrl,
+      minLines: 2,
+      maxLines: 4,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+
+  // ─────────── Tickets tab ───────────
+
+  Widget _buildTicketsTab() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      children: [
+        AdminFormSection(
+          title: 'Новый билетный продукт',
+          description:
+              'Для создания укажите ID события в фильтре сверху, название и цену в центах.',
+          leadingIcon: Icons.add_circle_outline_rounded,
+          children: [
+            TextField(
+              controller: _ticketNameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Название (кастом)',
+                hintText: 'Пример: VIP-билет',
+                prefixIcon: Icon(Icons.label_outline_rounded),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    // ignore: deprecated_member_use
+                    value: _ticketType,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'SINGLE', child: Text('SINGLE')),
+                      DropdownMenuItem(
+                          value: 'GROUP2', child: Text('GROUP2')),
+                      DropdownMenuItem(
+                          value: 'GROUP10', child: Text('GROUP10')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _ticketType = value ?? 'SINGLE'),
+                    decoration: const InputDecoration(labelText: 'Тип'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: TextField(
+                    controller: _ticketPriceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Цена в центах',
+                      prefixIcon: Icon(Icons.payments_outlined),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _busy ? null : _createTicketProduct,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(_busy ? 'Создаём…' : 'Создать билетный продукт'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Билетные продукты · ${_ticketProducts.length}',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (_ticketProducts.isEmpty)
+          const EmptyState(
+            title: 'Билетных продуктов нет',
+            subtitle: 'Создайте первый билетный продукт с помощью формы выше.',
+            icon: Icons.confirmation_number_outlined,
+          )
+        else
+          ..._ticketProducts.map(_buildTicketItem),
+      ],
+    );
+  }
+
+  Widget _buildTicketItem(TicketProductModel item) {
+    final statusLabel = item.isActive ? 'VISIBLE' : 'HIDDEN';
+    final statusColor =
+        item.isActive ? AppColors.success : AppColors.textSecondary;
+
+    return AdminListItem(
+      title: item.label,
+      subtitleLines: [
+        'Event ${item.eventId} · ${item.type}',
+        'Продано: ${item.soldCount}',
+      ],
+      trailingValue: formatMoney(item.priceCents),
+      status: AdminListItemStatus(
+        label: statusLabel,
+        foreground: statusColor,
+        tint: statusColor.withValues(alpha: 0.12),
+      ),
+      actions: [
+        IconButton(
+          tooltip: item.isActive ? 'Скрыть' : 'Показать',
+          onPressed:
+              _busy ? null : () => _toggleTicketProductVisibility(item),
+          icon: Icon(
+            item.isActive
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+          ),
+        ),
+        IconButton(
+          tooltip: 'Удалить',
+          onPressed: _busy ? null : () => _deleteTicketProduct(item.id),
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
+    );
+  }
+
+  // ─────────── Transfers tab ───────────
+
+  Widget _buildTransfersTab() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      children: [
+        AdminFormSection(
+          title: 'Новый трансферный продукт',
+          description:
+              'Укажите ID события, направление, цену и детали маршрута.',
+          leadingIcon: Icons.add_circle_outline_rounded,
+          children: [
+            TextField(
+              controller: _transferNameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Название (кастом)',
+                hintText: 'Пример: Трансфер до площадки',
+                prefixIcon: Icon(Icons.label_outline_rounded),
+              ),
+            ),
+            DropdownButtonFormField<String>(
+              // ignore: deprecated_member_use
+              value: _transferDirection,
+              decoration: const InputDecoration(
+                labelText: 'Направление',
+                prefixIcon: Icon(Icons.alt_route_rounded),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'THERE', child: Text('THERE')),
+                DropdownMenuItem(value: 'BACK', child: Text('BACK')),
+                DropdownMenuItem(
+                    value: 'ROUNDTRIP', child: Text('ROUNDTRIP')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _transferDirection = value ?? 'THERE'),
+            ),
+            TextField(
+              controller: _transferPriceCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Цена в центах',
+                prefixIcon: Icon(Icons.payments_outlined),
+              ),
+            ),
+            TextField(
+              controller: _transferTimeCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Время трансфера',
+                prefixIcon: Icon(Icons.schedule_rounded),
+              ),
+            ),
+            TextField(
+              controller: _transferPickupCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Точка посадки',
+                prefixIcon: Icon(Icons.place_outlined),
+              ),
+            ),
+            TextField(
+              controller: _transferNotesCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Примечания',
+                prefixIcon: Icon(Icons.notes_rounded),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _busy ? null : _createTransferProduct,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(
+                    _busy ? 'Создаём…' : 'Создать трансферный продукт'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Трансферные продукты · ${_transferProducts.length}',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (_transferProducts.isEmpty)
+          const EmptyState(
+            title: 'Трансферных продуктов нет',
+            subtitle:
+                'Создайте первый трансферный продукт с помощью формы выше.',
+            icon: Icons.directions_bus_outlined,
+          )
+        else
+          ..._transferProducts.map(_buildTransferItem),
+      ],
+    );
+  }
+
+  Widget _buildTransferItem(TransferProductModel item) {
+    final statusLabel = item.isActive ? 'VISIBLE' : 'HIDDEN';
+    final statusColor =
+        item.isActive ? AppColors.success : AppColors.textSecondary;
+
+    return AdminListItem(
+      title: item.label,
+      subtitleLines: [
+        'Event ${item.eventId} · ${item.direction}',
+        if (item.infoLabel.isNotEmpty) item.infoLabel,
+      ],
+      trailingValue: formatMoney(item.priceCents),
+      status: AdminListItemStatus(
+        label: statusLabel,
+        foreground: statusColor,
+        tint: statusColor.withValues(alpha: 0.12),
+      ),
+      actions: [
+        IconButton(
+          tooltip: item.isActive ? 'Скрыть' : 'Показать',
+          onPressed:
+              _busy ? null : () => _toggleTransferProductVisibility(item),
+          icon: Icon(
+            item.isActive
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+          ),
+        ),
+        IconButton(
+          tooltip: 'Удалить',
+          onPressed: _busy ? null : () => _deleteTransferProduct(item.id),
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
+    );
+  }
 
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
-
-  /// _applyPaymentSettings handles apply payment settings.
 
   void _applyPaymentSettings(PaymentSettingsModel settings) {
     _paymentPhoneCtrl.text = settings.phoneNumber;
