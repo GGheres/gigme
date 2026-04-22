@@ -5,15 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/providers.dart';
+import '../../../ui/components/admin_filter_bar.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
+import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_radii.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
-/// AdminBotMessagesPage represents admin bot messages page.
-
 class AdminBotMessagesPage extends ConsumerStatefulWidget {
-  /// AdminBotMessagesPage handles admin bot messages page.
   const AdminBotMessagesPage({
     super.key,
     this.embedded = false,
@@ -23,16 +27,10 @@ class AdminBotMessagesPage extends ConsumerStatefulWidget {
   final bool embedded;
   final int? initialChatId;
 
-  /// createState creates state.
-
   @override
   ConsumerState<AdminBotMessagesPage> createState() =>
-
-      /// _AdminBotMessagesPageState handles admin bot messages page state.
       _AdminBotMessagesPageState();
 }
-
-/// _AdminBotMessagesPageState represents admin bot messages page state.
 
 class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
   final TextEditingController _chatIdCtrl = TextEditingController();
@@ -41,8 +39,6 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
   bool _sending = false;
   String? _error;
   AdminBotMessagesListModel? _messages;
-
-  /// initState handles init state.
 
   @override
   void initState() {
@@ -54,15 +50,11 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     unawaited(_load());
   }
 
-  /// dispose releases resources held by this instance.
-
   @override
   void dispose() {
     _chatIdCtrl.dispose();
     super.dispose();
   }
-
-  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -99,8 +91,6 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
       });
     }
   }
-
-  /// _promptReply handles prompt reply.
 
   Future<void> _promptReply(AdminBotMessageModel item) async {
     if (_sending) return;
@@ -161,8 +151,6 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     }
   }
 
-  /// _openBot handles open bot.
-
   Future<void> _openBot(int chatId) async {
     final config = ref.read(appConfigProvider);
     final link = buildBotReplyDeepLink(
@@ -183,131 +171,76 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     }
   }
 
-  /// build renders the widget tree for this component.
-
   @override
   Widget build(BuildContext context) {
     final items = _messages?.items ?? <AdminBotMessageModel>[];
+    final uniqueChats =
+        items.map((m) => m.chatId).toSet().length;
+    final incoming = items.where((m) => m.isIncoming).length;
 
     final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _chatIdCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Chat ID (необязательно)',
-                  ),
-                ),
+        ScreenHero(
+          title: 'Сообщения бота',
+          subtitle:
+              'Переписка пользователей — фильтруйте по чату и отвечайте прямо из админки',
+          leadingIcon: Icons.forum_outlined,
+          metrics: [
+            heroMetric('Сообщений', '${items.length}',
+                icon: Icons.chat_bubble_outline_rounded),
+            heroMetric('Чатов', '$uniqueChats',
+                icon: Icons.group_outlined, accent: AppColors.info),
+            heroMetric('Входящих', '$incoming',
+                icon: Icons.call_received_rounded,
+                accent: AppColors.success),
+          ],
+        ),
+        AdminFilterBar(
+          fields: [
+            TextField(
+              controller: _chatIdCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Chat ID (необязательно)',
+                prefixIcon: Icon(Icons.tag_rounded),
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _load,
-                child: const Text('Фильтр'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonal(
-                onPressed: () {
-                  _chatIdCtrl.clear();
-                  unawaited(_load());
-                },
-                child: const Text('Сброс'),
-              ),
-            ],
+              onSubmitted: (_) => _load(),
+            ),
+          ],
+          actions: [
+            FilledButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: const Text('Фильтр'),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: _loading
+                  ? null
+                  : () {
+                      _chatIdCtrl.clear();
+                      unawaited(_load());
+                    },
+              icon: const Icon(Icons.clear_rounded, size: 18),
+              label: const Text('Сброс'),
+            ),
+          ],
+        ),
+        if ((_error ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              0,
+            ),
+            child: InlineStatusBanner(
+              title: 'Не удалось загрузить сообщения',
+              message: _error!,
+              onRetry: _load,
+            ),
           ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : (_error != null)
-                  ? Center(child: Text(_error!))
-                  : items.isEmpty
-                      ? const Center(child: Text('Сообщений нет'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            final isIncoming = item.isIncoming;
-                            final colorScheme = Theme.of(context).colorScheme;
-                            final cardColor = isIncoming
-                                ? colorScheme.tertiaryContainer
-                                    .withValues(alpha: 0.46)
-                                : colorScheme.primaryContainer
-                                    .withValues(alpha: 0.46);
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: cardColor,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.black12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Chip(
-                                          label: Text(
-                                            isIncoming
-                                                ? 'Входящее'
-                                                : 'Исходящее',
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Text(_formatDate(item.createdAt)),
-                                      ],
-                                    ),
-                                    Text(
-                                      item.contactLabel,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    SelectableText(item.text),
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        FilledButton.tonalIcon(
-                                          onPressed: _sending
-                                              ? null
-                                              : () => _promptReply(item),
-                                          icon: const Icon(Icons.reply_rounded),
-                                          label: const Text('Ответить'),
-                                        ),
-                                        FilledButton.tonalIcon(
-                                          onPressed: () =>
-                                              _openBot(item.chatId),
-                                          icon: const Icon(
-                                              Icons.open_in_new_rounded),
-                                          label: const Text('Открыть бота'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            _chatIdCtrl.text = '${item.chatId}';
-                                            unawaited(_load());
-                                          },
-                                          child: const Text('Показать чат'),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-        ),
+        Expanded(child: _buildList(items)),
       ],
     );
 
@@ -318,8 +251,9 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
         title: const Text('Сообщения бота'),
         actions: [
           IconButton(
-            onPressed: _load,
+            onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Обновить',
           ),
         ],
       ),
@@ -327,7 +261,133 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     );
   }
 
-  /// _formatDate formats date.
+  Widget _buildList(List<AdminBotMessageModel> items) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (items.isEmpty && (_error ?? '').isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: EmptyState(
+          title: 'Сообщений нет',
+          subtitle:
+              'Здесь появятся входящие и исходящие сообщения Telegram-бота.',
+          icon: Icons.chat_bubble_outline_rounded,
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => _buildMessageCard(items[index]),
+    );
+  }
+
+  Widget _buildMessageCard(AdminBotMessageModel item) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isIncoming = item.isIncoming;
+    final accent = isIncoming ? AppColors.success : AppColors.primary;
+    final bg = accent.withValues(alpha: isDark ? 0.14 : 0.08);
+    final border = accent.withValues(alpha: isDark ? 0.35 : 0.22);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs + 2,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                  border: Border.all(color: accent.withValues(alpha: 0.45)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isIncoming
+                          ? Icons.call_received_rounded
+                          : Icons.call_made_rounded,
+                      size: 12,
+                      color: accent,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isIncoming ? 'Входящее' : 'Исходящее',
+                      style: TextStyle(
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatDate(item.createdAt),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            item.contactLabel.isEmpty
+                ? 'Чат #${item.chatId}'
+                : item.contactLabel,
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          SelectableText(item.text),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _sending ? null : () => _promptReply(item),
+                icon: const Icon(Icons.reply_rounded, size: 18),
+                label: const Text('Ответить'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => _openBot(item.chatId),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text('Открыть бота'),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  _chatIdCtrl.text = '${item.chatId}';
+                  unawaited(_load());
+                },
+                icon: const Icon(Icons.filter_alt_rounded, size: 18),
+                label: const Text('Показать чат'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   String _formatDate(DateTime? value) {
     if (value == null) return '—';
@@ -338,8 +398,6 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
     final minute = local.minute.toString().padLeft(2, '0');
     return '$day.$month ${local.year} $hour:$minute';
   }
-
-  /// _showMessage handles show message.
 
   void _showMessage(String message) {
     if (!mounted) return;

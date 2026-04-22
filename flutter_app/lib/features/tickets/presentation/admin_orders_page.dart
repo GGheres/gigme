@@ -7,15 +7,20 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
+import '../../../ui/components/admin_filter_bar.dart';
+import '../../../ui/components/admin_list_item.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
+import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
+import 'order_status.dart';
 import 'ticketing_ui_utils.dart';
 
-/// AdminOrdersPage represents admin orders page.
-
+/// Admin page listing orders with filters and status-aware list items.
 class AdminOrdersPage extends ConsumerStatefulWidget {
-  /// AdminOrdersPage handles admin orders page.
   const AdminOrdersPage({
     super.key,
     this.embedded = false,
@@ -23,13 +28,9 @@ class AdminOrdersPage extends ConsumerStatefulWidget {
 
   final bool embedded;
 
-  /// createState creates state.
-
   @override
   ConsumerState<AdminOrdersPage> createState() => _AdminOrdersPageState();
 }
-
-/// _AdminOrdersPageState represents admin orders page state.
 
 class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   final TextEditingController _eventIdCtrl = TextEditingController();
@@ -38,23 +39,17 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   String? _error;
   OrdersListModel? _orders;
 
-  /// initState handles init state.
-
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
 
-  /// dispose releases resources held by this instance.
-
   @override
   void dispose() {
     _eventIdCtrl.dispose();
     super.dispose();
   }
-
-  /// _load loads data from the underlying source.
 
   Future<void> _load() async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
@@ -93,12 +88,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     }
   }
 
-  /// build renders the widget tree for this component.
-
   @override
   Widget build(BuildContext context) {
     final items = _orders?.items ?? <OrderSummaryModel>[];
-
     final body = _buildBody(context, items);
     if (widget.embedded) return body;
 
@@ -106,152 +98,180 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       appBar: AppBar(
         title: const Text('Админ-заказы'),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Обновить',
+          ),
         ],
       ),
       body: body,
     );
   }
 
-  /// _buildBody builds body.
-
   Widget _buildBody(BuildContext context, List<OrderSummaryModel> items) {
+    final totalAmount = items.fold<int>(
+      0,
+      (sum, item) => sum + item.order.totalCents,
+    );
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _eventIdCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'ID события'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  // ignore: deprecated_member_use
-                  value: _status,
-                  decoration: const InputDecoration(labelText: 'Статус'),
-                  items: const [
-                    DropdownMenuItem(value: '', child: Text('Все')),
-                    DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
-                    DropdownMenuItem(value: 'PAID', child: Text('PAID')),
-                    DropdownMenuItem(
-                        value: 'CONFIRMED', child: Text('CONFIRMED')),
-                    DropdownMenuItem(
-                        value: 'CANCELED', child: Text('CANCELED')),
-                    DropdownMenuItem(
-                        value: 'REDEEMED', child: Text('REDEEMED')),
-                  ],
-                  onChanged: (value) => setState(() => _status = value ?? ''),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(onPressed: _load, child: const Text('Загрузить')),
-            ],
-          ),
+        ScreenHero(
+          title: 'Заказы',
+          subtitle: 'Фильтруйте по событию и статусу, открывайте детали заказа',
+          leadingIcon: Icons.receipt_long_rounded,
+          metrics: [
+            heroMetric('Всего', '${items.length}',
+                icon: Icons.confirmation_number_outlined),
+            if (items.isNotEmpty)
+              heroMetric('Сумма', formatMoney(totalAmount),
+                  icon: Icons.payments_outlined),
+          ],
         ),
+        AdminFilterBar(
+          fields: [
+            TextField(
+              controller: _eventIdCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'ID события',
+                prefixIcon: Icon(Icons.event_outlined),
+              ),
+              onSubmitted: (_) => _load(),
+            ),
+            DropdownButtonFormField<String>(
+              // ignore: deprecated_member_use
+              value: _status,
+              decoration: const InputDecoration(
+                labelText: 'Статус',
+                prefixIcon: Icon(Icons.flag_outlined),
+              ),
+              items: [
+                const DropdownMenuItem(value: '', child: Text('Все')),
+                for (final status in OrderStatus.values.where(
+                    (s) => s != OrderStatus.unknown))
+                  DropdownMenuItem(
+                      value: status.code, child: Text(status.label)),
+              ],
+              onChanged: (value) => setState(() => _status = value ?? ''),
+            ),
+          ],
+          actions: [
+            FilledButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: const Text('Применить'),
+            ),
+          ],
+        ),
+        if ((_error ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              0,
+            ),
+            child: InlineStatusBanner(
+              title: 'Не удалось загрузить заказы',
+              message: _error!,
+              onRetry: _load,
+            ),
+          ),
         Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : (_error != null)
-                  ? Center(child: Text(_error!))
-                  : items.isEmpty
-                      ? const Center(child: Text('Заказов нет'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            final order = item.order;
-                            final status = order.status;
-                            final userTelegramId = item.user?.telegramId ?? 0;
-                            final userDisplay = item.user?.displayName ??
-                                'Пользователь #${order.userId}';
-                            final userHandle = item.user?.usernameLabel ?? '';
-                            final subtitleLines = <String>[
-                              'Заказ ${order.id}',
-                              userDisplay,
-                            ];
-                            if (userHandle.isNotEmpty &&
-                                userHandle != userDisplay.trim()) {
-                              subtitleLines.add(userHandle);
-                            }
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: statusTint(status, context),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.black12),
-                              ),
-                              child: ListTile(
-                                onTap: () => context
-                                    .push(AppRoutes.adminOrderDetail(order.id)),
-                                title: Text(order.eventTitle.isEmpty
-                                    ? 'Событие #${order.eventId}'
-                                    : order.eventTitle),
-                                subtitle: Text(
-                                  subtitleLines.join('\n'),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (userTelegramId > 0)
-                                      IconButton(
-                                        tooltip: 'Диалог',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () => context.push(
-                                          AppRoutes.adminBotMessagesForChat(
-                                              userTelegramId),
-                                        ),
-                                        icon: const Icon(Icons.forum_outlined),
-                                      ),
-                                    if (userTelegramId > 0)
-                                      IconButton(
-                                        tooltip: 'Открыть бота',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () =>
-                                            _openBotForUser(userTelegramId),
-                                        icon: const Icon(
-                                            Icons.open_in_new_rounded),
-                                      ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Chip(
-                                          label: Text(status),
-                                          backgroundColor:
-                                              statusColor(status, context)
-                                                  .withValues(alpha: 0.12),
-                                          side: BorderSide(
-                                            color: statusColor(status, context),
-                                          ),
-                                          labelStyle: TextStyle(
-                                            color: statusColor(status, context),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(formatMoney(order.totalCents)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+          child: _buildList(items),
         ),
       ],
     );
   }
 
-  /// _openBotForUser handles open bot for user.
+  Widget _buildList(List<OrderSummaryModel> items) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (items.isEmpty && (_error ?? '').isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: EmptyState(
+          title: 'Заказов нет',
+          subtitle: 'Попробуйте изменить фильтры или сбросить их.',
+          icon: Icons.inbox_outlined,
+          actionLabel: 'Сбросить фильтры',
+          onAction: () {
+            setState(() {
+              _eventIdCtrl.clear();
+              _status = '';
+            });
+            unawaited(_load());
+          },
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => _buildItem(context, items[index]),
+    );
+  }
+
+  Widget _buildItem(BuildContext context, OrderSummaryModel item) {
+    final order = item.order;
+    final status = OrderStatus.fromCode(order.status);
+    final palette = OrderStatusPalette.of(status, context);
+
+    final userTelegramId = item.user?.telegramId ?? 0;
+    final userDisplay =
+        item.user?.displayName ?? 'Пользователь #${order.userId}';
+    final userHandle = item.user?.usernameLabel ?? '';
+
+    final subtitleLines = <String>[
+      'Заказ ${order.id}',
+      userDisplay,
+    ];
+    if (userHandle.isNotEmpty && userHandle != userDisplay.trim()) {
+      subtitleLines.add(userHandle);
+    }
+
+    return AdminListItem(
+      onTap: () => context.push(AppRoutes.adminOrderDetail(order.id)),
+      title: order.eventTitle.isEmpty
+          ? 'Событие #${order.eventId}'
+          : order.eventTitle,
+      subtitleLines: subtitleLines,
+      status: AdminListItemStatus(
+        label: status.code,
+        foreground: palette.foreground,
+        tint: palette.tint,
+      ),
+      trailingValue: formatMoney(order.totalCents),
+      actions: [
+        if (userTelegramId > 0)
+          IconButton(
+            tooltip: 'Диалог',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => context.push(
+              AppRoutes.adminBotMessagesForChat(userTelegramId),
+            ),
+            icon: const Icon(Icons.forum_outlined),
+          ),
+        if (userTelegramId > 0)
+          IconButton(
+            tooltip: 'Открыть бота',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _openBotForUser(userTelegramId),
+            icon: const Icon(Icons.open_in_new_rounded),
+          ),
+      ],
+    );
+  }
 
   Future<void> _openBotForUser(int telegramId) async {
     final config = ref.read(appConfigProvider);
@@ -272,8 +292,6 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       _showMessage('Не удалось открыть Telegram');
     }
   }
-
-  /// _showMessage handles show message.
 
   void _showMessage(String message) {
     if (!mounted) return;

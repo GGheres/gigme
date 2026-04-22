@@ -22,8 +22,11 @@ import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_modal.dart';
 import '../../../ui/components/app_section_header.dart';
+import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_breakpoints.dart';
 import '../../../ui/theme/app_colors.dart';
+import '../../../ui/theme/app_radii.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../../integrations/telegram/telegram_auth_embed.dart';
 import '../../../integrations/vk/vk_auth_embed.dart';
@@ -160,6 +163,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       total: _total,
                       onOpenApp: () => unawaited(_openApp()),
                       onBuy: (event) => unawaited(_openTicket(event)),
+                      onRetry: () => unawaited(_load()),
                     ),
                   ],
                 ),
@@ -843,8 +847,9 @@ class LandingLayoutConfig {
   /// LandingLayoutConfig handles landing layout config.
   const LandingLayoutConfig._();
 
-  static const double desktopBreakpoint = 1100;
-  static const double tabletBreakpoint = 720;
+  /// Aligned with [AppBreakpoints]: desktop = md+ (≥1024), tablet = sm (≥600).
+  static const double desktopBreakpoint = AppBreakpoints.smMax;
+  static const double tabletBreakpoint = AppBreakpoints.xsMax;
 
   static const Map<String, double> parallaxFactors = <String, double>{
     'farStars': 0.10,
@@ -991,6 +996,7 @@ class _LandingForeground extends StatelessWidget {
     required this.total,
     required this.onOpenApp,
     required this.onBuy,
+    required this.onRetry,
   });
 
   final Size viewport;
@@ -1005,6 +1011,7 @@ class _LandingForeground extends StatelessWidget {
   final int total;
   final VoidCallback onOpenApp;
   final ValueChanged<LandingEvent> onBuy;
+  final VoidCallback onRetry;
 
   /// build renders the widget tree for this component.
 
@@ -1047,6 +1054,7 @@ class _LandingForeground extends StatelessWidget {
                     ? () => onBuy(featuredEvent)
                     : onOpenApp,
                 onOpenApp: onOpenApp,
+                onRetry: onRetry,
               ),
             ),
           ),
@@ -1083,6 +1091,7 @@ class _HeroSection extends StatelessWidget {
     required this.totalParticipants,
     required this.onPrimaryAction,
     required this.onOpenApp,
+    required this.onRetry,
   });
 
   final LandingEvent? featuredEvent;
@@ -1094,6 +1103,7 @@ class _HeroSection extends StatelessWidget {
   final int totalParticipants;
   final VoidCallback onPrimaryAction;
   final VoidCallback onOpenApp;
+  final VoidCallback onRetry;
 
   /// build renders the widget tree for this component.
 
@@ -1104,7 +1114,12 @@ class _HeroSection extends StatelessWidget {
     final meta = _eventMeta(featuredEvent);
 
     return _GlassPanel(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.md + 4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1147,22 +1162,10 @@ class _HeroSection extends StatelessWidget {
           ],
           if ((error ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.42),
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppColors.danger.withValues(alpha: 0.55)),
-              ),
-              child: Text(
-                error!,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Colors.white),
-              ),
+            InlineStatusBanner(
+              title: 'Не удалось загрузить события',
+              message: error!,
+              onRetry: onRetry,
             ),
           ],
         ],
@@ -1260,7 +1263,7 @@ class _HeroPoster extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadii.xl),
         border: Border.all(
           color: AppColors.info.withValues(alpha: 0.78),
           width: 1.4,
@@ -1389,7 +1392,10 @@ class _AboutSection extends StatelessWidget {
     final uniqueLocations = _uniqueLocations(events);
 
     return _GlassPanel(
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md + 6,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1425,9 +1431,12 @@ class _AboutSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md - 2,
+              vertical: AppSpacing.sm - 2,
+            ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadii.md),
               border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
               color: AppColors.backgroundDeep.withValues(alpha: 0.32),
             ),
@@ -1465,21 +1474,22 @@ class _HighlightTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = context.isXs ? 148.0 : 172.0;
     return SizedBox(
-      width: 168,
+      width: width,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.md),
           border: Border.all(color: AppColors.info.withValues(alpha: 0.30)),
           color: AppColors.backgroundDeep.withValues(alpha: 0.32),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(icon, color: AppColors.info.withValues(alpha: 0.9)),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1487,7 +1497,7 @@ class _HighlightTile extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Text(
                 subtitle,
                 style: Theme.of(context)
