@@ -7,14 +7,15 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../../ui/components/action_buttons.dart';
-import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
-import '../../../ui/components/psychedelic_qr_card.dart';
+import '../../../ui/components/app_badge.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
-import 'ticketing_ui_utils.dart';
+import 'widgets/ticket_card.dart';
 
 /// MyTicketsPage represents my tickets page.
 
@@ -86,22 +87,41 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
       appBar: AppBar(
         leading: BackButton(onPressed: _handleBack),
       ),
-      title: 'Мои билеты',
-      subtitle: 'Все активные и использованные билеты',
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
       child: Column(
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: SecondaryButton(
-              label: 'Обновить',
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: _load,
-              outline: true,
-            ),
+          ScreenHero(
+            title: 'Мои билеты',
+            subtitle:
+                'Все активные, ожидающие и использованные билеты в одном месте.',
+            summary: [
+              AppBadge(
+                label: '${_tickets.length} билетов',
+                variant: AppBadgeVariant.neutral,
+              ),
+              const AppBadge(
+                label: 'QR для входа',
+                variant: AppBadgeVariant.ghost,
+              ),
+            ],
+            actions: [
+              SecondaryButton(
+                label: 'Обновить',
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: _load,
+                outline: true,
+              ),
+            ],
           ),
+          if (_error != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            InlineStatusBanner(
+              title: 'Не удалось загрузить билеты',
+              message: _error!,
+              tone: InlineStatusBannerTone.danger,
+              actionLabel: 'Повторить',
+              onAction: _load,
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: _loading
@@ -112,12 +132,7 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                     ),
                   )
                 : (_error != null)
-                    ? Center(
-                        child: ErrorState(
-                          message: _error!,
-                          onRetry: _load,
-                        ),
-                      )
+                    ? const SizedBox.shrink()
                     : _tickets.isEmpty
                         ? const Center(
                             child: EmptyState(
@@ -131,103 +146,10 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                             itemCount: _tickets.length,
                             itemBuilder: (context, index) {
                               final ticket = _tickets[index];
-                              final status = ticket.status;
-                              final isCanceled = status == 'CANCELED';
                               return Padding(
                                 padding: const EdgeInsets.only(
                                     bottom: AppSpacing.sm),
-                                child: AppCard(
-                                  variant: AppCardVariant.surface,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          final headerChip = Chip(
-                                            label: Text(status),
-                                            backgroundColor:
-                                                statusColor(status, context)
-                                                    .withValues(alpha: 0.12),
-                                            side: BorderSide(
-                                              color:
-                                                  statusColor(status, context),
-                                            ),
-                                            labelStyle: TextStyle(
-                                              color:
-                                                  statusColor(status, context),
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          );
-                                          final useStackedHeader =
-                                              constraints.maxWidth < 360;
-
-                                          if (useStackedHeader) {
-                                            return Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Билет ${ticket.id}',
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleSmall,
-                                                ),
-                                                const SizedBox(
-                                                  height: AppSpacing.xs,
-                                                ),
-                                                headerChip,
-                                              ],
-                                            );
-                                          }
-
-                                          return Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  'Билет ${ticket.id}',
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleSmall,
-                                                ),
-                                              ),
-                                              const SizedBox(
-                                                width: AppSpacing.xs,
-                                              ),
-                                              headerChip,
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: AppSpacing.xs),
-                                      Text(
-                                        'Тип: ${ticket.ticketType} · Кол-во: ${ticket.quantity}',
-                                      ),
-                                      if (ticket.redeemedAt != null)
-                                        Text(
-                                          'Погашен: ${ticket.redeemedAt!.toLocal()}',
-                                        ),
-                                      const SizedBox(height: AppSpacing.sm),
-                                      if (isCanceled)
-                                        const Text(
-                                          'Заказ отменен. Билет недействителен.',
-                                        )
-                                      else if (ticket.qrPayload
-                                          .trim()
-                                          .isNotEmpty)
-                                        Center(
-                                          child: PsychedelicQrCard(
-                                            data: ticket.qrPayload,
-                                            size: 176,
-                                          ),
-                                        )
-                                      else
-                                        const Text(
-                                          'QR-код появится после подтверждения оплаты.',
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                                child: TicketCard(ticket: ticket),
                               );
                             },
                           ),

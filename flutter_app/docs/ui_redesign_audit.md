@@ -46,7 +46,8 @@
 - [x] Базовые reusable-компоненты (`SectionCard`, `InputField`, `AppStates`, standardized buttons).
 - [x] Адаптивная навигация (`BottomNav` + `NavigationRail`).
 - [x] UI Preview экран `/space_app/dev/ui_preview`.
-- [ ] Полный перевод всех экранов на новые компоненты (в процессе).
+- [x] Основная волна перевода пользовательских и ticket/admin экранов на новые компоненты.
+- [ ] Финальная миграция оставшихся legacy admin/settings экранов (`AdminScreen`, `SettingsScreen`, `AdminOrderDetail`, `AdminQrScanner`).
 - [ ] Финальная чистка микрокопирайтов и локализация без hardcoded строк (в процессе).
 
 ## 5) Критерии проверки после миграции каждого экрана

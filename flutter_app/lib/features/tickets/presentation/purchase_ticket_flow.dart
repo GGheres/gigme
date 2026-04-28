@@ -8,13 +8,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/notifications/providers.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
-import '../../../ui/components/psychedelic_qr_card.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/copy_to_clipboard.dart';
 import '../../../ui/components/input_field.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/psychedelic_qr_card.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
+import '../../../ui/components/sticky_action_bar.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
@@ -615,16 +619,52 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           icon: const Icon(Icons.close_rounded),
         ),
       ),
-      title: 'Оформление заказа',
-      subtitle: hasOrderDraft
-          ? 'Проверьте шаги и переходите к оплате'
-          : 'Соберите заказ из билетов и опций',
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      bottomSheet: StickyActionBar(
+        primaryAction: PrimaryButton(
+          label: 'Перейти к оплате',
+          onPressed: _submitting ||
+                  !_hasSelectedTickets ||
+                  availablePaymentMethods.isEmpty
+              ? null
+              : _openPaymentCheckout,
+          expand: true,
+        ),
+        secondaryAction: SecondaryButton(
+          label: availablePaymentMethods.isEmpty
+              ? 'Оплата недоступна'
+              : 'К оплате: ${formatMoney(_totalCents)}',
+          outline: true,
+          onPressed: null,
+          expand: true,
+        ),
+      ),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          ScreenHero(
+            title: 'Оформление заказа',
+            subtitle: hasOrderDraft
+                ? 'Проверьте шаги и переходите к оплате.'
+                : 'Соберите заказ из билетов, трансфера и способа оплаты.',
+            summary: [
+              AppBadge(
+                label: '$selectedTicketsCount билетов',
+                variant: selectedTicketsCount > 0
+                    ? AppBadgeVariant.accent
+                    : AppBadgeVariant.neutral,
+              ),
+              AppBadge(
+                label: 'Итого: ${formatMoney(_totalCents)}',
+                variant: AppBadgeVariant.ghost,
+              ),
+              if (selectedTransfer != null)
+                const AppBadge(
+                  label: 'Трансфер добавлен',
+                  variant: AppBadgeVariant.info,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
           SectionCard(
             title: 'Готовность заказа',
             subtitle:
@@ -638,6 +678,15 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
                       : 'Выберите хотя бы один билет для продолжения.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (!_hasSelectedTickets) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  const InlineStatusBanner(
+                    title: 'Заказ еще не собран',
+                    message:
+                        'Добавьте хотя бы один билет, чтобы перейти к шагу оплаты.',
+                    tone: InlineStatusBannerTone.warning,
+                  ),
+                ],
               ],
             ),
           ),
@@ -802,16 +851,6 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             emphasized: true,
           ),
           const SizedBox(height: 16),
-          PrimaryButton(
-            label: 'Перейти к оплате',
-            onPressed: _submitting ||
-                    !_hasSelectedTickets ||
-                    availablePaymentMethods.isEmpty
-                ? null
-                : _openPaymentCheckout,
-            expand: true,
-          ),
-          const SizedBox(height: 10),
           Text(
             !_hasSelectedTickets
                 ? 'Сначала выберите хотя бы один билет.'
@@ -820,7 +859,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
                     : 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 116),
         ],
       ),
     );
@@ -1502,14 +1541,25 @@ class _PaymentCheckoutPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
       ),
-      title: 'Подтверждение оплаты',
-      subtitle: 'Проверьте реквизиты и завершите оплату',
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          ScreenHero(
+            title: 'Подтверждение оплаты',
+            subtitle:
+                'Проверьте реквизиты и завершите оплату выбранным способом.',
+            summary: [
+              AppBadge(
+                label: title,
+                variant: AppBadgeVariant.neutral,
+              ),
+              AppBadge(
+                label: formatMoney(amountCents),
+                variant: AppBadgeVariant.accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
           SectionCard(
             title: title,
             subtitle: subtitle,

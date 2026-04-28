@@ -17,11 +17,13 @@ import '../../../core/utils/event_media_url_utils.dart';
 import '../../../core/utils/share_utils.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/copy_to_clipboard.dart';
 import '../../../ui/components/input_field.dart';
-import '../../../ui/components/section_card.dart';
 import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/screen_hero.dart';
+import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -228,12 +230,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
           ),
         ],
       ),
-      title: 'Детали события',
-      subtitle: detail == null
-          ? 'Проверяем данные'
-          : 'Начало: ${formatDateTime(detail.event.startsAt)}',
-      titleColor: theme.colorScheme.onSurface,
-      subtitleColor: theme.colorScheme.onSurface.withValues(alpha: 0.74),
       child: _loading
           ? const Center(
               child: LoadingState(
@@ -261,9 +257,38 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                   : ListView(
                       padding: EdgeInsets.zero,
                       children: [
-                        SectionCard(
+                        ScreenHero(
                           title: detail.event.title,
                           subtitle: _eventMetaSubtitle(detail: detail),
+                          summary: [
+                            if (detail.event.isFeatured)
+                              const AppBadge(
+                                label: 'Лучшее событие',
+                                variant: AppBadgeVariant.accent,
+                              ),
+                            AppBadge(
+                              label:
+                                  '${detail.event.participantsCount} участников',
+                              variant: AppBadgeVariant.neutral,
+                            ),
+                            AppBadge(
+                              label:
+                                  '${detail.event.commentsCount} комментариев',
+                              variant: AppBadgeVariant.ghost,
+                            ),
+                            if (detail.event.capacity != null)
+                              AppBadge(
+                                label:
+                                    '${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)} мест осталось',
+                                variant: AppBadgeVariant.info,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SectionCard(
+                          title: 'Обзор',
+                          subtitle:
+                              'Описание, медиа и основные детали события.',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -348,79 +373,139 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 spacing: AppSpacing.xs,
                                 runSpacing: AppSpacing.xs,
                                 children: [
-                                  Chip(
-                                    label: Text(
-                                      '👥 ${detail.event.participantsCount}',
-                                    ),
+                                  AppBadge(
+                                    label:
+                                        'Участники: ${detail.event.participantsCount}',
+                                    variant: AppBadgeVariant.neutral,
                                   ),
                                   _buildLikeChip(detail: detail),
-                                  Chip(
-                                    label: Text(
-                                        '💬 ${detail.event.commentsCount}'),
+                                  AppBadge(
+                                    label:
+                                        'Комментарии: ${detail.event.commentsCount}',
+                                    variant: AppBadgeVariant.ghost,
                                   ),
                                   if (detail.event.capacity != null)
-                                    Chip(
-                                      label: Text(
-                                        '🎟️ ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
-                                      ),
+                                    AppBadge(
+                                      label:
+                                          'Свободно: ${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)}',
+                                      variant: AppBadgeVariant.info,
                                     ),
                                 ],
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: PrimaryButton(
-                                      label: 'Купить билет',
-                                      onPressed: _hasAnyProducts
-                                          ? () => showPurchaseTicketFlow(
-                                                context,
-                                                eventId: detail.event.id,
-                                              )
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppSpacing.xs),
-                                  Expanded(
-                                    child: SecondaryButton(
-                                      label: 'Поделиться',
-                                      icon: const Icon(Icons.share_outlined),
-                                      outline: true,
-                                      onPressed: _sharing ? null : _share,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              if (!detail.isJoined)
-                                SecondaryButton(
-                                  label: _joining
-                                      ? 'Выполняется…'
-                                      : 'Присоединиться',
-                                  onPressed:
-                                      _joining ? null : () => _join(detail),
-                                  expand: true,
-                                  outline: true,
-                                ),
-                              if (detail.isJoined)
-                                SecondaryButton(
-                                  label: _joining ? 'Выполняется…' : 'Покинуть',
-                                  onPressed:
-                                      _joining ? null : () => _leave(detail),
-                                  expand: true,
-                                  outline: true,
-                                ),
-                              const SizedBox(height: AppSpacing.xs),
-                              SecondaryButton(
-                                label: 'Открыть на карте',
-                                icon: const Icon(Icons.location_on_outlined),
-                                onPressed: () => _openMap(detail),
-                                expand: true,
-                                outline: true,
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SectionCard(
+                          title: 'Действия',
+                          subtitle:
+                              'Главное действие вынесено наверх, вторичные сценарии собраны отдельно.',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              PrimaryButton(
+                                label: _hasAnyProducts
+                                    ? 'Купить билет'
+                                    : (detail.isJoined
+                                        ? 'Вы уже присоединились'
+                                        : 'Присоединиться к событию'),
+                                onPressed: _hasAnyProducts
+                                    ? () => showPurchaseTicketFlow(
+                                          context,
+                                          eventId: detail.event.id,
+                                        )
+                                    : (detail.isJoined || _joining)
+                                        ? null
+                                        : () => _join(detail),
+                                expand: true,
+                                loading: _joining && !_hasAnyProducts,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Wrap(
+                                spacing: AppSpacing.xs,
+                                runSpacing: AppSpacing.xs,
+                                children: [
+                                  SecondaryButton(
+                                    label:
+                                        _sharing ? 'Подготовка…' : 'Поделиться',
+                                    icon: const Icon(Icons.share_outlined),
+                                    outline: true,
+                                    onPressed: _sharing ? null : _share,
+                                  ),
+                                  SecondaryButton(
+                                    label: detail.isJoined
+                                        ? (_joining
+                                            ? 'Выход…'
+                                            : 'Покинуть событие')
+                                        : (_joining
+                                            ? 'Вход…'
+                                            : 'Присоединиться'),
+                                    outline: true,
+                                    onPressed: _joining
+                                        ? null
+                                        : () => detail.isJoined
+                                            ? _leave(detail)
+                                            : _join(detail),
+                                  ),
+                                  SecondaryButton(
+                                    label: 'Открыть на карте',
+                                    icon:
+                                        const Icon(Icons.location_on_outlined),
+                                    onPressed: () => _openMap(detail),
+                                    outline: true,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isAdmin) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          SectionCard(
+                            title: 'Админ-действия',
+                            subtitle:
+                                'Служебные операции вынесены отдельно, чтобы не конкурировать с пользовательскими CTA.',
+                            child: Wrap(
+                              spacing: AppSpacing.xs,
+                              runSpacing: AppSpacing.xs,
+                              children: [
+                                SecondaryButton(
+                                  label: _updatingEvent
+                                      ? 'Сохраняем…'
+                                      : 'Редактировать',
+                                  outline: true,
+                                  onPressed: _updatingEvent
+                                      ? null
+                                      : () => _editEventAsAdmin(
+                                            detail: detail,
+                                          ),
+                                ),
+                                SecondaryButton(
+                                  label: _updatingPriority
+                                      ? 'Обновляем…'
+                                      : (detail.event.isFeatured
+                                          ? 'Снять приоритет'
+                                          : 'Сделать лучшим'),
+                                  outline: true,
+                                  onPressed: _updatingPriority
+                                      ? null
+                                      : () => _togglePriority(detail: detail),
+                                ),
+                                SecondaryButton(
+                                  label: _deletingEvent
+                                      ? 'Удаляем…'
+                                      : 'Удалить событие',
+                                  outline: true,
+                                  onPressed: _deletingEvent
+                                      ? null
+                                      : () => _deleteEvent(
+                                            eventId: detail.event.id,
+                                          ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (detail.isJoined) ...[
                           const SizedBox(height: AppSpacing.sm),
                           SectionCard(

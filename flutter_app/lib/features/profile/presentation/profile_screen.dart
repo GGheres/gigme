@@ -5,13 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/theme_mode_provider.dart';
 import '../../../app/routes.dart';
+import '../../../app/theme_mode_provider.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
+import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/action_group_card.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_card.dart';
+import '../../../ui/components/app_states.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../events/application/events_controller.dart';
@@ -86,187 +92,270 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
       child: state.loading && state.user == null
-          ? const SizedBox.shrink()
+          ? const Center(
+              child: LoadingState(
+                title: 'Загрузка профиля',
+                subtitle: 'Проверяем данные аккаунта и ваши события',
+              ),
+            )
           : RefreshIndicator(
               onRefresh: () => ref.read(profileControllerProvider).load(),
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  if ((state.error ?? '').isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: Text(
-                        state.error!,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error),
+                  ScreenHero(
+                    title: 'Профиль',
+                    subtitle: isAdmin
+                        ? 'Аккаунт, быстрые действия и доступ к админ-инструментам'
+                        : 'Аккаунт, билеты и ваши последние события',
+                    summary: [
+                      AppBadge(
+                        label: '${state.total} событий',
+                        variant: AppBadgeVariant.neutral,
                       ),
+                      AppBadge(
+                        label: _themeModeLabel(themeMode),
+                        variant: AppBadgeVariant.ghost,
+                      ),
+                      if (isAdmin)
+                        const AppBadge(
+                          label: 'Админ-доступ',
+                          variant: AppBadgeVariant.accent,
+                        ),
+                    ],
+                    actions: [
+                      PrimaryButton(
+                        label: 'Мои билеты',
+                        icon: const Icon(Icons.qr_code_rounded),
+                        onPressed: () => context.push(AppRoutes.myTickets),
+                      ),
+                      SecondaryButton(
+                        label: 'Настройки',
+                        icon: const Icon(Icons.settings_outlined),
+                        outline: true,
+                        onPressed: () => context.push(AppRoutes.settings),
+                      ),
+                      if (kDebugMode)
+                        AppButton(
+                          label: 'UI Preview',
+                          variant: AppButtonVariant.ghost,
+                          onPressed: () => context.push(AppRoutes.uiPreview),
+                        ),
+                    ],
+                  ),
+                  if ((state.error ?? '').isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    InlineStatusBanner(
+                      title: 'Не удалось обновить профиль',
+                      message: state.error!,
+                      tone: InlineStatusBannerTone.danger,
+                      actionLabel: 'Повторить',
+                      onAction: () =>
+                          ref.read(profileControllerProvider).load(),
                     ),
-                  if ((state.notice ?? '').isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: Text(state.notice!),
+                  ],
+                  if ((state.notice ?? '').isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    InlineStatusBanner(
+                      title: 'Обновление профиля',
+                      message: state.notice!,
+                      tone: InlineStatusBannerTone.info,
                     ),
+                  ],
+                  const SizedBox(height: AppSpacing.sm),
                   ProfileSummaryCard(
                     user: state.user,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  FilledButton.icon(
-                    onPressed: () => context.push(AppRoutes.myTickets),
-                    icon: const Icon(Icons.qr_code_rounded),
-                    label: const Text('Мои билеты'),
+                  ActionGroupCard(
+                    title: 'Быстрые действия',
+                    subtitle: 'Самые частые переходы и настройки аккаунта.',
+                    actions: [
+                      PrimaryButton(
+                        label: 'Открыть билеты',
+                        icon: const Icon(Icons.confirmation_number_outlined),
+                        expand: true,
+                        onPressed: () => context.push(AppRoutes.myTickets),
+                      ),
+                      SecondaryButton(
+                        label: 'Открыть настройки',
+                        icon: const Icon(Icons.tune_rounded),
+                        expand: true,
+                        outline: true,
+                        onPressed: () => context.push(AppRoutes.settings),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  OutlinedButton.icon(
-                    onPressed: () => context.push(AppRoutes.settings),
-                    icon: const Icon(Icons.settings_outlined),
-                    label: const Text('Настройки'),
-                  ),
-                  if (kDebugMode) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    AppButton(
-                      label: 'UI Preview',
-                      variant: AppButtonVariant.ghost,
-                      onPressed: () => context.push(AppRoutes.uiPreview),
-                    ),
-                  ],
                   if (isAdmin) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: [
-                        AppButton(
-                          label: 'Заказы',
-                          size: AppButtonSize.sm,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () => context.push(AppRoutes.adminOrders),
-                        ),
-                        AppButton(
-                          label: 'Сообщения',
-                          size: AppButtonSize.sm,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () =>
-                              context.push(AppRoutes.adminBotMessages),
-                        ),
-                        AppButton(
-                          label: 'QR-сканер',
-                          size: AppButtonSize.sm,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () => context.push(AppRoutes.adminScanner),
-                        ),
-                        AppButton(
-                          label: 'Продукты',
-                          size: AppButtonSize.sm,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () =>
-                              context.push(AppRoutes.adminProducts),
-                        ),
-                        AppButton(
-                          label: 'Промокоды',
-                          size: AppButtonSize.sm,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () => context.push(AppRoutes.adminPromos),
-                        ),
-                        AppButton(
-                          label: 'Статистика',
-                          size: AppButtonSize.sm,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: () => context.push(AppRoutes.adminStats),
+                    const SizedBox(height: AppSpacing.sm),
+                    ActionGroupCard(
+                      title: 'Админ-инструменты',
+                      subtitle:
+                          'Рабочие разделы вынесены отдельно, чтобы не смешивать их с пользовательским профилем.',
+                      actions: [
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            AppButton(
+                              label: 'Заказы',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  context.push(AppRoutes.adminOrders),
+                            ),
+                            AppButton(
+                              label: 'Сообщения',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  context.push(AppRoutes.adminBotMessages),
+                            ),
+                            AppButton(
+                              label: 'QR-сканер',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  context.push(AppRoutes.adminScanner),
+                            ),
+                            AppButton(
+                              label: 'Продукты',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  context.push(AppRoutes.adminProducts),
+                            ),
+                            AppButton(
+                              label: 'Промокоды',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  context.push(AppRoutes.adminPromos),
+                            ),
+                            AppButton(
+                              label: 'Статистика',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  context.push(AppRoutes.adminStats),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ],
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xxs,
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        'Мои события',
-                        style: Theme.of(context).textTheme.titleMedium,
+                  ActionGroupCard(
+                    title: 'Мои события',
+                    subtitle:
+                        'Последние события, которые вы создали или ведете.',
+                    actions: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: AppBadge(
+                          label: '${state.total} всего',
+                          variant: AppBadgeVariant.ghost,
+                        ),
                       ),
-                      Text('${state.total} всего'),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  if (state.events.isEmpty)
-                    const AppCard(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('Событий пока нет'),
-                      ),
-                    )
-                  else
-                    ...state.events.map(
-                      (event) {
-                        final accessKey = events.accessKeyFor(event.id);
-                        final fallbackThumbnail = event.thumbnailUrl.trim();
-                        final proxyThumbnail = buildEventMediaProxyUrl(
-                          apiUrl: config.apiUrl,
-                          eventId: event.id,
-                          index: 0,
-                          accessKey: accessKey,
-                        );
-                        final imageUrl = proxyThumbnail.isNotEmpty
-                            ? proxyThumbnail
-                            : fallbackThumbnail;
-                        final fallbackImageUrl =
-                            proxyThumbnail.isNotEmpty ? fallbackThumbnail : '';
+                      if (state.events.isEmpty)
+                        const AppCard(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('Событий пока нет'),
+                          ),
+                        )
+                      else
+                        ...state.events.map(
+                          (event) {
+                            final accessKey = events.accessKeyFor(event.id);
+                            final fallbackThumbnail = event.thumbnailUrl.trim();
+                            final proxyThumbnail = buildEventMediaProxyUrl(
+                              apiUrl: config.apiUrl,
+                              eventId: event.id,
+                              index: 0,
+                              accessKey: accessKey,
+                            );
+                            final imageUrl = proxyThumbnail.isNotEmpty
+                                ? proxyThumbnail
+                                : fallbackThumbnail;
+                            final fallbackImageUrl = proxyThumbnail.isNotEmpty
+                                ? fallbackThumbnail
+                                : '';
 
-                        return Card(
-                          child: ListTile(
-                            onTap: () =>
-                                context.push(AppRoutes.event(event.id)),
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: SizedBox(
-                                width: 52,
-                                height: 52,
-                                child: imageUrl.isEmpty
-                                    ? const ColoredBox(
-                                        color: Color(0xFFE8F0F4),
-                                        child: Icon(
-                                            Icons.image_not_supported_outlined),
-                                      )
-                                    : Image.network(
-                                        imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, _, __) {
-                                          if (fallbackImageUrl.isNotEmpty &&
-                                              fallbackImageUrl != imageUrl) {
-                                            return Image.network(
-                                              fallbackImageUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, _, __) =>
-                                                  const ColoredBox(
-                                                color: Color(0xFFE8F0F4),
-                                                child: Icon(Icons
-                                                    .broken_image_outlined),
-                                              ),
-                                            );
-                                          }
-                                          return const ColoredBox(
+                            return Card(
+                              child: ListTile(
+                                onTap: () =>
+                                    context.push(AppRoutes.event(event.id)),
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: SizedBox(
+                                    width: 52,
+                                    height: 52,
+                                    child: imageUrl.isEmpty
+                                        ? const ColoredBox(
                                             color: Color(0xFFE8F0F4),
                                             child: Icon(
-                                                Icons.broken_image_outlined),
-                                          );
-                                        },
-                                      ),
+                                              Icons
+                                                  .image_not_supported_outlined,
+                                            ),
+                                          )
+                                        : Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, _, __) {
+                                              if (fallbackImageUrl.isNotEmpty &&
+                                                  fallbackImageUrl !=
+                                                      imageUrl) {
+                                                return Image.network(
+                                                  fallbackImageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (context, _, __) =>
+                                                          const ColoredBox(
+                                                    color: Color(0xFFE8F0F4),
+                                                    child: Icon(
+                                                      Icons
+                                                          .broken_image_outlined,
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                              return const ColoredBox(
+                                                color: Color(0xFFE8F0F4),
+                                                child: Icon(
+                                                  Icons.broken_image_outlined,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                ),
+                                title: Text(event.title),
+                                subtitle: Text(
+                                  '${formatDateTime(event.startsAt)} • '
+                                  '${event.participantsCount} участников',
+                                ),
+                                trailing:
+                                    const Icon(Icons.chevron_right_rounded),
                               ),
-                            ),
-                            title: Text(event.title),
-                            subtitle: Text(
-                                '${formatDateTime(event.startsAt)} • ${event.participantsCount} участников'),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
     );
+  }
+
+  /// _themeModeLabel handles theme mode label.
+
+  String _themeModeLabel(ThemeMode themeMode) {
+    return switch (themeMode) {
+      ThemeMode.system => 'Тема: система',
+      ThemeMode.light => 'Тема: светлая',
+      ThemeMode.dark => 'Тема: темная',
+    };
   }
 }

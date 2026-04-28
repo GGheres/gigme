@@ -7,9 +7,12 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
 import '../../../core/network/providers.dart';
+import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_card.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -54,15 +57,56 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     }
 
     final state = events.state;
+    final activeFilterCount = state.activeFilters.length;
+
     return AppScaffold(
-      title: 'Лента Событий',
-      subtitle: 'Исследуй, создавай, присоединяйся.',
-      showBackgroundDecor: true,
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
       child: Column(
         children: [
+          ScreenHero(
+            title: 'Лента событий',
+            subtitle:
+                'Исследуй ближайшие встречи, открывай новые форматы и быстро переходи к созданию.',
+            summary: [
+              AppBadge(
+                label: state.nearbyOnly ? 'Рядом с вами' : 'Все регионы',
+                variant: state.nearbyOnly
+                    ? AppBadgeVariant.accent
+                    : AppBadgeVariant.neutral,
+              ),
+              AppBadge(
+                label: '$activeFilterCount/$kMaxEventFilters фильтров',
+                variant: activeFilterCount > 0
+                    ? AppBadgeVariant.ghost
+                    : AppBadgeVariant.neutral,
+              ),
+              AppBadge(
+                label: '${state.feed.length} событий',
+                variant: AppBadgeVariant.neutral,
+              ),
+            ],
+            actions: [
+              PrimaryButton(
+                label: 'Создать событие',
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                onPressed: () => context.push(AppRoutes.create),
+              ),
+              SecondaryButton(
+                label: 'Открыть карту',
+                icon: const Icon(Icons.map_rounded),
+                outline: true,
+                onPressed: () => context.push(AppRoutes.map),
+              ),
+              AppButton(
+                label: 'Обновить',
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.md,
+                onPressed: () => ref
+                    .read(eventsControllerProvider)
+                    .refresh(center: location.state.center),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
           _FilterBar(
             activeFilters: state.activeFilters,
             nearbyOnly: state.nearbyOnly,
@@ -89,45 +133,23 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
           if (location.state.permissionDenied) ...[
             const SizedBox(height: AppSpacing.sm),
-            AppCard(
-              variant: AppCardVariant.panel,
-              child: Row(
-                children: [
-                  const Icon(Icons.gps_off_rounded, color: Colors.white),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      'Доступ к геолокации запрещен. Используется центр по умолчанию.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.86),
-                          ),
-                    ),
-                  ),
-                ],
-              ),
+            const InlineStatusBanner(
+              title: 'Геолокация недоступна',
+              message:
+                  'Доступ к геолокации запрещен. Показываем события относительно центра по умолчанию.',
+              tone: InlineStatusBannerTone.warning,
             ),
           ],
           if ((state.error ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            AppCard(
-              variant: AppCardVariant.panel,
-              child: Row(
-                children: [
-                  const AppBadge(
-                    label: 'Ошибка',
-                    variant: AppBadgeVariant.danger,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      state.error!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                    ),
-                  ),
-                ],
-              ),
+            InlineStatusBanner(
+              title: 'Не удалось обновить ленту',
+              message: state.error!,
+              tone: InlineStatusBannerTone.danger,
+              actionLabel: 'Повторить',
+              onAction: () => ref
+                  .read(eventsControllerProvider)
+                  .refresh(center: location.state.center),
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
@@ -143,6 +165,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 apiUrl: config.apiUrl,
                 eventAccessKeys: events.eventAccessKeys,
                 likeLoadingIds: _likeLoadingIds,
+                onRefresh: () => ref
+                    .read(eventsControllerProvider)
+                    .refresh(center: location.state.center),
                 onTap: (event) {
                   final key =
                       events.accessKeyFor(event.id, fallback: event.accessKey);
@@ -231,6 +256,22 @@ class _FilterBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'Фильтры ленты',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            'Сузьте выдачу по радиусу и тематикам, чтобы быстрее найти нужный формат.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
           LayoutBuilder(
             builder: (context, constraints) {
               final useStackedHeader = constraints.maxWidth < 420;

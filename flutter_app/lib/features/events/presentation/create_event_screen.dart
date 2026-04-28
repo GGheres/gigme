@@ -14,9 +14,12 @@ import '../../../app/routes.dart';
 import '../../../core/constants/event_filters.dart';
 import '../../../core/notifications/providers.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_toast.dart';
 import '../../../ui/components/input_field.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
+import '../../../ui/components/sticky_action_bar.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -309,18 +312,59 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
     final requiredDone = _requiredSectionsDone();
     final requiredProgress = _requiredProgress();
     final missingSections = _requiredMissingSections();
+    final canSubmit = !(_submitting || _uploading);
 
     return AppScaffold(
-      title: 'Создать событие',
-      subtitle: 'Пошаговая форма с автосохранением',
-      titleColor: theme.colorScheme.onSurface,
-      subtitleColor: theme.colorScheme.onSurface.withValues(alpha: 0.75),
       scrollable: true,
+      bottomSheet: StickyActionBar(
+        primaryAction: PrimaryButton(
+          label: _submitting ? 'Публикуем событие…' : 'Опубликовать событие',
+          icon: const Icon(Icons.check_circle_outline_rounded),
+          onPressed: canSubmit ? _submit : null,
+          expand: true,
+          loading: _submitting,
+        ),
+        secondaryAction: SecondaryButton(
+          label: missingSections.isEmpty
+              ? 'Все обязательное заполнено'
+              : 'Осталось: ${missingSections.length}',
+          icon: Icon(
+            missingSections.isEmpty
+                ? Icons.task_alt_rounded
+                : Icons.playlist_add_check_circle_outlined,
+          ),
+          onPressed: null,
+          outline: true,
+          expand: true,
+        ),
+      ),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            ScreenHero(
+              title: 'Создать событие',
+              subtitle:
+                  'Заполните ключевые блоки, а черновик сохранится автоматически.',
+              summary: [
+                AppBadge(
+                  label: '$requiredDone/$_requiredSectionsTotal готово',
+                  variant: requiredDone == _requiredSectionsTotal
+                      ? AppBadgeVariant.success
+                      : AppBadgeVariant.accent,
+                ),
+                AppBadge(
+                  label: _draftStatusLabel(),
+                  variant: AppBadgeVariant.ghost,
+                ),
+                AppBadge(
+                  label: '${_uploadedMedia.length}/$kMaxMediaCount фото',
+                  variant: AppBadgeVariant.neutral,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
             SectionCard(
               title: 'Готовность к публикации',
               subtitle:
@@ -349,8 +393,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
                       runSpacing: AppSpacing.xs,
                       children: [
                         for (final section in missingSections)
-                          Chip(
-                            label: Text('Заполните: $section'),
+                          AppBadge(
+                            label: 'Заполните: $section',
+                            variant: AppBadgeVariant.danger,
                           ),
                       ],
                     ),
@@ -397,6 +442,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
             const SizedBox(height: AppSpacing.md),
             SectionCard(
               title: '2. Дата и лимиты',
+              subtitle: 'Когда стартует событие и сколько участников вы ждете',
               child: Column(
                 children: [
                   _DateTimeField(
@@ -586,22 +632,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            PrimaryButton(
-              label: _submitting ? 'Создаем…' : 'Создать событие',
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              onPressed: (_submitting || _uploading) ? null : _submit,
-              expand: true,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              missingSections.isEmpty
-                  ? 'Все обязательные данные заполнены. Можно публиковать.'
-                  : 'Перед публикацией заполните: ${missingSections.join(', ')}.',
-              style: theme.textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: 116),
           ],
         ),
       ),

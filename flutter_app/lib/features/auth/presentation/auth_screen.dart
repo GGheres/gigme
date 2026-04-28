@@ -10,8 +10,11 @@ import '../../../core/network/providers.dart';
 import '../../../core/storage/vk_oauth_state_storage.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/input_field.dart';
+import '../../../ui/components/inline_status_banner.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -70,22 +73,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
 
     return AppScaffold(
-      title: 'Вход в SPACE',
-      subtitle: !canUseVkLogin
-          ? 'Быстрый вход через Telegram'
-          : 'Быстрый вход через Telegram или VK',
-      showBackgroundDecor: true,
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: ListView(
             children: [
+              ScreenHero(
+                title: 'Вход в SPACE',
+                subtitle: !canUseVkLogin
+                    ? 'Основной вход через Telegram без пароля.'
+                    : 'Основной вход через Telegram, VK остается резервным методом.',
+                summary: [
+                  const AppBadge(
+                    label: 'Без пароля',
+                    variant: AppBadgeVariant.neutral,
+                  ),
+                  AppBadge(
+                    label: canUseVkLogin ? 'Telegram + VK' : 'Telegram only',
+                    variant: canUseVkLogin
+                        ? AppBadgeVariant.accent
+                        : AppBadgeVariant.ghost,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
               SectionCard(
-                title: 'Продолжить',
+                title: 'Продолжить через Telegram',
                 subtitle: _subtitleForMode(config.authMode),
                 child: _buildStandaloneContent(
                   state: state,
@@ -118,21 +132,32 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final canUseStandaloneHelper = standaloneHelperUri != null;
 
     return AppScaffold(
-      title: 'Вход в SPACE',
-      subtitle: canUseVkLogin
-          ? 'Быстрый вход через Telegram или VK'
-          : 'Быстрый вход через Telegram',
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: ListView(
             children: [
+              ScreenHero(
+                title: 'Вход в SPACE',
+                subtitle: canUseVkLogin
+                    ? 'Откройте SPACE через Telegram. VK доступен как запасной вход.'
+                    : 'Откройте SPACE через Telegram без отдельного пароля.',
+                summary: [
+                  const AppBadge(
+                    label: 'Web auth',
+                    variant: AppBadgeVariant.neutral,
+                  ),
+                  if (canUseStandaloneHelper)
+                    const AppBadge(
+                      label: 'Browser helper',
+                      variant: AppBadgeVariant.ghost,
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
               SectionCard(
-                title: 'Продолжить',
+                title: 'Продолжить через Telegram',
                 subtitle: _subtitleForMode(config.authMode),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -144,11 +169,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       )
                     else ...[
                       if (error.isNotEmpty) ...[
-                        ErrorState(
+                        InlineStatusBanner(
+                          title: 'Не удалось подтвердить вход',
                           message: error,
-                          onRetry: () =>
+                          tone: InlineStatusBannerTone.danger,
+                          actionLabel: 'Повторить',
+                          onAction: () =>
                               ref.read(authControllerProvider).retryAuth(),
-                          retryLabel: 'Повторить',
                         ),
                         const SizedBox(height: AppSpacing.sm),
                       ],
@@ -237,10 +264,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (error.isNotEmpty) ...[
-          ErrorState(
+          InlineStatusBanner(
+            title: 'Не удалось подтвердить вход',
             message: error,
-            onRetry: () => ref.read(authControllerProvider).retryAuth(),
-            retryLabel: 'Повторить',
+            tone: InlineStatusBannerTone.danger,
+            actionLabel: 'Повторить',
+            onAction: () => ref.read(authControllerProvider).retryAuth(),
           ),
           const SizedBox(height: AppSpacing.sm),
         ],
@@ -310,9 +339,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String _subtitleForMode(AuthMode mode) {
     switch (mode) {
       case AuthMode.telegramWeb:
-        return 'Без пароля, сессия подтверждается через Telegram';
+        return 'Telegram остается главным сценарием входа, пароль не нужен.';
       case AuthMode.standalone:
-        return 'Для standalone используйте helper и initData';
+        return 'Для standalone используйте helper, а initData вставляйте только как резервный сценарий.';
     }
   }
 
@@ -345,8 +374,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     ];
 
     return SectionCard(
-      title: 'Прозрачный вход',
-      subtitle: 'Что происходит при авторизации',
+      title: 'Как работает вход',
+      subtitle: 'Коротко о подтверждении сессии и резервных сценариях.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

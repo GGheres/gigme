@@ -27,6 +27,7 @@ class AppScaffold extends StatelessWidget {
     this.backgroundColor,
     this.titleColor,
     this.subtitleColor,
+    this.bottomSheet,
     super.key,
   });
 
@@ -46,6 +47,7 @@ class AppScaffold extends StatelessWidget {
   final Color? backgroundColor;
   final Color? titleColor;
   final Color? subtitleColor;
+  final Widget? bottomSheet;
 
   /// build renders the widget tree for this component.
 
@@ -115,6 +117,7 @@ class AppScaffold extends StatelessWidget {
       appBar: appBar,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
+      bottomSheet: bottomSheet,
       backgroundColor: backgroundColor ?? Colors.transparent,
       body: Stack(
         fit: StackFit.expand,

@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/models/event_card.dart';
 import '../../../../ui/components/app_button.dart';
 import '../../../../ui/components/app_card.dart';
-import '../../../../ui/components/app_section_header.dart';
+import '../../../../ui/components/app_states.dart';
 import '../../../../ui/theme/app_spacing.dart';
 import 'event_card_tile.dart';
 
@@ -21,6 +21,7 @@ class FeedList extends StatelessWidget {
     required this.apiUrl,
     required this.eventAccessKeys,
     required this.likeLoadingIds,
+    required this.onRefresh,
     super.key,
   });
 
@@ -31,6 +32,7 @@ class FeedList extends StatelessWidget {
   final String apiUrl;
   final Map<int, String> eventAccessKeys;
   final Set<int> likeLoadingIds;
+  final Future<void> Function() onRefresh;
 
   /// build renders the widget tree for this component.
 
@@ -41,22 +43,21 @@ class FeedList extends StatelessWidget {
     if (items.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
-        children: const [
-          SizedBox(height: 80),
+        children: [
+          const SizedBox(height: 80),
+          const EmptyState(
+            title: 'Событий пока нет',
+            subtitle: 'Попробуйте обновить ленту или скорректировать фильтры.',
+          ),
+          const SizedBox(height: AppSpacing.sm),
           AppCard(
-            child: Column(
-              children: [
-                AppSectionHeader(
-                  title: 'Событий пока нет',
-                  subtitle: 'Создайте первое событие, чтобы запустить ленту.',
-                ),
-                SizedBox(height: AppSpacing.xs),
-                AppButton(
-                  label: 'Обновить ленту',
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.sm,
-                ),
-              ],
+            child: Center(
+              child: AppButton(
+                label: 'Обновить ленту',
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.sm,
+                onPressed: () => onRefresh(),
+              ),
             ),
           ),
         ],

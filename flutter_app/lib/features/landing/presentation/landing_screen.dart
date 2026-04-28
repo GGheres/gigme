@@ -1112,6 +1112,8 @@ class _HeroSection extends StatelessWidget {
     final title = content.heroTitle.trim();
     final description = content.heroDescription.trim();
     final meta = _eventMeta(featuredEvent);
+    final featuredTitle = (featuredEvent?.title ?? '').trim();
+    final featuredLocation = (featuredEvent?.addressLabel ?? '').trim();
 
     return _GlassPanel(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -1136,6 +1138,18 @@ class _HeroSection extends StatelessWidget {
             subtitleColor: Colors.white.withValues(alpha: 0.82),
             padding: EdgeInsets.zero,
           ),
+          if (featuredTitle.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              featuredLocation.isEmpty
+                  ? 'Сейчас в фокусе: $featuredTitle'
+                  : 'Сейчас в фокусе: $featuredTitle · $featuredLocation',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.74),
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xs),
           Text(
             description,
@@ -1153,7 +1167,35 @@ class _HeroSection extends StatelessWidget {
           ),
           if (loading) ...[
             const SizedBox(height: AppSpacing.sm),
-            const LinearProgressIndicator(minHeight: 3),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.14),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      'Обновляем программу и ближайшие события',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.84),
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
           if ((error ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -1167,7 +1209,7 @@ class _HeroSection extends StatelessWidget {
                     Border.all(color: AppColors.danger.withValues(alpha: 0.55)),
               ),
               child: Text(
-                error!,
+                'Не удалось обновить программу. $error!',
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
@@ -1206,36 +1248,31 @@ class _HeroActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xs,
-          children: [
-            AppButton(
-              label: openAppLabel,
-              variant: AppButtonVariant.secondary,
-              icon: const Icon(Icons.open_in_new_rounded),
-              onPressed: onPrimaryAction,
-            ),
-            AppButton(
-              label: 'SPACE APP',
-              variant: AppButtonVariant.primary,
-              icon: const Icon(Icons.rocket_launch_rounded),
-              onPressed: onOpenApp,
-            ),
-          ],
+        AppButton(
+          label: openAppLabel,
+          variant: AppButtonVariant.primary,
+          icon: const Icon(Icons.open_in_new_rounded),
+          onPressed: onPrimaryAction,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AppButton(
+          label: 'Открыть SPACE App',
+          variant: AppButtonVariant.ghost,
+          icon: const Icon(Icons.rocket_launch_rounded),
+          onPressed: onOpenApp,
         ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.xs,
           runSpacing: AppSpacing.xs,
           children: [
-            AppBadge(label: '$total Событий', variant: AppBadgeVariant.neutral),
+            AppBadge(label: '$total событий', variant: AppBadgeVariant.neutral),
             AppBadge(
-              label: '$totalParticipants Участников',
+              label: '$totalParticipants участников',
               variant: AppBadgeVariant.neutral,
             ),
             const AppBadge(
-              label: 'Формат: Live + Digital',
+              label: 'Live + Digital',
               variant: AppBadgeVariant.ghost,
             ),
           ],

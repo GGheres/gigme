@@ -6,10 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/providers.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/components/input_field.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -199,6 +202,23 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
 
     final body = Column(
       children: [
+        ScreenHero(
+          title: 'Сообщения бота',
+          subtitle: 'Просмотр диалогов и быстрые ответы пользователям.',
+          summary: [
+            AppBadge(
+              label: '${items.length} сообщений',
+              variant: AppBadgeVariant.neutral,
+            ),
+            AppBadge(
+              label: _chatIdCtrl.text.trim().isEmpty
+                  ? 'Все чаты'
+                  : 'Chat ${_chatIdCtrl.text.trim()}',
+              variant: AppBadgeVariant.ghost,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
         SectionCard(
           title: 'Фильтр чата',
           subtitle: 'Оставьте поле пустым, чтобы показать все сообщения',
@@ -236,6 +256,16 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
             ],
           ),
         ),
+        if ((_error ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          InlineStatusBanner(
+            title: 'Не удалось загрузить сообщения',
+            message: _error!,
+            tone: InlineStatusBannerTone.danger,
+            actionLabel: 'Повторить',
+            onAction: _load,
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: _loading
@@ -246,12 +276,7 @@ class _AdminBotMessagesPageState extends ConsumerState<AdminBotMessagesPage> {
                   ),
                 )
               : (_error != null)
-                  ? Center(
-                      child: ErrorState(
-                        message: _error!,
-                        onRetry: _load,
-                      ),
-                    )
+                  ? const SizedBox.shrink()
                   : items.isEmpty
                       ? const Center(
                           child: EmptyState(

@@ -8,9 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
+import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/components/input_field.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -130,6 +133,21 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   Widget _buildBody(BuildContext context, List<OrderSummaryModel> items) {
     return Column(
       children: [
+        ScreenHero(
+          title: 'Заказы',
+          subtitle: 'Мониторинг платежей, фильтрация по событию и статусам.',
+          summary: [
+            AppBadge(
+              label: '${items.length} заказов',
+              variant: AppBadgeVariant.neutral,
+            ),
+            AppBadge(
+              label: _status.trim().isEmpty ? 'Все статусы' : _status,
+              variant: AppBadgeVariant.ghost,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
         SectionCard(
           title: 'Фильтры',
           subtitle: 'Сузьте выдачу по событию и статусу',
@@ -179,6 +197,16 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             ],
           ),
         ),
+        if ((_error ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          InlineStatusBanner(
+            title: 'Не удалось загрузить заказы',
+            message: _error!,
+            tone: InlineStatusBannerTone.danger,
+            actionLabel: 'Повторить',
+            onAction: _load,
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: _loading
@@ -189,12 +217,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                   ),
                 )
               : (_error != null)
-                  ? Center(
-                      child: ErrorState(
-                        message: _error!,
-                        onRetry: _load,
-                      ),
-                    )
+                  ? const SizedBox.shrink()
                   : items.isEmpty
                       ? const Center(
                           child: EmptyState(

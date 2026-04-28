@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/date_time_utils.dart';
 import '../../../ui/components/action_buttons.dart';
+import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/app_toast.dart';
+import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/components/input_field.dart';
+import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
@@ -326,14 +329,31 @@ class _AdminPromoCodesPageState extends ConsumerState<AdminPromoCodesPage> {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        if ((_error ?? '').trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: ErrorState(
-              message: _error!,
-              onRetry: _load,
+        ScreenHero(
+          title: 'Промокоды',
+          subtitle: 'Создание, фильтрация и управление скидочными кодами.',
+          summary: [
+            AppBadge(
+              label: '${_items.length} кодов',
+              variant: AppBadgeVariant.neutral,
             ),
+            AppBadge(
+              label: _activeOnly ? 'Только активные' : 'Все статусы',
+              variant: AppBadgeVariant.ghost,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if ((_error ?? '').trim().isNotEmpty)
+          InlineStatusBanner(
+            title: 'Не удалось загрузить промокоды',
+            message: _error!,
+            tone: InlineStatusBannerTone.danger,
+            actionLabel: 'Повторить',
+            onAction: _load,
           ),
+        if ((_error ?? '').trim().isNotEmpty)
+          const SizedBox(height: AppSpacing.sm),
         SectionCard(
           title: 'Создать промокод',
           subtitle: 'Укажите скидку, количество срабатываний и период действия',

@@ -23,6 +23,7 @@ void main() {
             apiUrl: 'https://example.test/api',
             eventAccessKeys: const <int, String>{},
             likeLoadingIds: const <int>{},
+            onRefresh: () async {},
             onTap: (_) {},
             onLikeTap: (_) {},
           ),
