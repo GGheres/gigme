@@ -5,3 +5,6 @@ backend/bin/
 *.log
 .env
 .DS_Store
+/.claude/
+/openclaw/
+/skills/
