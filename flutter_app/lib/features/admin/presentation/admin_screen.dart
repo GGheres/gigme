@@ -117,6 +117,24 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       TextEditingController();
   final TextEditingController _landingPartnersDescriptionCtrl =
       TextEditingController();
+  final TextEditingController _landingSonicStageTitleCtrl =
+      TextEditingController();
+  final TextEditingController _landingSonicStageDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _landingSonicStageImageUrlCtrl =
+      TextEditingController();
+  final TextEditingController _landingLensoundStageTitleCtrl =
+      TextEditingController();
+  final TextEditingController _landingLensoundStageDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _landingLensoundStageImageUrlCtrl =
+      TextEditingController();
+  final TextEditingController _landingSpaceStageTitleCtrl =
+      TextEditingController();
+  final TextEditingController _landingSpaceStageDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _landingSpaceStageImageUrlCtrl =
+      TextEditingController();
   final TextEditingController _landingFooterCtrl = TextEditingController();
   final TextEditingController _landingImageUrlCtrl = TextEditingController();
   final TextEditingController _landingCommentIdCtrl = TextEditingController();
@@ -170,6 +188,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     _landingAboutDescriptionCtrl.dispose();
     _landingPartnersTitleCtrl.dispose();
     _landingPartnersDescriptionCtrl.dispose();
+    _landingSonicStageTitleCtrl.dispose();
+    _landingSonicStageDescriptionCtrl.dispose();
+    _landingSonicStageImageUrlCtrl.dispose();
+    _landingLensoundStageTitleCtrl.dispose();
+    _landingLensoundStageDescriptionCtrl.dispose();
+    _landingLensoundStageImageUrlCtrl.dispose();
+    _landingSpaceStageTitleCtrl.dispose();
+    _landingSpaceStageDescriptionCtrl.dispose();
+    _landingSpaceStageImageUrlCtrl.dispose();
     _landingFooterCtrl.dispose();
     _landingImageUrlCtrl.dispose();
     _landingCommentIdCtrl.dispose();
@@ -774,6 +801,51 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     );
   }
 
+  Widget _buildLandingStageFields({
+    required String title,
+    required TextEditingController titleController,
+    required TextEditingController descriptionController,
+    required TextEditingController imageUrlController,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.28),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Название блока'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: descriptionController,
+              minLines: 2,
+              maxLines: 6,
+              decoration: const InputDecoration(labelText: 'Описание блока'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: imageUrlController,
+              decoration: const InputDecoration(
+                labelText: 'URL картинки блока',
+                hintText: 'https://example.com/stage.jpg',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLandingTab() {
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -840,6 +912,27 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   decoration: const InputDecoration(
                     labelText: 'Описание блока Партнеры',
                   ),
+                ),
+                const SizedBox(height: 8),
+                _buildLandingStageFields(
+                  title: 'Sonic Stage',
+                  titleController: _landingSonicStageTitleCtrl,
+                  descriptionController: _landingSonicStageDescriptionCtrl,
+                  imageUrlController: _landingSonicStageImageUrlCtrl,
+                ),
+                const SizedBox(height: 12),
+                _buildLandingStageFields(
+                  title: 'Lensound Stage',
+                  titleController: _landingLensoundStageTitleCtrl,
+                  descriptionController: _landingLensoundStageDescriptionCtrl,
+                  imageUrlController: _landingLensoundStageImageUrlCtrl,
+                ),
+                const SizedBox(height: 12),
+                _buildLandingStageFields(
+                  title: 'Space Stage',
+                  titleController: _landingSpaceStageTitleCtrl,
+                  descriptionController: _landingSpaceStageDescriptionCtrl,
+                  imageUrlController: _landingSpaceStageImageUrlCtrl,
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -2029,6 +2122,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     _landingAboutDescriptionCtrl.text = content.aboutDescription;
     _landingPartnersTitleCtrl.text = content.partnersTitle;
     _landingPartnersDescriptionCtrl.text = content.partnersDescription;
+    _landingSonicStageTitleCtrl.text = content.sonicStageTitle;
+    _landingSonicStageDescriptionCtrl.text = content.sonicStageDescription;
+    _landingSonicStageImageUrlCtrl.text = content.sonicStageImageUrl;
+    _landingLensoundStageTitleCtrl.text = content.lensoundStageTitle;
+    _landingLensoundStageDescriptionCtrl.text =
+        content.lensoundStageDescription;
+    _landingLensoundStageImageUrlCtrl.text = content.lensoundStageImageUrl;
+    _landingSpaceStageTitleCtrl.text = content.spaceStageTitle;
+    _landingSpaceStageDescriptionCtrl.text = content.spaceStageDescription;
+    _landingSpaceStageImageUrlCtrl.text = content.spaceStageImageUrl;
     _landingFooterCtrl.text = content.footerText;
   }
 
@@ -2042,6 +2145,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       aboutDescription: _landingAboutDescriptionCtrl.text.trim(),
       partnersTitle: _landingPartnersTitleCtrl.text.trim(),
       partnersDescription: _landingPartnersDescriptionCtrl.text.trim(),
+      sonicStageTitle: _landingSonicStageTitleCtrl.text.trim(),
+      sonicStageDescription: _landingSonicStageDescriptionCtrl.text.trim(),
+      sonicStageImageUrl: _landingSonicStageImageUrlCtrl.text.trim(),
+      lensoundStageTitle: _landingLensoundStageTitleCtrl.text.trim(),
+      lensoundStageDescription:
+          _landingLensoundStageDescriptionCtrl.text.trim(),
+      lensoundStageImageUrl: _landingLensoundStageImageUrlCtrl.text.trim(),
+      spaceStageTitle: _landingSpaceStageTitleCtrl.text.trim(),
+      spaceStageDescription: _landingSpaceStageDescriptionCtrl.text.trim(),
+      spaceStageImageUrl: _landingSpaceStageImageUrlCtrl.text.trim(),
       footerText: _landingFooterCtrl.text.trim(),
     );
   }

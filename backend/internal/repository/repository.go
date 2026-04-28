@@ -472,6 +472,9 @@ func (r *Repository) GetLandingContent(ctx context.Context) (models.LandingConte
 	row := r.pool.QueryRow(ctx, `
 SELECT hero_eyebrow, hero_title, hero_description, hero_primary_cta_label,
 	about_title, about_description, partners_title, partners_description,
+	sonic_stage_title, sonic_stage_description, sonic_stage_image_url,
+	lensound_stage_title, lensound_stage_description, lensound_stage_image_url,
+	space_stage_title, space_stage_description, space_stage_image_url,
 	footer_text, updated_by, created_at, updated_at
 FROM landing_content
 WHERE id = 1;`)
@@ -487,6 +490,15 @@ WHERE id = 1;`)
 		&out.AboutDescription,
 		&out.PartnersTitle,
 		&out.PartnersDescription,
+		&out.SonicStageTitle,
+		&out.SonicStageDescription,
+		&out.SonicStageImageURL,
+		&out.LensoundStageTitle,
+		&out.LensoundStageDescription,
+		&out.LensoundStageImageURL,
+		&out.SpaceStageTitle,
+		&out.SpaceStageDescription,
+		&out.SpaceStageImageURL,
 		&out.FooterText,
 		&updatedBy,
 		&out.CreatedAt,
@@ -509,9 +521,13 @@ func (r *Repository) UpsertLandingContent(ctx context.Context, content models.La
 INSERT INTO landing_content (
 	id, hero_eyebrow, hero_title, hero_description, hero_primary_cta_label,
 	about_title, about_description, partners_title, partners_description,
+	sonic_stage_title, sonic_stage_description, sonic_stage_image_url,
+	lensound_stage_title, lensound_stage_description, lensound_stage_image_url,
+	space_stage_title, space_stage_description, space_stage_image_url,
 	footer_text, updated_by
 ) VALUES (
-	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+	$11, $12, $13, $14, $15, $16, $17, $18, $19
 )
 ON CONFLICT (id) DO UPDATE SET
 	hero_eyebrow = EXCLUDED.hero_eyebrow,
@@ -522,6 +538,15 @@ ON CONFLICT (id) DO UPDATE SET
 	about_description = EXCLUDED.about_description,
 	partners_title = EXCLUDED.partners_title,
 	partners_description = EXCLUDED.partners_description,
+	sonic_stage_title = EXCLUDED.sonic_stage_title,
+	sonic_stage_description = EXCLUDED.sonic_stage_description,
+	sonic_stage_image_url = EXCLUDED.sonic_stage_image_url,
+	lensound_stage_title = EXCLUDED.lensound_stage_title,
+	lensound_stage_description = EXCLUDED.lensound_stage_description,
+	lensound_stage_image_url = EXCLUDED.lensound_stage_image_url,
+	space_stage_title = EXCLUDED.space_stage_title,
+	space_stage_description = EXCLUDED.space_stage_description,
+	space_stage_image_url = EXCLUDED.space_stage_image_url,
 	footer_text = EXCLUDED.footer_text,
 	updated_by = EXCLUDED.updated_by,
 	updated_at = now();`,
@@ -533,6 +558,15 @@ ON CONFLICT (id) DO UPDATE SET
 		content.AboutDescription,
 		content.PartnersTitle,
 		content.PartnersDescription,
+		content.SonicStageTitle,
+		content.SonicStageDescription,
+		content.SonicStageImageURL,
+		content.LensoundStageTitle,
+		content.LensoundStageDescription,
+		content.LensoundStageImageURL,
+		content.SpaceStageTitle,
+		content.SpaceStageDescription,
+		content.SpaceStageImageURL,
 		content.FooterText,
 		nullInt64Ptr(content.UpdatedBy),
 	)

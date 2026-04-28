@@ -46,40 +46,64 @@ type setLandingPublishRequest struct {
 
 // landingContentResponse represents landing content response.
 type landingContentResponse struct {
-	HeroEyebrow         string `json:"heroEyebrow"`
-	HeroTitle           string `json:"heroTitle"`
-	HeroDescription     string `json:"heroDescription"`
-	HeroPrimaryCTALabel string `json:"heroPrimaryCtaLabel"`
-	AboutTitle          string `json:"aboutTitle"`
-	AboutDescription    string `json:"aboutDescription"`
-	PartnersTitle       string `json:"partnersTitle"`
-	PartnersDescription string `json:"partnersDescription"`
-	FooterText          string `json:"footerText"`
+	HeroEyebrow              string `json:"heroEyebrow"`
+	HeroTitle                string `json:"heroTitle"`
+	HeroDescription          string `json:"heroDescription"`
+	HeroPrimaryCTALabel      string `json:"heroPrimaryCtaLabel"`
+	AboutTitle               string `json:"aboutTitle"`
+	AboutDescription         string `json:"aboutDescription"`
+	PartnersTitle            string `json:"partnersTitle"`
+	PartnersDescription      string `json:"partnersDescription"`
+	SonicStageTitle          string `json:"sonicStageTitle"`
+	SonicStageDescription    string `json:"sonicStageDescription"`
+	SonicStageImageURL       string `json:"sonicStageImageUrl"`
+	LensoundStageTitle       string `json:"lensoundStageTitle"`
+	LensoundStageDescription string `json:"lensoundStageDescription"`
+	LensoundStageImageURL    string `json:"lensoundStageImageUrl"`
+	SpaceStageTitle          string `json:"spaceStageTitle"`
+	SpaceStageDescription    string `json:"spaceStageDescription"`
+	SpaceStageImageURL       string `json:"spaceStageImageUrl"`
+	FooterText               string `json:"footerText"`
 }
 
 // upsertLandingContentRequest represents upsert landing content request.
 type upsertLandingContentRequest struct {
-	HeroEyebrow         *string `json:"heroEyebrow"`
-	HeroTitle           *string `json:"heroTitle"`
-	HeroDescription     *string `json:"heroDescription"`
-	HeroPrimaryCTALabel *string `json:"heroPrimaryCtaLabel"`
-	AboutTitle          *string `json:"aboutTitle"`
-	AboutDescription    *string `json:"aboutDescription"`
-	PartnersTitle       *string `json:"partnersTitle"`
-	PartnersDescription *string `json:"partnersDescription"`
-	FooterText          *string `json:"footerText"`
+	HeroEyebrow              *string `json:"heroEyebrow"`
+	HeroTitle                *string `json:"heroTitle"`
+	HeroDescription          *string `json:"heroDescription"`
+	HeroPrimaryCTALabel      *string `json:"heroPrimaryCtaLabel"`
+	AboutTitle               *string `json:"aboutTitle"`
+	AboutDescription         *string `json:"aboutDescription"`
+	PartnersTitle            *string `json:"partnersTitle"`
+	PartnersDescription      *string `json:"partnersDescription"`
+	SonicStageTitle          *string `json:"sonicStageTitle"`
+	SonicStageDescription    *string `json:"sonicStageDescription"`
+	SonicStageImageURL       *string `json:"sonicStageImageUrl"`
+	LensoundStageTitle       *string `json:"lensoundStageTitle"`
+	LensoundStageDescription *string `json:"lensoundStageDescription"`
+	LensoundStageImageURL    *string `json:"lensoundStageImageUrl"`
+	SpaceStageTitle          *string `json:"spaceStageTitle"`
+	SpaceStageDescription    *string `json:"spaceStageDescription"`
+	SpaceStageImageURL       *string `json:"spaceStageImageUrl"`
+	FooterText               *string `json:"footerText"`
 }
 
 const (
-	landingDefaultHeroEyebrow         = "SPACEFESTIVAL"
-	landingDefaultHeroTitle           = "Spacefestival 2026"
-	landingDefaultHeroDescription     = "Три экрана музыки, перформансов и нетворкинга. Лови билет, открывай Space App и следи за обновлениями в реальном времени."
-	landingDefaultHeroPrimaryCTALabel = "Купить Билет"
-	landingDefaultAboutTitle          = "О мероприятии"
-	landingDefaultAboutDescription    = "О мероприятии: сеты артистов, иммерсивные зоны, локальные бренды и серия партнерских активностей. Вся программа обновляется на лендинге."
-	landingDefaultPartnersTitle       = "Партнеры и контакты"
-	landingDefaultPartnersDescription = "Партнерская сетка формируется. Следите за новыми анонсами."
-	landingDefaultFooterText          = "SPACE"
+	landingDefaultHeroEyebrow              = "SPACEFESTIVAL"
+	landingDefaultHeroTitle                = "Spacefestival 2026"
+	landingDefaultHeroDescription          = "Три экрана музыки, перформансов и нетворкинга. Лови билет, открывай Space App и следи за обновлениями в реальном времени."
+	landingDefaultHeroPrimaryCTALabel      = "Купить Билет"
+	landingDefaultAboutTitle               = "О мероприятии"
+	landingDefaultAboutDescription         = "О мероприятии: сеты артистов, иммерсивные зоны, локальные бренды и серия партнерских активностей. Вся программа обновляется на лендинге."
+	landingDefaultPartnersTitle            = "Партнеры и контакты"
+	landingDefaultPartnersDescription      = "Партнерская сетка формируется. Следите за новыми анонсами."
+	landingDefaultSonicStageTitle          = "Sonic Stage"
+	landingDefaultSonicStageDescription    = "Главная волна фестиваля: плотный звук, энергичные live-сеты и пик ночной программы для тех, кто приходит за движением."
+	landingDefaultLensoundStageTitle       = "Lensound Stage"
+	landingDefaultLensoundStageDescription = "Сцена для глубокого прослушивания: объемные электронные текстуры, аудиовизуальные переходы и более камерная атмосфера."
+	landingDefaultSpaceStageTitle          = "Space Stage"
+	landingDefaultSpaceStageDescription    = "Иммерсивная зона фестиваля: перформансы, экспериментальные форматы, встречи комьюнити и ощущение отдельной орбиты внутри события."
+	landingDefaultFooterText               = "SPACE"
 )
 
 // LandingEvents handles landing events.
@@ -359,6 +383,15 @@ func (req upsertLandingContentRequest) hasAny() bool {
 		req.AboutDescription != nil ||
 		req.PartnersTitle != nil ||
 		req.PartnersDescription != nil ||
+		req.SonicStageTitle != nil ||
+		req.SonicStageDescription != nil ||
+		req.SonicStageImageURL != nil ||
+		req.LensoundStageTitle != nil ||
+		req.LensoundStageDescription != nil ||
+		req.LensoundStageImageURL != nil ||
+		req.SpaceStageTitle != nil ||
+		req.SpaceStageDescription != nil ||
+		req.SpaceStageImageURL != nil ||
 		req.FooterText != nil
 }
 
@@ -389,6 +422,33 @@ func mergeLandingContent(current models.LandingContent, req upsertLandingContent
 	if req.PartnersDescription != nil {
 		out.PartnersDescription = strings.TrimSpace(*req.PartnersDescription)
 	}
+	if req.SonicStageTitle != nil {
+		out.SonicStageTitle = strings.TrimSpace(*req.SonicStageTitle)
+	}
+	if req.SonicStageDescription != nil {
+		out.SonicStageDescription = strings.TrimSpace(*req.SonicStageDescription)
+	}
+	if req.SonicStageImageURL != nil {
+		out.SonicStageImageURL = strings.TrimSpace(*req.SonicStageImageURL)
+	}
+	if req.LensoundStageTitle != nil {
+		out.LensoundStageTitle = strings.TrimSpace(*req.LensoundStageTitle)
+	}
+	if req.LensoundStageDescription != nil {
+		out.LensoundStageDescription = strings.TrimSpace(*req.LensoundStageDescription)
+	}
+	if req.LensoundStageImageURL != nil {
+		out.LensoundStageImageURL = strings.TrimSpace(*req.LensoundStageImageURL)
+	}
+	if req.SpaceStageTitle != nil {
+		out.SpaceStageTitle = strings.TrimSpace(*req.SpaceStageTitle)
+	}
+	if req.SpaceStageDescription != nil {
+		out.SpaceStageDescription = strings.TrimSpace(*req.SpaceStageDescription)
+	}
+	if req.SpaceStageImageURL != nil {
+		out.SpaceStageImageURL = strings.TrimSpace(*req.SpaceStageImageURL)
+	}
 	if req.FooterText != nil {
 		out.FooterText = strings.TrimSpace(*req.FooterText)
 	}
@@ -398,15 +458,24 @@ func mergeLandingContent(current models.LandingContent, req upsertLandingContent
 // landingContentToResponse handles landing content to response.
 func landingContentToResponse(content models.LandingContent) landingContentResponse {
 	return landingContentResponse{
-		HeroEyebrow:         firstNonEmpty(content.HeroEyebrow, landingDefaultHeroEyebrow),
-		HeroTitle:           firstNonEmpty(content.HeroTitle, landingDefaultHeroTitle),
-		HeroDescription:     firstNonEmpty(content.HeroDescription, landingDefaultHeroDescription),
-		HeroPrimaryCTALabel: firstNonEmpty(content.HeroPrimaryCTALabel, landingDefaultHeroPrimaryCTALabel),
-		AboutTitle:          firstNonEmpty(content.AboutTitle, landingDefaultAboutTitle),
-		AboutDescription:    firstNonEmpty(content.AboutDescription, landingDefaultAboutDescription),
-		PartnersTitle:       firstNonEmpty(content.PartnersTitle, landingDefaultPartnersTitle),
-		PartnersDescription: firstNonEmpty(content.PartnersDescription, landingDefaultPartnersDescription),
-		FooterText:          firstNonEmpty(content.FooterText, landingDefaultFooterText),
+		HeroEyebrow:              firstNonEmpty(content.HeroEyebrow, landingDefaultHeroEyebrow),
+		HeroTitle:                firstNonEmpty(content.HeroTitle, landingDefaultHeroTitle),
+		HeroDescription:          firstNonEmpty(content.HeroDescription, landingDefaultHeroDescription),
+		HeroPrimaryCTALabel:      firstNonEmpty(content.HeroPrimaryCTALabel, landingDefaultHeroPrimaryCTALabel),
+		AboutTitle:               firstNonEmpty(content.AboutTitle, landingDefaultAboutTitle),
+		AboutDescription:         firstNonEmpty(content.AboutDescription, landingDefaultAboutDescription),
+		PartnersTitle:            firstNonEmpty(content.PartnersTitle, landingDefaultPartnersTitle),
+		PartnersDescription:      firstNonEmpty(content.PartnersDescription, landingDefaultPartnersDescription),
+		SonicStageTitle:          firstNonEmpty(content.SonicStageTitle, landingDefaultSonicStageTitle),
+		SonicStageDescription:    firstNonEmpty(content.SonicStageDescription, landingDefaultSonicStageDescription),
+		SonicStageImageURL:       strings.TrimSpace(content.SonicStageImageURL),
+		LensoundStageTitle:       firstNonEmpty(content.LensoundStageTitle, landingDefaultLensoundStageTitle),
+		LensoundStageDescription: firstNonEmpty(content.LensoundStageDescription, landingDefaultLensoundStageDescription),
+		LensoundStageImageURL:    strings.TrimSpace(content.LensoundStageImageURL),
+		SpaceStageTitle:          firstNonEmpty(content.SpaceStageTitle, landingDefaultSpaceStageTitle),
+		SpaceStageDescription:    firstNonEmpty(content.SpaceStageDescription, landingDefaultSpaceStageDescription),
+		SpaceStageImageURL:       strings.TrimSpace(content.SpaceStageImageURL),
+		FooterText:               firstNonEmpty(content.FooterText, landingDefaultFooterText),
 	}
 }
 
@@ -436,6 +505,15 @@ func validateLandingContent(content models.LandingContent) error {
 		{field: "aboutDescription", value: content.AboutDescription, max: 2400},
 		{field: "partnersTitle", value: content.PartnersTitle, max: 140},
 		{field: "partnersDescription", value: content.PartnersDescription, max: 1800},
+		{field: "sonicStageTitle", value: content.SonicStageTitle, max: 140},
+		{field: "sonicStageDescription", value: content.SonicStageDescription, max: 1800},
+		{field: "sonicStageImageUrl", value: content.SonicStageImageURL, max: 1200},
+		{field: "lensoundStageTitle", value: content.LensoundStageTitle, max: 140},
+		{field: "lensoundStageDescription", value: content.LensoundStageDescription, max: 1800},
+		{field: "lensoundStageImageUrl", value: content.LensoundStageImageURL, max: 1200},
+		{field: "spaceStageTitle", value: content.SpaceStageTitle, max: 140},
+		{field: "spaceStageDescription", value: content.SpaceStageDescription, max: 1800},
+		{field: "spaceStageImageUrl", value: content.SpaceStageImageURL, max: 1200},
 		{field: "footerText", value: content.FooterText, max: 260},
 	}
 	for _, item := range limits {

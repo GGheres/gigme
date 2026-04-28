@@ -77,18 +77,27 @@ type UserEvent struct {
 
 // LandingContent represents landing content.
 type LandingContent struct {
-	HeroEyebrow         string    `json:"heroEyebrow"`
-	HeroTitle           string    `json:"heroTitle"`
-	HeroDescription     string    `json:"heroDescription"`
-	HeroPrimaryCTALabel string    `json:"heroPrimaryCtaLabel"`
-	AboutTitle          string    `json:"aboutTitle"`
-	AboutDescription    string    `json:"aboutDescription"`
-	PartnersTitle       string    `json:"partnersTitle"`
-	PartnersDescription string    `json:"partnersDescription"`
-	FooterText          string    `json:"footerText"`
-	UpdatedBy           *int64    `json:"updatedBy,omitempty"`
-	CreatedAt           time.Time `json:"createdAt"`
-	UpdatedAt           time.Time `json:"updatedAt"`
+	HeroEyebrow              string    `json:"heroEyebrow"`
+	HeroTitle                string    `json:"heroTitle"`
+	HeroDescription          string    `json:"heroDescription"`
+	HeroPrimaryCTALabel      string    `json:"heroPrimaryCtaLabel"`
+	AboutTitle               string    `json:"aboutTitle"`
+	AboutDescription         string    `json:"aboutDescription"`
+	PartnersTitle            string    `json:"partnersTitle"`
+	PartnersDescription      string    `json:"partnersDescription"`
+	SonicStageTitle          string    `json:"sonicStageTitle"`
+	SonicStageDescription    string    `json:"sonicStageDescription"`
+	SonicStageImageURL       string    `json:"sonicStageImageUrl"`
+	LensoundStageTitle       string    `json:"lensoundStageTitle"`
+	LensoundStageDescription string    `json:"lensoundStageDescription"`
+	LensoundStageImageURL    string    `json:"lensoundStageImageUrl"`
+	SpaceStageTitle          string    `json:"spaceStageTitle"`
+	SpaceStageDescription    string    `json:"spaceStageDescription"`
+	SpaceStageImageURL       string    `json:"spaceStageImageUrl"`
+	FooterText               string    `json:"footerText"`
+	UpdatedBy                *int64    `json:"updatedBy,omitempty"`
+	CreatedAt                time.Time `json:"createdAt"`
+	UpdatedAt                time.Time `json:"updatedAt"`
 }
 
 // EventMarker represents event marker.

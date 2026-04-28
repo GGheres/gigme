@@ -51,6 +51,9 @@ func TestLandingContentToResponseUsesDefaults(t *testing.T) {
 	if content.AboutTitle != landingDefaultAboutTitle {
 		t.Fatalf("expected default about title, got %q", content.AboutTitle)
 	}
+	if content.SonicStageTitle != landingDefaultSonicStageTitle {
+		t.Fatalf("expected default sonic stage title, got %q", content.SonicStageTitle)
+	}
 	if content.FooterText != landingDefaultFooterText {
 		t.Fatalf("expected default footer, got %q", content.FooterText)
 	}
@@ -59,16 +62,22 @@ func TestLandingContentToResponseUsesDefaults(t *testing.T) {
 // TestMergeLandingContent verifies merge landing content behavior.
 func TestMergeLandingContent(t *testing.T) {
 	base := models.LandingContent{
-		HeroTitle:  "Old title",
-		FooterText: "Old footer",
+		HeroTitle:          "Old title",
+		SonicStageImageURL: "https://old.example/sonic.jpg",
+		FooterText:         "Old footer",
 	}
 	newTitle := "  New title  "
+	newSonicImage := " https://cdn.example/sonic.jpg "
 	req := upsertLandingContentRequest{
-		HeroTitle: &newTitle,
+		HeroTitle:          &newTitle,
+		SonicStageImageURL: &newSonicImage,
 	}
 	merged := mergeLandingContent(base, req)
 	if merged.HeroTitle != "New title" {
 		t.Fatalf("expected trimmed title, got %q", merged.HeroTitle)
+	}
+	if merged.SonicStageImageURL != "https://cdn.example/sonic.jpg" {
+		t.Fatalf("expected trimmed sonic image, got %q", merged.SonicStageImageURL)
 	}
 	if merged.FooterText != "Old footer" {
 		t.Fatalf("expected untouched footer, got %q", merged.FooterText)

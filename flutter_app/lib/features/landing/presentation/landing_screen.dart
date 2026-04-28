@@ -878,13 +878,14 @@ class LandingLayoutConfig {
 
   static const Map<String, double> sectionAnchorOffsets = <String, double>{
     'hero': 0.05,
-    'about': 0.38,
-    'partners': 0.69,
+    'sonic': 0.31,
+    'lensound': 0.54,
+    'space': 0.77,
   };
 
-  static const double desktopCanvasScreens = 3;
-  static const double tabletCanvasScreens = 3;
-  static const double mobileCanvasScreens = 3;
+  static const double desktopCanvasScreens = 4.1;
+  static const double tabletCanvasScreens = 4.2;
+  static const double mobileCanvasScreens = 4.35;
   static const double glassBlurSigma = 14;
   static const double parallaxOverflowViewportFactor = 0.72;
   static const double effectsTimelineSec = 120;
@@ -1034,7 +1035,17 @@ class _LandingForeground extends StatelessWidget {
     final aboutTop = LandingLayoutConfig.sectionTop(
       canvasHeight: canvasHeight,
       viewportHeight: viewport.height,
-      anchor: LandingLayoutConfig.sectionAnchorOffsets['about']!,
+      anchor: LandingLayoutConfig.sectionAnchorOffsets['sonic']!,
+    );
+    final lensoundTop = LandingLayoutConfig.sectionTop(
+      canvasHeight: canvasHeight,
+      viewportHeight: viewport.height,
+      anchor: LandingLayoutConfig.sectionAnchorOffsets['lensound']!,
+    );
+    final spaceTop = LandingLayoutConfig.sectionTop(
+      canvasHeight: canvasHeight,
+      viewportHeight: viewport.height,
+      anchor: LandingLayoutConfig.sectionAnchorOffsets['space']!,
     );
 
     return SafeArea(
@@ -1065,11 +1076,43 @@ class _LandingForeground extends StatelessWidget {
             left: quietZoneLeft,
             width: quietZoneWidth,
             child: RepaintBoundary(
-              child: _AboutSection(
-                events: events,
-                content: content,
-                total: total,
-                totalParticipants: totalParticipants,
+              child: _StageSection(
+                title: content.sonicStageTitle,
+                eyebrow: 'Stage 01',
+                description: content.sonicStageDescription,
+                imageUrl: content.sonicStageImageUrl,
+                icon: Icons.graphic_eq_rounded,
+                accent: const Color(0xFF42E8F4),
+              ),
+            ),
+          ),
+          Positioned(
+            top: lensoundTop + mediaPadding.top,
+            left: quietZoneLeft,
+            width: quietZoneWidth,
+            child: RepaintBoundary(
+              child: _StageSection(
+                title: content.lensoundStageTitle,
+                eyebrow: 'Stage 02',
+                description: content.lensoundStageDescription,
+                imageUrl: content.lensoundStageImageUrl,
+                icon: Icons.blur_on_rounded,
+                accent: const Color(0xFFFFD166),
+              ),
+            ),
+          ),
+          Positioned(
+            top: spaceTop + mediaPadding.top,
+            left: quietZoneLeft,
+            width: quietZoneWidth,
+            child: RepaintBoundary(
+              child: _StageSection(
+                title: content.spaceStageTitle,
+                eyebrow: 'Stage 03',
+                description: content.spaceStageDescription,
+                imageUrl: content.spaceStageImageUrl,
+                icon: Icons.rocket_launch_rounded,
+                accent: const Color(0xFFFF5EA8),
               ),
             ),
           ),
@@ -1411,82 +1454,71 @@ class _PosterFallback extends StatelessWidget {
   }
 }
 
-/// _AboutSection represents about section.
+/// _StageSection represents a landing stage section.
 
-class _AboutSection extends StatelessWidget {
-  /// _AboutSection handles about section.
-  const _AboutSection({
-    required this.events,
-    required this.content,
-    required this.total,
-    required this.totalParticipants,
+class _StageSection extends StatelessWidget {
+  /// _StageSection handles stage section rendering.
+  const _StageSection({
+    required this.title,
+    required this.eyebrow,
+    required this.description,
+    required this.imageUrl,
+    required this.icon,
+    required this.accent,
   });
 
-  final List<LandingEvent> events;
-  final LandingContent content;
-  final int total;
-  final int totalParticipants;
+  final String title;
+  final String eyebrow;
+  final String description;
+  final String imageUrl;
+  final IconData icon;
+  final Color accent;
 
   /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
-    final description = content.aboutDescription.trim();
-    final earliest = _earliestDate(events);
-    final uniqueLocations = _uniqueLocations(events);
-
     return _GlassPanel(
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _StageVisual(
+            title: title,
+            eyebrow: eyebrow,
+            imageUrl: imageUrl,
+            icon: icon,
+            accent: accent,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           AppSectionHeader(
-            title: content.aboutTitle.trim(),
+            title: title,
             subtitle: description,
             titleColor: Colors.white,
-            subtitleColor: Colors.white.withValues(alpha: 0.85),
+            subtitleColor: Colors.white.withValues(alpha: 0.86),
             padding: EdgeInsets.zero,
           ),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
-              _HighlightTile(
-                icon: Icons.event_available_rounded,
-                title: '$total',
-                subtitle: 'Опубликованных событий',
+              AppBadge(
+                label: eyebrow,
+                variant: AppBadgeVariant.ghost,
+                textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
-              _HighlightTile(
-                icon: Icons.group_rounded,
-                title: '$totalParticipants',
-                subtitle: 'Подтвержденных участников',
-              ),
-              _HighlightTile(
-                icon: Icons.location_on_outlined,
-                title: '$uniqueLocations',
-                subtitle: 'Локаций в программе',
+              AppBadge(
+                label: 'Live program',
+                variant: AppBadgeVariant.neutral,
+                textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                    ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
-              color: AppColors.backgroundDeep.withValues(alpha: 0.32),
-            ),
-            child: Text(
-              earliest == null
-                  ? 'Расписание скоро появится'
-                  : 'Ближайший старт: ${formatDateTime(earliest)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-            ),
           ),
         ],
       ),
@@ -1494,55 +1526,152 @@ class _AboutSection extends StatelessWidget {
   }
 }
 
-/// _HighlightTile represents highlight tile.
+/// _StageVisual represents a compact stage visual.
 
-class _HighlightTile extends StatelessWidget {
-  /// _HighlightTile handles highlight tile.
-  const _HighlightTile({
-    required this.icon,
+class _StageVisual extends StatelessWidget {
+  /// _StageVisual handles stage visual rendering.
+  const _StageVisual({
     required this.title,
-    required this.subtitle,
+    required this.eyebrow,
+    required this.imageUrl,
+    required this.icon,
+    required this.accent,
   });
 
-  final IconData icon;
   final String title;
-  final String subtitle;
+  final String eyebrow;
+  final String imageUrl;
+  final IconData icon;
+  final Color accent;
 
   /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 168,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.info.withValues(alpha: 0.30)),
-          color: AppColors.backgroundDeep.withValues(alpha: 0.32),
+    final stageImageUrl = imageUrl.trim();
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.55)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            accent.withValues(alpha: 0.28),
+            AppColors.backgroundDeep.withValues(alpha: 0.76),
+            Colors.black.withValues(alpha: 0.16),
+          ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: AppColors.info.withValues(alpha: 0.9)),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.24),
+            blurRadius: 24,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 150,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (stageImageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  stageImageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, __) =>
+                      _StageVisualFallback(icon: icon, accent: accent),
+                ),
+              )
+            else
+              _StageVisualFallback(icon: icon, accent: accent),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                  colors: <Color>[
+                    Colors.black.withValues(alpha: 0.74),
+                    AppColors.backgroundDeep.withValues(alpha: 0.22),
+                    accent.withValues(alpha: 0.12),
+                  ],
+                ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.white.withValues(alpha: 0.86)),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    eyebrow.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ],
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// _StageVisualFallback represents a fallback visual for stage blocks.
+
+class _StageVisualFallback extends StatelessWidget {
+  /// _StageVisualFallback handles fallback stage visual rendering.
+  const _StageVisualFallback({
+    required this.icon,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final Color accent;
+
+  /// build renders the widget tree for this component.
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            accent.withValues(alpha: 0.34),
+            AppColors.backgroundDeep.withValues(alpha: 0.82),
+            Colors.black.withValues(alpha: 0.18),
+          ],
+        ),
+      ),
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Transform.translate(
+          offset: const Offset(18, -22),
+          child: Icon(
+            icon,
+            size: 150,
+            color: Colors.white.withValues(alpha: 0.10),
           ),
         ),
       ),
@@ -2721,33 +2850,6 @@ int _totalParticipants(List<LandingEvent> events) {
     total += event.participantsCount;
   }
   return total;
-}
-
-/// _uniqueLocations handles unique locations.
-
-int _uniqueLocations(List<LandingEvent> events) {
-  final unique = <String>{};
-  for (final event in events) {
-    final address = event.addressLabel.trim();
-    if (address.isNotEmpty) {
-      unique.add(address);
-    }
-  }
-  return unique.length;
-}
-
-/// _earliestDate handles earliest date.
-
-DateTime? _earliestDate(List<LandingEvent> events) {
-  DateTime? out;
-  for (final event in events) {
-    final startsAt = event.startsAt;
-    if (startsAt == null) continue;
-    if (out == null || startsAt.isBefore(out)) {
-      out = startsAt;
-    }
-  }
-  return out;
 }
 
 /// _eventMeta handles event meta.
