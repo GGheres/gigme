@@ -425,10 +425,10 @@ func (r *Repository) CreateOrder(ctx context.Context, params models.CreateOrderP
 	}
 
 	ticketSelections := mergeSelections(params.TicketItems)
-	if len(ticketSelections) == 0 {
+	transferSelections := mergeSelections(params.TransferItems)
+	if len(ticketSelections) == 0 && len(transferSelections) == 0 {
 		return out, ErrInvalidProduct
 	}
-	transferSelections := mergeSelections(params.TransferItems)
 
 	err := r.WithTx(ctx, func(tx pgx.Tx) error {
 		return r.createOrderTx(ctx, tx, params, ticketSelections, transferSelections, &out)
@@ -520,15 +520,16 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &ticketType, &priceCents, &isActi
 	for productID, quantity := range transferSelections {
 		var dbID string
 		var eventID int64
+		var name string
 		var direction string
 		var priceCents int64
 		var isActive bool
 		var infoRaw []byte
 		if err := tx.QueryRow(ctx, `
-SELECT id::text, event_id, direction, price_cents, is_active, info_json
+SELECT id::text, event_id, COALESCE(name, ''), direction, price_cents, is_active, info_json
 FROM transfer_products
 WHERE id = $1::uuid
-FOR UPDATE;`, productID).Scan(&dbID, &eventID, &direction, &priceCents, &isActive, &infoRaw); err != nil {
+FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &isActive, &infoRaw); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrInvalidProduct
 			}
@@ -548,6 +549,7 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &direction, &priceCents, &isActiv
 			LineTotalCents: lineTotal,
 			Meta: map[string]interface{}{
 				"direction": direction,
+				"name":      strings.TrimSpace(name),
 				"info":      decodeJSONMap(infoRaw),
 			},
 		})
@@ -797,6 +799,81 @@ LIMIT $5 OFFSET $6;`, nullInt64Ptr(eventID), status, from, to, limit, offset)
 	items := make([]models.OrderSummary, 0)
 	for rows.Next() {
 		item, err := scanOrderSummary(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+// ListTransferOrders lists ordered transfer rows for admins.
+func (r *Repository) ListTransferOrders(ctx context.Context, eventID *int64, status string, limit, offset int) ([]models.TransferOrderSummary, int, error) {
+	status = strings.ToUpper(strings.TrimSpace(status))
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	var total int
+	if err := r.pool.QueryRow(ctx, `
+SELECT count(*)
+FROM order_items oi
+JOIN orders o ON o.id = oi.order_id
+WHERE oi.item_type = $1
+	AND ($2::bigint IS NULL OR o.event_id = $2)
+	AND ($3::text = '' OR o.status = $3);`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.pool.Query(ctx, `
+SELECT
+	o.id::text,
+	o.status,
+	o.created_at,
+	o.event_id,
+	e.title,
+	o.user_id,
+	u.id,
+	u.telegram_id,
+	u.first_name,
+	u.last_name,
+	u.username,
+	oi.id,
+	oi.order_id::text,
+	oi.item_type,
+	oi.product_id::text,
+	oi.product_ref,
+	oi.quantity,
+	oi.unit_price_cents,
+	oi.line_total_cents,
+	oi.meta_json,
+	oi.created_at
+FROM order_items oi
+JOIN orders o ON o.id = oi.order_id
+JOIN events e ON e.id = o.event_id
+JOIN users u ON u.id = o.user_id
+WHERE oi.item_type = $1
+	AND ($2::bigint IS NULL OR o.event_id = $2)
+	AND ($3::text = '' OR o.status = $3)
+ORDER BY o.created_at DESC, oi.id DESC
+LIMIT $4 OFFSET $5;`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]models.TransferOrderSummary, 0)
+	for rows.Next() {
+		item, err := scanTransferOrderSummary(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -2007,6 +2084,59 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	}
 	out.Order = order
 	out.User = &user
+	return out, nil
+}
+
+// scanTransferOrderSummary scans admin transfer order summary.
+func scanTransferOrderSummary(row pgx.Row) (models.TransferOrderSummary, error) {
+	var out models.TransferOrderSummary
+	var user models.OrderUserSummary
+	var item models.OrderItem
+	var eventTitle sql.NullString
+	var firstName sql.NullString
+	var lastName sql.NullString
+	var username sql.NullString
+	var metaRaw []byte
+	if err := row.Scan(
+		&out.OrderID,
+		&out.OrderStatus,
+		&out.OrderCreatedAt,
+		&out.EventID,
+		&eventTitle,
+		&out.UserID,
+		&user.ID,
+		&user.TelegramID,
+		&firstName,
+		&lastName,
+		&username,
+		&item.ID,
+		&item.OrderID,
+		&item.ItemType,
+		&item.ProductID,
+		&item.ProductRef,
+		&item.Quantity,
+		&item.UnitPriceCents,
+		&item.LineTotalCents,
+		&metaRaw,
+		&item.CreatedAt,
+	); err != nil {
+		return out, err
+	}
+	if eventTitle.Valid {
+		out.EventTitle = eventTitle.String
+	}
+	if firstName.Valid {
+		user.FirstName = firstName.String
+	}
+	if lastName.Valid {
+		user.LastName = lastName.String
+	}
+	if username.Valid {
+		user.Username = username.String
+	}
+	item.Meta = decodeJSONMap(metaRaw)
+	out.User = &user
+	out.Item = item
 	return out, nil
 }
 

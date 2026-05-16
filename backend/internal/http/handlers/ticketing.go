@@ -121,6 +121,12 @@ type listOrdersResponse struct {
 	Total int                   `json:"total"`
 }
 
+// listTransferOrdersResponse represents list transfer orders response.
+type listTransferOrdersResponse struct {
+	Items []models.TransferOrderSummary `json:"items"`
+	Total int                           `json:"total"`
+}
+
 // ticketProductsResponse represents ticket products response.
 type ticketProductsResponse struct {
 	Tickets   []models.TicketProduct   `json:"tickets"`
@@ -598,6 +604,37 @@ func (h *Handler) ListAdminOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, listOrdersResponse{Items: items, Total: total})
+}
+
+// ListAdminTransferOrders lists ordered transfers for admins.
+func (h *Handler) ListAdminTransferOrders(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_list_transfer_orders"); !ok {
+		return
+	}
+	limit := parseIntQuery(r, "limit", 50)
+	offset := parseIntQuery(r, "offset", 0)
+	status := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+
+	var eventID *int64
+	if raw := strings.TrimSpace(r.URL.Query().Get("event_id")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid event_id")
+			return
+		}
+		eventID = &parsed
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	items, total, err := h.repo.ListTransferOrders(ctx, eventID, status, limit, offset)
+	if err != nil {
+		logger.Error("admin_list_transfer_orders", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, listTransferOrdersResponse{Items: items, Total: total})
 }
 
 // GetAdminOrder returns admin order.

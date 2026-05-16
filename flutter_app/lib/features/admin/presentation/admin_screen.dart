@@ -24,6 +24,7 @@ import '../../tickets/presentation/admin_products_page.dart';
 import '../../tickets/presentation/admin_promo_codes_page.dart';
 import '../../tickets/presentation/admin_qr_scanner_page.dart';
 import '../../tickets/presentation/admin_stats_page.dart';
+import '../../tickets/presentation/admin_transfer_orders_page.dart';
 import '../data/admin_repository.dart';
 
 /// AdminScreen represents admin screen.
@@ -157,7 +158,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 10, vsync: this);
+    _tabController = TabController(length: 11, vsync: this);
   }
 
   @override
@@ -272,6 +273,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
             Tab(text: 'Парсер'),
             Tab(text: 'Сообщения'),
             Tab(text: 'Заказы'),
+            Tab(text: 'Трансферы'),
             Tab(text: 'Сканер'),
             Tab(text: 'Продукты'),
             Tab(text: 'Промокоды'),
@@ -288,6 +290,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           _buildParserTab(),
           const AdminBotMessagesPage(embedded: true),
           const AdminOrdersPage(embedded: true),
+          const AdminTransferOrdersPage(embedded: true),
           const AdminQrScannerPage(embedded: true),
           const AdminProductsPage(embedded: true),
           const AdminPromoCodesPage(embedded: true),

@@ -12,6 +12,7 @@ class AppRoutes {
   static const admin = '/space_app/admin';
   static const myTickets = '/space_app/tickets';
   static const adminOrders = '/space_app/admin/orders';
+  static const adminTransfers = '/space_app/admin/transfers';
   static const adminBotMessages = '/space_app/admin/bot-messages';
   static const adminScanner = '/space_app/admin/scanner';
   static const adminProducts = '/space_app/admin/products';

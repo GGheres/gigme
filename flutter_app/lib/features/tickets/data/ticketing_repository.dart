@@ -227,6 +227,29 @@ class TicketingRepository {
         );
   }
 
+  /// listAdminTransferOrders lists ordered transfers for admins.
+
+  Future<AdminTransferOrdersListModel> listAdminTransferOrders({
+    required String token,
+    int? eventId,
+    String? status,
+    int limit = 100,
+    int offset = 0,
+  }) {
+    return _ref.read(apiClientProvider).get<AdminTransferOrdersListModel>(
+          '/admin/transfers/orders',
+          token: token,
+          query: <String, dynamic>{
+            if (eventId != null && eventId > 0) 'event_id': eventId,
+            if ((status ?? '').trim().isNotEmpty)
+              'status': status!.trim().toUpperCase(),
+            'limit': limit,
+            'offset': offset,
+          },
+          decoder: AdminTransferOrdersListModel.fromJson,
+        );
+  }
+
   /// listAdminBotMessages lists admin bot messages.
 
   Future<AdminBotMessagesListModel> listAdminBotMessages({

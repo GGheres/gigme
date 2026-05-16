@@ -249,6 +249,18 @@ type OrderSummary struct {
 	User *OrderUserSummary `json:"user,omitempty"`
 }
 
+// TransferOrderSummary represents an ordered transfer row for admin views.
+type TransferOrderSummary struct {
+	OrderID        string            `json:"orderId"`
+	OrderStatus    string            `json:"orderStatus"`
+	OrderCreatedAt time.Time         `json:"orderCreatedAt"`
+	EventID        int64             `json:"eventId"`
+	EventTitle     string            `json:"eventTitle,omitempty"`
+	UserID         int64             `json:"userId"`
+	User           *OrderUserSummary `json:"user,omitempty"`
+	Item           OrderItem         `json:"item"`
+}
+
 // OrderProductSelection represents order product selection.
 type OrderProductSelection struct {
 	ProductID string `json:"productId"`

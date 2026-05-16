@@ -378,6 +378,13 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     return false;
   }
 
+  bool get _hasSelectedTransfer {
+    return (_selectedTransferId ?? '').trim().isNotEmpty && _transferQty > 0;
+  }
+
+  bool get _hasPurchasableSelection =>
+      _hasSelectedTickets || _hasSelectedTransfer;
+
   int get _discountCents {
     final promo = _promoResult;
     if (promo == null || !promo.valid) return 0;
@@ -399,7 +406,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     }
     final subtotal = _subtotalCents;
     if (subtotal <= 0) {
-      _showMessage('Сначала выберите билеты');
+      _showMessage('Сначала выберите билеты или трансфер');
       return;
     }
 
@@ -443,14 +450,20 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           OrderSelectionModel(productId: entry.key, quantity: entry.value));
     }
     if (ticketItems.isEmpty) {
-      _showMessage('Выберите хотя бы один билет');
-      return;
+      if (!_hasSelectedTransfer) {
+        _showMessage('Выберите билет или трансфер');
+        return;
+      }
     }
 
     final transferItems = <OrderSelectionModel>[];
-    if ((_selectedTransferId ?? '').trim().isNotEmpty && _transferQty > 0) {
+    if (_hasSelectedTransfer) {
       transferItems.add(OrderSelectionModel(
           productId: _selectedTransferId!, quantity: _transferQty));
+    }
+    if (ticketItems.isEmpty && transferItems.isEmpty) {
+      _showMessage('Выберите билет или трансфер');
+      return;
     }
 
     setState(() => _submitting = true);
@@ -500,8 +513,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   }
 
   void _openPaymentCheckout() {
-    if (!_hasSelectedTickets) {
-      _showMessage('Сначала выберите хотя бы один билет');
+    if (!_hasPurchasableSelection) {
+      _showMessage('Сначала выберите билет или трансфер');
       return;
     }
     final availableMethods = _availablePaymentMethods;
@@ -609,6 +622,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     final selectedTicketsCount = _ticketQuantities.values
         .where((qty) => qty > 0)
         .fold<int>(0, (sum, qty) => sum + qty);
+    final selectedTransferSeats = selectedTransfer == null ? 0 : _transferQty;
     final hasOrderDraft = selectedTicketsCount > 0 || selectedTransfer != null;
 
     return AppScaffold(
@@ -623,7 +637,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         primaryAction: PrimaryButton(
           label: 'Перейти к оплате',
           onPressed: _submitting ||
-                  !_hasSelectedTickets ||
+                  !_hasPurchasableSelection ||
                   availablePaymentMethods.isEmpty
               ? null
               : _openPaymentCheckout,
@@ -645,7 +659,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             title: 'Оформление заказа',
             subtitle: hasOrderDraft
                 ? 'Проверьте шаги и переходите к оплате.'
-                : 'Соберите заказ из билетов, трансфера и способа оплаты.',
+                : 'Соберите заказ из билетов, трансфера или обоих продуктов.',
             summary: [
               AppBadge(
                 label: '$selectedTicketsCount билетов',
@@ -658,8 +672,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
                 variant: AppBadgeVariant.ghost,
               ),
               if (selectedTransfer != null)
-                const AppBadge(
-                  label: 'Трансфер добавлен',
+                AppBadge(
+                  label: '$selectedTransferSeats мест трансфера',
                   variant: AppBadgeVariant.info,
                 ),
             ],
@@ -668,22 +682,22 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           SectionCard(
             title: 'Готовность заказа',
             subtitle:
-                'Билеты: $selectedTicketsCount · К оплате: ${formatMoney(_totalCents)}',
+                'Билеты: $selectedTicketsCount · Трансфер: $selectedTransferSeats · К оплате: ${formatMoney(_totalCents)}',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   hasOrderDraft
                       ? 'Черновик заказа сохраняется автоматически.'
-                      : 'Выберите хотя бы один билет для продолжения.',
+                      : 'Выберите билет или трансфер для продолжения.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                if (!_hasSelectedTickets) ...[
+                if (!_hasPurchasableSelection) ...[
                   const SizedBox(height: AppSpacing.xs),
                   const InlineStatusBanner(
                     title: 'Заказ еще не собран',
                     message:
-                        'Добавьте хотя бы один билет, чтобы перейти к шагу оплаты.',
+                        'Добавьте билет или трансфер, чтобы перейти к шагу оплаты.',
                     tone: InlineStatusBannerTone.warning,
                   ),
                 ],
@@ -692,7 +706,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '1) Выберите билеты',
+            '1) Выберите билеты (опционально)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -760,7 +774,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
               _InfoCard(text: selectedTransfer.infoLabel),
             _TicketQuantityRow(
               title: 'Количество трансфера',
-              subtitle: formatMoney(selectedTransfer.priceCents),
+              subtitle:
+                  '${formatMoney(selectedTransfer.priceCents)} · мест: $_transferQty',
               quantity: _transferQty,
               onChanged: (value) {
                 _updateStateAndSave(() {
@@ -853,7 +868,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           const SizedBox(height: 16),
           Text(
             !_hasSelectedTickets
-                ? 'Сначала выберите хотя бы один билет.'
+                ? selectedTransfer == null
+                    ? 'Сначала выберите билет или трансфер.'
+                    : 'Можно оформить только трансфер без билета.'
                 : availablePaymentMethods.isEmpty
                     ? 'Сейчас нет доступных способов оплаты для этого события.'
                     : 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».',
@@ -976,6 +993,8 @@ class PurchaseStatusPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final order = detail.order;
     final instructions = detail.paymentInstructions;
+    final transferItems = detail.transferItems;
+    final hasTickets = detail.tickets.isNotEmpty;
 
     return AppScaffold(
       appBar: AppBar(
@@ -996,13 +1015,15 @@ class PurchaseStatusPage extends StatelessWidget {
           SectionCard(
             title: 'Ожидаем подтверждение',
             subtitle: 'Текущий статус: ${order.status}',
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.hourglass_top_rounded),
-                SizedBox(width: AppSpacing.xs),
+                const Icon(Icons.hourglass_top_rounded),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
-                    'Мы проверяем оплату. После подтверждения билет станет активным.',
+                    hasTickets
+                        ? 'Мы проверяем оплату. После подтверждения билет станет активным.'
+                        : 'Мы проверяем оплату. После подтверждения трансфер будет закреплен за вами.',
                   ),
                 ),
               ],
@@ -1020,6 +1041,15 @@ class PurchaseStatusPage extends StatelessWidget {
             value: formatMoney(order.totalCents),
             copyEnabled: false,
           ),
+          if (transferItems.isNotEmpty) ...[
+            _CopyInfoRow(
+              label: 'Мест на трансфер',
+              value: '${detail.transferSeatsCount}',
+              copyEnabled: false,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            _TransferItemsCard(items: transferItems),
+          ],
           const SizedBox(height: AppSpacing.xs),
           if (instructions.displayMessage.trim().isNotEmpty)
             Text(instructions.displayMessage),
@@ -1054,6 +1084,47 @@ class PurchaseStatusPage extends StatelessWidget {
             label: 'Закрыть',
             outline: true,
             expand: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// _TransferItemsCard represents ordered transfer items.
+
+class _TransferItemsCard extends StatelessWidget {
+  /// _TransferItemsCard handles ordered transfer items.
+  const _TransferItemsCard({required this.items});
+
+  final List<OrderItemModel> items;
+
+  /// build renders the widget tree for this component.
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      variant: AppCardVariant.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Трансфер',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(item.displayName),
+                  ),
+                  Text('${item.quantity} мест'),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1206,6 +1277,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     final statusAccent = isPaid ? colorScheme.tertiary : colorScheme.primary;
     final statusBackgroundAlpha = isDark ? 0.28 : 0.14;
     final statusBorderAlpha = isDark ? 0.62 : 0.42;
+    final transferItems = detail.transferItems;
+    final hasTickets = detail.tickets.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -1246,7 +1319,9 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
                 Expanded(
                   child: Text(
                     isPaid
-                        ? 'Оплата подтверждена. Билет будет отправлен в Telegram-бот.'
+                        ? hasTickets
+                            ? 'Оплата подтверждена. Билет будет отправлен в Telegram-бот.'
+                            : 'Оплата подтверждена. Трансфер закреплен за вами.'
                         : 'Ожидаем оплату через СБП. После оплаты статус обновится автоматически.',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
@@ -1272,6 +1347,15 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
             value: paymentStatus.isEmpty ? 'PENDING' : paymentStatus,
             copyEnabled: false,
           ),
+          if (transferItems.isNotEmpty) ...[
+            _CopyInfoRow(
+              label: 'Мест на трансфер',
+              value: '${detail.transferSeatsCount}',
+              copyEnabled: false,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            _TransferItemsCard(items: transferItems),
+          ],
           if ((_status?.message ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(_status!.message),

@@ -24,6 +24,7 @@ import '../features/tickets/presentation/admin_products_page.dart';
 import '../features/tickets/presentation/admin_promo_codes_page.dart';
 import '../features/tickets/presentation/admin_qr_scanner_page.dart';
 import '../features/tickets/presentation/admin_stats_page.dart';
+import '../features/tickets/presentation/admin_transfer_orders_page.dart';
 import '../features/tickets/presentation/my_tickets_page.dart';
 import '../ui/layout/landing_backdrop.dart';
 import 'app_shell.dart';
@@ -176,6 +177,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.adminOrders,
                 pageBuilder: (context, state) =>
                     _noTransitionPage(state, const AdminOrdersPage()),
+              ),
+              GoRoute(
+                path: AppRoutes.adminTransfers,
+                pageBuilder: (context, state) =>
+                    _noTransitionPage(state, const AdminTransferOrdersPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminBotMessages,

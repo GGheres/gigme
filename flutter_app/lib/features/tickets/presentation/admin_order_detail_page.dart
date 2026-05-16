@@ -180,6 +180,7 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     final status = order.status.trim().toUpperCase();
     final userTelegramId = detail.user?.telegramId ?? 0;
     final canDelete = order.id.trim().isNotEmpty;
+    final transferItems = detail.transferItems;
 
     return Scaffold(
       appBar: AppBar(
@@ -248,6 +249,38 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           Text('Скидка: ${formatMoney(order.discountCents)}'),
           Text('Итого: ${formatMoney(order.totalCents)}'),
           const SizedBox(height: 12),
+          if (transferItems.isNotEmpty) ...[
+            Text(
+              'Заказанные трансферы',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .tertiaryContainer
+                    .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  for (final item in transferItems)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.airport_shuttle_rounded),
+                      title: Text(item.displayName),
+                      subtitle: Text(
+                        'Мест: ${item.quantity} · ${formatMoney(item.unitPriceCents)} за место',
+                      ),
+                      trailing: Text(formatMoney(item.lineTotalCents)),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text('Позиции', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
           ...detail.items.map(

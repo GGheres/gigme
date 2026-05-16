@@ -524,6 +524,13 @@ class OrderItemModel {
   final int unitPriceCents;
   final int lineTotalCents;
   final Map<String, dynamic> meta;
+
+  /// displayName returns a readable product label for the order item.
+  String get displayName {
+    final rawName = asString(meta['name']).trim();
+    if (rawName.isNotEmpty) return rawName;
+    return productRef.trim().isEmpty ? itemType : productRef;
+  }
 }
 
 /// TicketModel represents ticket model.
@@ -609,6 +616,18 @@ class OrderDetailModel {
   final List<OrderItemModel> items;
   final List<TicketModel> tickets;
   final PaymentInstructionsModel paymentInstructions;
+
+  /// transferItems returns transfer rows from this order.
+  List<OrderItemModel> get transferItems {
+    return items
+        .where((item) => item.itemType.toUpperCase() == 'TRANSFER')
+        .toList();
+  }
+
+  /// transferSeatsCount returns the ordered transfer seat count.
+  int get transferSeatsCount {
+    return transferItems.fold(0, (sum, item) => sum + item.quantity);
+  }
 }
 
 /// OrderSummaryModel represents order summary model.
@@ -646,6 +665,66 @@ class OrdersListModel {
   OrdersListModel({required this.items, required this.total});
 
   final List<OrderSummaryModel> items;
+  final int total;
+}
+
+/// AdminTransferOrderModel represents admin transfer order row.
+
+class AdminTransferOrderModel {
+  /// AdminTransferOrderModel handles admin transfer order row.
+  factory AdminTransferOrderModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminTransferOrderModel(
+      orderId: asString(map['orderId']),
+      orderStatus: asString(map['orderStatus']).toUpperCase(),
+      orderCreatedAt: asDateTime(map['orderCreatedAt']),
+      eventId: asInt(map['eventId']),
+      eventTitle: asString(map['eventTitle']),
+      userId: asInt(map['userId']),
+      user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
+      item: OrderItemModel.fromJson(map['item']),
+    );
+  }
+
+  /// AdminTransferOrderModel handles admin transfer order row.
+  AdminTransferOrderModel({
+    required this.orderId,
+    required this.orderStatus,
+    required this.orderCreatedAt,
+    required this.eventId,
+    required this.eventTitle,
+    required this.userId,
+    required this.user,
+    required this.item,
+  });
+
+  final String orderId;
+  final String orderStatus;
+  final DateTime? orderCreatedAt;
+  final int eventId;
+  final String eventTitle;
+  final int userId;
+  final OrderUserModel? user;
+  final OrderItemModel item;
+}
+
+/// AdminTransferOrdersListModel represents admin transfer orders list.
+
+class AdminTransferOrdersListModel {
+  /// AdminTransferOrdersListModel handles admin transfer orders list.
+  factory AdminTransferOrdersListModel.fromJson(dynamic json) {
+    final map = asMap(json);
+    return AdminTransferOrdersListModel(
+      items:
+          asList(map['items']).map(AdminTransferOrderModel.fromJson).toList(),
+      total: asInt(map['total']),
+    );
+  }
+
+  /// AdminTransferOrdersListModel handles admin transfer orders list.
+  AdminTransferOrdersListModel({required this.items, required this.total});
+
+  final List<AdminTransferOrderModel> items;
   final int total;
 }
 
