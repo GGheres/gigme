@@ -584,6 +584,31 @@ class TicketModel {
     if (orderStatus.trim().isNotEmpty) return orderStatus;
     return redeemedAt == null ? 'PAID' : 'REDEEMED';
   }
+
+  /// isTransfer returns whether this QR belongs to an ordered transfer.
+
+  bool get isTransfer => ticketType.startsWith('TRANSFER_');
+
+  /// displayName returns a user-facing ticket or transfer type.
+
+  String get displayName {
+    switch (ticketType) {
+      case 'SINGLE':
+        return 'Один билет';
+      case 'GROUP2':
+        return 'Групповой билет на 2';
+      case 'GROUP10':
+        return 'Групповой билет на 10';
+      case 'TRANSFER_THERE':
+        return 'Трансфер туда';
+      case 'TRANSFER_BACK':
+        return 'Трансфер обратно';
+      case 'TRANSFER_ROUNDTRIP':
+        return 'Трансфер туда и обратно';
+      default:
+        return ticketType;
+    }
+  }
 }
 
 /// OrderDetailModel represents order detail model.

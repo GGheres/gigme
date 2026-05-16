@@ -86,11 +86,13 @@ CREATE TABLE IF NOT EXISTS tickets (
   order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   event_id bigint NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  ticket_type text NOT NULL CHECK (ticket_type IN ('SINGLE', 'GROUP2', 'GROUP10')),
+  ticket_type text NOT NULL CHECK (ticket_type IN ('SINGLE', 'GROUP2', 'GROUP10', 'TRANSFER_THERE', 'TRANSFER_BACK', 'TRANSFER_ROUNDTRIP')),
   quantity int NOT NULL CHECK (quantity > 0),
   qr_payload text NULL,
   qr_payload_hash text NULL,
   qr_issued_at timestamptz NULL,
+  qr_delivered_at timestamptz NULL,
+  qr_delivery_error text NULL,
   redeemed_at timestamptz NULL,
   redeemed_by bigint NULL REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -106,3 +108,6 @@ CREATE INDEX IF NOT EXISTS order_items_order_ix ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS tickets_order_ix ON tickets(order_id);
 CREATE INDEX IF NOT EXISTS tickets_user_event_ix ON tickets(user_id, event_id);
 CREATE INDEX IF NOT EXISTS tickets_event_redeemed_ix ON tickets(event_id, redeemed_at);
+CREATE INDEX IF NOT EXISTS tickets_qr_delivery_pending_ix
+  ON tickets(order_id, qr_delivered_at)
+  WHERE qr_payload IS NOT NULL AND qr_delivered_at IS NULL;

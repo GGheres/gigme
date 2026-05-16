@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	tochkaapi "gigme/backend/internal/integrations/tochka"
 	"gigme/backend/internal/models"
 	"gigme/backend/internal/repository"
+	"gigme/backend/internal/ticketdelivery"
 	"gigme/backend/internal/ticketing"
 
 	"github.com/go-chi/chi/v5"
@@ -440,15 +442,8 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 			}
 		}
 
-		if confirmedNow && telegramID > 0 {
-			for _, ticket := range confirmedDetail.Tickets {
-				if strings.TrimSpace(ticket.QRPayload) == "" {
-					continue
-				}
-				if err := h.sendTicketQrToBot(telegramID, ticket); err != nil {
-					logger.Warn("sbp_status_confirm", "status", "ticket_delivery_failed", "ticket_id", ticket.ID, "telegram_id", telegramID, "error", err)
-				}
-			}
+		if telegramID > 0 {
+			h.deliverOrderQRCodes(ctx, logger, "sbp_status_confirm", telegramID, confirmedDetail)
 		}
 
 		writeJSON(w, http.StatusOK, response)
@@ -710,15 +705,8 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if confirmedNow && telegramID > 0 {
-		for _, ticket := range detail.Tickets {
-			if strings.TrimSpace(ticket.QRPayload) == "" {
-				continue
-			}
-			if err := h.sendTicketQrToBot(telegramID, ticket); err != nil {
-				logger.Warn("admin_confirm_order", "status", "ticket_delivery_failed", "ticket_id", ticket.ID, "telegram_id", telegramID, "error", err)
-			}
-		}
+	if telegramID > 0 {
+		h.deliverOrderQRCodes(ctx, logger, "admin_confirm_order", telegramID, detail)
 	}
 
 	writeJSON(w, http.StatusOK, detail)
@@ -1229,22 +1217,24 @@ func (h *Handler) DeleteAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 
 // sendTicketQrToBot handles send ticket qr to bot.
 func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) error {
-	if h.telegram == nil {
-		return nil
+	return ticketdelivery.SendTicketQR(h.telegram, userTelegramID, ticket)
+}
+
+// deliverOrderQRCodes sends not-yet-delivered QR codes for an order.
+func (h *Handler) deliverOrderQRCodes(ctx context.Context, logger *slog.Logger, source string, userTelegramID int64, detail models.OrderDetail) {
+	for _, ticket := range detail.Tickets {
+		if strings.TrimSpace(ticket.QRPayload) == "" || ticket.QRDeliveredAt != nil {
+			continue
+		}
+		if err := h.sendTicketQrToBot(userTelegramID, ticket); err != nil {
+			_ = h.repo.MarkTicketQRDeliveryFailed(ctx, ticket.ID, err.Error())
+			logger.Warn(source, "status", "ticket_delivery_failed", "ticket_id", ticket.ID, "telegram_id", userTelegramID, "error", err)
+			continue
+		}
+		if err := h.repo.MarkTicketQRDelivered(ctx, ticket.ID); err != nil {
+			logger.Warn(source, "status", "ticket_delivery_mark_failed", "ticket_id", ticket.ID, "telegram_id", userTelegramID, "error", err)
+		}
 	}
-	payload := strings.TrimSpace(ticket.QRPayload)
-	if payload == "" {
-		return nil
-	}
-	qrBytes, err := ticketing.GenerateQRImagePNG(payload, 420)
-	if err != nil {
-		return err
-	}
-	caption := fmt.Sprintf("Ticket %s\nEvent: %d\nType: %s\nQty: %d", ticket.ID, ticket.EventID, ticket.TicketType, ticket.Quantity)
-	if err := h.telegram.SendPhotoBytes(userTelegramID, fmt.Sprintf("ticket-%s.png", ticket.ID), qrBytes, caption, nil); err != nil {
-		return h.telegram.SendMessage(userTelegramID, fmt.Sprintf("Ticket %s\nQR payload: %s", ticket.ID, payload))
-	}
-	return nil
 }
 
 // sendPaymentConfirmedToBot handles send payment confirmed to bot.

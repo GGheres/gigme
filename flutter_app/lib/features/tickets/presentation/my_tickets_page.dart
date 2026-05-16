@@ -90,16 +90,16 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
       child: Column(
         children: [
           ScreenHero(
-            title: 'Мои билеты',
+            title: 'Мои билеты и трансферы',
             subtitle:
-                'Все активные, ожидающие и использованные билеты в одном месте.',
+                'Все активные, ожидающие и использованные QR-коды в одном месте.',
             summary: [
               AppBadge(
-                label: '${_tickets.length} билетов',
+                label: '${_tickets.length} QR',
                 variant: AppBadgeVariant.neutral,
               ),
               const AppBadge(
-                label: 'QR для входа',
+                label: 'QR для входа и посадки',
                 variant: AppBadgeVariant.ghost,
               ),
             ],
@@ -136,7 +136,7 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
                     : _tickets.isEmpty
                         ? const Center(
                             child: EmptyState(
-                              title: 'Билетов пока нет',
+                              title: 'QR-кодов пока нет',
                               subtitle:
                                   'После подтверждения заказа здесь появится QR-код',
                             ),

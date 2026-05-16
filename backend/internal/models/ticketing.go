@@ -16,9 +16,12 @@ const (
 )
 
 const (
-	TicketTypeSingle  = "SINGLE"
-	TicketTypeGroup2  = "GROUP2"
-	TicketTypeGroup10 = "GROUP10"
+	TicketTypeSingle            = "SINGLE"
+	TicketTypeGroup2            = "GROUP2"
+	TicketTypeGroup10           = "GROUP10"
+	TicketTypeTransferThere     = "TRANSFER_THERE"
+	TicketTypeTransferBack      = "TRANSFER_BACK"
+	TicketTypeTransferRoundTrip = "TRANSFER_ROUNDTRIP"
 )
 
 const (
@@ -43,6 +46,20 @@ var TicketGroupSizeByType = map[string]int{
 	TicketTypeSingle:  1,
 	TicketTypeGroup2:  2,
 	TicketTypeGroup10: 10,
+}
+
+// TransferTicketType returns the QR ticket type used for a transfer direction.
+func TransferTicketType(direction string) string {
+	switch direction {
+	case TransferDirectionThere:
+		return TicketTypeTransferThere
+	case TransferDirectionBack:
+		return TicketTypeTransferBack
+	case TransferDirectionRoundTrip:
+		return TicketTypeTransferRoundTrip
+	default:
+		return ""
+	}
 }
 
 // TicketProduct represents ticket product.
@@ -134,19 +151,21 @@ type OrderItem struct {
 
 // Ticket represents ticket.
 type Ticket struct {
-	ID            string     `json:"id"`
-	OrderID       string     `json:"orderId"`
-	OrderStatus   string     `json:"orderStatus,omitempty"`
-	UserID        int64      `json:"userId"`
-	EventID       int64      `json:"eventId"`
-	TicketType    string     `json:"ticketType"`
-	Quantity      int        `json:"quantity"`
-	QRPayload     string     `json:"qrPayload,omitempty"`
-	QRPayloadHash string     `json:"qrPayloadHash,omitempty"`
-	QRIssuedAt    *time.Time `json:"qrIssuedAt,omitempty"`
-	RedeemedAt    *time.Time `json:"redeemedAt,omitempty"`
-	RedeemedBy    *int64     `json:"redeemedBy,omitempty"`
-	CreatedAt     time.Time  `json:"createdAt"`
+	ID              string     `json:"id"`
+	OrderID         string     `json:"orderId"`
+	OrderStatus     string     `json:"orderStatus,omitempty"`
+	UserID          int64      `json:"userId"`
+	EventID         int64      `json:"eventId"`
+	TicketType      string     `json:"ticketType"`
+	Quantity        int        `json:"quantity"`
+	QRPayload       string     `json:"qrPayload,omitempty"`
+	QRPayloadHash   string     `json:"qrPayloadHash,omitempty"`
+	QRIssuedAt      *time.Time `json:"qrIssuedAt,omitempty"`
+	QRDeliveredAt   *time.Time `json:"qrDeliveredAt,omitempty"`
+	QRDeliveryError string     `json:"qrDeliveryError,omitempty"`
+	RedeemedAt      *time.Time `json:"redeemedAt,omitempty"`
+	RedeemedBy      *int64     `json:"redeemedBy,omitempty"`
+	CreatedAt       time.Time  `json:"createdAt"`
 }
 
 // OrderUserSummary represents order user summary.

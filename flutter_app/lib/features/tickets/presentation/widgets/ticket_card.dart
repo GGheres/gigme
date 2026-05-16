@@ -25,6 +25,7 @@ class TicketCard extends StatelessWidget {
     final isCanceled = status == 'CANCELED';
     final isRedeemed = status == 'REDEEMED';
     final hasQr = ticket.qrPayload.trim().isNotEmpty;
+    final entityLabel = ticket.isTransfer ? 'Трансфер' : 'Билет';
     final badgeVariant = _badgeVariantFor(status);
     final metaStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
           color:
@@ -49,7 +50,7 @@ class TicketCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Билет #${ticket.id}',
+                      '$entityLabel #${ticket.id}',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -62,7 +63,7 @@ class TicketCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Билет #${ticket.id}',
+                      '$entityLabel #${ticket.id}',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
@@ -74,7 +75,7 @@ class TicketCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            ticket.ticketType,
+            ticket.displayName,
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: AppSpacing.xxs),
@@ -82,7 +83,12 @@ class TicketCard extends StatelessWidget {
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
             children: [
-              Text('Количество: ${ticket.quantity}', style: metaStyle),
+              Text(
+                ticket.isTransfer
+                    ? 'Мест: ${ticket.quantity}'
+                    : 'Количество: ${ticket.quantity}',
+                style: metaStyle,
+              ),
               if (ticket.redeemedAt != null)
                 Text(
                   'Погашен: ${ticket.redeemedAt!.toLocal()}',
@@ -103,8 +109,10 @@ class TicketCard extends StatelessWidget {
                 child: PsychedelicQrCard(
                   data: ticket.qrPayload,
                   caption: isRedeemed
-                      ? 'Билет уже использован'
-                      : 'Покажите QR-код на входе',
+                      ? '$entityLabel уже использован'
+                      : ticket.isTransfer
+                          ? 'Покажите QR-код при посадке'
+                          : 'Покажите QR-код на входе',
                   size: 176,
                 ),
               ),

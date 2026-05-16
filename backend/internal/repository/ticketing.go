@@ -538,6 +538,10 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &
 		if eventID != params.EventID || !isActive {
 			return ErrInvalidProduct
 		}
+		transferTicketType := models.TransferTicketType(direction)
+		if transferTicketType == "" {
+			return ErrInvalidProduct
+		}
 		lineTotal := priceCents * int64(quantity)
 		subtotal += lineTotal
 		itemDrafts = append(itemDrafts, itemDraft{
@@ -553,6 +557,7 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &
 				"info":      decodeJSONMap(infoRaw),
 			},
 		})
+		ticketDrafts = append(ticketDrafts, ticketDraft{TicketType: transferTicketType, Quantity: quantity})
 	}
 
 	if subtotal <= 0 {
@@ -710,7 +715,7 @@ RETURNING id, order_id::text, item_type, product_id::text, product_ref, quantity
 		ticketRow := tx.QueryRow(ctx, `
 INSERT INTO tickets (order_id, user_id, event_id, ticket_type, quantity)
 VALUES ($1::uuid, $2, $3, $4, $5)
-RETURNING id::text, order_id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at, redeemed_at, redeemed_by, created_at;`,
+RETURNING id::text, order_id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at, qr_delivered_at, qr_delivery_error, redeemed_at, redeemed_by, created_at;`,
 			order.ID,
 			params.UserID,
 			params.EventID,
@@ -1051,7 +1056,7 @@ ORDER BY id ASC;`, orderID)
 	out.Items = items
 
 	ticketRows, err := q.Query(ctx, `
-SELECT id::text, order_id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at, redeemed_at, redeemed_by, created_at
+SELECT id::text, order_id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at, qr_delivered_at, qr_delivery_error, redeemed_at, redeemed_by, created_at
 FROM tickets
 WHERE order_id = $1::uuid
 ORDER BY created_at ASC, id ASC;`, orderID)
@@ -1089,11 +1094,12 @@ func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID i
 	err := r.WithTx(ctx, func(tx pgx.Tx) error {
 		var orderStatus string
 		var userID int64
+		var eventID int64
 		if err := tx.QueryRow(ctx, `
-SELECT status, user_id
+SELECT status, user_id, event_id
 FROM orders
 WHERE id = $1::uuid
-		FOR UPDATE;`, orderID).Scan(&orderStatus, &userID); err != nil {
+			FOR UPDATE;`, orderID).Scan(&orderStatus, &userID, &eventID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrOrderNotFound
 			}
@@ -1174,6 +1180,10 @@ WHERE id = $1::uuid
 			return ErrOrderStateNotAllowed
 		}
 
+		if err := r.ensureTransferTicketsTx(ctx, tx, orderID, userID, eventID); err != nil {
+			return err
+		}
+
 		ticketRows, err := tx.Query(ctx, `
 SELECT id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at
 FROM tickets
@@ -1249,6 +1259,75 @@ WHERE id = $1::uuid;`, row.id, token, hash, now); err != nil {
 		return models.OrderDetail{}, 0, false, err
 	}
 	return detail, telegramID, confirmedNow, nil
+}
+
+// ensureTransferTicketsTx creates QR-bearing ticket rows for ordered transfers.
+func (r *Repository) ensureTransferTicketsTx(ctx context.Context, tx pgx.Tx, orderID string, userID int64, eventID int64) error {
+	rows, err := tx.Query(ctx, `
+SELECT product_ref, SUM(quantity)::int
+FROM order_items
+WHERE order_id = $1::uuid
+	AND item_type = $2
+GROUP BY product_ref
+ORDER BY product_ref;`, orderID, models.ItemTypeTransfer)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type transferTicketDraft struct {
+		ticketType string
+		quantity   int
+	}
+	drafts := make([]transferTicketDraft, 0, 3)
+	for rows.Next() {
+		var direction string
+		var quantity int
+		if err := rows.Scan(&direction, &quantity); err != nil {
+			return err
+		}
+		ticketType := models.TransferTicketType(strings.ToUpper(strings.TrimSpace(direction)))
+		if ticketType == "" {
+			return ErrInvalidProduct
+		}
+		drafts = append(drafts, transferTicketDraft{ticketType: ticketType, quantity: quantity})
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, draft := range drafts {
+		var existingID string
+		var existingPayload sql.NullString
+		err := tx.QueryRow(ctx, `
+SELECT id::text, qr_payload
+FROM tickets
+WHERE order_id = $1::uuid
+	AND ticket_type = $2
+ORDER BY created_at ASC
+LIMIT 1
+FOR UPDATE;`, orderID, draft.ticketType).Scan(&existingID, &existingPayload)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			if _, err := tx.Exec(ctx, `
+INSERT INTO tickets (order_id, user_id, event_id, ticket_type, quantity)
+VALUES ($1::uuid, $2, $3, $4, $5);`, orderID, userID, eventID, draft.ticketType, draft.quantity); err != nil {
+				return err
+			}
+			continue
+		}
+		if !existingPayload.Valid || strings.TrimSpace(existingPayload.String) == "" {
+			if _, err := tx.Exec(ctx, `
+UPDATE tickets
+SET quantity = $2
+WHERE id = $1::uuid;`, existingID, draft.quantity); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // CancelOrder handles cancel order.
@@ -1483,12 +1562,12 @@ SELECT
 	t.event_id,
 	t.ticket_type,
 	t.quantity,
-	t.qr_payload,
-	t.qr_payload_hash,
-	t.qr_issued_at,
-	t.redeemed_at,
-	t.redeemed_by,
-	t.created_at,
+		t.qr_payload,
+		t.qr_payload_hash,
+		t.qr_issued_at,
+		t.redeemed_at,
+		t.redeemed_by,
+		t.created_at,
 	o.status
 FROM tickets t
 JOIN orders o ON o.id = t.order_id
@@ -1596,10 +1675,12 @@ SELECT
 	t.event_id,
 	t.ticket_type,
 	t.quantity,
-	t.qr_payload,
-	t.qr_payload_hash,
-	t.qr_issued_at,
-	t.redeemed_at,
+		t.qr_payload,
+		t.qr_payload_hash,
+		t.qr_issued_at,
+		t.qr_delivered_at,
+		t.qr_delivery_error,
+		t.redeemed_at,
 	t.redeemed_by,
 	t.created_at,
 	o.status
@@ -1624,12 +1705,103 @@ ORDER BY t.created_at DESC;`, userID, nullInt64Ptr(eventID))
 	return items, rows.Err()
 }
 
+// ListOrdersNeedingQRDelivery lists confirmed orders with QR codes to issue or send.
+func (r *Repository) ListOrdersNeedingQRDelivery(ctx context.Context, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	rows, err := r.pool.Query(ctx, `
+SELECT DISTINCT o.id::text
+FROM orders o
+WHERE o.status IN ($1, $2)
+	AND (
+		EXISTS (
+			SELECT 1
+			FROM tickets t
+			WHERE t.order_id = o.id
+				AND (
+					t.qr_payload IS NULL
+					OR btrim(t.qr_payload) = ''
+					OR t.qr_delivered_at IS NULL
+				)
+		)
+		OR EXISTS (
+			SELECT 1
+			FROM order_items oi
+			WHERE oi.order_id = o.id
+				AND oi.item_type = $3
+				AND NOT EXISTS (
+					SELECT 1
+					FROM tickets t
+					WHERE t.order_id = oi.order_id
+						AND t.ticket_type = CASE oi.product_ref
+							WHEN $4 THEN $5
+							WHEN $6 THEN $7
+							WHEN $8 THEN $9
+							ELSE ''
+						END
+				)
+		)
+	)
+ORDER BY o.id::text
+LIMIT $10;`,
+		models.OrderStatusPaid,
+		"CONFIRMED",
+		models.ItemTypeTransfer,
+		models.TransferDirectionThere,
+		models.TicketTypeTransferThere,
+		models.TransferDirectionBack,
+		models.TicketTypeTransferBack,
+		models.TransferDirectionRoundTrip,
+		models.TicketTypeTransferRoundTrip,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orderIDs := make([]string, 0)
+	for rows.Next() {
+		var orderID string
+		if err := rows.Scan(&orderID); err != nil {
+			return nil, err
+		}
+		orderIDs = append(orderIDs, orderID)
+	}
+	return orderIDs, rows.Err()
+}
+
+// MarkTicketQRDelivered marks ticket QR delivery as successful.
+func (r *Repository) MarkTicketQRDelivered(ctx context.Context, ticketID string) error {
+	_, err := r.pool.Exec(ctx, `
+UPDATE tickets
+SET qr_delivered_at = now(),
+	qr_delivery_error = NULL
+WHERE id = $1::uuid;`, ticketID)
+	return err
+}
+
+// MarkTicketQRDeliveryFailed stores the latest ticket QR delivery error.
+func (r *Repository) MarkTicketQRDeliveryFailed(ctx context.Context, ticketID string, deliveryError string) error {
+	_, err := r.pool.Exec(ctx, `
+UPDATE tickets
+SET qr_delivery_error = $2
+WHERE id = $1::uuid;`, ticketID, nullString(strings.TrimSpace(deliveryError)))
+	return err
+}
+
 // scanMyTicketWithOrderStatus scans my ticket with order status.
 func scanMyTicketWithOrderStatus(row pgx.Row) (models.Ticket, error) {
 	var out models.Ticket
 	var qrPayload sql.NullString
 	var qrPayloadHash sql.NullString
 	var qrIssuedAt sql.NullTime
+	var qrDeliveredAt sql.NullTime
+	var qrDeliveryError sql.NullString
 	var redeemedAt sql.NullTime
 	var redeemedBy sql.NullInt64
 	var orderStatus sql.NullString
@@ -1643,6 +1815,8 @@ func scanMyTicketWithOrderStatus(row pgx.Row) (models.Ticket, error) {
 		&qrPayload,
 		&qrPayloadHash,
 		&qrIssuedAt,
+		&qrDeliveredAt,
+		&qrDeliveryError,
 		&redeemedAt,
 		&redeemedBy,
 		&out.CreatedAt,
@@ -1657,6 +1831,10 @@ func scanMyTicketWithOrderStatus(row pgx.Row) (models.Ticket, error) {
 		out.QRPayloadHash = qrPayloadHash.String
 	}
 	out.QRIssuedAt = nullTimeToPtr(qrIssuedAt)
+	out.QRDeliveredAt = nullTimeToPtr(qrDeliveredAt)
+	if qrDeliveryError.Valid {
+		out.QRDeliveryError = qrDeliveryError.String
+	}
 	out.RedeemedAt = nullTimeToPtr(redeemedAt)
 	if redeemedBy.Valid {
 		value := redeemedBy.Int64
@@ -2168,6 +2346,8 @@ func scanTicket(row pgx.Row) (models.Ticket, error) {
 	var qrPayload sql.NullString
 	var qrPayloadHash sql.NullString
 	var qrIssuedAt sql.NullTime
+	var qrDeliveredAt sql.NullTime
+	var qrDeliveryError sql.NullString
 	var redeemedAt sql.NullTime
 	var redeemedBy sql.NullInt64
 	if err := row.Scan(
@@ -2180,6 +2360,8 @@ func scanTicket(row pgx.Row) (models.Ticket, error) {
 		&qrPayload,
 		&qrPayloadHash,
 		&qrIssuedAt,
+		&qrDeliveredAt,
+		&qrDeliveryError,
 		&redeemedAt,
 		&redeemedBy,
 		&out.CreatedAt,
@@ -2193,6 +2375,10 @@ func scanTicket(row pgx.Row) (models.Ticket, error) {
 		out.QRPayloadHash = qrPayloadHash.String
 	}
 	out.QRIssuedAt = nullTimeToPtr(qrIssuedAt)
+	out.QRDeliveredAt = nullTimeToPtr(qrDeliveredAt)
+	if qrDeliveryError.Valid {
+		out.QRDeliveryError = qrDeliveryError.String
+	}
 	out.RedeemedAt = nullTimeToPtr(redeemedAt)
 	if redeemedBy.Valid {
 		value := redeemedBy.Int64
