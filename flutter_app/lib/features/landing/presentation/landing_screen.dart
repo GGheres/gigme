@@ -230,7 +230,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   }
 
   Future<void> _openTicket(LandingEvent event) async {
-    final nextLocation = AppRoutes.event(event.id);
+    final nextLocation = AppRoutes.eventPurchase(event.id);
     final authState = await _resolveAuthStateForAction();
     if (!mounted) return;
     if (authState.status == AuthStatus.loading) {

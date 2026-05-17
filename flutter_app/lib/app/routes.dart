@@ -24,6 +24,10 @@ class AppRoutes {
 
   static String event(int id) => '/space_app/event/$id';
 
+  /// eventPurchase returns the direct event purchase route.
+
+  static String eventPurchase(int id) => '/space_app/event/$id/buy';
+
   /// adminEvent handles admin event.
   static String adminEvent(int id) => '/space_app/admin/event/$id';
 

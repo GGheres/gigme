@@ -26,6 +26,7 @@ import '../features/tickets/presentation/admin_qr_scanner_page.dart';
 import '../features/tickets/presentation/admin_stats_page.dart';
 import '../features/tickets/presentation/admin_transfer_orders_page.dart';
 import '../features/tickets/presentation/my_tickets_page.dart';
+import '../features/tickets/presentation/purchase_ticket_flow.dart';
 import '../ui/layout/landing_backdrop.dart';
 import 'app_shell.dart';
 import 'routes.dart';
@@ -240,6 +241,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               eventKey: state.uri.queryParameters['key'] ??
                   state.uri.queryParameters['eventKey'],
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/space_app/event/:id/buy',
+        pageBuilder: (context, state) {
+          final eventId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return _noTransitionPage(
+            state,
+            PurchaseTicketFlow(eventId: eventId),
           );
         },
       ),
