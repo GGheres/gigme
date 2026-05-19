@@ -105,12 +105,12 @@ class TransferProductModel {
     if (name.trim().isNotEmpty) return name.trim();
     switch (direction) {
       case 'BACK':
-        return 'One-way back';
+        return 'Трансфер обратно';
       case 'ROUNDTRIP':
-        return 'Round trip';
+        return 'Трансфер туда и обратно';
       case 'THERE':
       default:
-        return 'One-way there';
+        return 'Трансфер туда';
     }
   }
 
@@ -529,6 +529,16 @@ class OrderItemModel {
   String get displayName {
     final rawName = asString(meta['name']).trim();
     if (rawName.isNotEmpty) return rawName;
+    if (itemType == 'TRANSFER') {
+      switch (productRef.toUpperCase()) {
+        case 'BACK':
+          return 'Трансфер обратно';
+        case 'ROUNDTRIP':
+          return 'Трансфер туда и обратно';
+        case 'THERE':
+          return 'Трансфер туда';
+      }
+    }
     return productRef.trim().isEmpty ? itemType : productRef;
   }
 }

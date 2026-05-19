@@ -816,8 +816,12 @@ LIMIT $5 OFFSET $6;`, nullInt64Ptr(eventID), status, from, to, limit, offset)
 }
 
 // ListTransferOrders lists ordered transfer rows for admins.
-func (r *Repository) ListTransferOrders(ctx context.Context, eventID *int64, status string, limit, offset int) ([]models.TransferOrderSummary, int, error) {
+func (r *Repository) ListTransferOrders(ctx context.Context, eventID *int64, status string, direction string, limit, offset int) ([]models.TransferOrderSummary, int, error) {
 	status = strings.ToUpper(strings.TrimSpace(status))
+	direction = strings.ToUpper(strings.TrimSpace(direction))
+	if direction != "" && models.TransferTicketType(direction) == "" {
+		return nil, 0, ErrInvalidProduct
+	}
 	if limit <= 0 {
 		limit = 50
 	}
@@ -835,7 +839,8 @@ FROM order_items oi
 JOIN orders o ON o.id = oi.order_id
 WHERE oi.item_type = $1
 	AND ($2::bigint IS NULL OR o.event_id = $2)
-	AND ($3::text = '' OR o.status = $3);`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status).Scan(&total); err != nil {
+	AND ($3::text = '' OR o.status = $3)
+	AND ($4::text = '' OR oi.product_ref = $4);`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status, direction).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -869,8 +874,9 @@ JOIN users u ON u.id = o.user_id
 WHERE oi.item_type = $1
 	AND ($2::bigint IS NULL OR o.event_id = $2)
 	AND ($3::text = '' OR o.status = $3)
+	AND ($4::text = '' OR oi.product_ref = $4)
 ORDER BY o.created_at DESC, oi.id DESC
-LIMIT $4 OFFSET $5;`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status, limit, offset)
+LIMIT $5 OFFSET $6;`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status, direction, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -888,6 +894,225 @@ LIMIT $4 OFFSET $5;`, models.ItemTypeTransfer, nullInt64Ptr(eventID), status, li
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// MoveTransferOrderItem moves one ordered transfer row to another transfer product.
+func (r *Repository) MoveTransferOrderItem(ctx context.Context, itemID int64, targetProductID string, qrSecret string) (models.TransferOrderSummary, models.OrderDetail, int64, error) {
+	var out models.TransferOrderSummary
+	var detail models.OrderDetail
+	var telegramID int64
+	targetProductID = strings.TrimSpace(targetProductID)
+	if itemID <= 0 || targetProductID == "" {
+		return out, detail, 0, ErrInvalidProduct
+	}
+
+	err := r.WithTx(ctx, func(tx pgx.Tx) error {
+		// lockedTransferItem contains the current transfer item and its parent order.
+		type lockedTransferItem struct {
+			orderID          string
+			orderStatus      string
+			userID           int64
+			eventID          int64
+			currentProductID string
+			currentDirection string
+			quantity         int
+			currentLineTotal int64
+		}
+
+		var current lockedTransferItem
+		if err := tx.QueryRow(ctx, `
+SELECT
+	oi.order_id::text,
+	o.status,
+	o.user_id,
+	o.event_id,
+	oi.product_id::text,
+	oi.product_ref,
+	oi.quantity,
+	oi.line_total_cents
+FROM order_items oi
+JOIN orders o ON o.id = oi.order_id
+WHERE oi.id = $1
+	AND oi.item_type = $2
+FOR UPDATE OF oi, o;`, itemID, models.ItemTypeTransfer).Scan(
+			&current.orderID,
+			&current.orderStatus,
+			&current.userID,
+			&current.eventID,
+			&current.currentProductID,
+			&current.currentDirection,
+			&current.quantity,
+			&current.currentLineTotal,
+		); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrOrderNotFound
+			}
+			return err
+		}
+
+		if isRedeemedOrderStatus(current.orderStatus) {
+			return ErrOrderStateNotAllowed
+		}
+
+		if current.currentProductID == targetProductID {
+			var err error
+			out, err = r.fetchTransferOrderSummaryByItemIDTx(ctx, tx, itemID)
+			if err != nil {
+				return err
+			}
+			if err := tx.QueryRow(ctx, `SELECT telegram_id FROM users WHERE id = $1`, current.userID).Scan(&telegramID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			detail, err = r.fetchOrderDetail(ctx, tx, current.orderID, true)
+			return err
+		}
+
+		// targetTransferProduct contains the product selected as the new transfer target.
+		type targetTransferProduct struct {
+			id         string
+			eventID    int64
+			name       string
+			direction  string
+			priceCents int64
+			infoRaw    []byte
+		}
+
+		var target targetTransferProduct
+		if err := tx.QueryRow(ctx, `
+SELECT id::text, event_id, COALESCE(name, ''), direction, price_cents, info_json
+FROM transfer_products
+WHERE id = $1::uuid
+FOR UPDATE;`, targetProductID).Scan(
+			&target.id,
+			&target.eventID,
+			&target.name,
+			&target.direction,
+			&target.priceCents,
+			&target.infoRaw,
+		); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrInvalidProduct
+			}
+			return err
+		}
+
+		target.direction = strings.ToUpper(strings.TrimSpace(target.direction))
+		if target.eventID != current.eventID || models.TransferTicketType(target.direction) == "" {
+			return ErrInvalidProduct
+		}
+
+		if isPaidOrderStatus(current.orderStatus) {
+			if _, err := tx.Exec(ctx, `
+UPDATE transfer_products
+SET sold_count = GREATEST(0, sold_count - $2),
+	updated_at = now()
+WHERE id = $1::uuid;`, current.currentProductID, current.quantity); err != nil {
+				return err
+			}
+			cmd, err := tx.Exec(ctx, `
+UPDATE transfer_products
+SET sold_count = sold_count + $2,
+	updated_at = now()
+WHERE id = $1::uuid
+	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, target.id, current.quantity)
+			if err != nil {
+				return err
+			}
+			if cmd.RowsAffected() == 0 {
+				return ErrInventoryLimitReached
+			}
+		}
+
+		lineTotal := target.priceCents * int64(current.quantity)
+		metaRaw, err := json.Marshal(map[string]interface{}{
+			"direction": target.direction,
+			"name":      strings.TrimSpace(target.name),
+			"info":      decodeJSONMap(target.infoRaw),
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+UPDATE order_items
+SET product_id = $2::uuid,
+	product_ref = $3,
+	unit_price_cents = $4,
+	line_total_cents = $5,
+	meta_json = $6
+WHERE id = $1
+	AND item_type = $7;`, itemID, target.id, target.direction, target.priceCents, lineTotal, metaRaw, models.ItemTypeTransfer); err != nil {
+			return err
+		}
+
+		delta := lineTotal - current.currentLineTotal
+		if delta != 0 {
+			if _, err := tx.Exec(ctx, `
+UPDATE orders
+SET subtotal_cents = GREATEST(0, subtotal_cents + $2),
+	total_cents = GREATEST(0, subtotal_cents + $2 - discount_cents),
+	updated_at = now()
+WHERE id = $1::uuid;`, current.orderID, delta); err != nil {
+				return err
+			}
+		}
+
+		if err := r.ensureTransferTicketsTx(ctx, tx, current.orderID, current.userID, current.eventID); err != nil {
+			return err
+		}
+		if isPaidOrderStatus(current.orderStatus) {
+			if err := r.issueMissingTicketQRCodesTx(ctx, tx, current.orderID, qrSecret); err != nil {
+				return err
+			}
+		}
+
+		out, err = r.fetchTransferOrderSummaryByItemIDTx(ctx, tx, itemID)
+		if err != nil {
+			return err
+		}
+		if err := tx.QueryRow(ctx, `SELECT telegram_id FROM users WHERE id = $1`, current.userID).Scan(&telegramID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		detail, err = r.fetchOrderDetail(ctx, tx, current.orderID, true)
+		return err
+	})
+	if err != nil {
+		return models.TransferOrderSummary{}, models.OrderDetail{}, 0, err
+	}
+	return out, detail, telegramID, nil
+}
+
+// fetchTransferOrderSummaryByItemIDTx returns one admin transfer order row inside a transaction.
+func (r *Repository) fetchTransferOrderSummaryByItemIDTx(ctx context.Context, tx pgx.Tx, itemID int64) (models.TransferOrderSummary, error) {
+	row := tx.QueryRow(ctx, `
+SELECT
+	o.id::text,
+	o.status,
+	o.created_at,
+	o.event_id,
+	e.title,
+	o.user_id,
+	u.id,
+	u.telegram_id,
+	u.first_name,
+	u.last_name,
+	u.username,
+	oi.id,
+	oi.order_id::text,
+	oi.item_type,
+	oi.product_id::text,
+	oi.product_ref,
+	oi.quantity,
+	oi.unit_price_cents,
+	oi.line_total_cents,
+	oi.meta_json,
+	oi.created_at
+FROM order_items oi
+JOIN orders o ON o.id = oi.order_id
+JOIN events e ON e.id = o.event_id
+JOIN users u ON u.id = o.user_id
+WHERE oi.id = $1
+	AND oi.item_type = $2;`, itemID, models.ItemTypeTransfer)
+	return scanTransferOrderSummary(row)
 }
 
 // ListMyOrders lists my orders.
@@ -1261,6 +1486,78 @@ WHERE id = $1::uuid;`, row.id, token, hash, now); err != nil {
 	return detail, telegramID, confirmedNow, nil
 }
 
+// issueMissingTicketQRCodesTx signs QR payloads for tickets missing issued QR data.
+func (r *Repository) issueMissingTicketQRCodesTx(ctx context.Context, tx pgx.Tx, orderID string, qrSecret string) error {
+	secret := strings.TrimSpace(qrSecret)
+	if secret == "" {
+		return fmt.Errorf("qr secret is required")
+	}
+
+	ticketRows, err := tx.Query(ctx, `
+SELECT id::text, user_id, event_id, ticket_type, quantity, qr_payload, qr_payload_hash, qr_issued_at
+FROM tickets
+WHERE order_id = $1::uuid
+ORDER BY created_at ASC
+FOR UPDATE;`, orderID)
+	if err != nil {
+		return err
+	}
+
+	// ticketToIssue represents ticket rows that need a signed QR payload.
+	type ticketToIssue struct {
+		id         string
+		userID     int64
+		eventID    int64
+		ticketType string
+		quantity   int
+	}
+	toIssue := make([]ticketToIssue, 0, 8)
+	now := time.Now().UTC()
+	for ticketRows.Next() {
+		var row ticketToIssue
+		var existingPayload sql.NullString
+		var existingHash sql.NullString
+		var existingIssuedAt sql.NullTime
+		if err := ticketRows.Scan(&row.id, &row.userID, &row.eventID, &row.ticketType, &row.quantity, &existingPayload, &existingHash, &existingIssuedAt); err != nil {
+			ticketRows.Close()
+			return err
+		}
+		if existingPayload.Valid && existingHash.Valid && existingIssuedAt.Valid {
+			continue
+		}
+		toIssue = append(toIssue, row)
+	}
+	if err := ticketRows.Err(); err != nil {
+		ticketRows.Close()
+		return err
+	}
+	ticketRows.Close()
+
+	for _, row := range toIssue {
+		nonce, err := ticketing.NewNonce(16)
+		if err != nil {
+			return err
+		}
+		payload := ticketing.BuildPayload(row.id, row.eventID, row.userID, row.ticketType, row.quantity, now, nonce)
+		token, err := ticketing.SignQRPayload(secret, payload)
+		if err != nil {
+			return err
+		}
+		hash := ticketing.HashPayloadToken(token)
+		if _, err := tx.Exec(ctx, `
+UPDATE tickets
+SET qr_payload = $2,
+	qr_payload_hash = $3,
+	qr_issued_at = $4,
+	qr_delivered_at = NULL,
+	qr_delivery_error = NULL
+WHERE id = $1::uuid;`, row.id, token, hash, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ensureTransferTicketsTx creates QR-bearing ticket rows for ordered transfers.
 func (r *Repository) ensureTransferTicketsTx(ctx context.Context, tx pgx.Tx, orderID string, userID int64, eventID int64) error {
 	rows, err := tx.Query(ctx, `
@@ -1296,17 +1593,26 @@ ORDER BY product_ref;`, orderID, models.ItemTypeTransfer)
 		return err
 	}
 
+	activeTicketTypes := make(map[string]bool, len(drafts))
+	for _, draft := range drafts {
+		activeTicketTypes[draft.ticketType] = true
+	}
+	if err := r.deleteObsoleteTransferTicketsTx(ctx, tx, orderID, activeTicketTypes); err != nil {
+		return err
+	}
+
 	for _, draft := range drafts {
 		var existingID string
+		var existingQuantity int
 		var existingPayload sql.NullString
 		err := tx.QueryRow(ctx, `
-SELECT id::text, qr_payload
+SELECT id::text, quantity, qr_payload
 FROM tickets
 WHERE order_id = $1::uuid
 	AND ticket_type = $2
 ORDER BY created_at ASC
 LIMIT 1
-FOR UPDATE;`, orderID, draft.ticketType).Scan(&existingID, &existingPayload)
+FOR UPDATE;`, orderID, draft.ticketType).Scan(&existingID, &existingQuantity, &existingPayload)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -1318,6 +1624,20 @@ VALUES ($1::uuid, $2, $3, $4, $5);`, orderID, userID, eventID, draft.ticketType,
 			}
 			continue
 		}
+		if existingQuantity != draft.quantity {
+			if _, err := tx.Exec(ctx, `
+UPDATE tickets
+SET quantity = $2,
+	qr_payload = NULL,
+	qr_payload_hash = NULL,
+	qr_issued_at = NULL,
+	qr_delivered_at = NULL,
+	qr_delivery_error = NULL
+WHERE id = $1::uuid;`, existingID, draft.quantity); err != nil {
+				return err
+			}
+			continue
+		}
 		if !existingPayload.Valid || strings.TrimSpace(existingPayload.String) == "" {
 			if _, err := tx.Exec(ctx, `
 UPDATE tickets
@@ -1325,6 +1645,49 @@ SET quantity = $2
 WHERE id = $1::uuid;`, existingID, draft.quantity); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// deleteObsoleteTransferTicketsTx removes transfer QR rows no longer represented by order items.
+func (r *Repository) deleteObsoleteTransferTicketsTx(ctx context.Context, tx pgx.Tx, orderID string, activeTicketTypes map[string]bool) error {
+	rows, err := tx.Query(ctx, `
+SELECT id::text, ticket_type, redeemed_at
+FROM tickets
+WHERE order_id = $1::uuid
+	AND ticket_type IN ($2, $3, $4)
+FOR UPDATE;`, orderID, models.TicketTypeTransferThere, models.TicketTypeTransferBack, models.TicketTypeTransferRoundTrip)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type obsoleteTransferTicket struct {
+		id         string
+		ticketType string
+		redeemedAt sql.NullTime
+	}
+	obsolete := make([]obsoleteTransferTicket, 0, 3)
+	for rows.Next() {
+		var ticket obsoleteTransferTicket
+		if err := rows.Scan(&ticket.id, &ticket.ticketType, &ticket.redeemedAt); err != nil {
+			return err
+		}
+		if activeTicketTypes[strings.ToUpper(strings.TrimSpace(ticket.ticketType))] {
+			continue
+		}
+		if ticket.redeemedAt.Valid {
+			return ErrTicketAlreadyRedeemed
+		}
+		obsolete = append(obsolete, ticket)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, ticket := range obsolete {
+		if _, err := tx.Exec(ctx, `DELETE FROM tickets WHERE id = $1::uuid`, ticket.id); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -233,6 +233,7 @@ class TicketingRepository {
     required String token,
     int? eventId,
     String? status,
+    String? direction,
     int limit = 100,
     int offset = 0,
   }) {
@@ -243,10 +244,29 @@ class TicketingRepository {
             if (eventId != null && eventId > 0) 'event_id': eventId,
             if ((status ?? '').trim().isNotEmpty)
               'status': status!.trim().toUpperCase(),
+            if ((direction ?? '').trim().isNotEmpty)
+              'direction': direction!.trim().toUpperCase(),
             'limit': limit,
             'offset': offset,
           },
           decoder: AdminTransferOrdersListModel.fromJson,
+        );
+  }
+
+  /// moveAdminTransferOrder moves an ordered transfer item to another product.
+
+  Future<AdminTransferOrderModel> moveAdminTransferOrder({
+    required String token,
+    required int itemId,
+    required String targetProductId,
+  }) {
+    return _ref.read(apiClientProvider).post<AdminTransferOrderModel>(
+          '/admin/transfers/orders/$itemId/move',
+          token: token,
+          body: <String, dynamic>{
+            'targetProductId': targetProductId.trim(),
+          },
+          decoder: AdminTransferOrderModel.fromJson,
         );
   }
 

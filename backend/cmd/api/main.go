@@ -167,6 +167,7 @@ func main() {
 		r.Delete("/admin/comments/{id}", h.DeleteEventCommentAdmin)
 		r.Get("/admin/orders", h.ListAdminOrders)
 		r.Get("/admin/transfers/orders", h.ListAdminTransferOrders)
+		r.Post("/admin/transfers/orders/{itemId}/move", h.MoveAdminTransferOrder)
 		r.Get("/admin/orders/{id}", h.GetAdminOrder)
 		r.Post("/admin/orders/{orderId}/confirm", h.ConfirmOrder)
 		r.Delete("/admin/orders/{id}", h.DeleteAdminOrder)

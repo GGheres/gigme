@@ -127,7 +127,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
               SectionCard(
                 title: 'Фильтр отчета',
                 subtitle:
-                    'Оставьте поле пустым, чтобы получить общую статистику.',
+                    'Оставьте поле пустым, чтобы показать события в одном отчете.',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -158,14 +158,8 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
               if (stats != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 SectionCard(
-                  title: 'Общая статистика',
-                  subtitle: 'Сводные показатели по всем событиям.',
-                  child: _statsCard(stats.global),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                SectionCard(
                   title: 'Статистика по событиям',
-                  subtitle: 'Детальный разрез по каждому событию.',
+                  subtitle: 'Билеты и трансферы разделены на отдельные формы.',
                   child: stats.events.isEmpty
                       ? const EmptyState(
                           title: 'Нет данных по событиям',
@@ -175,7 +169,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
                       : Column(
                           children: [
                             for (var i = 0; i < stats.events.length; i++) ...[
-                              _statsCard(stats.events[i]),
+                              _eventStatsCard(stats.events[i]),
                               if (i != stats.events.length - 1)
                                 const SizedBox(height: AppSpacing.sm),
                             ],
@@ -198,9 +192,9 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
     );
   }
 
-  /// _statsCard handles stats card.
+  /// _eventStatsCard renders one event-level statistics block.
 
-  Widget _statsCard(AdminStatsBreakdownModel item) {
+  Widget _eventStatsCard(AdminStatsBreakdownModel item) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -212,22 +206,189 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            item.eventId == null
-                ? 'Общий итог'
-                : 'Событие ${item.eventId}: ${item.eventTitle}',
+            _eventTitle(item),
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 6),
-          Text('Куплено: ${formatMoney(item.purchasedAmountCents)}'),
-          Text('Куплено билетов: ${item.purchasedTicketsCount}'),
-          Text('Погашено: ${formatMoney(item.redeemedAmountCents)}'),
-          Text('Проверено билетов: ${item.checkedInTickets}'),
-          Text('Проверено людей: ${item.checkedInPeople}'),
-          const SizedBox(height: 6),
-          Text('Типы билетов: ${item.ticketTypeCounts}'),
-          Text('Направления трансфера: ${item.transferDirectionCounts}'),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppBadge(
+                label: 'Куплено: ${formatMoney(item.purchasedAmountCents)}',
+                variant: AppBadgeVariant.info,
+              ),
+              AppBadge(
+                label: 'Погашено: ${formatMoney(item.redeemedAmountCents)}',
+                variant: AppBadgeVariant.ghost,
+              ),
+              AppBadge(
+                label: 'Проверено QR: ${item.checkedInTickets}',
+                variant: AppBadgeVariant.neutral,
+              ),
+              AppBadge(
+                label: 'Проверено людей: ${item.checkedInPeople}',
+                variant: AppBadgeVariant.neutral,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final ticketForm = _statsForm(
+                title: 'Статистика по билетам',
+                children: [
+                  _metricRow('Куплено билетов', item.purchasedTicketsCount),
+                  const SizedBox(height: AppSpacing.xs),
+                  ..._countRows(
+                    item.ticketTypeCounts,
+                    emptyLabel: 'Нет заказанных билетов',
+                    labelBuilder: _ticketTypeLabel,
+                  ),
+                ],
+              );
+              final transferForm = _statsForm(
+                title: 'Статистика по трансферам',
+                children: [
+                  _metricRow(
+                    'Заказано мест',
+                    item.transferDirectionCounts.values.fold<int>(
+                      0,
+                      (sum, value) => sum + value,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  ..._countRows(
+                    item.transferDirectionCounts,
+                    emptyLabel: 'Нет заказанных трансферов',
+                    labelBuilder: _transferDirectionLabel,
+                  ),
+                ],
+              );
+              if (constraints.maxWidth < 720) {
+                return Column(
+                  children: [
+                    ticketForm,
+                    const SizedBox(height: AppSpacing.xs),
+                    transferForm,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: ticketForm),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(child: transferForm),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+
+  /// _statsForm renders a compact statistics form.
+
+  Widget _statsForm({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: AppSpacing.xs),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  /// _metricRow renders one label-value statistics row.
+
+  Widget _metricRow(String label, int value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(
+            '$value',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// _countRows renders count-map rows with readable labels.
+
+  List<Widget> _countRows(
+    Map<String, int> values, {
+    required String emptyLabel,
+    required String Function(String value) labelBuilder,
+  }) {
+    if (values.isEmpty) {
+      return [
+        Text(
+          emptyLabel,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ];
+    }
+    final keys = values.keys.toList()..sort();
+    return [
+      for (final key in keys) _metricRow(labelBuilder(key), values[key] ?? 0),
+    ];
+  }
+
+  /// _ticketTypeLabel converts a ticket type code to an admin label.
+
+  String _ticketTypeLabel(String value) {
+    switch (value.toUpperCase()) {
+      case 'GROUP2':
+        return 'Групповой билет на 2';
+      case 'GROUP10':
+        return 'Групповой билет на 10';
+      case 'SINGLE':
+      default:
+        return 'Обычный билет';
+    }
+  }
+
+  /// _transferDirectionLabel converts a transfer direction code to a label.
+
+  String _transferDirectionLabel(String value) {
+    switch (value.toUpperCase()) {
+      case 'BACK':
+        return 'Трансфер обратно';
+      case 'ROUNDTRIP':
+        return 'Трансфер туда и обратно';
+      case 'THERE':
+      default:
+        return 'Трансфер туда';
+    }
+  }
+
+  /// _eventTitle returns a readable title for an event statistics block.
+
+  String _eventTitle(AdminStatsBreakdownModel item) {
+    final title = item.eventTitle.trim();
+    if (item.eventId == null) {
+      return title.isEmpty ? 'Событие' : title;
+    }
+    if (title.isEmpty) return 'Событие ${item.eventId}';
+    return 'Событие ${item.eventId}: $title';
   }
 }

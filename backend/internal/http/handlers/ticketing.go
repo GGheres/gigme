@@ -57,6 +57,11 @@ type deleteAdminOrderRequest struct {
 	Password string `json:"password"`
 }
 
+// moveTransferOrderRequest represents admin transfer move request.
+type moveTransferOrderRequest struct {
+	TargetProductID string `json:"targetProductId"`
+}
+
 // redeemTicketRequest represents redeem ticket request.
 type redeemTicketRequest struct {
 	QRPayload string `json:"qrPayload"`
@@ -610,6 +615,7 @@ func (h *Handler) ListAdminTransferOrders(w http.ResponseWriter, r *http.Request
 	limit := parseIntQuery(r, "limit", 50)
 	offset := parseIntQuery(r, "offset", 0)
 	status := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	direction := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("direction")))
 
 	var eventID *int64
 	if raw := strings.TrimSpace(r.URL.Query().Get("event_id")); raw != "" {
@@ -623,13 +629,48 @@ func (h *Handler) ListAdminTransferOrders(w http.ResponseWriter, r *http.Request
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	items, total, err := h.repo.ListTransferOrders(ctx, eventID, status, limit, offset)
+	items, total, err := h.repo.ListTransferOrders(ctx, eventID, status, direction, limit, offset)
 	if err != nil {
-		logger.Error("admin_list_transfer_orders", "status", "db_error", "error", err)
-		writeError(w, http.StatusInternalServerError, "db error")
+		h.handleTicketingError(logger, w, "admin_list_transfer_orders", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, listTransferOrdersResponse{Items: items, Total: total})
+}
+
+// MoveAdminTransferOrder moves one ordered transfer row to another product.
+func (h *Handler) MoveAdminTransferOrder(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	if _, ok := h.requireAdmin(logger, w, r, "admin_move_transfer_order"); !ok {
+		return
+	}
+	rawItemID := strings.TrimSpace(chi.URLParam(r, "itemId"))
+	itemID, err := strconv.ParseInt(rawItemID, 10, 64)
+	if err != nil || itemID <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid item id")
+		return
+	}
+
+	var req moveTransferOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if strings.TrimSpace(req.TargetProductID) == "" {
+		writeError(w, http.StatusBadRequest, "targetProductId is required")
+		return
+	}
+
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+	item, detail, telegramID, err := h.repo.MoveTransferOrderItem(ctx, itemID, req.TargetProductID, h.cfg.HMACSecret)
+	if err != nil {
+		h.handleTicketingError(logger, w, "admin_move_transfer_order", err)
+		return
+	}
+	if telegramID > 0 {
+		h.deliverOrderQRCodes(ctx, logger, "admin_move_transfer_order", telegramID, detail)
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 // GetAdminOrder returns admin order.
