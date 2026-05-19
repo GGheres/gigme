@@ -37,6 +37,8 @@ RUN flutter build web --release \
   --dart-define=PAYMENT_USDT_MEMO=${FLUTTER_PAYMENT_USDT_MEMO} \
   --dart-define=PAYMENT_QR_DATA=${FLUTTER_PAYMENT_QR_DATA}
 
+RUN cp web/flutter_service_worker.js build/web/flutter_service_worker.js
+
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html

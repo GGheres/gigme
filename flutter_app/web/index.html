@@ -92,6 +92,7 @@
       (function () {
         if (!('serviceWorker' in navigator)) return;
         navigator.serviceWorker.getRegistrations().then((registrations) => {
+          let shouldReload = false;
           for (const registration of registrations) {
             const activeUrl = registration.active?.scriptURL ?? '';
             const waitingUrl = registration.waiting?.scriptURL ?? '';
@@ -101,9 +102,20 @@
               waitingUrl.includes('flutter_service_worker.js') ||
               installingUrl.includes('flutter_service_worker.js');
             if (looksLikeFlutterWorker) {
+              shouldReload = true;
+              registration.update().catch(() => {});
               registration.unregister();
             }
           }
+          return caches.keys().then((keys) =>
+            Promise.all(keys.map((key) => caches.delete(key)))
+          ).then(() => {
+            const reloadKey = 'gigme:flutter-sw-reset';
+            if (shouldReload && sessionStorage.getItem(reloadKey) !== 'done') {
+              sessionStorage.setItem(reloadKey, 'done');
+              window.location.reload();
+            }
+          });
         }).catch(() => {});
       })();
     </script>
