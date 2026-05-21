@@ -37,6 +37,7 @@ RUN flutter build web --release \
   --dart-define=PAYMENT_USDT_MEMO=${FLUTTER_PAYMENT_USDT_MEMO} \
   --dart-define=PAYMENT_QR_DATA=${FLUTTER_PAYMENT_QR_DATA}
 
+RUN perl -0pi -e 's/_flutter\.loader\.load\(\{\s*serviceWorkerSettings:\s*\{\s*serviceWorkerVersion:\s*"[^"]*"\s*\}\s*\}\);/_flutter.loader.load();/s' build/web/flutter_bootstrap.js
 RUN cp web/flutter_service_worker.js build/web/flutter_service_worker.js
 
 FROM nginx:1.27-alpine

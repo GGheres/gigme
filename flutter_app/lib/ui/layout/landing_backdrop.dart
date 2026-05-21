@@ -1,16 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 /// LandingBackdrop represents landing backdrop.
 
 class LandingBackdrop extends StatelessWidget {
   /// LandingBackdrop handles landing backdrop.
   const LandingBackdrop({super.key});
-
-  static const String _backgroundVideoAssetPath =
-      'assets/videos/landing/IMG_9645.MP4';
 
   /// build renders the widget tree for this component.
 
@@ -20,7 +14,7 @@ class LandingBackdrop extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Positioned.fill(
-          child: IgnorePointer(child: _LandingBackdropVideo()),
+          child: IgnorePointer(child: _LandingBackdropBase()),
         ),
         Positioned.fill(
           child: IgnorePointer(
@@ -42,102 +36,27 @@ class LandingBackdrop extends StatelessWidget {
   }
 }
 
-/// _LandingBackdropVideo represents landing backdrop video.
+/// _LandingBackdropBase represents landing backdrop base.
 
-class _LandingBackdropVideo extends StatefulWidget {
-  /// _LandingBackdropVideo handles landing backdrop video.
-  const _LandingBackdropVideo();
-
-  /// createState creates state.
-
-  @override
-  State<_LandingBackdropVideo> createState() => _LandingBackdropVideoState();
-}
-
-/// _LandingBackdropVideoState represents landing backdrop video state.
-
-class _LandingBackdropVideoState extends State<_LandingBackdropVideo> {
-  VideoPlayerController? _controller;
-  Object? _initError;
-
-  /// initState handles init state.
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_initializeVideo());
-  }
-
-  /// dispose releases resources held by this instance.
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  /// _initializeVideo handles initialize video.
-
-  Future<void> _initializeVideo() async {
-    final controller = VideoPlayerController.asset(
-      LandingBackdrop._backgroundVideoAssetPath,
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
-
-    try {
-      await controller.initialize();
-      await controller.setLooping(true);
-      await controller.setVolume(0);
-      await controller.play();
-    } catch (error) {
-      await controller.dispose();
-      if (!mounted) return;
-      setState(() => _initError = error);
-      return;
-    }
-
-    if (!mounted) {
-      await controller.dispose();
-      return;
-    }
-
-    setState(() {
-      _controller = controller;
-      _initError = null;
-    });
-  }
+class _LandingBackdropBase extends StatelessWidget {
+  /// _LandingBackdropBase handles landing backdrop base.
+  const _LandingBackdropBase();
 
   /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (controller == null ||
-        !controller.value.isInitialized ||
-        _initError != null) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              Color(0xFF060B1D),
-              Color(0xFF040814),
-              Color(0xFF050A16),
-            ],
-            stops: <double>[0, 0.45, 1],
-          ),
-        ),
-      );
-    }
-
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: controller.value.size.width,
-          height: controller.value.size.height,
-          child: VideoPlayer(controller),
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            Color(0xFF060B1D),
+            Color(0xFF040814),
+            Color(0xFF050A16),
+          ],
+          stops: <double>[0, 0.45, 1],
         ),
       ),
     );

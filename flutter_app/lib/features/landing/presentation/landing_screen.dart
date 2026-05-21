@@ -211,8 +211,12 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
     try {
       final repository = ref.read(landingRepositoryProvider);
-      final response = await repository.listEvents(limit: 100, offset: 0);
-      final content = await repository.getContent();
+      final results = await Future.wait<Object>([
+        repository.listEvents(limit: 100, offset: 0),
+        repository.getContent(),
+      ]);
+      final response = results[0] as LandingEventsResponse;
+      final content = results[1] as LandingContent;
       if (!mounted) return;
       setState(() {
         _events = response.items;
@@ -919,6 +923,19 @@ class LandingLayoutConfig {
     final userPrefersReduced = (media?.disableAnimations ?? false) ||
         (media?.accessibleNavigation ?? false);
     return forceReduceMotion || userPrefersReduced;
+  }
+
+  /// shouldUseVideoBackground reports whether video background can start.
+
+  static bool shouldUseVideoBackground(
+    BuildContext context, {
+    required bool reduceMotion,
+  }) {
+    if (reduceMotion) return false;
+    if (kIsWeb && (TelegramWebAppBridge.getInitData()?.isNotEmpty ?? false)) {
+      return false;
+    }
+    return true;
   }
 
   /// parallaxFactor handles parallax factor.
@@ -1705,13 +1722,20 @@ class _LandingParallaxCanvas extends StatelessWidget {
   Widget build(BuildContext context) {
     final overflow =
         viewport.height * LandingLayoutConfig.parallaxOverflowViewportFactor;
+    final shouldUseVideoBackground =
+        LandingLayoutConfig.shouldUseVideoBackground(
+      context,
+      reduceMotion: reduceMotion,
+    );
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        const Positioned.fill(
+        Positioned.fill(
           child: IgnorePointer(
-            child: _LandingVideoBackground(),
+            child: shouldUseVideoBackground
+                ? const _LandingVideoBackground()
+                : const _LandingVideoFallback(),
           ),
         ),
         _ParallaxLayer(
@@ -1838,20 +1862,7 @@ class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
     if (controller == null ||
         !controller.value.isInitialized ||
         _initError != null) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              Color(0xFF060B1D),
-              Color(0xFF040814),
-              Color(0xFF050A16),
-            ],
-            stops: <double>[0, 0.45, 1],
-          ),
-        ),
-      );
+      return const _LandingVideoFallback();
     }
 
     return SizedBox.expand(
@@ -2129,6 +2140,33 @@ class _GrainOverlayPainter extends CustomPainter {
     return oldDelegate.image != image ||
         oldDelegate.opacity != opacity ||
         oldDelegate.frameIndex != frameIndex;
+  }
+}
+
+/// _LandingVideoFallback represents lightweight landing fallback.
+
+class _LandingVideoFallback extends StatelessWidget {
+  /// _LandingVideoFallback handles lightweight landing fallback.
+  const _LandingVideoFallback();
+
+  /// build renders the widget tree for this component.
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            Color(0xFF060B1D),
+            Color(0xFF040814),
+            Color(0xFF050A16),
+          ],
+          stops: <double>[0, 0.45, 1],
+        ),
+      ),
+    );
   }
 }
 

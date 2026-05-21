@@ -87,39 +87,56 @@
       }
     </style>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
       (function () {
         if (!('serviceWorker' in navigator)) return;
+        const resetKey = 'gigme:flutter-sw-reset-v2';
+        const readResetDone = () => {
+          try {
+            return localStorage.getItem(resetKey) === 'done';
+          } catch (_) {
+            return false;
+          }
+        };
+        const markResetDone = () => {
+          try {
+            localStorage.setItem(resetKey, 'done');
+          } catch (_) {}
+        };
+        if (readResetDone()) return;
         navigator.serviceWorker.getRegistrations().then((registrations) => {
-          let shouldReload = false;
-          for (const registration of registrations) {
+          const flutterRegistrations = registrations.filter((registration) => {
             const activeUrl = registration.active?.scriptURL ?? '';
             const waitingUrl = registration.waiting?.scriptURL ?? '';
             const installingUrl = registration.installing?.scriptURL ?? '';
-            const looksLikeFlutterWorker =
+            return (
               activeUrl.includes('flutter_service_worker.js') ||
               waitingUrl.includes('flutter_service_worker.js') ||
-              installingUrl.includes('flutter_service_worker.js');
-            if (looksLikeFlutterWorker) {
-              shouldReload = true;
-              registration.update().catch(() => {});
-              registration.unregister();
-            }
-          }
-          return caches.keys().then((keys) =>
-            Promise.all(keys.map((key) => caches.delete(key)))
-          ).then(() => {
-            const reloadKey = 'gigme:flutter-sw-reset';
-            if (shouldReload && sessionStorage.getItem(reloadKey) !== 'done') {
-              sessionStorage.setItem(reloadKey, 'done');
-              window.location.reload();
-            }
+              installingUrl.includes('flutter_service_worker.js')
+            );
           });
+          if (flutterRegistrations.length === 0) {
+            markResetDone();
+            return null;
+          }
+          return Promise.all(
+            flutterRegistrations.map((registration) => registration.unregister())
+          )
+            .then(() => {
+              if (!('caches' in window)) return null;
+              return caches.keys().then((keys) =>
+                Promise.all(keys.map((key) => caches.delete(key)))
+              );
+            })
+            .then(() => {
+              markResetDone();
+              window.location.reload();
+            });
         }).catch(() => {});
       })();
     </script>
-    <script src="flutter_bootstrap.js" async></script>
+    <script defer src="flutter_bootstrap.js"></script>
   </head>
   <body>
     <div id="boot-loader" aria-live="polite">
