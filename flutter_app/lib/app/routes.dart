@@ -28,6 +28,11 @@ class AppRoutes {
 
   static String eventPurchase(int id) => '/space_app/event/$id/buy';
 
+  /// eventTransferPurchase returns the direct transfer purchase route.
+
+  static String eventTransferPurchase(int id) =>
+      '${eventPurchase(id)}?mode=transfer';
+
   /// adminEvent handles admin event.
   static String adminEvent(int id) => '/space_app/admin/event/$id';
 

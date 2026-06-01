@@ -31,6 +31,8 @@ import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../integrations/telegram/telegram_web_app_bridge.dart';
+import '../../tickets/data/ticketing_repository.dart';
+import '../../tickets/domain/ticketing_models.dart';
 import '../data/landing_repository.dart';
 
 /// _WebLoginProvider represents web login provider.
@@ -69,6 +71,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
   LandingContent _content = LandingContent.defaults();
   bool _telegramModalAuthInProgress = false;
   bool _vkModalAuthInProgress = false;
+  bool _canBuyFeaturedTransfer = false;
+  bool _transferEligibilityLoading = false;
+  String _transferEligibilityKey = '';
+  int _transferEligibilityRequestId = 0;
 
   @override
   void initState() {
@@ -85,6 +91,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         TelegramWebAppBridge.readyAndExpand();
       }
     }
+    ref.read(authControllerProvider).addListener(_onAuthChanged);
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _forceScrollTop();
@@ -94,6 +101,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
   @override
   void dispose() {
+    ref.read(authControllerProvider).removeListener(_onAuthChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _scrollOffset.dispose();
@@ -158,8 +166,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       events: _events,
                       content: _content,
                       total: _total,
+                      canBuyFeaturedTransfer: _canBuyFeaturedTransfer,
                       onOpenApp: () => unawaited(_openApp()),
                       onBuy: (event) => unawaited(_openTicket(event)),
+                      onBuyTransfer: (event) => unawaited(_openTransfer(event)),
                     ),
                   ],
                 ),
@@ -176,6 +186,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     final next = _scrollController.offset;
     if ((_scrollOffset.value - next).abs() < 0.5) return;
     _scrollOffset.value = next;
+  }
+
+  void _onAuthChanged() {
+    unawaited(_refreshFeaturedTransferEligibility());
   }
 
   ScrollPhysics _scrollPhysicsForContext(BuildContext context) {
@@ -223,6 +237,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         _total = response.total;
         _content = content;
       });
+      unawaited(_refreshFeaturedTransferEligibility(force: true));
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
@@ -246,6 +261,90 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       return;
     }
     context.push(nextLocation);
+  }
+
+  Future<void> _openTransfer(LandingEvent event) async {
+    final nextLocation = AppRoutes.eventTransferPurchase(event.id);
+    final authState = await _resolveAuthStateForAction();
+    if (!mounted) return;
+    if (authState.status == AuthStatus.loading) {
+      _showMessage('Проверяем сессию. Попробуйте еще раз через секунду.');
+      return;
+    }
+    if (_shouldPromptWebLogin(authState)) {
+      await _showWebLoginModal(nextLocation: nextLocation);
+      return;
+    }
+    context.push(nextLocation);
+  }
+
+  Future<void> _refreshFeaturedTransferEligibility({bool force = false}) async {
+    final featuredEvent = _events.isNotEmpty ? _events.first : null;
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (featuredEvent == null || token.isEmpty) {
+      _transferEligibilityKey = '';
+      if (!mounted) return;
+      setState(() {
+        _canBuyFeaturedTransfer = false;
+        _transferEligibilityLoading = false;
+      });
+      return;
+    }
+
+    final nextKey = '${featuredEvent.id}|$token';
+    if (!force &&
+        _transferEligibilityLoading &&
+        nextKey == _transferEligibilityKey) {
+      return;
+    }
+    if (!force &&
+        !_transferEligibilityLoading &&
+        nextKey == _transferEligibilityKey &&
+        _canBuyFeaturedTransfer) {
+      return;
+    }
+    _transferEligibilityKey = nextKey;
+    final requestId = ++_transferEligibilityRequestId;
+    if (mounted) {
+      setState(() => _transferEligibilityLoading = true);
+    }
+
+    try {
+      final repo = ref.read(ticketingRepositoryProvider);
+      final results = await Future.wait<Object>([
+        repo.getEventProducts(token: token, eventId: featuredEvent.id),
+        repo.listMyTickets(token: token, eventId: featuredEvent.id),
+      ]);
+      if (!mounted || requestId != _transferEligibilityRequestId) return;
+      final products = results[0] as EventProductsModel;
+      final tickets = results[1] as MyTicketsModel;
+      final hasActiveTransferProduct =
+          products.transfers.any((product) => product.isActive);
+      final hasPaidEventTicket = tickets.items.any(_isPaidEventTicket);
+      setState(() {
+        _canBuyFeaturedTransfer =
+            hasActiveTransferProduct && hasPaidEventTicket;
+        _transferEligibilityLoading = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _transferEligibilityRequestId) return;
+      setState(() {
+        _canBuyFeaturedTransfer = false;
+        _transferEligibilityLoading = false;
+      });
+    }
+  }
+
+  bool _isPaidEventTicket(TicketModel ticket) {
+    if (ticket.isTransfer) return false;
+    switch (ticket.status.toUpperCase()) {
+      case 'PAID':
+      case 'CONFIRMED':
+      case 'REDEEMED':
+        return true;
+      default:
+        return false;
+    }
   }
 
   Future<void> _openApp() async {
@@ -1017,8 +1116,10 @@ class _LandingForeground extends StatelessWidget {
     required this.events,
     required this.content,
     required this.total,
+    required this.canBuyFeaturedTransfer,
     required this.onOpenApp,
     required this.onBuy,
+    required this.onBuyTransfer,
   });
 
   final Size viewport;
@@ -1031,8 +1132,10 @@ class _LandingForeground extends StatelessWidget {
   final List<LandingEvent> events;
   final LandingContent content;
   final int total;
+  final bool canBuyFeaturedTransfer;
   final VoidCallback onOpenApp;
   final ValueChanged<LandingEvent> onBuy;
+  final ValueChanged<LandingEvent> onBuyTransfer;
 
   /// build renders the widget tree for this component.
 
@@ -1084,6 +1187,10 @@ class _LandingForeground extends StatelessWidget {
                 onPrimaryAction: featuredEvent != null && heroCtaIsTicket
                     ? () => onBuy(featuredEvent)
                     : onOpenApp,
+                onTransferAction:
+                    featuredEvent != null && canBuyFeaturedTransfer
+                        ? () => onBuyTransfer(featuredEvent)
+                        : null,
                 onOpenApp: onOpenApp,
               ),
             ),
@@ -1152,6 +1259,7 @@ class _HeroSection extends StatelessWidget {
     required this.error,
     required this.totalParticipants,
     required this.onPrimaryAction,
+    required this.onTransferAction,
     required this.onOpenApp,
   });
 
@@ -1163,6 +1271,7 @@ class _HeroSection extends StatelessWidget {
   final String? error;
   final int totalParticipants;
   final VoidCallback onPrimaryAction;
+  final VoidCallback? onTransferAction;
   final VoidCallback onOpenApp;
 
   /// build renders the widget tree for this component.
@@ -1223,6 +1332,7 @@ class _HeroSection extends StatelessWidget {
             totalParticipants: totalParticipants,
             openAppLabel: content.heroPrimaryCtaLabel.trim(),
             onPrimaryAction: onPrimaryAction,
+            onTransferAction: onTransferAction,
             onOpenApp: onOpenApp,
           ),
           if (loading) ...[
@@ -1292,6 +1402,7 @@ class _HeroActions extends StatelessWidget {
     required this.totalParticipants,
     required this.openAppLabel,
     required this.onPrimaryAction,
+    required this.onTransferAction,
     required this.onOpenApp,
   });
 
@@ -1299,6 +1410,7 @@ class _HeroActions extends StatelessWidget {
   final int totalParticipants;
   final String openAppLabel;
   final VoidCallback onPrimaryAction;
+  final VoidCallback? onTransferAction;
   final VoidCallback onOpenApp;
 
   /// build renders the widget tree for this component.
@@ -1314,6 +1426,15 @@ class _HeroActions extends StatelessWidget {
           icon: const Icon(Icons.open_in_new_rounded),
           onPressed: onPrimaryAction,
         ),
+        if (onTransferAction != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Купить трансфер',
+            variant: AppButtonVariant.secondary,
+            icon: const Icon(Icons.airport_shuttle_rounded),
+            onPressed: onTransferAction,
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         AppButton(
           label: 'Открыть SPACE App',
