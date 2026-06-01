@@ -65,7 +65,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _deletingEvent = false;
   bool _updatingPriority = false;
   bool _updatingEvent = false;
-  bool _hasAnyProducts = true;
+  _EventProductAvailability _productAvailability =
+      const _EventProductAvailability(
+    hasTicketProducts: true,
+    hasTransferProducts: false,
+  );
   final Set<int> _deletingCommentIds = <int>{};
   String? _error;
 
@@ -103,17 +107,18 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         eventId: widget.eventId,
         accessKey: widget.eventKey,
       );
-      final hasAnyProductsFuture = _loadProductsAvailability(widget.eventId);
+      final productAvailabilityFuture =
+          _loadProductsAvailability(widget.eventId);
 
       final detail = await detailFuture;
       final comments = await commentsFuture;
-      final hasAnyProducts = await hasAnyProductsFuture;
+      final productAvailability = await productAvailabilityFuture;
 
       if (!mounted) return;
       setState(() {
         _detail = detail;
         _comments = comments;
-        _hasAnyProducts = hasAnyProducts;
+        _productAvailability = productAvailability;
       });
     } catch (error) {
       if (!mounted) return;
@@ -127,10 +132,15 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
 
   /// _loadProductsAvailability loads products availability.
 
-  Future<bool> _loadProductsAvailability(int eventId) async {
+  Future<_EventProductAvailability> _loadProductsAvailability(
+    int eventId,
+  ) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) {
-      return true;
+      return const _EventProductAvailability(
+        hasTicketProducts: true,
+        hasTransferProducts: false,
+      );
     }
 
     try {
@@ -139,9 +149,15 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                 token: token,
                 eventId: eventId,
               );
-      return products.tickets.isNotEmpty || products.transfers.isNotEmpty;
+      return _EventProductAvailability(
+        hasTicketProducts: products.tickets.isNotEmpty,
+        hasTransferProducts: products.transfers.isNotEmpty,
+      );
     } catch (_) {
-      return true;
+      return const _EventProductAvailability(
+        hasTicketProducts: true,
+        hasTransferProducts: false,
+      );
     }
   }
 
@@ -166,6 +182,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final sanitizedDescription =
         detail == null ? '' : _stripCoordinatesText(detail.event.description);
     final theme = Theme.of(context);
+    final hasTicketProducts = _productAvailability.hasTicketProducts;
+    final hasTransferProducts = _productAvailability.hasTransferProducts;
+    final hasAnyProducts = _productAvailability.hasAnyProducts;
 
     return AppScaffold(
       appBar: AppBar(
@@ -404,22 +423,43 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               PrimaryButton(
-                                label: _hasAnyProducts
-                                    ? 'Купить билет'
+                                label: hasAnyProducts
+                                    ? (hasTicketProducts
+                                        ? 'Купить билет'
+                                        : 'Купить трансфер')
                                     : (detail.isJoined
                                         ? 'Вы уже присоединились'
                                         : 'Присоединиться к событию'),
-                                onPressed: _hasAnyProducts
+                                onPressed: hasAnyProducts
                                     ? () => showPurchaseTicketFlow(
                                           context,
                                           eventId: detail.event.id,
+                                          mode: hasTicketProducts
+                                              ? PurchaseFlowMode.ticket
+                                              : PurchaseFlowMode.transfer,
                                         )
                                     : (detail.isJoined || _joining)
                                         ? null
                                         : () => _join(detail),
                                 expand: true,
-                                loading: _joining && !_hasAnyProducts,
+                                loading: _joining && !hasAnyProducts,
                               ),
+                              if (hasTicketProducts && hasTransferProducts) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                SecondaryButton(
+                                  label: 'Купить трансфер',
+                                  icon: const Icon(
+                                    Icons.airport_shuttle_rounded,
+                                  ),
+                                  outline: true,
+                                  onPressed: () => showPurchaseTicketFlow(
+                                    context,
+                                    eventId: detail.event.id,
+                                    mode: PurchaseFlowMode.transfer,
+                                  ),
+                                  expand: true,
+                                ),
+                              ],
                               const SizedBox(height: AppSpacing.xs),
                               Wrap(
                                 spacing: AppSpacing.xs,
@@ -1547,4 +1587,19 @@ class _ContactRowData {
 
   final String kind;
   final String value;
+}
+
+/// _EventProductAvailability stores purchasable product flags for event CTA.
+class _EventProductAvailability {
+  /// _EventProductAvailability handles event product availability.
+  const _EventProductAvailability({
+    required this.hasTicketProducts,
+    required this.hasTransferProducts,
+  });
+
+  final bool hasTicketProducts;
+  final bool hasTransferProducts;
+
+  /// hasAnyProducts reports whether event has any purchasable product.
+  bool get hasAnyProducts => hasTicketProducts || hasTransferProducts;
 }

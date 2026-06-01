@@ -180,7 +180,12 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	paymentSettings := h.loadPaymentSettings(ctx)
+	paymentScope, err := paymentSettingsScopeForSelections(req.TicketItems, req.TransferItems)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	paymentSettings := h.loadPaymentSettings(ctx, paymentScope)
 	if !isPaymentMethodEnabled(paymentMethod, paymentSettings) {
 		writeError(w, http.StatusBadRequest, "payment method is unavailable")
 		return
@@ -231,7 +236,12 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	paymentSettings := h.loadPaymentSettings(ctx)
+	paymentScope, err := paymentSettingsScopeForSelections(req.TicketItems, req.TransferItems)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	paymentSettings := h.loadPaymentSettings(ctx, paymentScope)
 	if !isPaymentMethodEnabled(models.PaymentMethodTochkaSBPQR, paymentSettings) {
 		writeError(w, http.StatusBadRequest, "sbp payment is unavailable")
 		return
@@ -361,7 +371,7 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 		QRCID:       sbpQR.QRCID,
 		OrderStatus: strings.ToUpper(strings.TrimSpace(detail.Order.Status)),
 	}
-	paymentSettings := h.loadPaymentSettings(ctx)
+	paymentSettings := h.loadPaymentSettings(ctx, paymentSettingsScopeForDetail(detail))
 
 	if isPaidOrderStatus(detail.Order.Status) || isRedeemedOrderStatus(detail.Order.Status) {
 		response.PaymentStatus = "Accepted"
@@ -692,7 +702,7 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "admin_get_order", err)
 		return
 	}
-	paymentSettings := h.loadPaymentSettings(ctx)
+	paymentSettings := h.loadPaymentSettings(ctx, paymentSettingsScopeForDetail(detail))
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
 		h.attachSBPInstructions(&detail, &sbpQR)
@@ -724,7 +734,7 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "admin_confirm_order", err)
 		return
 	}
-	paymentSettings := h.loadPaymentSettings(ctx)
+	paymentSettings := h.loadPaymentSettings(ctx, paymentSettingsScopeForDetail(detail))
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
 		h.attachSBPInstructions(&detail, &sbpQR)
@@ -813,7 +823,7 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 		h.handleTicketingError(logger, w, "admin_cancel_order", err)
 		return
 	}
-	paymentSettings := h.loadPaymentSettings(ctx)
+	paymentSettings := h.loadPaymentSettings(ctx, paymentSettingsScopeForDetail(detail))
 	detail.PaymentInstructions = h.buildPaymentInstructions(detail.Order, paymentSettings)
 	writeJSON(w, http.StatusOK, detail)
 }
@@ -923,7 +933,8 @@ func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetPaymentSettings(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx))
+	scope := paymentSettingsScopeFromQuery(r)
+	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx, scope))
 }
 
 // GetAdminPaymentSettings returns admin payment settings.
@@ -934,7 +945,8 @@ func (h *Handler) GetAdminPaymentSettings(w http.ResponseWriter, r *http.Request
 	}
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx))
+	scope := paymentSettingsScopeFromQuery(r)
+	writeJSON(w, http.StatusOK, h.loadPaymentSettings(ctx, scope))
 }
 
 // UpsertAdminPaymentSettings handles upsert admin payment settings.
@@ -961,8 +973,10 @@ func (h *Handler) UpsertAdminPaymentSettings(w http.ResponseWriter, r *http.Requ
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	current := h.loadPaymentSettings(ctx)
+	scope := paymentSettingsScopeFromQuery(r)
+	current := h.loadPaymentSettings(ctx, scope)
 	merged := mergePaymentSettings(current, req)
+	merged.Scope = scope
 	merged.UpdatedBy = &adminID
 
 	saved, err := h.repo.UpsertPaymentSettings(ctx, merged)
@@ -1392,8 +1406,10 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 }
 
 // loadPaymentSettings loads payment settings.
-func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSettings {
+func (h *Handler) loadPaymentSettings(ctx context.Context, scope string) models.PaymentSettings {
+	scope = normalizePaymentSettingsScope(scope)
 	settings := models.PaymentSettings{
+		Scope:            scope,
 		PhoneNumber:      strings.TrimSpace(h.cfg.PhoneNumber),
 		USDTWallet:       strings.TrimSpace(h.cfg.USDTWallet),
 		USDTNetwork:      strings.TrimSpace(h.cfg.USDTNetwork),
@@ -1407,10 +1423,11 @@ func (h *Handler) loadPaymentSettings(ctx context.Context) models.PaymentSetting
 	if strings.TrimSpace(settings.USDTNetwork) == "" {
 		settings.USDTNetwork = "TRC20"
 	}
-	stored, err := h.repo.GetPaymentSettings(ctx)
+	stored, err := h.repo.GetPaymentSettings(ctx, scope)
 	if err != nil {
 		return settings
 	}
+	stored.Scope = scope
 	if stored.UpdatedBy != nil {
 		if strings.TrimSpace(stored.USDTNetwork) == "" {
 			stored.USDTNetwork = "TRC20"
@@ -1593,6 +1610,62 @@ func mapSelections(items []orderSelectionRequest) []models.OrderProductSelection
 		})
 	}
 	return out
+}
+
+// paymentSettingsScopeFromQuery returns payment settings scope requested by UI.
+func paymentSettingsScopeFromQuery(r *http.Request) string {
+	return normalizePaymentSettingsScope(r.URL.Query().Get("scope"))
+}
+
+// paymentSettingsScopeForSelections returns payment scope for a new order.
+func paymentSettingsScopeForSelections(ticketItems, transferItems []orderSelectionRequest) (string, error) {
+	hasTickets := hasPositiveSelection(ticketItems)
+	hasTransfers := hasPositiveSelection(transferItems)
+	if hasTickets && hasTransfers {
+		return "", errors.New("tickets and transfers must be ordered separately")
+	}
+	if hasTransfers {
+		return models.PaymentSettingsScopeTransfer, nil
+	}
+	return models.PaymentSettingsScopeTicket, nil
+}
+
+// paymentSettingsScopeForDetail returns payment scope for an existing order.
+func paymentSettingsScopeForDetail(detail models.OrderDetail) string {
+	hasTicketItems := false
+	hasTransferItems := false
+	for _, item := range detail.Items {
+		switch strings.ToUpper(strings.TrimSpace(item.ItemType)) {
+		case models.ItemTypeTicket:
+			hasTicketItems = true
+		case models.ItemTypeTransfer:
+			hasTransferItems = true
+		}
+	}
+	if hasTransferItems && !hasTicketItems {
+		return models.PaymentSettingsScopeTransfer
+	}
+	return models.PaymentSettingsScopeTicket
+}
+
+// hasPositiveSelection reports whether request contains a positive product quantity.
+func hasPositiveSelection(items []orderSelectionRequest) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.ProductID) != "" && item.Quantity > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizePaymentSettingsScope normalizes payment settings scope.
+func normalizePaymentSettingsScope(scope string) string {
+	switch strings.ToUpper(strings.TrimSpace(scope)) {
+	case models.PaymentSettingsScopeTransfer:
+		return models.PaymentSettingsScopeTransfer
+	default:
+		return models.PaymentSettingsScopeTicket
+	}
 }
 
 // parseProductFilters parses product filters.

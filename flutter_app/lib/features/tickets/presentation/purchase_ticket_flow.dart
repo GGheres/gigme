@@ -27,11 +27,38 @@ import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
 
+/// PurchaseFlowMode identifies which product type is being ordered.
+enum PurchaseFlowMode {
+  ticket,
+  transfer;
+
+  /// draftScope returns the storage segment for draft data.
+  String get draftScope {
+    switch (this) {
+      case PurchaseFlowMode.transfer:
+        return 'transfer';
+      case PurchaseFlowMode.ticket:
+        return 'ticket';
+    }
+  }
+
+  /// paymentScope returns the payment settings scope for this flow.
+  PaymentSettingsScope get paymentScope {
+    switch (this) {
+      case PurchaseFlowMode.transfer:
+        return PaymentSettingsScope.transfer;
+      case PurchaseFlowMode.ticket:
+        return PaymentSettingsScope.ticket;
+    }
+  }
+}
+
 /// showPurchaseTicketFlow handles show purchase ticket flow.
 
 Future<void> showPurchaseTicketFlow(
   BuildContext context, {
   required int eventId,
+  PurchaseFlowMode mode = PurchaseFlowMode.ticket,
 }) {
   if (kIsWeb) {
     return showDialog<void>(
@@ -41,7 +68,7 @@ Future<void> showPurchaseTicketFlow(
         child: SizedBox(
           width: min(MediaQuery.of(context).size.width * 0.85, 760),
           height: min(MediaQuery.of(context).size.height * 0.9, 760),
-          child: PurchaseTicketFlow(eventId: eventId),
+          child: PurchaseTicketFlow(eventId: eventId, mode: mode),
         ),
       ),
     );
@@ -53,7 +80,7 @@ Future<void> showPurchaseTicketFlow(
     builder: (context) {
       return FractionallySizedBox(
         heightFactor: 0.93,
-        child: PurchaseTicketFlow(eventId: eventId),
+        child: PurchaseTicketFlow(eventId: eventId, mode: mode),
       );
     },
   );
@@ -63,9 +90,14 @@ Future<void> showPurchaseTicketFlow(
 
 class PurchaseTicketFlow extends ConsumerStatefulWidget {
   /// PurchaseTicketFlow handles purchase ticket flow.
-  const PurchaseTicketFlow({required this.eventId, super.key});
+  const PurchaseTicketFlow({
+    required this.eventId,
+    this.mode = PurchaseFlowMode.ticket,
+    super.key,
+  });
 
   final int eventId;
+  final PurchaseFlowMode mode;
 
   /// createState creates state.
 
@@ -84,7 +116,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     'TOCHKA_SBP_QR',
   ];
 
-  final _draftStore = PurchaseTicketDraftStore();
+  late final PurchaseTicketDraftStore _draftStore;
   EventProductsModel? _products;
   PaymentSettingsModel? _paymentSettings;
   final Map<String, int> _ticketQuantities = <String, int>{};
@@ -109,6 +141,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   @override
   void initState() {
     super.initState();
+    _draftStore = PurchaseTicketDraftStore(scope: widget.mode.draftScope);
     WidgetsBinding.instance.addObserver(this);
     unawaited(
       ref.read(localReminderServiceProvider).cancelPurchaseReminder(
@@ -275,6 +308,16 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     return ref.read(authControllerProvider).state.token;
   }
 
+  bool get _isTransferMode => widget.mode == PurchaseFlowMode.transfer;
+
+  String get _flowTitle =>
+      _isTransferMode ? 'Покупка трансфера' : 'Покупка билета';
+
+  String get _orderTitle =>
+      _isTransferMode ? 'Оформление трансфера' : 'Оформление билета';
+
+  String get _productLabel => _isTransferMode ? 'трансфер' : 'билет';
+
   List<String> get _availablePaymentMethods {
     final settings = _paymentSettings;
     if (settings == null) return _allPaymentMethods;
@@ -306,7 +349,10 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       );
       PaymentSettingsModel? paymentSettings;
       try {
-        paymentSettings = await repo.getPaymentSettings(token: token);
+        paymentSettings = await repo.getPaymentSettings(
+          token: token,
+          scope: widget.mode.paymentScope,
+        );
       } catch (_) {
         paymentSettings = null;
       }
@@ -314,6 +360,12 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       setState(() {
         _products = products;
         _paymentSettings = paymentSettings;
+        if (_isTransferMode) {
+          _ticketQuantities.clear();
+        } else {
+          _selectedTransferId = null;
+          _transferQty = 1;
+        }
         final activeTicketIds =
             products.tickets.map((ticket) => ticket.id).toSet();
         _ticketQuantities.removeWhere(
@@ -335,9 +387,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             !availableMethods.contains(_paymentMethod)) {
           _paymentMethod = availableMethods.first;
         }
-        for (final ticket in products.tickets) {
-          final current = _ticketQuantities[ticket.id] ?? 0;
-          _ticketQuantities[ticket.id] = current.clamp(0, 20).toInt();
+        if (!_isTransferMode) {
+          for (final ticket in products.tickets) {
+            final current = _ticketQuantities[ticket.id] ?? 0;
+            _ticketQuantities[ticket.id] = current.clamp(0, 20).toInt();
+          }
         }
         _loading = false;
       });
@@ -355,17 +409,18 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     if (products == null) return 0;
 
     var subtotal = 0;
-    for (final ticket in products.tickets) {
-      final qty = _ticketQuantities[ticket.id] ?? 0;
-      if (qty <= 0) continue;
-      subtotal += ticket.priceCents * qty;
-    }
-
-    if (_selectedTransferId != null && _transferQty > 0) {
+    if (_isTransferMode) {
       final transfer = _selectedTransfer(products);
       if (transfer != null) {
         subtotal += transfer.priceCents * _transferQty;
       }
+      return subtotal;
+    }
+
+    for (final ticket in products.tickets) {
+      final qty = _ticketQuantities[ticket.id] ?? 0;
+      if (qty <= 0) continue;
+      subtotal += ticket.priceCents * qty;
     }
 
     return subtotal;
@@ -383,7 +438,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   }
 
   bool get _hasPurchasableSelection =>
-      _hasSelectedTickets || _hasSelectedTransfer;
+      _isTransferMode ? _hasSelectedTransfer : _hasSelectedTickets;
 
   int get _discountCents {
     final promo = _promoResult;
@@ -406,7 +461,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     }
     final subtotal = _subtotalCents;
     if (subtotal <= 0) {
-      _showMessage('Сначала выберите билеты или трансфер');
+      _showMessage('Сначала выберите $_productLabel');
       return;
     }
 
@@ -444,25 +499,26 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     }
 
     final ticketItems = <OrderSelectionModel>[];
-    for (final entry in _ticketQuantities.entries) {
-      if (entry.value <= 0) continue;
-      ticketItems.add(
-          OrderSelectionModel(productId: entry.key, quantity: entry.value));
-    }
-    if (ticketItems.isEmpty) {
-      if (!_hasSelectedTransfer) {
-        _showMessage('Выберите билет или трансфер');
-        return;
+    if (!_isTransferMode) {
+      for (final entry in _ticketQuantities.entries) {
+        if (entry.value <= 0) continue;
+        ticketItems.add(
+          OrderSelectionModel(productId: entry.key, quantity: entry.value),
+        );
       }
     }
 
     final transferItems = <OrderSelectionModel>[];
-    if (_hasSelectedTransfer) {
-      transferItems.add(OrderSelectionModel(
-          productId: _selectedTransferId!, quantity: _transferQty));
+    if (_isTransferMode && _hasSelectedTransfer) {
+      transferItems.add(
+        OrderSelectionModel(
+          productId: _selectedTransferId!,
+          quantity: _transferQty,
+        ),
+      );
     }
     if (ticketItems.isEmpty && transferItems.isEmpty) {
-      _showMessage('Выберите билет или трансфер');
+      _showMessage('Выберите $_productLabel');
       return;
     }
 
@@ -514,7 +570,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
 
   void _openPaymentCheckout() {
     if (!_hasPurchasableSelection) {
-      _showMessage('Сначала выберите билет или трансфер');
+      _showMessage('Сначала выберите $_productLabel');
       return;
     }
     final availableMethods = _availablePaymentMethods;
@@ -535,20 +591,20 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     if (_loading) {
       return AppScaffold(
         appBar: AppBar(
-          title: const Text('Покупка билета'),
+          title: Text(_flowTitle),
           leading: IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(Icons.close_rounded),
           ),
         ),
-        title: 'Оформление заказа',
+        title: _orderTitle,
         subtitle: 'Подготавливаем данные',
         titleColor: Theme.of(context).colorScheme.onSurface,
         subtitleColor:
             Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
-        child: const Center(
+        child: Center(
           child: LoadingState(
-            title: 'Загрузка билетов',
+            title: _isTransferMode ? 'Загрузка трансферов' : 'Загрузка билетов',
             subtitle: 'Получаем доступные продукты и способы оплаты',
           ),
         ),
@@ -558,13 +614,13 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     if (_error != null) {
       return AppScaffold(
         appBar: AppBar(
-          title: const Text('Покупка билета'),
+          title: Text(_flowTitle),
           leading: IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(Icons.close_rounded),
           ),
         ),
-        title: 'Оформление заказа',
+        title: _orderTitle,
         subtitle: 'Не удалось загрузить данные',
         titleColor: Theme.of(context).colorScheme.onSurface,
         subtitleColor:
@@ -627,7 +683,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
 
     return AppScaffold(
       appBar: AppBar(
-        title: const Text('Покупка билета'),
+        title: Text(_flowTitle),
         leading: IconButton(
           onPressed: () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.close_rounded),
@@ -656,48 +712,53 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         padding: const EdgeInsets.all(16),
         children: [
           ScreenHero(
-            title: 'Оформление заказа',
+            title: _orderTitle,
             subtitle: hasOrderDraft
                 ? 'Проверьте шаги и переходите к оплате.'
-                : 'Соберите заказ из билетов, трансфера или обоих продуктов.',
+                : _isTransferMode
+                    ? 'Выберите трансфер как отдельный продукт.'
+                    : 'Выберите билет на событие без добавления трансфера.',
             summary: [
-              AppBadge(
-                label: '$selectedTicketsCount билетов',
-                variant: selectedTicketsCount > 0
-                    ? AppBadgeVariant.accent
-                    : AppBadgeVariant.neutral,
-              ),
+              if (!_isTransferMode)
+                AppBadge(
+                  label: '$selectedTicketsCount билетов',
+                  variant: selectedTicketsCount > 0
+                      ? AppBadgeVariant.accent
+                      : AppBadgeVariant.neutral,
+                ),
+              if (_isTransferMode)
+                AppBadge(
+                  label: '$selectedTransferSeats мест трансфера',
+                  variant: selectedTransferSeats > 0
+                      ? AppBadgeVariant.accent
+                      : AppBadgeVariant.neutral,
+                ),
               AppBadge(
                 label: 'Итого: ${formatMoney(_totalCents)}',
                 variant: AppBadgeVariant.ghost,
               ),
-              if (selectedTransfer != null)
-                AppBadge(
-                  label: '$selectedTransferSeats мест трансфера',
-                  variant: AppBadgeVariant.info,
-                ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           SectionCard(
             title: 'Готовность заказа',
-            subtitle:
-                'Билеты: $selectedTicketsCount · Трансфер: $selectedTransferSeats · К оплате: ${formatMoney(_totalCents)}',
+            subtitle: _isTransferMode
+                ? 'Трансфер: $selectedTransferSeats · К оплате: ${formatMoney(_totalCents)}'
+                : 'Билеты: $selectedTicketsCount · К оплате: ${formatMoney(_totalCents)}',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   hasOrderDraft
                       ? 'Черновик заказа сохраняется автоматически.'
-                      : 'Выберите билет или трансфер для продолжения.',
+                      : 'Выберите $_productLabel для продолжения.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (!_hasPurchasableSelection) ...[
                   const SizedBox(height: AppSpacing.xs),
-                  const InlineStatusBanner(
+                  InlineStatusBanner(
                     title: 'Заказ еще не собран',
-                    message:
-                        'Добавьте билет или трансфер, чтобы перейти к шагу оплаты.',
+                    message: 'Добавьте $_productLabel, чтобы перейти к оплате.',
                     tone: InlineStatusBannerTone.warning,
                   ),
                 ],
@@ -706,88 +767,75 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '1) Выберите билеты (опционально)',
+            _isTransferMode ? '1) Выберите трансфер' : '1) Выберите билет',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (!hasTicketProducts)
-            const _InfoCard(
-              text:
-                  'Для этого события пока не настроены типы билетов. Попросите администратора добавить билетные продукты.',
-            )
-          else
-            ...products.tickets.map(
-              (ticket) => _TicketQuantityRow(
-                title: ticket.label,
-                subtitle: formatMoney(ticket.priceCents),
-                quantity: _ticketQuantities[ticket.id] ?? 0,
+          if (_isTransferMode) ...[
+            if (activeTransfers.isEmpty)
+              const _InfoCard(text: 'Трансфер для этого события недоступен.')
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ...activeTransfers.map(
+                    (transfer) => ChoiceChip(
+                      label: Text(
+                        '${transfer.label} · ${formatMoney(transfer.priceCents)}',
+                      ),
+                      selected: _selectedTransferId == transfer.id,
+                      onSelected: (_) {
+                        _updateStateAndSave(() {
+                          _selectedTransferId = transfer.id;
+                          _promoResult = null;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            if (selectedTransfer != null) ...[
+              const SizedBox(height: 8),
+              if (selectedTransfer.infoLabel.trim().isNotEmpty)
+                _InfoCard(text: selectedTransfer.infoLabel),
+              _TicketQuantityRow(
+                title: 'Количество мест на трансфер',
+                subtitle:
+                    '${formatMoney(selectedTransfer.priceCents)} · мест: $_transferQty',
+                quantity: _transferQty,
                 onChanged: (value) {
                   _updateStateAndSave(() {
-                    _ticketQuantities[ticket.id] = value.clamp(0, 20).toInt();
+                    _transferQty = value.clamp(1, 20).toInt();
                     _promoResult = null;
                   });
                 },
               ),
-            ),
-          const SizedBox(height: 16),
-          Text(
-            '2) Добавьте трансфер (опционально)',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          if (activeTransfers.isEmpty)
-            const _InfoCard(text: 'Трансфер для этого события недоступен.')
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('Без трансфера'),
-                  selected:
-                      _selectedTransferId == null || selectedTransfer == null,
-                  onSelected: (_) {
+            ],
+          ] else ...[
+            if (!hasTicketProducts)
+              const _InfoCard(
+                text:
+                    'Для этого события пока не настроены типы билетов. Попросите администратора добавить билетные продукты.',
+              )
+            else
+              ...products.tickets.map(
+                (ticket) => _TicketQuantityRow(
+                  title: ticket.label,
+                  subtitle: formatMoney(ticket.priceCents),
+                  quantity: _ticketQuantities[ticket.id] ?? 0,
+                  onChanged: (value) {
                     _updateStateAndSave(() {
-                      _selectedTransferId = null;
+                      _ticketQuantities[ticket.id] = value.clamp(0, 20).toInt();
                       _promoResult = null;
                     });
                   },
                 ),
-                ...activeTransfers.map(
-                  (transfer) => ChoiceChip(
-                    label: Text(
-                        '${transfer.label} · ${formatMoney(transfer.priceCents)}'),
-                    selected: _selectedTransferId == transfer.id,
-                    onSelected: (_) {
-                      _updateStateAndSave(() {
-                        _selectedTransferId = transfer.id;
-                        _promoResult = null;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          if (selectedTransfer != null) ...[
-            const SizedBox(height: 8),
-            if (selectedTransfer.infoLabel.trim().isNotEmpty)
-              _InfoCard(text: selectedTransfer.infoLabel),
-            _TicketQuantityRow(
-              title: 'Количество трансфера',
-              subtitle:
-                  '${formatMoney(selectedTransfer.priceCents)} · мест: $_transferQty',
-              quantity: _transferQty,
-              onChanged: (value) {
-                _updateStateAndSave(() {
-                  _transferQty = value.clamp(1, 20).toInt();
-                  _promoResult = null;
-                });
-              },
-            ),
+              ),
           ],
           const SizedBox(height: 16),
           Text(
-            '3) Промокод',
+            '2) Промокод',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -822,7 +870,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           ],
           const SizedBox(height: 16),
           Text(
-            '4) Выберите способ оплаты',
+            '3) Выберите способ оплаты',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -847,12 +895,12 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             ),
           const SizedBox(height: 16),
           Text(
-            '5) Итог заказа',
+            '4) Итог заказа',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           _SummaryRow(
-            label: 'Билеты + трансфер',
+            label: _isTransferMode ? 'Трансфер' : 'Билеты',
             value: formatMoney(_subtotalCents),
           ),
           _SummaryRow(
@@ -867,10 +915,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           ),
           const SizedBox(height: 16),
           Text(
-            !_hasSelectedTickets
-                ? selectedTransfer == null
-                    ? 'Сначала выберите билет или трансфер.'
-                    : 'Можно оформить только трансфер без билета.'
+            !_hasPurchasableSelection
+                ? 'Сначала выберите $_productLabel.'
                 : availablePaymentMethods.isEmpty
                     ? 'Сейчас нет доступных способов оплаты для этого события.'
                     : 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».',
@@ -994,7 +1040,8 @@ class PurchaseStatusPage extends StatelessWidget {
     final order = detail.order;
     final instructions = detail.paymentInstructions;
     final transferItems = detail.transferItems;
-    final hasTickets = detail.tickets.isNotEmpty;
+    final hasTransferOnly = transferItems.isNotEmpty &&
+        !detail.items.any((item) => item.itemType.toUpperCase() == 'TICKET');
 
     return AppScaffold(
       appBar: AppBar(
@@ -1021,9 +1068,9 @@ class PurchaseStatusPage extends StatelessWidget {
                 const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
-                    hasTickets
-                        ? 'Мы проверяем оплату. После подтверждения билет станет активным.'
-                        : 'Мы проверяем оплату. После подтверждения трансфер будет закреплен за вами.',
+                    hasTransferOnly
+                        ? 'Мы проверяем оплату. После подтверждения трансфер будет закреплен за вами.'
+                        : 'Мы проверяем оплату. После подтверждения билет станет активным.',
                   ),
                 ),
               ],
@@ -1278,7 +1325,8 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     final statusBackgroundAlpha = isDark ? 0.28 : 0.14;
     final statusBorderAlpha = isDark ? 0.62 : 0.42;
     final transferItems = detail.transferItems;
-    final hasTickets = detail.tickets.isNotEmpty;
+    final hasTransferOnly = transferItems.isNotEmpty &&
+        !detail.items.any((item) => item.itemType.toUpperCase() == 'TICKET');
 
     return Scaffold(
       appBar: AppBar(
@@ -1319,9 +1367,9 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
                 Expanded(
                   child: Text(
                     isPaid
-                        ? hasTickets
-                            ? 'Оплата подтверждена. Билет будет отправлен в Telegram-бот.'
-                            : 'Оплата подтверждена. Трансфер закреплен за вами.'
+                        ? hasTransferOnly
+                            ? 'Оплата подтверждена. Трансфер закреплен за вами.'
+                            : 'Оплата подтверждена. Билет будет отправлен в Telegram-бот.'
                         : 'Ожидаем оплату через СБП. После оплаты статус обновится автоматически.',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),

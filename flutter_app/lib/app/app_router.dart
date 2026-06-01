@@ -248,9 +248,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/space_app/event/:id/buy',
         pageBuilder: (context, state) {
           final eventId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          final mode =
+              state.uri.queryParameters['mode']?.toLowerCase() == 'transfer'
+                  ? PurchaseFlowMode.transfer
+                  : PurchaseFlowMode.ticket;
           return _noTransitionPage(
             state,
-            PurchaseTicketFlow(eventId: eventId),
+            PurchaseTicketFlow(eventId: eventId, mode: mode),
           );
         },
       ),

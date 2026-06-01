@@ -209,35 +209,16 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
             _eventTitle(item),
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              AppBadge(
-                label: 'Куплено: ${formatMoney(item.purchasedAmountCents)}',
-                variant: AppBadgeVariant.info,
-              ),
-              AppBadge(
-                label: 'Погашено: ${formatMoney(item.redeemedAmountCents)}',
-                variant: AppBadgeVariant.ghost,
-              ),
-              AppBadge(
-                label: 'Проверено QR: ${item.checkedInTickets}',
-                variant: AppBadgeVariant.neutral,
-              ),
-              AppBadge(
-                label: 'Проверено людей: ${item.checkedInPeople}',
-                variant: AppBadgeVariant.neutral,
-              ),
-            ],
-          ),
           const SizedBox(height: AppSpacing.sm),
           LayoutBuilder(
             builder: (context, constraints) {
               final ticketForm = _statsForm(
                 title: 'Статистика по билетам',
                 children: [
+                  _moneyRow('Выручка по билетам', item.purchasedAmountCents),
+                  _moneyRow('Погашено по билетам', item.redeemedAmountCents),
+                  _metricRow('Проверено QR билетов', item.checkedInTickets),
+                  _metricRow('Проверено людей', item.checkedInPeople),
                   _metricRow('Куплено билетов', item.purchasedTicketsCount),
                   const SizedBox(height: AppSpacing.xs),
                   ..._countRows(
@@ -250,6 +231,22 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
               final transferForm = _statsForm(
                 title: 'Статистика по трансферам',
                 children: [
+                  _moneyRow(
+                    'Выручка по трансферам',
+                    item.transferPurchasedAmountCents,
+                  ),
+                  _moneyRow(
+                    'Погашено по трансферам',
+                    item.transferRedeemedAmountCents,
+                  ),
+                  _metricRow(
+                    'Проверено QR трансферов',
+                    item.transferCheckedInTickets,
+                  ),
+                  _metricRow(
+                    'Проверено мест',
+                    item.transferCheckedInPeople,
+                  ),
                   _metricRow(
                     'Заказано мест',
                     item.transferDirectionCounts.values.fold<int>(
@@ -325,6 +322,23 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
           Expanded(child: Text(label)),
           Text(
             '$value',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// _moneyRow renders one money statistics row.
+
+  Widget _moneyRow(String label, int value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(
+            formatMoney(value),
             style: Theme.of(context).textTheme.labelLarge,
           ),
         ],

@@ -42,6 +42,11 @@ const (
 	PaymentMethodTochkaSBPQR = "TOCHKA_SBP_QR"
 )
 
+const (
+	PaymentSettingsScopeTicket   = "TICKET"
+	PaymentSettingsScopeTransfer = "TRANSFER"
+)
+
 var TicketGroupSizeByType = map[string]int{
 	TicketTypeSingle:  1,
 	TicketTypeGroup2:  2,
@@ -192,6 +197,7 @@ type PaymentInstructions struct {
 
 // PaymentSettings represents payment settings.
 type PaymentSettings struct {
+	Scope            string     `json:"scope"`
 	PhoneNumber      string     `json:"phoneNumber"`
 	USDTWallet       string     `json:"usdtWallet"`
 	USDTNetwork      string     `json:"usdtNetwork"`
@@ -375,14 +381,18 @@ type TicketRedeemResult struct {
 
 // TicketStatsBreakdown represents ticket stats breakdown.
 type TicketStatsBreakdown struct {
-	EventID                 *int64           `json:"eventId,omitempty"`
-	EventTitle              string           `json:"eventTitle,omitempty"`
-	PurchasedAmountCents    int64            `json:"purchasedAmountCents"`
-	RedeemedAmountCents     int64            `json:"redeemedAmountCents"`
-	CheckedInTickets        int64            `json:"checkedInTickets"`
-	CheckedInPeople         int64            `json:"checkedInPeople"`
-	TicketTypeCounts        map[string]int64 `json:"ticketTypeCounts"`
-	TransferDirectionCounts map[string]int64 `json:"transferDirectionCounts"`
+	EventID                      *int64           `json:"eventId,omitempty"`
+	EventTitle                   string           `json:"eventTitle,omitempty"`
+	PurchasedAmountCents         int64            `json:"purchasedAmountCents"`
+	RedeemedAmountCents          int64            `json:"redeemedAmountCents"`
+	CheckedInTickets             int64            `json:"checkedInTickets"`
+	CheckedInPeople              int64            `json:"checkedInPeople"`
+	TransferPurchasedAmountCents int64            `json:"transferPurchasedAmountCents"`
+	TransferRedeemedAmountCents  int64            `json:"transferRedeemedAmountCents"`
+	TransferCheckedInTickets     int64            `json:"transferCheckedInTickets"`
+	TransferCheckedInPeople      int64            `json:"transferCheckedInPeople"`
+	TicketTypeCounts             map[string]int64 `json:"ticketTypeCounts"`
+	TransferDirectionCounts      map[string]int64 `json:"transferDirectionCounts"`
 }
 
 // TicketStats represents ticket stats.

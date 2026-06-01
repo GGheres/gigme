@@ -102,10 +102,12 @@ class TicketingRepository {
 
   Future<PaymentSettingsModel> getPaymentSettings({
     required String token,
+    PaymentSettingsScope scope = PaymentSettingsScope.ticket,
   }) {
     return _ref.read(apiClientProvider).get<PaymentSettingsModel>(
           '/payments/settings',
           token: token,
+          query: <String, dynamic>{'scope': scope.apiValue},
           decoder: PaymentSettingsModel.fromJson,
           retry: false,
         );
@@ -115,10 +117,12 @@ class TicketingRepository {
 
   Future<PaymentSettingsModel> getAdminPaymentSettings({
     required String token,
+    PaymentSettingsScope scope = PaymentSettingsScope.ticket,
   }) {
     return _ref.read(apiClientProvider).get<PaymentSettingsModel>(
           '/admin/payment-settings',
           token: token,
+          query: <String, dynamic>{'scope': scope.apiValue},
           decoder: PaymentSettingsModel.fromJson,
           retry: false,
         );
@@ -128,6 +132,7 @@ class TicketingRepository {
 
   Future<PaymentSettingsModel> upsertAdminPaymentSettings({
     required String token,
+    PaymentSettingsScope scope = PaymentSettingsScope.ticket,
     String? phoneNumber,
     String? usdtWallet,
     String? usdtNetwork,
@@ -145,6 +150,7 @@ class TicketingRepository {
     return _ref.read(apiClientProvider).post<PaymentSettingsModel>(
           '/admin/payment-settings',
           token: token,
+          query: <String, dynamic>{'scope': scope.apiValue},
           body: <String, dynamic>{
             if (phoneNumber != null) 'phoneNumber': phoneNumber.trim(),
             if (usdtWallet != null) 'usdtWallet': usdtWallet.trim(),

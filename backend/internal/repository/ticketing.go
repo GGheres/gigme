@@ -35,31 +35,33 @@ type queryRunner interface {
 }
 
 // GetPaymentSettings returns payment settings.
-func (r *Repository) GetPaymentSettings(ctx context.Context) (models.PaymentSettings, error) {
+func (r *Repository) GetPaymentSettings(ctx context.Context, scope string) (models.PaymentSettings, error) {
+	scope = normalizePaymentSettingsScope(scope)
 	row := r.pool.QueryRow(ctx, `
-SELECT phone_number, usdt_wallet, usdt_network, usdt_memo,
+SELECT scope, phone_number, usdt_wallet, usdt_network, usdt_memo,
 	payment_qr_data,
 	phone_enabled, usdt_enabled, payment_qr_enabled, sbp_enabled,
 	phone_description, usdt_description, qr_description, sbp_description,
 	updated_by, created_at, updated_at
-FROM payment_settings
-WHERE id = 1;`)
+FROM payment_settings_scoped
+WHERE scope = $1;`, scope)
 
 	return scanPaymentSettingsRow(row)
 }
 
 // UpsertPaymentSettings handles upsert payment settings.
 func (r *Repository) UpsertPaymentSettings(ctx context.Context, in models.PaymentSettings) (models.PaymentSettings, error) {
+	scope := normalizePaymentSettingsScope(in.Scope)
 	row := r.pool.QueryRow(ctx, `
-INSERT INTO payment_settings (
-	id, phone_number, usdt_wallet, usdt_network, usdt_memo,
+INSERT INTO payment_settings_scoped (
+	scope, phone_number, usdt_wallet, usdt_network, usdt_memo,
 	payment_qr_data,
 	phone_enabled, usdt_enabled, payment_qr_enabled, sbp_enabled,
 	phone_description, usdt_description, qr_description, sbp_description, updated_by
 ) VALUES (
-	1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 )
-ON CONFLICT (id) DO UPDATE SET
+ON CONFLICT (scope) DO UPDATE SET
 	phone_number = EXCLUDED.phone_number,
 	usdt_wallet = EXCLUDED.usdt_wallet,
 	usdt_network = EXCLUDED.usdt_network,
@@ -75,11 +77,12 @@ ON CONFLICT (id) DO UPDATE SET
 	sbp_description = EXCLUDED.sbp_description,
 	updated_by = EXCLUDED.updated_by,
 	updated_at = now()
-RETURNING phone_number, usdt_wallet, usdt_network, usdt_memo,
+RETURNING scope, phone_number, usdt_wallet, usdt_network, usdt_memo,
 	payment_qr_data,
 	phone_enabled, usdt_enabled, payment_qr_enabled, sbp_enabled,
 	phone_description, usdt_description, qr_description, sbp_description,
 	updated_by, created_at, updated_at;`,
+		scope,
 		strings.TrimSpace(in.PhoneNumber),
 		strings.TrimSpace(in.USDTWallet),
 		strings.TrimSpace(in.USDTNetwork),
@@ -427,6 +430,9 @@ func (r *Repository) CreateOrder(ctx context.Context, params models.CreateOrderP
 	ticketSelections := mergeSelections(params.TicketItems)
 	transferSelections := mergeSelections(params.TransferItems)
 	if len(ticketSelections) == 0 && len(transferSelections) == 0 {
+		return out, ErrInvalidProduct
+	}
+	if len(ticketSelections) > 0 && len(transferSelections) > 0 {
 		return out, ErrInvalidProduct
 	}
 
@@ -2217,7 +2223,11 @@ SELECT
 	o.event_id,
 	e.title,
 	o.status,
-	o.total_cents,
+	CASE
+		WHEN o.subtotal_cents > 0 AND COALESCE(oi.line_total_cents, 0) > 0
+			THEN ROUND((o.total_cents::numeric * oi.line_total_cents::numeric) / o.subtotal_cents)::bigint
+		ELSE 0
+	END AS amount_cents,
 	COALESCE(oi.item_type, ''),
 	COALESCE(oi.product_ref, ''),
 	COALESCE(oi.quantity, 0)
@@ -2239,7 +2249,7 @@ ORDER BY o.created_at DESC;`, nullInt64Ptr(eventID))
 			&row.EventID,
 			&row.EventTitle,
 			&row.Status,
-			&row.TotalCents,
+			&row.AmountCents,
 			&row.ItemType,
 			&row.ProductRef,
 			&row.Quantity,
@@ -2255,10 +2265,12 @@ ORDER BY o.created_at DESC;`, nullInt64Ptr(eventID))
 	globalBucket, perEventBuckets := ticketing.AggregateStats(aggRows)
 	result := models.TicketStats{
 		Global: models.TicketStatsBreakdown{
-			PurchasedAmountCents:    globalBucket.PurchasedAmountCents,
-			RedeemedAmountCents:     globalBucket.RedeemedAmountCents,
-			TicketTypeCounts:        globalBucket.TicketTypeCounts,
-			TransferDirectionCounts: globalBucket.TransferDirectionCounts,
+			PurchasedAmountCents:         globalBucket.PurchasedAmountCents,
+			RedeemedAmountCents:          globalBucket.RedeemedAmountCents,
+			TransferPurchasedAmountCents: globalBucket.TransferPurchasedAmountCents,
+			TransferRedeemedAmountCents:  globalBucket.TransferRedeemedAmountCents,
+			TicketTypeCounts:             globalBucket.TicketTypeCounts,
+			TransferDirectionCounts:      globalBucket.TransferDirectionCounts,
 		},
 		Events: make([]models.TicketStatsBreakdown, 0, len(perEventBuckets)),
 	}
@@ -2272,12 +2284,14 @@ ORDER BY o.created_at DESC;`, nullInt64Ptr(eventID))
 		bucket := perEventBuckets[key]
 		eventIDVal := bucket.EventID
 		result.Events = append(result.Events, models.TicketStatsBreakdown{
-			EventID:                 &eventIDVal,
-			EventTitle:              bucket.EventTitle,
-			PurchasedAmountCents:    bucket.PurchasedAmountCents,
-			RedeemedAmountCents:     bucket.RedeemedAmountCents,
-			TicketTypeCounts:        bucket.TicketTypeCounts,
-			TransferDirectionCounts: bucket.TransferDirectionCounts,
+			EventID:                      &eventIDVal,
+			EventTitle:                   bucket.EventTitle,
+			PurchasedAmountCents:         bucket.PurchasedAmountCents,
+			RedeemedAmountCents:          bucket.RedeemedAmountCents,
+			TransferPurchasedAmountCents: bucket.TransferPurchasedAmountCents,
+			TransferRedeemedAmountCents:  bucket.TransferRedeemedAmountCents,
+			TicketTypeCounts:             bucket.TicketTypeCounts,
+			TransferDirectionCounts:      bucket.TransferDirectionCounts,
 		})
 	}
 
@@ -2292,8 +2306,22 @@ ORDER BY o.created_at DESC;`, nullInt64Ptr(eventID))
 SELECT
 	t.event_id,
 	COALESCE(e.title, ''),
-	count(*) FILTER (WHERE t.redeemed_at IS NOT NULL) AS checked_in_tickets,
-	COALESCE(sum(t.quantity) FILTER (WHERE t.redeemed_at IS NOT NULL), 0) AS checked_in_people
+	count(*) FILTER (
+		WHERE t.redeemed_at IS NOT NULL
+			AND t.ticket_type NOT LIKE 'TRANSFER_%'
+	) AS checked_in_tickets,
+	COALESCE(sum(t.quantity) FILTER (
+		WHERE t.redeemed_at IS NOT NULL
+			AND t.ticket_type NOT LIKE 'TRANSFER_%'
+	), 0) AS checked_in_people,
+	count(*) FILTER (
+		WHERE t.redeemed_at IS NOT NULL
+			AND t.ticket_type LIKE 'TRANSFER_%'
+	) AS transfer_checked_in_tickets,
+	COALESCE(sum(t.quantity) FILTER (
+		WHERE t.redeemed_at IS NOT NULL
+			AND t.ticket_type LIKE 'TRANSFER_%'
+	), 0) AS transfer_checked_in_people
 FROM tickets t
 JOIN orders o ON o.id = t.order_id
 LEFT JOIN events e ON e.id = t.event_id
@@ -2311,16 +2339,29 @@ ORDER BY t.event_id ASC;`, nullInt64Ptr(eventID))
 		var title string
 		var checkedInTickets int64
 		var checkedInPeople int64
-		if err := checkInRows.Scan(&eid, &title, &checkedInTickets, &checkedInPeople); err != nil {
+		var transferCheckedInTickets int64
+		var transferCheckedInPeople int64
+		if err := checkInRows.Scan(
+			&eid,
+			&title,
+			&checkedInTickets,
+			&checkedInPeople,
+			&transferCheckedInTickets,
+			&transferCheckedInPeople,
+		); err != nil {
 			return models.TicketStats{}, err
 		}
 
 		result.Global.CheckedInTickets += checkedInTickets
 		result.Global.CheckedInPeople += checkedInPeople
+		result.Global.TransferCheckedInTickets += transferCheckedInTickets
+		result.Global.TransferCheckedInPeople += transferCheckedInPeople
 
 		if idx, ok := eventIndex[eid]; ok {
 			result.Events[idx].CheckedInTickets = checkedInTickets
 			result.Events[idx].CheckedInPeople = checkedInPeople
+			result.Events[idx].TransferCheckedInTickets = transferCheckedInTickets
+			result.Events[idx].TransferCheckedInPeople = transferCheckedInPeople
 			if result.Events[idx].EventTitle == "" {
 				result.Events[idx].EventTitle = title
 			}
@@ -2329,10 +2370,12 @@ ORDER BY t.event_id ASC;`, nullInt64Ptr(eventID))
 
 		eventIDVal := eid
 		result.Events = append(result.Events, models.TicketStatsBreakdown{
-			EventID:          &eventIDVal,
-			EventTitle:       title,
-			CheckedInTickets: checkedInTickets,
-			CheckedInPeople:  checkedInPeople,
+			EventID:                  &eventIDVal,
+			EventTitle:               title,
+			CheckedInTickets:         checkedInTickets,
+			CheckedInPeople:          checkedInPeople,
+			TransferCheckedInTickets: transferCheckedInTickets,
+			TransferCheckedInPeople:  transferCheckedInPeople,
 			TicketTypeCounts: map[string]int64{
 				models.TicketTypeSingle:  0,
 				models.TicketTypeGroup2:  0,
@@ -2757,6 +2800,7 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 	var createdAt sql.NullTime
 	var updatedAt sql.NullTime
 	if err := row.Scan(
+		&out.Scope,
 		&out.PhoneNumber,
 		&out.USDTWallet,
 		&out.USDTNetwork,
@@ -2775,6 +2819,7 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 		&updatedAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			out.Scope = models.PaymentSettingsScopeTicket
 			out.USDTNetwork = "TRC20"
 			out.PhoneEnabled = true
 			out.USDTEnabled = true
@@ -2784,6 +2829,7 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 		}
 		return out, err
 	}
+	out.Scope = normalizePaymentSettingsScope(out.Scope)
 	if strings.TrimSpace(out.USDTNetwork) == "" {
 		out.USDTNetwork = "TRC20"
 	}
@@ -2791,6 +2837,16 @@ func scanPaymentSettingsRow(row pgx.Row) (models.PaymentSettings, error) {
 	out.CreatedAt = nullTimeToPtr(createdAt)
 	out.UpdatedAt = nullTimeToPtr(updatedAt)
 	return out, nil
+}
+
+// normalizePaymentSettingsScope returns the storage scope for payment settings.
+func normalizePaymentSettingsScope(scope string) string {
+	switch strings.ToUpper(strings.TrimSpace(scope)) {
+	case models.PaymentSettingsScopeTransfer:
+		return models.PaymentSettingsScopeTransfer
+	default:
+		return models.PaymentSettingsScopeTicket
+	}
 }
 
 // mergeSelections merges selections.

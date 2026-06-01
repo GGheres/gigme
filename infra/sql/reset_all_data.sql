@@ -16,3 +16,7 @@ END $$;
 INSERT INTO payment_settings (id)
 VALUES (1)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO payment_settings_scoped (scope)
+VALUES ('TICKET'), ('TRANSFER')
+ON CONFLICT (scope) DO NOTHING;

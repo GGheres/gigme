@@ -1,5 +1,42 @@
 import '../../../core/utils/json_utils.dart';
 
+/// PaymentSettingsScope identifies which product group uses payment settings.
+enum PaymentSettingsScope {
+  ticket,
+  transfer;
+
+  /// apiValue returns the backend code for this scope.
+  String get apiValue {
+    switch (this) {
+      case PaymentSettingsScope.transfer:
+        return 'TRANSFER';
+      case PaymentSettingsScope.ticket:
+        return 'TICKET';
+    }
+  }
+
+  /// title returns a compact admin-facing scope title.
+  String get title {
+    switch (this) {
+      case PaymentSettingsScope.transfer:
+        return 'Оплата трансферов';
+      case PaymentSettingsScope.ticket:
+        return 'Оплата билетов';
+    }
+  }
+
+  /// fromJson parses backend scope value.
+  static PaymentSettingsScope fromJson(dynamic value) {
+    switch (asString(value).toUpperCase()) {
+      case 'TRANSFER':
+        return PaymentSettingsScope.transfer;
+      case 'TICKET':
+      default:
+        return PaymentSettingsScope.ticket;
+    }
+  }
+}
+
 /// TicketProductModel represents ticket product model.
 
 class TicketProductModel {
@@ -284,6 +321,7 @@ class PaymentSettingsModel {
   factory PaymentSettingsModel.fromJson(dynamic json) {
     final map = asMap(json);
     return PaymentSettingsModel(
+      scope: PaymentSettingsScope.fromJson(map['scope']),
       phoneNumber: asString(map['phoneNumber']),
       usdtWallet: asString(map['usdtWallet']),
       usdtNetwork: asString(map['usdtNetwork']),
@@ -302,6 +340,7 @@ class PaymentSettingsModel {
 
   /// PaymentSettingsModel handles payment settings model.
   PaymentSettingsModel({
+    required this.scope,
     required this.phoneNumber,
     required this.usdtWallet,
     required this.usdtNetwork,
@@ -317,6 +356,7 @@ class PaymentSettingsModel {
     required this.sbpDescription,
   });
 
+  final PaymentSettingsScope scope;
   final String phoneNumber;
   final String usdtWallet;
   final String usdtNetwork;
@@ -905,6 +945,10 @@ class AdminStatsBreakdownModel {
       redeemedAmountCents: asInt(map['redeemedAmountCents']),
       checkedInTickets: asInt(map['checkedInTickets']),
       checkedInPeople: asInt(map['checkedInPeople']),
+      transferPurchasedAmountCents: asInt(map['transferPurchasedAmountCents']),
+      transferRedeemedAmountCents: asInt(map['transferRedeemedAmountCents']),
+      transferCheckedInTickets: asInt(map['transferCheckedInTickets']),
+      transferCheckedInPeople: asInt(map['transferCheckedInPeople']),
       ticketTypeCounts: _parseCountMap(map['ticketTypeCounts']),
       transferDirectionCounts: _parseCountMap(map['transferDirectionCounts']),
     );
@@ -918,6 +962,10 @@ class AdminStatsBreakdownModel {
     required this.redeemedAmountCents,
     required this.checkedInTickets,
     required this.checkedInPeople,
+    required this.transferPurchasedAmountCents,
+    required this.transferRedeemedAmountCents,
+    required this.transferCheckedInTickets,
+    required this.transferCheckedInPeople,
     required this.ticketTypeCounts,
     required this.transferDirectionCounts,
   });
@@ -928,6 +976,10 @@ class AdminStatsBreakdownModel {
   final int redeemedAmountCents;
   final int checkedInTickets;
   final int checkedInPeople;
+  final int transferPurchasedAmountCents;
+  final int transferRedeemedAmountCents;
+  final int transferCheckedInTickets;
+  final int transferCheckedInPeople;
   final Map<String, int> ticketTypeCounts;
   final Map<String, int> transferDirectionCounts;
 

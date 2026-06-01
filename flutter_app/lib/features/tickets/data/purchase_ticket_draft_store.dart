@@ -85,7 +85,12 @@ class PurchaseTicketDraft {
 /// PurchaseTicketDraftStore represents purchase ticket draft store.
 
 class PurchaseTicketDraftStore {
+  /// PurchaseTicketDraftStore handles purchase ticket draft store.
+  PurchaseTicketDraftStore({this.scope = 'ticket'});
+
   static const String _storagePrefix = 'gigme_purchase_ticket_draft_';
+
+  final String scope;
 
   /// load loads data from the underlying source.
 
@@ -132,5 +137,5 @@ class PurchaseTicketDraftStore {
 
   /// _key handles internal key behavior.
 
-  String _key(int eventId) => '$_storagePrefix$eventId';
+  String _key(int eventId) => '$_storagePrefix${scope}_$eventId';
 }

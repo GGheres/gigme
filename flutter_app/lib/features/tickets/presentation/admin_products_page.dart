@@ -49,6 +49,24 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _usdtDescriptionCtrl = TextEditingController();
   final TextEditingController _qrDescriptionCtrl = TextEditingController();
   final TextEditingController _sbpDescriptionCtrl = TextEditingController();
+  final TextEditingController _transferPaymentPhoneCtrl =
+      TextEditingController();
+  final TextEditingController _transferPaymentUsdtWalletCtrl =
+      TextEditingController();
+  final TextEditingController _transferPaymentUsdtNetworkCtrl =
+      TextEditingController();
+  final TextEditingController _transferPaymentUsdtMemoCtrl =
+      TextEditingController();
+  final TextEditingController _transferPaymentQrDataCtrl =
+      TextEditingController();
+  final TextEditingController _transferPhoneDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _transferUsdtDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _transferQrDescriptionCtrl =
+      TextEditingController();
+  final TextEditingController _transferSbpDescriptionCtrl =
+      TextEditingController();
   final TextEditingController _ticketNameCtrl = TextEditingController();
   final TextEditingController _ticketPriceCtrl = TextEditingController();
   final TextEditingController _transferNameCtrl = TextEditingController();
@@ -77,6 +95,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   bool _usdtEnabled = true;
   bool _paymentQrEnabled = true;
   bool _sbpEnabled = true;
+  bool _transferPhoneEnabled = true;
+  bool _transferUsdtEnabled = true;
+  bool _transferPaymentQrEnabled = true;
+  bool _transferSbpEnabled = true;
 
   bool get _isPercentPromoDiscount => _promoDiscountType == 'PERCENT';
 
@@ -89,6 +111,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       _eventCtrl.text = '${widget.initialEventId}';
     }
     _paymentUsdtNetworkCtrl.text = 'TRC20';
+    _transferPaymentUsdtNetworkCtrl.text = 'TRC20';
     _ticketPriceCtrl.text = '0';
     _transferPriceCtrl.text = '0';
     _promoValueCtrl.text = '10';
@@ -109,6 +132,15 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _usdtDescriptionCtrl.dispose();
     _qrDescriptionCtrl.dispose();
     _sbpDescriptionCtrl.dispose();
+    _transferPaymentPhoneCtrl.dispose();
+    _transferPaymentUsdtWalletCtrl.dispose();
+    _transferPaymentUsdtNetworkCtrl.dispose();
+    _transferPaymentUsdtMemoCtrl.dispose();
+    _transferPaymentQrDataCtrl.dispose();
+    _transferPhoneDescriptionCtrl.dispose();
+    _transferUsdtDescriptionCtrl.dispose();
+    _transferQrDescriptionCtrl.dispose();
+    _transferSbpDescriptionCtrl.dispose();
     _ticketNameCtrl.dispose();
     _ticketPriceCtrl.dispose();
     _transferNameCtrl.dispose();
@@ -143,7 +175,14 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     try {
       final repo = ref.read(ticketingRepositoryProvider);
       final results = await Future.wait<dynamic>([
-        repo.getAdminPaymentSettings(token: token),
+        repo.getAdminPaymentSettings(
+          token: token,
+          scope: PaymentSettingsScope.ticket,
+        ),
+        repo.getAdminPaymentSettings(
+          token: token,
+          scope: PaymentSettingsScope.transfer,
+        ),
         repo.listAdminTicketProducts(
             token: token, eventId: (eventId ?? 0) > 0 ? eventId : null),
         repo.listAdminTransferProducts(
@@ -157,9 +196,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       if (!mounted) return;
       setState(() {
         _applyPaymentSettings(results[0] as PaymentSettingsModel);
-        _ticketProducts = results[1] as List<TicketProductModel>;
-        _transferProducts = results[2] as List<TransferProductModel>;
-        _promoCodes = results[3] as List<PromoCodeViewModel>;
+        _applyTransferPaymentSettings(results[1] as PaymentSettingsModel);
+        _ticketProducts = results[2] as List<TicketProductModel>;
+        _transferProducts = results[3] as List<TransferProductModel>;
+        _promoCodes = results[4] as List<PromoCodeViewModel>;
         _loading = false;
       });
     } catch (error) {
@@ -497,6 +537,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           .read(ticketingRepositoryProvider)
           .upsertAdminPaymentSettings(
             token: token,
+            scope: PaymentSettingsScope.ticket,
             phoneNumber: _paymentPhoneCtrl.text,
             usdtWallet: _paymentUsdtWalletCtrl.text,
             usdtNetwork: _paymentUsdtNetworkCtrl.text,
@@ -513,7 +554,43 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           );
       if (!mounted) return;
       setState(() => _applyPaymentSettings(saved));
-      _showMessage('Платежные настройки сохранены');
+      _showMessage('Платежные настройки билетов сохранены');
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// _saveTransferPaymentSettings saves transfer payment settings.
+
+  Future<void> _saveTransferPaymentSettings() async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final saved = await ref
+          .read(ticketingRepositoryProvider)
+          .upsertAdminPaymentSettings(
+            token: token,
+            scope: PaymentSettingsScope.transfer,
+            phoneNumber: _transferPaymentPhoneCtrl.text,
+            usdtWallet: _transferPaymentUsdtWalletCtrl.text,
+            usdtNetwork: _transferPaymentUsdtNetworkCtrl.text,
+            usdtMemo: _transferPaymentUsdtMemoCtrl.text,
+            paymentQrData: _transferPaymentQrDataCtrl.text,
+            phoneEnabled: _transferPhoneEnabled,
+            usdtEnabled: _transferUsdtEnabled,
+            paymentQrEnabled: _transferPaymentQrEnabled,
+            sbpEnabled: _transferSbpEnabled,
+            phoneDescription: _transferPhoneDescriptionCtrl.text,
+            usdtDescription: _transferUsdtDescriptionCtrl.text,
+            qrDescription: _transferQrDescriptionCtrl.text,
+            sbpDescription: _transferSbpDescriptionCtrl.text,
+          );
+      if (!mounted) return;
+      setState(() => _applyTransferPaymentSettings(saved));
+      _showMessage('Платежные настройки трансферов сохранены');
     } catch (error) {
       _showMessage('$error');
     } finally {
@@ -567,119 +644,56 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
               onRetry: _load,
             ),
           ),
-        SectionCard(
-          title: 'Платежные настройки',
-          subtitle: 'Управление методами оплаты для событий',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: _phoneEnabled,
-                title: const Text('Показывать оплату по номеру'),
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _phoneEnabled = value),
-              ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: _usdtEnabled,
-                title: const Text('Показывать оплату USDT'),
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _usdtEnabled = value),
-              ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: _paymentQrEnabled,
-                title: const Text('Показывать оплату по QR'),
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _paymentQrEnabled = value),
-              ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: _sbpEnabled,
-                title: const Text('Показывать оплату СБП (Точка)'),
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _sbpEnabled = value),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _paymentPhoneCtrl,
-                label: 'PAYMENT_PHONE_NUMBER',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _paymentUsdtWalletCtrl,
-                label: 'USDT TRC wallet',
-                hint: 'Адрес кошелька TRC20',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _paymentUsdtNetworkCtrl,
-                label: 'USDT network',
-                hint: 'TRC20',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _paymentUsdtMemoCtrl,
-                label: 'USDT memo/tag (optional)',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _paymentQrDataCtrl,
-                minLines: 2,
-                maxLines: 4,
-                label: 'PAYMENT_QR_DATA',
-                hint: 'order:{order_id};event:{event_id};amount:{amount}',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _phoneDescriptionCtrl,
-                minLines: 2,
-                maxLines: 4,
-                label: 'Описание для оплаты по телефону',
-                hint:
-                    'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _usdtDescriptionCtrl,
-                minLines: 2,
-                maxLines: 4,
-                label: 'Описание для оплаты USDT',
-                hint:
-                    'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _qrDescriptionCtrl,
-                minLines: 2,
-                maxLines: 4,
-                label: 'Описание для PAYMENT_QR',
-                hint:
-                    'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              InputField(
-                controller: _sbpDescriptionCtrl,
-                minLines: 2,
-                maxLines: 4,
-                label: 'Описание для TOCHKA_SBP_QR',
-                hint:
-                    'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              PrimaryButton(
-                onPressed: _busy ? null : _savePaymentSettings,
-                icon: const Icon(Icons.save_outlined),
-                label: _busy ? 'Подождите…' : 'Сохранить платежные настройки',
-                expand: true,
-              ),
-            ],
-          ),
+        _paymentSettingsSection(
+          title: 'Платежные настройки билетов',
+          subtitle: 'Отдельные методы оплаты для билетов на событие',
+          phoneEnabled: _phoneEnabled,
+          usdtEnabled: _usdtEnabled,
+          paymentQrEnabled: _paymentQrEnabled,
+          sbpEnabled: _sbpEnabled,
+          onPhoneEnabledChanged: (value) =>
+              setState(() => _phoneEnabled = value),
+          onUsdtEnabledChanged: (value) => setState(() => _usdtEnabled = value),
+          onPaymentQrEnabledChanged: (value) =>
+              setState(() => _paymentQrEnabled = value),
+          onSbpEnabledChanged: (value) => setState(() => _sbpEnabled = value),
+          phoneCtrl: _paymentPhoneCtrl,
+          usdtWalletCtrl: _paymentUsdtWalletCtrl,
+          usdtNetworkCtrl: _paymentUsdtNetworkCtrl,
+          usdtMemoCtrl: _paymentUsdtMemoCtrl,
+          paymentQrDataCtrl: _paymentQrDataCtrl,
+          phoneDescriptionCtrl: _phoneDescriptionCtrl,
+          usdtDescriptionCtrl: _usdtDescriptionCtrl,
+          qrDescriptionCtrl: _qrDescriptionCtrl,
+          sbpDescriptionCtrl: _sbpDescriptionCtrl,
+          onSave: _savePaymentSettings,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _paymentSettingsSection(
+          title: 'Платежные настройки трансферов',
+          subtitle: 'Отдельные методы оплаты только для трансферных продуктов',
+          phoneEnabled: _transferPhoneEnabled,
+          usdtEnabled: _transferUsdtEnabled,
+          paymentQrEnabled: _transferPaymentQrEnabled,
+          sbpEnabled: _transferSbpEnabled,
+          onPhoneEnabledChanged: (value) =>
+              setState(() => _transferPhoneEnabled = value),
+          onUsdtEnabledChanged: (value) =>
+              setState(() => _transferUsdtEnabled = value),
+          onPaymentQrEnabledChanged: (value) =>
+              setState(() => _transferPaymentQrEnabled = value),
+          onSbpEnabledChanged: (value) =>
+              setState(() => _transferSbpEnabled = value),
+          phoneCtrl: _transferPaymentPhoneCtrl,
+          usdtWalletCtrl: _transferPaymentUsdtWalletCtrl,
+          usdtNetworkCtrl: _transferPaymentUsdtNetworkCtrl,
+          usdtMemoCtrl: _transferPaymentUsdtMemoCtrl,
+          paymentQrDataCtrl: _transferPaymentQrDataCtrl,
+          phoneDescriptionCtrl: _transferPhoneDescriptionCtrl,
+          usdtDescriptionCtrl: _transferUsdtDescriptionCtrl,
+          qrDescriptionCtrl: _transferQrDescriptionCtrl,
+          sbpDescriptionCtrl: _transferSbpDescriptionCtrl,
+          onSave: _saveTransferPaymentSettings,
         ),
         const SizedBox(height: AppSpacing.sm),
         SectionCard(
@@ -1074,6 +1088,135 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     );
   }
 
+  /// _paymentSettingsSection renders one scoped payment settings form.
+
+  Widget _paymentSettingsSection({
+    required String title,
+    required String subtitle,
+    required bool phoneEnabled,
+    required bool usdtEnabled,
+    required bool paymentQrEnabled,
+    required bool sbpEnabled,
+    required ValueChanged<bool> onPhoneEnabledChanged,
+    required ValueChanged<bool> onUsdtEnabledChanged,
+    required ValueChanged<bool> onPaymentQrEnabledChanged,
+    required ValueChanged<bool> onSbpEnabledChanged,
+    required TextEditingController phoneCtrl,
+    required TextEditingController usdtWalletCtrl,
+    required TextEditingController usdtNetworkCtrl,
+    required TextEditingController usdtMemoCtrl,
+    required TextEditingController paymentQrDataCtrl,
+    required TextEditingController phoneDescriptionCtrl,
+    required TextEditingController usdtDescriptionCtrl,
+    required TextEditingController qrDescriptionCtrl,
+    required TextEditingController sbpDescriptionCtrl,
+    required Future<void> Function() onSave,
+  }) {
+    return SectionCard(
+      title: title,
+      subtitle: subtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: phoneEnabled,
+            title: const Text('Показывать оплату по номеру'),
+            onChanged: _busy ? null : onPhoneEnabledChanged,
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: usdtEnabled,
+            title: const Text('Показывать оплату USDT'),
+            onChanged: _busy ? null : onUsdtEnabledChanged,
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: paymentQrEnabled,
+            title: const Text('Показывать оплату по QR'),
+            onChanged: _busy ? null : onPaymentQrEnabledChanged,
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: sbpEnabled,
+            title: const Text('Показывать оплату СБП (Точка)'),
+            onChanged: _busy ? null : onSbpEnabledChanged,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(controller: phoneCtrl, label: 'PAYMENT_PHONE_NUMBER'),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: usdtWalletCtrl,
+            label: 'USDT TRC wallet',
+            hint: 'Адрес кошелька TRC20',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: usdtNetworkCtrl,
+            label: 'USDT network',
+            hint: 'TRC20',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: usdtMemoCtrl,
+            label: 'USDT memo/tag (optional)',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: paymentQrDataCtrl,
+            minLines: 2,
+            maxLines: 4,
+            label: 'PAYMENT_QR_DATA',
+            hint: 'order:{order_id};event:{event_id};amount:{amount}',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: phoneDescriptionCtrl,
+            minLines: 2,
+            maxLines: 4,
+            label: 'Описание для оплаты по телефону',
+            hint:
+                'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: usdtDescriptionCtrl,
+            minLines: 2,
+            maxLines: 4,
+            label: 'Описание для оплаты USDT',
+            hint:
+                'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: qrDescriptionCtrl,
+            minLines: 2,
+            maxLines: 4,
+            label: 'Описание для PAYMENT_QR',
+            hint:
+                'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          InputField(
+            controller: sbpDescriptionCtrl,
+            minLines: 2,
+            maxLines: 4,
+            label: 'Описание для TOCHKA_SBP_QR',
+            hint:
+                'Плейсхолдеры: {amount}, {order_id}, {event_id}, {amount_cents}',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          PrimaryButton(
+            onPressed: _busy ? null : onSave,
+            icon: const Icon(Icons.save_outlined),
+            label: _busy ? 'Подождите…' : 'Сохранить настройки',
+            expand: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   /// _formatPromoDiscount formats promo discount.
 
   String _formatPromoDiscount(PromoCodeViewModel item) {
@@ -1115,6 +1258,25 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _usdtDescriptionCtrl.text = settings.usdtDescription;
     _qrDescriptionCtrl.text = settings.qrDescription;
     _sbpDescriptionCtrl.text = settings.sbpDescription;
+  }
+
+  /// _applyTransferPaymentSettings applies transfer payment settings.
+
+  void _applyTransferPaymentSettings(PaymentSettingsModel settings) {
+    _transferPaymentPhoneCtrl.text = settings.phoneNumber;
+    _transferPaymentUsdtWalletCtrl.text = settings.usdtWallet;
+    _transferPaymentUsdtNetworkCtrl.text =
+        settings.usdtNetwork.trim().isEmpty ? 'TRC20' : settings.usdtNetwork;
+    _transferPaymentUsdtMemoCtrl.text = settings.usdtMemo;
+    _transferPaymentQrDataCtrl.text = settings.paymentQrData;
+    _transferPhoneEnabled = settings.phoneEnabled;
+    _transferUsdtEnabled = settings.usdtEnabled;
+    _transferPaymentQrEnabled = settings.paymentQrEnabled;
+    _transferSbpEnabled = settings.sbpEnabled;
+    _transferPhoneDescriptionCtrl.text = settings.phoneDescription;
+    _transferUsdtDescriptionCtrl.text = settings.usdtDescription;
+    _transferQrDescriptionCtrl.text = settings.qrDescription;
+    _transferSbpDescriptionCtrl.text = settings.sbpDescription;
   }
 }
 
