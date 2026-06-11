@@ -54,6 +54,33 @@ func TestApplyPaymentTextTemplate(t *testing.T) {
 	}
 }
 
+// TestBuildPaymentInstructionsAlice26OverridesPhone verifies Alice promo phone payment instructions.
+func TestBuildPaymentInstructionsAlice26OverridesPhone(t *testing.T) {
+	t.Parallel()
+
+	handler := Handler{}
+	order := models.Order{
+		ID:            "order-1",
+		EventID:       77,
+		PaymentMethod: models.PaymentMethodPhone,
+		PromoCode:     "alice26",
+		TotalCents:    159900,
+		Currency:      "RUB",
+	}
+	settings := models.PaymentSettings{
+		PhoneNumber:      "+70000000000",
+		PhoneDescription: "Default phone description",
+	}
+
+	got := handler.buildPaymentInstructions(order, settings)
+	if got.PhoneNumber != alice26PaymentPhoneNumber {
+		t.Fatalf("PhoneNumber = %q, want %q", got.PhoneNumber, alice26PaymentPhoneNumber)
+	}
+	if got.DisplayMessage != alice26PaymentPhoneDescription {
+		t.Fatalf("DisplayMessage = %q, want %q", got.DisplayMessage, alice26PaymentPhoneDescription)
+	}
+}
+
 // TestMergePaymentSettingsDefaultsNetwork verifies merge payment settings defaults network behavior.
 func TestMergePaymentSettingsDefaultsNetwork(t *testing.T) {
 	t.Parallel()

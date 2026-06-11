@@ -573,6 +573,7 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &
 	var promoCodeID *string
 	discount := int64(0)
 	promoCode := strings.ToUpper(strings.TrimSpace(params.PromoCode))
+	appliedPromoCode := ""
 	if promoCode != "" {
 		var promoID string
 		var dbCode string
@@ -626,6 +627,7 @@ FOR UPDATE;`, promoCode).Scan(
 		}
 		discount = result.DiscountCents
 		promoCodeID = &promoID
+		appliedPromoCode = strings.TrimSpace(dbCode)
 
 		if _, err := tx.Exec(ctx, `
 UPDATE promo_codes
@@ -684,6 +686,7 @@ RETURNING id::text, user_id, event_id, ''::text, status, payment_method, payment
 		return err
 	}
 	order.EventTitle = eventTitle
+	order.PromoCode = appliedPromoCode
 
 	orderItems := make([]models.OrderItem, 0, len(itemDrafts))
 	for _, draft := range itemDrafts {
@@ -1233,6 +1236,13 @@ WHERE o.id = $1::uuid;`, orderID))
 			return out, ErrOrderNotFound
 		}
 		return out, err
+	}
+	if order.PromoCodeID != nil {
+		promoCode, err := r.promoCodeForOrder(ctx, q, *order.PromoCodeID)
+		if err != nil {
+			return out, err
+		}
+		order.PromoCode = promoCode
 	}
 	out.Order = order
 
@@ -2722,6 +2732,21 @@ func scanTransferOrderSummary(row pgx.Row) (models.TransferOrderSummary, error) 
 	out.User = &user
 	out.Item = item
 	return out, nil
+}
+
+// promoCodeForOrder returns the promo code text stored for an order.
+func (r *Repository) promoCodeForOrder(ctx context.Context, q queryRunner, promoCodeID string) (string, error) {
+	var code string
+	if err := q.QueryRow(ctx, `
+SELECT code
+FROM promo_codes
+WHERE id = $1::uuid;`, promoCodeID).Scan(&code); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(code), nil
 }
 
 // scanOrderItem scans order item.
