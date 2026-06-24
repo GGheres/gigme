@@ -587,17 +587,56 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required Uri? standaloneHelperUri,
   }) {
     if (_standaloneHelperLaunchAttempted) return;
-    if (kIsWeb) return;
-    if (config.authMode != AuthMode.standalone) return;
     if (standaloneHelperUri == null) return;
     if (state.status != AuthStatus.unauthenticated) return;
+
+    final shouldOpenWebHelper = kIsWeb &&
+        config.authMode == AuthMode.telegramWeb &&
+        !_currentUriHasInitData();
+    final shouldOpenNativeHelper =
+        !kIsWeb && config.authMode == AuthMode.standalone;
+
+    if (!shouldOpenWebHelper && !shouldOpenNativeHelper) return;
 
     _standaloneHelperLaunchAttempted = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      if (kIsWeb) {
+        TelegramWebAppBridge.redirect(standaloneHelperUri.toString());
+        return;
+      }
       await launchUrl(standaloneHelperUri,
           mode: LaunchMode.externalApplication);
     });
+  }
+
+  /// _currentUriHasInitData reports whether current uri already contains init data.
+
+  bool _currentUriHasInitData() {
+    final uri = Uri.base;
+    final fromQuery =
+        uri.queryParameters['initData'] ?? uri.queryParameters['tgWebAppData'];
+    if ((fromQuery ?? '').trim().isNotEmpty) return true;
+
+    final fragment = uri.fragment.trim();
+    if (fragment.isEmpty) return false;
+
+    final candidates = <String>{fragment};
+    final questionMarkIndex = fragment.indexOf('?');
+    if (questionMarkIndex >= 0 && questionMarkIndex < fragment.length - 1) {
+      candidates.add(fragment.substring(questionMarkIndex + 1));
+    }
+
+    for (final candidate in candidates) {
+      try {
+        final params = Uri.splitQueryString(candidate);
+        final initData = params['initData'] ?? params['tgWebAppData'];
+        if ((initData ?? '').trim().isNotEmpty) return true;
+      } catch (_) {
+        // Ignore invalid fragment formats.
+      }
+    }
+    return false;
   }
 }
 

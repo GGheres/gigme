@@ -19,6 +19,14 @@ class TelegramWebAppBridge {
 
   static bool isLikelyMobileBrowser() => bridge.isLikelyMobileBrowser();
 
+  /// allowsWriteToPm reports whether bot direct messages are allowed.
+
+  static bool? allowsWriteToPm() => bridge.allowsWriteToPm();
+
+  /// requestWriteAccess asks Telegram to allow bot direct messages.
+
+  static void requestWriteAccess() => bridge.requestWriteAccess();
+
   /// openLink handles open link.
 
   static void openLink(String url) => bridge.openLink(url);

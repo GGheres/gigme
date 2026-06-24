@@ -20,6 +20,13 @@ String? _readTrimmedJsString(JSAny? value) {
   return text;
 }
 
+/// _readJsBool reads nullable js bool.
+
+bool? _readJsBool(JSAny? value) {
+  if (value is! JSBoolean) return null;
+  return value.toDart;
+}
+
 /// isAvailable reports whether available condition is met.
 
 bool isAvailable() => _webApp() != null;
@@ -62,6 +69,36 @@ bool isLikelyMobileBrowser() {
       userAgent.contains('ipad') ||
       userAgent.contains('ipod') ||
       userAgent.contains('mobile');
+}
+
+/// allowsWriteToPm reports whether bot direct messages are allowed.
+
+bool? allowsWriteToPm() {
+  final app = _webApp();
+  if (app == null) return null;
+
+  final unsafe = app['initDataUnsafe'];
+  if (unsafe is! JSObject) return null;
+
+  final user = unsafe['user'];
+  if (user is! JSObject) return null;
+
+  final snakeCase = _readJsBool(user['allows_write_to_pm']);
+  if (snakeCase != null) return snakeCase;
+
+  return _readJsBool(user['allowsWriteToPm']);
+}
+
+/// requestWriteAccess asks Telegram to allow bot direct messages.
+
+void requestWriteAccess() {
+  final app = _webApp();
+  if (app == null || !app.has('requestWriteAccess')) return;
+
+  app.callMethodVarArgs<JSAny?>(
+    'requestWriteAccess'.toJS,
+    const <JSAny?>[],
+  );
 }
 
 /// openLink handles open link.

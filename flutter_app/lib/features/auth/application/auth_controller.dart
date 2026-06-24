@@ -111,11 +111,10 @@ class AuthController extends ChangeNotifier {
     }
 
     if (config.isTelegramWebMode) {
-      final initData = await _resolveTelegramInitDataOrSaved();
+      final initData = _resolveFreshTelegramInitData();
       if (initData == null || initData.isEmpty) {
         _state = AuthState.unauthenticated(
-          error:
-              'Open this app inside Telegram WebApp or pass initData for debug.',
+          error: 'Telegram initData not found. Opening helper login.',
         );
         notifyListeners();
         return;
@@ -126,7 +125,7 @@ class AuthController extends ChangeNotifier {
     }
 
     await _startStandaloneLinkListener();
-    final initData = await _resolveTelegramInitDataOrSaved();
+    final initData = _resolveFreshTelegramInitData();
     if (initData != null && initData.isNotEmpty) {
       await loginWithTelegram(initData);
       return;
@@ -146,12 +145,13 @@ class AuthController extends ChangeNotifier {
 
     try {
       final session = await repository.loginWithTelegram(initData);
-      await _persistSession(session: session, telegramInitData: initData);
+      await _persistSession(session: session);
       _state = AuthState.authenticated(
         token: session.accessToken,
         user: session.user,
       );
       notifyListeners();
+      _requestTelegramWriteAccessIfNeeded();
       await _claimPendingReferralIfNeeded(token: session.accessToken);
     } catch (error) {
       _state = AuthState.unauthenticated(error: _mapVkAuthError(error));
@@ -263,11 +263,7 @@ class AuthController extends ChangeNotifier {
       await tokenStorage.writeSession(token: token, user: user);
     } catch (error) {
       if (_isUnauthorizedError(error)) {
-        final reloginSucceeded =
-            await _reauthenticateWithStoredTelegramInitData();
-        if (!reloginSucceeded) {
-          await logout();
-        }
+        await logout();
       }
     }
   }
@@ -328,11 +324,11 @@ class AuthController extends ChangeNotifier {
       }
     }
 
-    final initData = await _resolveTelegramInitDataOrSaved();
+    final initData = _resolveFreshTelegramInitData();
     if (initData == null || initData.isEmpty) {
       _state = AuthState.unauthenticated(
         error: config.isTelegramWebMode
-            ? 'Telegram initData not found. Open via Telegram WebApp.'
+            ? 'Telegram initData not found. Opening helper login.'
             : 'Standalone initData is missing. Open helper login URL or paste initData.',
       );
       notifyListeners();
@@ -362,11 +358,6 @@ class AuthController extends ChangeNotifier {
       return true;
     } catch (error) {
       if (_isUnauthorizedError(error)) {
-        final reloginSucceeded =
-            await _reauthenticateWithStoredTelegramInitData();
-        if (reloginSucceeded) {
-          return true;
-        }
         await tokenStorage.clearToken();
         _state = AuthState.unauthenticated();
         notifyListeners();
@@ -395,11 +386,6 @@ class AuthController extends ChangeNotifier {
       return true;
     } catch (error) {
       if (_isUnauthorizedError(error)) {
-        final reloginSucceeded =
-            await _reauthenticateWithStoredTelegramInitData();
-        if (reloginSucceeded) {
-          return true;
-        }
         await tokenStorage.clearToken();
       }
       return false;
@@ -408,54 +394,17 @@ class AuthController extends ChangeNotifier {
 
   /// _persistSession handles persist session.
 
-  Future<void> _persistSession({
-    required AuthSession session,
-    String? telegramInitData,
-  }) async {
+  Future<void> _persistSession({required AuthSession session}) async {
     await tokenStorage.writeSession(
       token: session.accessToken,
       user: session.user,
     );
-    if (telegramInitData != null && telegramInitData.trim().isNotEmpty) {
-      await tokenStorage.writeTelegramInitData(telegramInitData);
-      return;
-    }
     await tokenStorage.clearTelegramInitData();
   }
 
-  /// _resolveTelegramInitDataOrSaved handles resolve telegram init data or saved.
+  /// _resolveFreshTelegramInitData handles resolve fresh telegram init data.
 
-  Future<String?> _resolveTelegramInitDataOrSaved() async {
-    final fromRuntime = _resolveTelegramInitData();
-    if (fromRuntime != null && fromRuntime.isNotEmpty) {
-      return fromRuntime;
-    }
-    return tokenStorage.readTelegramInitData();
-  }
-
-  /// _reauthenticateWithStoredTelegramInitData handles reauthenticate with stored telegram init data.
-
-  Future<bool> _reauthenticateWithStoredTelegramInitData() async {
-    final initData = await tokenStorage.readTelegramInitData();
-    if (initData == null || initData.isEmpty) {
-      return false;
-    }
-
-    try {
-      final session = await repository.loginWithTelegram(initData);
-      await _persistSession(session: session, telegramInitData: initData);
-      _state = AuthState.authenticated(
-        token: session.accessToken,
-        user: session.user,
-      );
-      notifyListeners();
-      await _claimPendingReferralIfNeeded(token: session.accessToken);
-      return true;
-    } catch (_) {
-      await tokenStorage.clearTelegramInitData();
-      return false;
-    }
-  }
+  String? _resolveFreshTelegramInitData() => _resolveTelegramInitData();
 
   /// _isUnauthorizedError reports whether unauthorized error condition is met.
 
@@ -463,6 +412,15 @@ class AuthController extends ChangeNotifier {
     if (error is! AppException) return false;
     final statusCode = error.statusCode ?? 0;
     return statusCode == 401 || statusCode == 403;
+  }
+
+  /// _requestTelegramWriteAccessIfNeeded asks Telegram for bot DM permission.
+
+  void _requestTelegramWriteAccessIfNeeded() {
+    if (!kIsWeb || !config.isTelegramWebMode) return;
+    if (!TelegramWebAppBridge.isAvailable()) return;
+    if (TelegramWebAppBridge.allowsWriteToPm() == true) return;
+    TelegramWebAppBridge.requestWriteAccess();
   }
 
   /// _claimPendingReferralIfNeeded claims pending referral if needed.
