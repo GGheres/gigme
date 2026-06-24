@@ -41,6 +41,87 @@ func TestBuildEventURLUsesSpaceAppPath(t *testing.T) {
 	}
 }
 
+// TestBuildGenericPurchaseURLs verifies bot menu links for global /start.
+func TestBuildGenericPurchaseURLs(t *testing.T) {
+	base := normalizeWebAppBaseURL("https://spacefestival.fun")
+	tests := map[string]string{
+		"buy":      buildGenericPurchaseURL(base),
+		"transfer": buildGenericTransferURL(base),
+	}
+	wantPaths := map[string]string{
+		"buy":      "/space_app/buy",
+		"transfer": "/space_app/transfer",
+	}
+	for name, link := range tests {
+		parsed, err := url.Parse(link)
+		if err != nil {
+			t.Fatalf("%s parse url: %v", name, err)
+		}
+		if parsed.Path != wantPaths[name] {
+			t.Fatalf("%s expected path %q, got %q", name, wantPaths[name], parsed.Path)
+		}
+	}
+}
+
+// TestBuildEventPurchaseURLs verifies event-specific ticket and transfer links.
+func TestBuildEventPurchaseURLs(t *testing.T) {
+	base := normalizeWebAppBaseURL("https://spacefestival.fun")
+	ticketLink := buildEventPurchaseURL(base, 42, "abc_123")
+	transferLink := buildEventTransferURL(base, 42, "abc_123")
+
+	ticketURL, err := url.Parse(ticketLink)
+	if err != nil {
+		t.Fatalf("parse ticket url: %v", err)
+	}
+	if ticketURL.Path != "/space_app/event/42/buy" {
+		t.Fatalf("expected ticket path, got %q", ticketURL.Path)
+	}
+	if ticketURL.Query().Get("key") != "abc_123" {
+		t.Fatalf("expected ticket key, got %q", ticketURL.Query().Get("key"))
+	}
+	if ticketURL.Query().Get("mode") != "" {
+		t.Fatalf("expected ticket mode to be empty, got %q", ticketURL.Query().Get("mode"))
+	}
+
+	transferURL, err := url.Parse(transferLink)
+	if err != nil {
+		t.Fatalf("parse transfer url: %v", err)
+	}
+	if transferURL.Path != "/space_app/event/42/buy" {
+		t.Fatalf("expected transfer path, got %q", transferURL.Path)
+	}
+	if transferURL.Query().Get("key") != "abc_123" {
+		t.Fatalf("expected transfer key, got %q", transferURL.Query().Get("key"))
+	}
+	if transferURL.Query().Get("mode") != "transfer" {
+		t.Fatalf("expected transfer mode, got %q", transferURL.Query().Get("mode"))
+	}
+}
+
+// TestBuildTelegramStartMenuMarkup verifies the three /start WebApp buttons.
+func TestBuildTelegramStartMenuMarkup(t *testing.T) {
+	markup := buildTelegramStartMenuMarkup("https://spacefestival.fun", 0, "")
+	if markup == nil {
+		t.Fatalf("expected markup")
+	}
+	if len(markup.InlineKeyboard) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(markup.InlineKeyboard))
+	}
+	wantTexts := []string{"КУПИТЬ БИЛЕТ", "ТРАНСФЕР", "ОТКРЫТЬ SPACE APP"}
+	for index, want := range wantTexts {
+		if len(markup.InlineKeyboard[index]) != 1 {
+			t.Fatalf("expected row %d to have one button", index)
+		}
+		button := markup.InlineKeyboard[index][0]
+		if button.Text != want {
+			t.Fatalf("expected button %d text %q, got %q", index, want, button.Text)
+		}
+		if button.WebApp == nil || button.WebApp.URL == "" {
+			t.Fatalf("expected button %d to have web app url", index)
+		}
+	}
+}
+
 // TestParseAdminReplyCommand verifies `/reply <chat_id> <text>` command parsing.
 func TestParseAdminReplyCommand(t *testing.T) {
 	chatID, replyText, ok := parseAdminReplyCommand("/reply 12345 спасибо за сообщение")

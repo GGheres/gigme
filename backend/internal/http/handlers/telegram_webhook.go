@@ -61,6 +61,8 @@ var adminReplyPayloadRe = regexp.MustCompile(`(?i)(?:reply|chat)_(\d+)`)
 var adminReplyCallbackDataRe = regexp.MustCompile(`(?i)^reply:(\d+)$`)
 var adminReplyHintCallbackDataRe = regexp.MustCompile(`(?i)^reply_hint:(\d+)$`)
 
+const telegramStartMenuText = "Выберите раздел SPACE APP"
+
 // parseStartPayload parses start payload.
 func parseStartPayload(payload string) (int64, string) {
 	payload = strings.TrimSpace(payload)
@@ -151,14 +153,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 			mediaURL := resolveEventMediaURL(ctx, h, eventID, accessKey)
 			var markup *integrations.ReplyMarkup
 			if webAppURL != "" {
-				markup = &integrations.ReplyMarkup{
-					InlineKeyboard: [][]integrations.InlineKeyboardButton{{
-						{
-							Text:   "Открыть событие",
-							WebApp: &integrations.WebAppInfo{URL: buildEventURL(webAppURL, eventID, accessKey)},
-						},
-					}},
-				}
+				markup = buildTelegramStartMenuMarkup(webAppURL, eventID, accessKey)
 			}
 			if mediaURL != "" {
 				if err := h.telegram.SendPhotoWithMarkup(update.Message.Chat.ID, mediaURL, text, markup); err == nil {
@@ -185,16 +180,9 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	markup := &integrations.ReplyMarkup{
-		InlineKeyboard: [][]integrations.InlineKeyboardButton{{
-			{
-				Text:   "Открыть SPACE",
-				WebApp: &integrations.WebAppInfo{URL: webAppURL},
-			},
-		}},
-	}
+	markup := buildTelegramStartMenuMarkup(webAppURL, 0, "")
 
-	if err := h.telegram.SendMessageWithMarkup(update.Message.Chat.ID, "Нажмите кнопку, чтобы открыть приложение", markup); err != nil {
+	if err := h.telegram.SendMessageWithMarkup(update.Message.Chat.ID, telegramStartMenuText, markup); err != nil {
 		logger.Warn("action", "action", "telegram_webhook", "status", "send_failed", "error", err)
 
 	}
@@ -587,6 +575,142 @@ func buildEventURL(baseURL string, eventID int64, accessKey string) string {
 	parsed.RawQuery = query.Encode()
 	parsed.Fragment = mergeEventIDIntoFragment(parsed.Fragment, eventID)
 	return parsed.String()
+}
+
+// buildEventPurchaseURL builds a direct ticket purchase WebApp URL.
+func buildEventPurchaseURL(baseURL string, eventID int64, accessKey string) string {
+	if baseURL == "" || eventID <= 0 {
+		return ""
+	}
+	return buildWebAppPathURL(
+		baseURL,
+		path.Join("/space_app/event", strconv.FormatInt(eventID, 10), "buy"),
+		map[string]string{"key": accessKey},
+	)
+}
+
+// buildEventTransferURL builds a direct transfer purchase WebApp URL.
+func buildEventTransferURL(baseURL string, eventID int64, accessKey string) string {
+	if baseURL == "" || eventID <= 0 {
+		return ""
+	}
+	return buildWebAppPathURL(
+		baseURL,
+		path.Join("/space_app/event", strconv.FormatInt(eventID, 10), "buy"),
+		map[string]string{"key": accessKey, "mode": "transfer"},
+	)
+}
+
+// buildGenericPurchaseURL builds a generic ticket entrypoint WebApp URL.
+func buildGenericPurchaseURL(baseURL string) string {
+	return buildWebAppPathURL(baseURL, "/space_app/buy", nil)
+}
+
+// buildGenericTransferURL builds a generic transfer entrypoint WebApp URL.
+func buildGenericTransferURL(baseURL string) string {
+	return buildWebAppPathURL(baseURL, "/space_app/transfer", nil)
+}
+
+// buildWebAppPathURL replaces the normalized app path while preserving host.
+func buildWebAppPathURL(baseURL string, appPath string, queryValues map[string]string) string {
+	base := normalizeWebAppBaseURL(baseURL)
+	appPath = normalizeWebAppPath(appPath)
+	if base == "" || appPath == "" {
+		return ""
+	}
+	parsed, err := url.Parse(base)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		query := encodeNonEmptyQuery(queryValues)
+		if query == "" {
+			return appPath
+		}
+		return appPath + "?" + query
+	}
+	parsed.Path = appPath
+	query := parsed.Query()
+	for key, value := range queryValues {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		query.Set(key, strings.TrimSpace(value))
+	}
+	parsed.RawQuery = query.Encode()
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
+// normalizeWebAppPath keeps bot menu links inside the app route namespace.
+func normalizeWebAppPath(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	cleaned := path.Clean(trimmed)
+	if cleaned == "." || cleaned == "/" {
+		return "/space_app"
+	}
+	if cleaned == "/space_app" || strings.HasPrefix(cleaned, "/space_app/") {
+		return cleaned
+	}
+	return "/space_app"
+}
+
+// encodeNonEmptyQuery serializes only non-empty query values.
+func encodeNonEmptyQuery(queryValues map[string]string) string {
+	if len(queryValues) == 0 {
+		return ""
+	}
+	query := url.Values{}
+	for key, value := range queryValues {
+		if strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		query.Set(strings.TrimSpace(key), strings.TrimSpace(value))
+	}
+	return query.Encode()
+}
+
+// buildTelegramStartMenuMarkup returns the three WebApp buttons shown on /start.
+func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey string) *integrations.ReplyMarkup {
+	if strings.TrimSpace(baseURL) == "" {
+		return nil
+	}
+
+	buyURL := buildGenericPurchaseURL(baseURL)
+	transferURL := buildGenericTransferURL(baseURL)
+	openURL := normalizeWebAppBaseURL(baseURL)
+	if eventID > 0 {
+		if url := buildEventPurchaseURL(baseURL, eventID, accessKey); url != "" {
+			buyURL = url
+		}
+		if url := buildEventTransferURL(baseURL, eventID, accessKey); url != "" {
+			transferURL = url
+		}
+		if url := buildEventURL(baseURL, eventID, accessKey); url != "" {
+			openURL = url
+		}
+	}
+
+	rows := make([][]integrations.InlineKeyboardButton, 0, 3)
+	appendWebAppButton := func(text string, link string) {
+		if strings.TrimSpace(link) == "" {
+			return
+		}
+		rows = append(rows, []integrations.InlineKeyboardButton{{
+			Text:   text,
+			WebApp: &integrations.WebAppInfo{URL: link},
+		}})
+	}
+	appendWebAppButton("КУПИТЬ БИЛЕТ", buyURL)
+	appendWebAppButton("ТРАНСФЕР", transferURL)
+	appendWebAppButton("ОТКРЫТЬ SPACE APP", openURL)
+	if len(rows) == 0 {
+		return nil
+	}
+	return &integrations.ReplyMarkup{InlineKeyboard: rows}
 }
 
 // buildMediaPreviewURL builds media preview u r l.

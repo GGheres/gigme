@@ -26,6 +26,7 @@ import '../features/tickets/presentation/admin_qr_scanner_page.dart';
 import '../features/tickets/presentation/admin_stats_page.dart';
 import '../features/tickets/presentation/admin_transfer_orders_page.dart';
 import '../features/tickets/presentation/my_tickets_page.dart';
+import '../features/tickets/presentation/purchase_entry_screen.dart';
 import '../features/tickets/presentation/purchase_ticket_flow.dart';
 import '../ui/layout/landing_backdrop.dart';
 import 'app_shell.dart';
@@ -168,6 +169,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.myTickets,
                 pageBuilder: (context, state) =>
                     _noTransitionPage(state, const MyTicketsPage()),
+              ),
+              GoRoute(
+                path: AppRoutes.buy,
+                pageBuilder: (context, state) => _noTransitionPage(
+                  state,
+                  const PurchaseEntryScreen(mode: PurchaseFlowMode.ticket),
+                ),
+              ),
+              GoRoute(
+                path: AppRoutes.transfer,
+                pageBuilder: (context, state) => _noTransitionPage(
+                  state,
+                  const PurchaseEntryScreen(mode: PurchaseFlowMode.transfer),
+                ),
               ),
               GoRoute(
                 path: AppRoutes.admin,

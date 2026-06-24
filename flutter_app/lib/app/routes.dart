@@ -10,6 +10,8 @@ class AppRoutes {
   static const profile = '/space_app/profile';
   static const settings = '/space_app/settings';
   static const admin = '/space_app/admin';
+  static const buy = '/space_app/buy';
+  static const transfer = '/space_app/transfer';
   static const myTickets = '/space_app/tickets';
   static const adminOrders = '/space_app/admin/orders';
   static const adminTransfers = '/space_app/admin/transfers';

@@ -4,7 +4,9 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/notifications/providers.dart';
 import '../../../ui/components/action_buttons.dart';
@@ -318,6 +320,15 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
 
   String get _productLabel => _isTransferMode ? 'трансфер' : 'билет';
 
+  /// _closeFlow closes modal flows or returns direct Telegram links to feed.
+  void _closeFlow() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    context.go(AppRoutes.feed);
+  }
+
   List<String> get _availablePaymentMethods {
     final settings = _paymentSettings;
     if (settings == null) return _allPaymentMethods;
@@ -593,7 +604,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         appBar: AppBar(
           title: Text(_flowTitle),
           leading: IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: _closeFlow,
             icon: const Icon(Icons.close_rounded),
           ),
         ),
@@ -616,7 +627,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         appBar: AppBar(
           title: Text(_flowTitle),
           leading: IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: _closeFlow,
             icon: const Icon(Icons.close_rounded),
           ),
         ),
@@ -638,14 +649,14 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     if (_createdOrder != null) {
       return PurchaseStatusPage(
         detail: _createdOrder!,
-        onClose: () => Navigator.of(context).maybePop(),
+        onClose: _closeFlow,
       );
     }
 
     if (_createdSbpOrder != null) {
       return SbpQrPaymentPage(
         created: _createdSbpOrder!,
-        onClose: () => Navigator.of(context).maybePop(),
+        onClose: _closeFlow,
       );
     }
 
@@ -686,7 +697,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       appBar: AppBar(
         title: Text(_flowTitle),
         leading: IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: _closeFlow,
           icon: const Icon(Icons.close_rounded),
         ),
       ),
