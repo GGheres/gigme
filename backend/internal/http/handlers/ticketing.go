@@ -24,6 +24,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+const alice26PromoCode = "ALICE26"
+const alice26PaymentPhoneNumber = "+79841478036"
+const alice26PaymentPhoneDescription = "Перевод СБП по номеру на T Bank\nПосле перевода для ускорения обработки платежа скиньте чек транзакции в бота."
+
 // orderSelectionRequest represents order selection request.
 type orderSelectionRequest struct {
 	ProductID string `json:"productId"`
@@ -1362,13 +1366,18 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 	}
 	switch order.PaymentMethod {
 	case models.PaymentMethodPhone:
-		instructions.PhoneNumber = strings.TrimSpace(paymentSettings.PhoneNumber)
-		instructions.DisplayMessage = applyPaymentTextTemplate(
-			paymentSettings.PhoneDescription,
-			order,
-			amountText,
-			fmt.Sprintf("Transfer %s to phone number %s and click I paid.", amountText, instructions.PhoneNumber),
-		)
+		if isAlice26Promo(order.PromoCode) {
+			instructions.PhoneNumber = alice26PaymentPhoneNumber
+			instructions.DisplayMessage = alice26PaymentPhoneDescription
+		} else {
+			instructions.PhoneNumber = strings.TrimSpace(paymentSettings.PhoneNumber)
+			instructions.DisplayMessage = applyPaymentTextTemplate(
+				paymentSettings.PhoneDescription,
+				order,
+				amountText,
+				fmt.Sprintf("Transfer %s to phone number %s and click I paid.", amountText, instructions.PhoneNumber),
+			)
+		}
 	case models.PaymentMethodUSDT:
 		instructions.USDTWallet = strings.TrimSpace(paymentSettings.USDTWallet)
 		instructions.USDTNetwork = strings.TrimSpace(paymentSettings.USDTNetwork)
@@ -1403,6 +1412,11 @@ func (h *Handler) buildPaymentInstructions(order models.Order, paymentSettings m
 		instructions.DisplayMessage = "Follow payment instructions and click I paid."
 	}
 	return instructions
+}
+
+// isAlice26Promo reports whether a promo code should use Alice payment requisites.
+func isAlice26Promo(code string) bool {
+	return strings.EqualFold(strings.TrimSpace(code), alice26PromoCode)
 }
 
 // loadPaymentSettings loads payment settings.

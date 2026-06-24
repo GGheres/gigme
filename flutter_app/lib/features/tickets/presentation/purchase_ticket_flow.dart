@@ -654,6 +654,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         paymentMethod: _paymentMethod,
         amountCents: _totalCents,
         paymentSettings: _paymentSettings,
+        promoCode: _promoCtrl.text,
         onBack: () => _updateStateAndSave(() => _showPaymentCheckout = false),
         onPaid: _submitting ? null : _submitOrder,
         submitting: _submitting,
@@ -943,6 +944,10 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   }
 
   String _paymentSubtitle(String method) {
+    final promoOverride = _PromoPaymentOverride.forCode(_promoCtrl.text);
+    if (method == 'PHONE' && promoOverride != null) {
+      return promoOverride.phoneDescription;
+    }
     final custom = _paymentSettings?.descriptionForMethod(method).trim() ?? '';
     if (custom.isNotEmpty) return custom;
     switch (method) {
@@ -1625,6 +1630,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
     required this.paymentMethod,
     required this.amountCents,
     required this.paymentSettings,
+    required this.promoCode,
     required this.onBack,
     required this.onPaid,
     required this.submitting,
@@ -1633,6 +1639,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
   final String paymentMethod;
   final int amountCents;
   final PaymentSettingsModel? paymentSettings;
+  final String promoCode;
   final VoidCallback onBack;
   final VoidCallback? onPaid;
   final bool submitting;
@@ -1643,13 +1650,18 @@ class _PaymentCheckoutPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final title = _methodTitle(paymentMethod);
-    final customSubtitle = paymentSettings?.descriptionForMethod(paymentMethod);
+    final promoOverride = _PromoPaymentOverride.forCode(promoCode);
+    final customSubtitle = paymentMethod == 'PHONE' && promoOverride != null
+        ? promoOverride.phoneDescription
+        : paymentSettings?.descriptionForMethod(paymentMethod);
     final subtitle = (customSubtitle ?? '').trim().isNotEmpty
         ? customSubtitle!.trim()
         : _methodSubtitle(paymentMethod);
-    final phoneNumber = (paymentSettings?.phoneNumber ?? '').trim().isNotEmpty
-        ? paymentSettings!.phoneNumber.trim()
-        : config.paymentPhoneNumber;
+    final phoneNumber = promoOverride != null
+        ? promoOverride.phoneNumber
+        : (paymentSettings?.phoneNumber ?? '').trim().isNotEmpty
+            ? paymentSettings!.phoneNumber.trim()
+            : config.paymentPhoneNumber;
     final usdtWallet = (paymentSettings?.usdtWallet ?? '').trim().isNotEmpty
         ? paymentSettings!.usdtWallet.trim()
         : config.paymentUsdtWallet;
@@ -1772,6 +1784,34 @@ class _PaymentCheckoutPage extends ConsumerWidget {
       default:
         return 'Сделайте перевод на указанный номер.';
     }
+  }
+}
+
+/// _PromoPaymentOverride represents promo-specific payment requisites.
+
+class _PromoPaymentOverride {
+  /// _PromoPaymentOverride handles promo payment override data.
+  const _PromoPaymentOverride({
+    required this.phoneNumber,
+    required this.phoneDescription,
+  });
+
+  static const _alice26Code = 'ALICE26';
+  static const _alice26 = _PromoPaymentOverride(
+    phoneNumber: '+79841478036',
+    phoneDescription: 'Перевод СБП по номеру на T Bank\n'
+        'После перевода для ускорения обработки платежа скиньте чек транзакции в бота.',
+  );
+
+  final String phoneNumber;
+  final String phoneDescription;
+
+  /// forCode returns payment override for a promo code.
+
+  static _PromoPaymentOverride? forCode(String code) {
+    final normalized = code.trim().toUpperCase();
+    if (normalized == _alice26Code) return _alice26;
+    return null;
   }
 }
 

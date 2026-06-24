@@ -126,6 +126,7 @@ type Order struct {
 	PaymentReference string     `json:"paymentReference,omitempty"`
 	PaymentNotes     string     `json:"paymentNotes,omitempty"`
 	PromoCodeID      *string    `json:"promoCodeId,omitempty"`
+	PromoCode        string     `json:"promoCode,omitempty"`
 	SubtotalCents    int64      `json:"subtotalCents"`
 	DiscountCents    int64      `json:"discountCents"`
 	TotalCents       int64      `json:"totalCents"`
