@@ -88,26 +88,6 @@ class TokenStorage {
     await _writeString(_tokenKey, token);
   }
 
-  /// readTelegramInitData reads telegram init data.
-
-  Future<String?> readTelegramInitData() async {
-    final raw = await _readString(_telegramInitDataKey);
-    final value = (raw ?? '').trim();
-    if (value.isEmpty) return null;
-    return value;
-  }
-
-  /// writeTelegramInitData writes telegram init data.
-
-  Future<void> writeTelegramInitData(String initData) async {
-    final value = initData.trim();
-    if (value.isEmpty) {
-      await _remove(_telegramInitDataKey);
-      return;
-    }
-    await _writeString(_telegramInitDataKey, value);
-  }
-
   /// clearTelegramInitData handles clear telegram init data.
 
   Future<void> clearTelegramInitData() async {

@@ -13,6 +13,14 @@ String? startParam() => null;
 
 bool isLikelyMobileBrowser() => false;
 
+/// allowsWriteToPm reports whether bot direct messages are allowed.
+
+bool? allowsWriteToPm() => null;
+
+/// requestWriteAccess asks Telegram to allow bot direct messages.
+
+void requestWriteAccess() {}
+
 /// openLink handles open link.
 
 void openLink(String url) {}

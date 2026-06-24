@@ -14,8 +14,9 @@ import (
 
 // TelegramClient represents telegram client.
 type TelegramClient struct {
-	token  string
-	client *http.Client
+	token   string
+	client  *http.Client
+	baseURL string
 }
 
 // WebAppInfo represents web app info.
@@ -45,8 +46,9 @@ type ReplyMarkup struct {
 // NewTelegramClient creates telegram client.
 func NewTelegramClient(token string) *TelegramClient {
 	return &TelegramClient{
-		token:  token,
-		client: &http.Client{Timeout: 10 * time.Second},
+		token:   token,
+		client:  &http.Client{Timeout: 10 * time.Second},
+		baseURL: "https://api.telegram.org",
 	}
 }
 
@@ -121,7 +123,7 @@ func (t *TelegramClient) SendPhotoBytes(chatID int64, filename string, photo []b
 		return err
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendPhoto", t.token)
+	url := t.apiURL("sendPhoto")
 	req, err := http.NewRequest(http.MethodPost, url, &body)
 	if err != nil {
 		return err
@@ -132,9 +134,9 @@ func (t *TelegramClient) SendPhotoBytes(chatID int64, filename string, photo []b
 		return err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
+	responseBody := readTelegramResponseBody(resp.Body)
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram sendPhoto status %d", resp.StatusCode)
+		return telegramStatusError("sendPhoto", resp.StatusCode, responseBody)
 	}
 	return nil
 }
@@ -158,15 +160,44 @@ func (t *TelegramClient) AnswerCallbackQuery(callbackQueryID string, text string
 // post handles internal post behavior.
 func (t *TelegramClient) post(method string, payload map[string]interface{}) error {
 	body, _ := json.Marshal(payload)
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/%s", t.token, method)
+	url := t.apiURL(method)
 	resp, err := t.client.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
+	responseBody := readTelegramResponseBody(resp.Body)
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram %s status %d", method, resp.StatusCode)
+		return telegramStatusError(method, resp.StatusCode, responseBody)
 	}
 	return nil
+}
+
+// apiURL builds a Telegram Bot API method URL.
+func (t *TelegramClient) apiURL(method string) string {
+	baseURL := strings.TrimRight(strings.TrimSpace(t.baseURL), "/")
+	if baseURL == "" {
+		baseURL = "https://api.telegram.org"
+	}
+	return fmt.Sprintf("%s/bot%s/%s", baseURL, t.token, method)
+}
+
+// readTelegramResponseBody reads a bounded Telegram response body for logs.
+func readTelegramResponseBody(body io.Reader) string {
+	if body == nil {
+		return ""
+	}
+	data, err := io.ReadAll(io.LimitReader(body, 4096))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// telegramStatusError returns a status error with Telegram's response body.
+func telegramStatusError(method string, statusCode int, responseBody string) error {
+	if strings.TrimSpace(responseBody) == "" {
+		return fmt.Errorf("telegram %s status %d", method, statusCode)
+	}
+	return fmt.Errorf("telegram %s status %d: %s", method, statusCode, responseBody)
 }
