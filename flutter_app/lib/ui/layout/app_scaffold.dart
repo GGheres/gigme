@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../components/app_section_header.dart';
 import '../theme/app_breakpoints.dart';
 import '../theme/app_spacing.dart';
+import 'space_app_background.dart';
 
 /// AppScaffold represents app scaffold.
 
@@ -26,6 +27,7 @@ class AppScaffold extends StatelessWidget {
     this.titleColor,
     this.subtitleColor,
     this.bottomSheet,
+    this.bodyBackground,
     super.key,
   });
 
@@ -46,6 +48,7 @@ class AppScaffold extends StatelessWidget {
   final Color? titleColor;
   final Color? subtitleColor;
   final Widget? bottomSheet;
+  final Widget? bodyBackground;
 
   /// build renders the widget tree for this component.
 
@@ -56,6 +59,8 @@ class AppScaffold extends StatelessWidget {
         contentPadding ?? AppBreakpoints.pagePaddingFor(width);
     final resolvedMaxWidth =
         maxContentWidth ?? AppBreakpoints.maxContentWidthFor(width);
+    final resolvedBodyBackground = bodyBackground ??
+        (showBackgroundDecor ? const SpaceAppBackground() : null);
 
     Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -107,6 +112,20 @@ class AppScaffold extends StatelessWidget {
 
     if (safeArea) {
       body = SafeArea(child: body);
+    }
+
+    if (resolvedBodyBackground != null) {
+      body = Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: resolvedBodyBackground,
+            ),
+          ),
+          body,
+        ],
+      );
     }
 
     return Scaffold(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/application/auth_controller.dart';
+import '../ui/layout/space_app_background.dart';
 import '../ui/theme/app_breakpoints.dart';
 import '../ui/theme/app_colors.dart';
 import '../ui/theme/app_radii.dart';
@@ -86,9 +87,21 @@ class _AppShellState extends ConsumerState<AppShell> {
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = width >= AppBreakpoints.smMax;
     final selectedNavIndex = _selectedDestinationIndex(currentIndex);
+    final shellBody = Stack(
+      fit: StackFit.expand,
+      children: [
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: SpaceAppBackground(),
+          ),
+        ),
+        widget.navigationShell,
+      ],
+    );
 
     if (!isAdminRoute && !isCreateRoute && isDesktop) {
       return Scaffold(
+        backgroundColor: Colors.transparent,
         body: Row(
           children: [
             SafeArea(
@@ -99,14 +112,15 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: widget.navigationShell),
+            Expanded(child: shellBody),
           ],
         ),
       );
     }
 
     return Scaffold(
-      body: widget.navigationShell,
+      backgroundColor: Colors.transparent,
+      body: shellBody,
       bottomNavigationBar: isAdminRoute || isCreateRoute
           ? null
           : _AppBottomDock(

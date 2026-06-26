@@ -24,6 +24,7 @@ class UiPreviewScreen extends StatelessWidget {
       titleColor: Theme.of(context).colorScheme.onSurface,
       subtitleColor:
           Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      showBackgroundDecor: false,
       scrollable: true,
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

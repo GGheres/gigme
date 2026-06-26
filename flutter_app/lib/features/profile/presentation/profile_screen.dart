@@ -65,7 +65,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return AppScaffold(
       backgroundColor: backgroundColor,
-      showBackgroundDecor: false,
       appBar: AppBar(
         backgroundColor: backgroundColor,
         foregroundColor: actionIconColor,

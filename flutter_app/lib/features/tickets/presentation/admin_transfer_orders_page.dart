@@ -13,7 +13,9 @@ import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/components/input_field.dart';
 import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/admin_panel_background.dart';
 import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_radii.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
@@ -238,6 +240,7 @@ class _AdminTransferOrdersPageState
     if (widget.embedded) return body;
 
     return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: const Text('Админ-трансферы'),
         actions: [
@@ -514,6 +517,7 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: AppCard(
         variant: AppCardVariant.plain,
+        borderRadius: AppRadii.xxl,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.sm),
           child: Column(
@@ -522,15 +526,33 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
               InkWell(
                 onTap: () =>
                     context.push(AppRoutes.adminOrderDetail(item.orderId)),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppRadii.xl),
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: _orderSummary(
                       context, item, title, status, userDisplay, createdAt),
                 ),
               ),
-              const Divider(height: AppSpacing.md),
-              _moveControls(context),
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppRadii.xl),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.35),
+                    ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.08),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: _moveControls(context),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

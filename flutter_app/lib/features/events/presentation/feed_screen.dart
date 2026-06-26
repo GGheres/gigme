@@ -60,7 +60,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return AppScaffold(
       backgroundColor: backgroundColor,
-      showBackgroundDecor: false,
       child: Column(
         children: [
           if (location.state.permissionDenied) ...[

@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/network/providers.dart';
+import '../../../ui/layout/admin_panel_background.dart';
+import '../../../ui/layout/app_scaffold.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -162,18 +164,31 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppScaffold(
+        bodyBackground: AdminPanelBackground(),
+        fullBleed: true,
+        safeArea: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null) {
-      return Scaffold(
+      return AppScaffold(
+        bodyBackground: const AdminPanelBackground(),
+        fullBleed: true,
+        safeArea: false,
         appBar: AppBar(title: const Text('Детали заказа')),
-        body: Center(child: Text(_error!)),
+        child: Center(child: Text(_error!)),
       );
     }
 
     final detail = _detail;
     if (detail == null) {
-      return const Scaffold(body: Center(child: Text('Заказ не найден')));
+      return const AppScaffold(
+        bodyBackground: AdminPanelBackground(),
+        fullBleed: true,
+        safeArea: false,
+        child: Center(child: Text('Заказ не найден')),
+      );
     }
 
     final order = detail.order;
@@ -182,14 +197,17 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     final canDelete = order.id.trim().isNotEmpty;
     final transferItems = detail.transferItems;
 
-    return Scaffold(
+    return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: Text('Заказ ${order.id}'),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
-      body: ListView(
+      fullBleed: true,
+      safeArea: false,
+      child: ListView(
         padding: const EdgeInsets.all(14),
         children: [
           Container(

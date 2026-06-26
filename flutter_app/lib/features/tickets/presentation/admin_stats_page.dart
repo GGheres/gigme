@@ -10,6 +10,7 @@ import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/components/input_field.dart';
 import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/admin_panel_background.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
@@ -182,6 +183,7 @@ class _AdminStatsPageState extends ConsumerState<AdminStatsPage> {
     if (widget.embedded) return body;
 
     return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: const Text('Админ-статистика'),
         actions: [

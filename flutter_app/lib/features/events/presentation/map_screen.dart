@@ -60,7 +60,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     return AppScaffold(
       backgroundColor: backgroundColor,
-      showBackgroundDecor: false,
       child: Column(
         children: [
           Wrap(

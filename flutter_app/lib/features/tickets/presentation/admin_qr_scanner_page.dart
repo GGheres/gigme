@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../ui/layout/admin_panel_background.dart';
+import '../../../ui/layout/app_scaffold.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/ticketing_repository.dart';
 
@@ -263,11 +265,14 @@ class _AdminQrScannerPageState extends ConsumerState<AdminQrScannerPage> {
     if (widget.embedded) {
       return body;
     }
-    return Scaffold(
+    return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: const Text('Админ QR-сканер'),
       ),
-      body: body,
+      fullBleed: true,
+      safeArea: false,
+      child: body,
     );
   }
 

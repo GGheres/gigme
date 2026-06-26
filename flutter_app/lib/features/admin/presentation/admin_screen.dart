@@ -18,6 +18,7 @@ import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/input_field.dart';
 import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/admin_panel_background.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
@@ -259,9 +260,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             ],
           ),
         ),
-        body: TabBarView(
+        body: Stack(
+          fit: StackFit.expand,
           children: [
-            for (final tab in visibleTabs) tab.builder(),
+            const AdminPanelBackground(),
+            TabBarView(
+              children: [
+                for (final tab in visibleTabs) tab.builder(),
+              ],
+            ),
           ],
         ),
       ),
@@ -270,6 +277,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
   Widget _buildAdminLogin() {
     return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(title: const Text('Вход в админку')),
       title: 'Админ-доступ',
       subtitle: 'Авторизуйтесь для управления пользователями и заказами',
@@ -333,6 +341,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     required String message,
   }) {
     return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: const Text('Админка'),
         leading: IconButton(

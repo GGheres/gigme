@@ -15,7 +15,9 @@ import '../../../ui/components/inline_status_banner.dart';
 import '../../../ui/components/input_field.dart';
 import '../../../ui/components/screen_hero.dart';
 import '../../../ui/components/section_card.dart';
+import '../../../ui/layout/admin_panel_background.dart';
 import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_radii.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/application/auth_state.dart';
@@ -188,6 +190,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     if (widget.embedded) return body;
 
     return AppScaffold(
+      bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: const Text('Админ-заказы'),
         actions: [
@@ -324,65 +327,91 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                                   const EdgeInsets.only(bottom: AppSpacing.sm),
                               child: AppCard(
                                 variant: AppCardVariant.plain,
-                                child: ListTile(
+                                borderRadius: AppRadii.xxl,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadii.xl,
+                                  ),
                                   onTap: () => context.push(
                                     AppRoutes.adminOrderDetail(order.id),
                                   ),
-                                  title: Text(
-                                    order.eventTitle.isEmpty
-                                        ? 'Событие #${order.eventId}'
-                                        : order.eventTitle,
-                                  ),
-                                  subtitle: Text(subtitleLines.join('\n')),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (userTelegramId > 0)
-                                        IconButton(
-                                          tooltip: 'Диалог',
-                                          visualDensity: VisualDensity.compact,
-                                          onPressed: () => context.push(
-                                            AppRoutes.adminBotMessagesForChat(
-                                              userTelegramId,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.sm,
+                                      vertical: AppSpacing.xs,
+                                    ),
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final meta = Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              order.eventTitle.isEmpty
+                                                  ? 'Событие #${order.eventId}'
+                                                  : order.eventTitle,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium,
                                             ),
-                                          ),
-                                          icon:
-                                              const Icon(Icons.forum_outlined),
-                                        ),
-                                      if (userTelegramId > 0)
-                                        IconButton(
-                                          tooltip: 'Открыть бота',
-                                          visualDensity: VisualDensity.compact,
-                                          onPressed: () =>
-                                              _openBotForUser(userTelegramId),
-                                          icon: const Icon(
-                                              Icons.open_in_new_rounded),
-                                        ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Chip(
-                                            label: Text(status),
-                                            backgroundColor:
-                                                statusColor(status, context)
-                                                    .withValues(alpha: 0.12),
-                                            side: BorderSide(
-                                              color:
-                                                  statusColor(status, context),
+                                            const SizedBox(
+                                              height: AppSpacing.xxs,
                                             ),
-                                            labelStyle: TextStyle(
-                                              color:
-                                                  statusColor(status, context),
-                                              fontWeight: FontWeight.w600,
+                                            Text(subtitleLines.join('\n')),
+                                          ],
+                                        );
+                                        final actions = _OrderCardActions(
+                                          status: status,
+                                          amountLabel:
+                                              formatMoney(order.totalCents),
+                                          userTelegramId: userTelegramId,
+                                          onOpenChat: userTelegramId > 0
+                                              ? () => context.push(
+                                                    AppRoutes
+                                                        .adminBotMessagesForChat(
+                                                      userTelegramId,
+                                                    ),
+                                                  )
+                                              : null,
+                                          onOpenBot: userTelegramId > 0
+                                              ? () => _openBotForUser(
+                                                    userTelegramId,
+                                                  )
+                                              : null,
+                                        );
+
+                                        if (constraints.maxWidth < 640) {
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              meta,
+                                              const SizedBox(
+                                                height: AppSpacing.sm,
+                                              ),
+                                              actions,
+                                            ],
+                                          );
+                                        }
+
+                                        return Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(child: meta),
+                                            const SizedBox(
+                                              width: AppSpacing.sm,
                                             ),
-                                          ),
-                                          Text(formatMoney(order.totalCents)),
-                                        ],
-                                      ),
-                                    ],
+                                            ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                minWidth: 164,
+                                              ),
+                                              child: actions,
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
@@ -422,5 +451,68 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+/// _OrderCardActions renders the secondary admin-order actions block.
+class _OrderCardActions extends StatelessWidget {
+  /// _OrderCardActions handles the order-side controls block.
+  const _OrderCardActions({
+    required this.status,
+    required this.amountLabel,
+    required this.userTelegramId,
+    required this.onOpenChat,
+    required this.onOpenBot,
+  });
+
+  final String status;
+  final String amountLabel;
+  final int userTelegramId;
+  final VoidCallback? onOpenChat;
+  final VoidCallback? onOpenBot;
+
+  /// build renders the widget tree for this component.
+  @override
+  Widget build(BuildContext context) {
+    final statusTone = statusColor(status, context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (userTelegramId > 0)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Диалог',
+                visualDensity: VisualDensity.compact,
+                onPressed: onOpenChat,
+                icon: const Icon(Icons.forum_outlined),
+              ),
+              IconButton(
+                tooltip: 'Открыть бота',
+                visualDensity: VisualDensity.compact,
+                onPressed: onOpenBot,
+                icon: const Icon(Icons.open_in_new_rounded),
+              ),
+            ],
+          ),
+        Chip(
+          label: Text(status),
+          backgroundColor: statusTone.withValues(alpha: 0.12),
+          side: BorderSide(color: statusTone),
+          labelStyle: TextStyle(
+            color: statusTone,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          amountLabel,
+          textAlign: TextAlign.end,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+      ],
+    );
   }
 }
