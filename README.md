@@ -16,6 +16,10 @@ JWT_SECRET=replace_me
 BASE_URL=
 API_PUBLIC_URL=
 ADMIN_TELEGRAM_IDS=123456789
+ADMIN_LOGIN=admin
+ADMIN_PASSWORD=replace_me
+MANAGER_LOGIN=replace_me
+MANAGER_PASSWORD=replace_me
 S3_PUBLIC_ENDPOINT=http://localhost:9000
 ```
 
@@ -79,6 +83,9 @@ flutter run -d chrome \
 - `BASE_URL` - (optional) base URL for links
 - `API_PUBLIC_URL` - optional public API base URL for notification media (example `https://spacefestival.fun/api`)
 - `ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
+- `ADMIN_LOGIN` / `ADMIN_PASSWORD` / `ADMIN_PASSWORD_HASH` - full admin login credentials for `/auth/admin`
+- `MANAGER_LOGIN` / `MANAGER_PASSWORD` / `MANAGER_PASSWORD_HASH` - scoped manager login credentials for `/auth/admin`
+- `MANAGER_TELEGRAM_IDS` - optional comma-separated Telegram ids for manager accounts; if omitted, backend creates a synthetic local-only manager user
 - `PHONE_NUMBER` - manual transfer recipient shown for `PHONE` payment method
 - `USDT_WALLET` - wallet shown for `USDT` payment method
 - `USDT_NETWORK` - network label (default `TRC20`)

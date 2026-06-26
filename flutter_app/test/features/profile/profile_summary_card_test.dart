@@ -18,6 +18,7 @@ void main() {
       rating: 4.7,
       ratingCount: 8,
       balanceTokens: 777,
+      adminPermissions: const <String>[],
     );
 
     await tester.pumpWidget(

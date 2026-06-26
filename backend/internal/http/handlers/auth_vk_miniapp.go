@@ -75,6 +75,7 @@ func (h *Handler) AuthVKMiniApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "token error")
 		return
 	}
+	stored = h.decorateUserWithAdminAccess(r, stored)
 
 	logger.Info(
 		"action", "action", "auth_vk_miniapp",

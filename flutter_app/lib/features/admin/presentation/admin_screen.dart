@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/constants/admin_permissions.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/models/admin_models.dart';
 import '../../../core/models/landing_content.dart';
 import '../../../core/models/landing_event.dart';
+import '../../../core/network/providers.dart';
+import '../../../core/utils/admin_access.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/widgets/premium_loading_view.dart';
 import '../../../ui/components/action_buttons.dart';
@@ -41,10 +44,7 @@ class AdminScreen extends ConsumerStatefulWidget {
 
 /// _AdminScreenState represents admin screen state.
 
-class _AdminScreenState extends ConsumerState<AdminScreen>
-    with TickerProviderStateMixin {
-  late final TabController _tabController;
-
+class _AdminScreenState extends ConsumerState<AdminScreen> {
   final TextEditingController _adminLoginCtrl = TextEditingController();
   final TextEditingController _adminPasswordCtrl = TextEditingController();
   final TextEditingController _adminTelegramIdCtrl = TextEditingController();
@@ -156,15 +156,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   String? get _token => ref.read(authControllerProvider).state.token;
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 11, vsync: this);
-  }
-
-  @override
   void dispose() {
-    _tabController.dispose();
-
     _adminLoginCtrl.dispose();
     _adminPasswordCtrl.dispose();
     _adminTelegramIdCtrl.dispose();
@@ -214,6 +206,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider).state;
+    final config = ref.watch(appConfigProvider);
+    final visibleTabs = _buildVisibleTabs(
+      resolveAdminPermissions(authState.user, config),
+    );
     final token = authState.token?.trim() ?? '';
 
     if (token.isNotEmpty && token != _lastAuthedToken) {
@@ -227,76 +223,47 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     }
 
     if (_accessDenied) {
-      return AppScaffold(
+      return _buildAccessDenied(
+        context,
+        message: 'Доступ запрещен (401/403).',
+      );
+    }
+
+    if (visibleTabs.isEmpty) {
+      return _buildAccessDenied(
+        context,
+        message: 'У текущего пользователя нет прав администратора.',
+      );
+    }
+
+    return DefaultTabController(
+      length: visibleTabs.length,
+      child: Scaffold(
         appBar: AppBar(
-          title: const Text('Админка'),
+          title: const Text('Панель администратора'),
           leading: IconButton(
             onPressed: () => context.go(AppRoutes.profile),
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-        ),
-        title: 'Доступ ограничен',
-        subtitle: 'У текущего пользователя нет прав администратора',
-        titleColor: Theme.of(context).colorScheme.onSurface,
-        subtitleColor:
-            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
-        child: Center(
-          child: ErrorState(
-            message: 'Доступ запрещен (401/403).',
-            onRetry: () => context.go(AppRoutes.profile),
-            retryLabel: 'Вернуться в профиль',
+          actions: [
+            IconButton(
+              tooltip: 'Обновить всё',
+              onPressed: _bootstrapLoads,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+          bottom: TabBar(
+            isScrollable: true,
+            tabs: [
+              for (final tab in visibleTabs) Tab(text: tab.label),
+            ],
           ),
         ),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Панель администратора'),
-        leading: IconButton(
-          onPressed: () => context.go(AppRoutes.profile),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Обновить всё',
-            onPressed: _bootstrapLoads,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'Пользователи'),
-            Tab(text: 'Рассылки'),
-            Tab(text: 'Парсер'),
-            Tab(text: 'Сообщения'),
-            Tab(text: 'Заказы'),
-            Tab(text: 'Трансферы'),
-            Tab(text: 'Сканер'),
-            Tab(text: 'Продукты'),
-            Tab(text: 'Промокоды'),
-            Tab(text: 'Статистика'),
-            Tab(text: 'Лендинг'),
+        body: TabBarView(
+          children: [
+            for (final tab in visibleTabs) tab.builder(),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildUsersTab(),
-          _buildBroadcastsTab(),
-          _buildParserTab(),
-          const AdminBotMessagesPage(embedded: true),
-          const AdminOrdersPage(embedded: true),
-          const AdminTransferOrdersPage(embedded: true),
-          const AdminQrScannerPage(embedded: true),
-          const AdminProductsPage(embedded: true),
-          const AdminPromoCodesPage(embedded: true),
-          const AdminStatsPage(embedded: true),
-          _buildLandingTab(),
-        ],
       ),
     );
   }
@@ -359,6 +326,96 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildAccessDenied(
+    BuildContext context, {
+    required String message,
+  }) {
+    return AppScaffold(
+      appBar: AppBar(
+        title: const Text('Админка'),
+        leading: IconButton(
+          onPressed: () => context.go(AppRoutes.profile),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+      ),
+      title: 'Доступ ограничен',
+      subtitle: 'У текущего пользователя нет прав администратора',
+      titleColor: Theme.of(context).colorScheme.onSurface,
+      subtitleColor:
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      child: Center(
+        child: ErrorState(
+          message: message,
+          onRetry: () => context.go(AppRoutes.profile),
+          retryLabel: 'Вернуться в профиль',
+        ),
+      ),
+    );
+  }
+
+  List<_AdminTabSpec> _buildVisibleTabs(Set<String> permissions) {
+    final tabs = <_AdminTabSpec>[
+      _AdminTabSpec(
+        label: 'Пользователи',
+        permission: AdminPermissions.users,
+        builder: _buildUsersTab,
+      ),
+      _AdminTabSpec(
+        label: 'Рассылки',
+        permission: AdminPermissions.broadcasts,
+        builder: _buildBroadcastsTab,
+      ),
+      _AdminTabSpec(
+        label: 'Парсер',
+        permission: AdminPermissions.parser,
+        builder: _buildParserTab,
+      ),
+      _AdminTabSpec(
+        label: 'Сообщения',
+        permission: AdminPermissions.botMessages,
+        builder: () => const AdminBotMessagesPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Заказы',
+        permission: AdminPermissions.orders,
+        builder: () => const AdminOrdersPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Трансферы',
+        permission: AdminPermissions.transfers,
+        builder: () => const AdminTransferOrdersPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Сканер',
+        permission: AdminPermissions.scanner,
+        builder: () => const AdminQrScannerPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Продукты',
+        permission: AdminPermissions.products,
+        builder: () => const AdminProductsPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Промокоды',
+        permission: AdminPermissions.promos,
+        builder: () => const AdminPromoCodesPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Статистика',
+        permission: AdminPermissions.stats,
+        builder: () => const AdminStatsPage(embedded: true),
+      ),
+      _AdminTabSpec(
+        label: 'Лендинг',
+        permission: AdminPermissions.landing,
+        builder: _buildLandingTab,
+      ),
+    ];
+    return tabs
+        .where((tab) => permissions.contains(tab.permission))
+        .toList(growable: false);
   }
 
   Widget _buildUsersTab() {
@@ -1333,13 +1390,26 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   }
 
   Future<void> _bootstrapLoads() async {
-    await Future.wait<void>([
-      _loadUsers(),
-      _loadBroadcasts(),
-      _loadParserSources(),
-      _loadParsedEvents(),
-      _loadLanding(),
-    ]);
+    final permissions = resolveAdminPermissions(
+      ref.read(authControllerProvider).state.user,
+      ref.read(appConfigProvider),
+    );
+    final loads = <Future<void>>[];
+    if (permissions.contains(AdminPermissions.users)) {
+      loads.add(_loadUsers());
+    }
+    if (permissions.contains(AdminPermissions.broadcasts)) {
+      loads.add(_loadBroadcasts());
+    }
+    if (permissions.contains(AdminPermissions.parser)) {
+      loads.add(_loadParserSources());
+      loads.add(_loadParsedEvents());
+    }
+    if (permissions.contains(AdminPermissions.landing)) {
+      loads.add(_loadLanding());
+    }
+    if (loads.isEmpty) return;
+    await Future.wait<void>(loads);
   }
 
   Future<void> _handleAdminLogin() async {
@@ -2531,6 +2601,21 @@ class _ParserDraft {
     linksCtrl.dispose();
     mediaCtrl.dispose();
   }
+}
+
+/// _AdminTabSpec represents one visible admin tab.
+
+class _AdminTabSpec {
+  /// _AdminTabSpec handles one visible admin tab.
+  const _AdminTabSpec({
+    required this.label,
+    required this.permission,
+    required this.builder,
+  });
+
+  final String label;
+  final String permission;
+  final Widget Function() builder;
 }
 
 /// _isImageLink reports whether image link condition is met.

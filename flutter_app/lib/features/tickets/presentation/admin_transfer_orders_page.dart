@@ -16,6 +16,7 @@ import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../auth/application/auth_state.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
@@ -50,6 +51,8 @@ class _AdminTransferOrdersPageState
   AdminTransferOrdersListModel? _transfers;
   List<TransferProductModel> _transferProducts = <TransferProductModel>[];
   final Set<int> _movingItemIds = <int>{};
+  String? _lastLoadedToken;
+  String? _scheduledReloadToken;
 
   /// initState handles init state.
 
@@ -70,15 +73,19 @@ class _AdminTransferOrdersPageState
   /// _load loads ordered transfer rows.
 
   Future<void> _load() async {
-    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    final authState = ref.read(authControllerProvider).state;
+    final token = authState.token?.trim() ?? '';
     if (token.isEmpty) {
       setState(() {
-        _loading = false;
-        _error = 'Требуется авторизация';
+        _loading = authState.status == AuthStatus.loading;
+        _error = authState.status == AuthStatus.loading
+            ? null
+            : 'Требуется авторизация';
       });
       return;
     }
 
+    _lastLoadedToken = token;
     setState(() {
       _loading = true;
       _error = null;
@@ -113,6 +120,66 @@ class _AdminTransferOrdersPageState
         _error = '$error';
       });
     }
+  }
+
+  /// _handleAuthStateChange reloads transfers after delayed session restore.
+
+  void _handleAuthStateChange(AuthState? previous, AuthState next) {
+    if (!mounted) return;
+    final previousToken = previous?.token?.trim() ?? '';
+    final nextToken = next.token?.trim() ?? '';
+
+    if (nextToken.isNotEmpty && nextToken != previousToken) {
+      _scheduleReload(nextToken);
+      return;
+    }
+
+    if (nextToken.isEmpty && next.status == AuthStatus.loading) {
+      if (_loading && _error == null) {
+        return;
+      }
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      return;
+    }
+
+    if (nextToken.isEmpty && next.status == AuthStatus.unauthenticated) {
+      setState(() {
+        _lastLoadedToken = null;
+        _loading = false;
+        _error = 'Требуется авторизация';
+        _transfers = null;
+        _transferProducts = <TransferProductModel>[];
+      });
+    }
+  }
+
+  /// _scheduleReload reloads once when a restored token becomes available.
+
+  void _scheduleReload(String token) {
+    if (_scheduledReloadToken == token) {
+      return;
+    }
+    _scheduledReloadToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _scheduledReloadToken != token) {
+        return;
+      }
+      _scheduledReloadToken = null;
+      unawaited(_load());
+    });
+  }
+
+  /// _reloadIfSessionWasRestored catches auth restore that completed before listen.
+
+  void _reloadIfSessionWasRestored(AuthState authState) {
+    final token = authState.token?.trim() ?? '';
+    if (token.isEmpty || _loading || _lastLoadedToken == token) {
+      return;
+    }
+    _scheduleReload(token);
   }
 
   /// _moveTransferOrder moves one transfer item to another product.
@@ -157,6 +224,15 @@ class _AdminTransferOrdersPageState
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(
+      authControllerProvider.select((controller) => controller.state),
+    );
+    ref.listen<AuthState>(
+      authControllerProvider.select((controller) => controller.state),
+      _handleAuthStateChange,
+    );
+    _reloadIfSessionWasRestored(authState);
+
     final items = _transfers?.items ?? <AdminTransferOrderModel>[];
     final body = _buildBody(context, items);
     if (widget.embedded) return body;

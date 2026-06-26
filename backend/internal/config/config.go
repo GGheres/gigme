@@ -9,30 +9,34 @@ import (
 
 // Config represents config.
 type Config struct {
-	Env           string
-	HTTPAddr      string
-	DatabaseURL   string
-	RedisURL      string
-	JWTSecret     string
-	HMACSecret    string
-	TelegramToken string
-	TelegramUser  string
-	VKAppID       string
-	VKAppSecret   string
-	BaseURL       string
-	APIPublicURL  string
-	PhoneNumber   string
-	USDTWallet    string
-	USDTNetwork   string
-	USDTMemo      string
-	PaymentQRData string
-	AdminTGIDs    map[int64]struct{}
-	AdminLogin    string
-	AdminPassword string
-	AdminPassHash string
-	Tochka        TochkaConfig
-	S3            S3Config
-	Logging       LoggingConfig
+	Env             string
+	HTTPAddr        string
+	DatabaseURL     string
+	RedisURL        string
+	JWTSecret       string
+	HMACSecret      string
+	TelegramToken   string
+	TelegramUser    string
+	VKAppID         string
+	VKAppSecret     string
+	BaseURL         string
+	APIPublicURL    string
+	PhoneNumber     string
+	USDTWallet      string
+	USDTNetwork     string
+	USDTMemo        string
+	PaymentQRData   string
+	AdminTGIDs      map[int64]struct{}
+	AdminLogin      string
+	AdminPassword   string
+	AdminPassHash   string
+	ManagerTGIDs    map[int64]struct{}
+	ManagerLogin    string
+	ManagerPassword string
+	ManagerPassHash string
+	Tochka          TochkaConfig
+	S3              S3Config
+	Logging         LoggingConfig
 }
 
 // TochkaConfig represents tochka config.
@@ -73,26 +77,29 @@ func Load() (*Config, error) {
 		hmacSecret = strings.TrimSpace(os.Getenv("TICKET_HMAC_SECRET"))
 	}
 	cfg := &Config{
-		Env:           getenv("APP_ENV", "dev"),
-		HTTPAddr:      getenv("HTTP_ADDR", ":8080"),
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		RedisURL:      os.Getenv("REDIS_URL"),
-		JWTSecret:     os.Getenv("JWT_SECRET"),
-		HMACSecret:    hmacSecret,
-		TelegramToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
-		TelegramUser:  os.Getenv("TELEGRAM_BOT_USERNAME"),
-		VKAppID:       strings.TrimSpace(os.Getenv("VK_APP_ID")),
-		VKAppSecret:   strings.TrimSpace(os.Getenv("VK_APP_SECRET")),
-		BaseURL:       getenv("BASE_URL", ""),
-		APIPublicURL:  getenv("API_PUBLIC_URL", ""),
-		PhoneNumber:   getenvAny([]string{"PAYMENT_PHONE_NUMBER", "PHONE_NUMBER"}, ""),
-		USDTWallet:    getenvAny([]string{"PAYMENT_USDT_WALLET", "USDT_WALLET"}, ""),
-		USDTNetwork:   getenvAny([]string{"PAYMENT_USDT_NETWORK", "USDT_NETWORK"}, "TRC20"),
-		USDTMemo:      getenvAny([]string{"PAYMENT_USDT_MEMO", "USDT_MEMO"}, ""),
-		PaymentQRData: getenv("PAYMENT_QR_DATA", ""),
-		AdminLogin:    getenv("ADMIN_LOGIN", ""),
-		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
-		AdminPassHash: os.Getenv("ADMIN_PASSWORD_HASH"),
+		Env:             getenv("APP_ENV", "dev"),
+		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		RedisURL:        os.Getenv("REDIS_URL"),
+		JWTSecret:       os.Getenv("JWT_SECRET"),
+		HMACSecret:      hmacSecret,
+		TelegramToken:   os.Getenv("TELEGRAM_BOT_TOKEN"),
+		TelegramUser:    os.Getenv("TELEGRAM_BOT_USERNAME"),
+		VKAppID:         strings.TrimSpace(os.Getenv("VK_APP_ID")),
+		VKAppSecret:     strings.TrimSpace(os.Getenv("VK_APP_SECRET")),
+		BaseURL:         getenv("BASE_URL", ""),
+		APIPublicURL:    getenv("API_PUBLIC_URL", ""),
+		PhoneNumber:     getenvAny([]string{"PAYMENT_PHONE_NUMBER", "PHONE_NUMBER"}, ""),
+		USDTWallet:      getenvAny([]string{"PAYMENT_USDT_WALLET", "USDT_WALLET"}, ""),
+		USDTNetwork:     getenvAny([]string{"PAYMENT_USDT_NETWORK", "USDT_NETWORK"}, "TRC20"),
+		USDTMemo:        getenvAny([]string{"PAYMENT_USDT_MEMO", "USDT_MEMO"}, ""),
+		PaymentQRData:   getenv("PAYMENT_QR_DATA", ""),
+		AdminLogin:      getenv("ADMIN_LOGIN", ""),
+		AdminPassword:   os.Getenv("ADMIN_PASSWORD"),
+		AdminPassHash:   os.Getenv("ADMIN_PASSWORD_HASH"),
+		ManagerLogin:    getenv("MANAGER_LOGIN", ""),
+		ManagerPassword: os.Getenv("MANAGER_PASSWORD"),
+		ManagerPassHash: os.Getenv("MANAGER_PASSWORD_HASH"),
 		Tochka: TochkaConfig{
 			ClientID:     strings.TrimSpace(os.Getenv("TOCHKA_CLIENT_ID")),
 			ClientSecret: strings.TrimSpace(os.Getenv("TOCHKA_CLIENT_SECRET")),
@@ -113,7 +120,8 @@ func Load() (*Config, error) {
 			Region:         getenv("S3_REGION", "us-east-1"),
 			UseSSL:         getenvBool("S3_USE_SSL", true),
 		},
-		AdminTGIDs: parseIDSet(os.Getenv("ADMIN_TELEGRAM_IDS")),
+		AdminTGIDs:   parseIDSet(os.Getenv("ADMIN_TELEGRAM_IDS")),
+		ManagerTGIDs: parseIDSet(os.Getenv("MANAGER_TELEGRAM_IDS")),
 		Logging: LoggingConfig{
 			Level:  getenv("LOG_LEVEL", "info"),
 			Format: getenv("LOG_FORMAT", "text"),

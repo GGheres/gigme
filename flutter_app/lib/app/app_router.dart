@@ -5,6 +5,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/constants/admin_permissions.dart';
+import '../core/network/providers.dart';
+import '../core/utils/admin_access.dart';
 import '../features/landing/presentation/landing_screen.dart';
 import '../features/admin/presentation/admin_screen.dart';
 import '../features/auth/application/auth_controller.dart';
@@ -34,6 +37,11 @@ import 'routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.read(authControllerProvider);
+  final config = ref.read(appConfigProvider);
+
+  bool canUseAdminPermission(String permission) {
+    return hasAdminPermission(auth.state.user, config, permission);
+  }
 
   return GoRouter(
     initialLocation: AppRoutes.landing,
@@ -90,6 +98,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (status == AuthStatus.authenticated && inAuth) {
         final next = _readAuthNext(state.uri);
         return next ?? AppRoutes.feed;
+      }
+
+      final requiredAdminPermission = _requiredAdminPermission(location);
+      if (status == AuthStatus.authenticated &&
+          requiredAdminPermission != null &&
+          !canUseAdminPermission(requiredAdminPermission)) {
+        return AppRoutes.admin;
       }
 
       return null;
@@ -432,6 +447,34 @@ String? _startupEventLocation({
     },
   );
   return uri.toString();
+}
+
+String? _requiredAdminPermission(String location) {
+  if (location == AppRoutes.admin || !location.startsWith(AppRoutes.admin)) {
+    return null;
+  }
+  if (location.startsWith(AppRoutes.adminOrders)) {
+    return AdminPermissions.orders;
+  }
+  if (location.startsWith(AppRoutes.adminTransfers)) {
+    return AdminPermissions.transfers;
+  }
+  if (location.startsWith(AppRoutes.adminScanner)) {
+    return AdminPermissions.scanner;
+  }
+  if (location.startsWith(AppRoutes.adminBotMessages)) {
+    return AdminPermissions.botMessages;
+  }
+  if (location.startsWith(AppRoutes.adminProducts)) {
+    return AdminPermissions.products;
+  }
+  if (location.startsWith(AppRoutes.adminPromos)) {
+    return AdminPermissions.promos;
+  }
+  if (location.startsWith(AppRoutes.adminStats)) {
+    return AdminPermissions.stats;
+  }
+  return null;
 }
 
 /// _noTransitionPage handles no transition page.

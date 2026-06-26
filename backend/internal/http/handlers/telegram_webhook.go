@@ -61,7 +61,14 @@ var adminReplyPayloadRe = regexp.MustCompile(`(?i)(?:reply|chat)_(\d+)`)
 var adminReplyCallbackDataRe = regexp.MustCompile(`(?i)^reply:(\d+)$`)
 var adminReplyHintCallbackDataRe = regexp.MustCompile(`(?i)^reply_hint:(\d+)$`)
 
-const telegramStartMenuText = "Выберите раздел SPACE APP"
+const (
+	telegramStartMenuText              = "Выберите раздел SPACE APP"
+	telegramManagerPromptText          = "Введите пароль менеджера одним сообщением"
+	telegramManagerEnabledText         = "Режим менеджера включен. Нажмите кнопку ниже, чтобы открыть SPACE APP."
+	telegramManagerAlreadyEnabledText  = "Режим менеджера уже включен. Нажмите кнопку ниже, чтобы открыть SPACE APP."
+	telegramManagerInvalidPasswordText = "Неверный пароль менеджера. Отправьте /manager и попробуйте еще раз."
+	telegramManagerDisabledText        = "Режим менеджера сейчас не настроен."
+)
 
 // parseStartPayload parses start payload.
 func parseStartPayload(payload string) (int64, string) {
@@ -120,6 +127,11 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if h.handleTelegramManagerMessage(logger, update.Message, trimmedText) {
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+
 	if !isAdmin {
 		h.storeIncomingBotMessage(r.Context(), logger, update.Message, trimmedText)
 		h.notifyAdminsWithMarkup(
@@ -153,7 +165,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 			mediaURL := resolveEventMediaURL(ctx, h, eventID, accessKey)
 			var markup *integrations.ReplyMarkup
 			if webAppURL != "" {
-				markup = buildTelegramStartMenuMarkup(webAppURL, eventID, accessKey)
+				markup = buildTelegramStartMenuMarkup(webAppURL, eventID, accessKey, "")
 			}
 			if mediaURL != "" {
 				if err := h.telegram.SendPhotoWithMarkup(update.Message.Chat.ID, mediaURL, text, markup); err == nil {
@@ -180,7 +192,11 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	markup := buildTelegramStartMenuMarkup(webAppURL, 0, "")
+	openURLOverride := ""
+	if h.hasTelegramManagerAccess(update.Message.From.ID) {
+		openURLOverride = buildAdminPanelURL(webAppURL)
+	}
+	markup := buildTelegramStartMenuMarkup(webAppURL, 0, "", openURLOverride)
 
 	if err := h.telegram.SendMessageWithMarkup(update.Message.Chat.ID, telegramStartMenuText, markup); err != nil {
 		logger.Warn("action", "action", "telegram_webhook", "status", "send_failed", "error", err)
@@ -337,6 +353,119 @@ func (h *Handler) handleAdminTelegramMessage(ctx context.Context, logger *slog.L
 	}
 
 	return false
+}
+
+// handleTelegramManagerMessage handles the lightweight manager activation flow for Telegram users.
+func (h *Handler) handleTelegramManagerMessage(logger *slog.Logger, message *telegramMessage, text string) bool {
+	if h == nil || h.telegram == nil || message == nil || message.Chat.ID <= 0 || message.From.ID <= 0 {
+		return false
+	}
+
+	if password, ok := parseManagerCommandPassword(text); ok {
+		return h.completeTelegramManagerPassword(logger, message.Chat.ID, message.From.ID, password)
+	}
+
+	lower := strings.ToLower(strings.TrimSpace(text))
+	if strings.HasPrefix(lower, "/manager") {
+		if !h.isTelegramManagerFlowEnabled() {
+			if err := h.telegram.SendMessage(message.Chat.ID, telegramManagerDisabledText); err != nil {
+				logger.Warn(
+					"action", "action", "telegram_webhook_manager_disabled",
+					"status", "send_failed",
+					"chat_id", message.Chat.ID,
+					"error", err,
+				)
+			}
+			return true
+		}
+		if h.hasTelegramManagerAccess(message.From.ID) {
+			h.sendTelegramManagerOpenMessage(
+				logger,
+				message.Chat.ID,
+				telegramManagerAlreadyEnabledText,
+			)
+			return true
+		}
+		h.promptTelegramManagerPassword(message.From.ID)
+		if err := h.telegram.SendMessage(message.Chat.ID, telegramManagerPromptText); err != nil {
+			logger.Warn(
+				"action", "action", "telegram_webhook_manager_prompt",
+				"status", "send_failed",
+				"chat_id", message.Chat.ID,
+				"error", err,
+			)
+		}
+		return true
+	}
+
+	if !h.isAwaitingTelegramManagerPassword(message.From.ID) {
+		return false
+	}
+
+	h.clearTelegramManagerPrompt(message.From.ID)
+	return h.completeTelegramManagerPassword(logger, message.Chat.ID, message.From.ID, text)
+}
+
+// completeTelegramManagerPassword validates the password and enables manager mode for the Telegram account.
+func (h *Handler) completeTelegramManagerPassword(logger *slog.Logger, chatID int64, telegramID int64, password string) bool {
+	if h == nil || h.telegram == nil || chatID <= 0 || telegramID <= 0 {
+		return false
+	}
+
+	if !h.isTelegramManagerFlowEnabled() {
+		if err := h.telegram.SendMessage(chatID, telegramManagerDisabledText); err != nil {
+			logger.Warn(
+				"action", "action", "telegram_webhook_manager_disabled",
+				"status", "send_failed",
+				"chat_id", chatID,
+				"error", err,
+			)
+		}
+		return true
+	}
+
+	if !h.authenticateTelegramManagerPassword(password) {
+		if err := h.telegram.SendMessage(chatID, telegramManagerInvalidPasswordText); err != nil {
+			logger.Warn(
+				"action", "action", "telegram_webhook_manager_invalid_password",
+				"status", "send_failed",
+				"chat_id", chatID,
+				"error", err,
+			)
+		}
+		return true
+	}
+
+	h.grantTelegramManagerAccess(telegramID)
+	h.sendTelegramManagerOpenMessage(logger, chatID, telegramManagerEnabledText)
+	return true
+}
+
+// sendTelegramManagerOpenMessage sends the manager-mode confirmation with the Space App button.
+func (h *Handler) sendTelegramManagerOpenMessage(logger *slog.Logger, chatID int64, text string) {
+	if h == nil || h.telegram == nil || chatID <= 0 {
+		return
+	}
+
+	baseURL := ""
+	if h.cfg != nil {
+		baseURL = h.cfg.BaseURL
+	}
+	markup := buildTelegramManagerOpenMarkup(baseURL)
+	var err error
+	if markup == nil {
+		err = h.telegram.SendMessage(chatID, text)
+	} else {
+		err = h.telegram.SendMessageWithMarkup(chatID, text, markup)
+	}
+	if err != nil {
+		logger.Warn(
+			"action", "action", "telegram_webhook_manager_success",
+			"status", "send_failed",
+			"chat_id", chatID,
+			"error", err,
+		)
+	}
 }
 
 // setAdminReplyTarget sets admin reply target.
@@ -611,6 +740,11 @@ func buildGenericTransferURL(baseURL string) string {
 	return buildWebAppPathURL(baseURL, "/space_app/transfer", nil)
 }
 
+// buildAdminPanelURL builds the manager/admin WebApp entrypoint URL.
+func buildAdminPanelURL(baseURL string) string {
+	return buildWebAppPathURL(baseURL, "/space_app/admin", nil)
+}
+
 // buildWebAppPathURL replaces the normalized app path while preserving host.
 func buildWebAppPathURL(baseURL string, appPath string, queryValues map[string]string) string {
 	base := normalizeWebAppBaseURL(baseURL)
@@ -674,7 +808,7 @@ func encodeNonEmptyQuery(queryValues map[string]string) string {
 }
 
 // buildTelegramStartMenuMarkup returns the three WebApp buttons shown on /start.
-func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey string) *integrations.ReplyMarkup {
+func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey string, openURLOverride string) *integrations.ReplyMarkup {
 	if strings.TrimSpace(baseURL) == "" {
 		return nil
 	}
@@ -682,6 +816,9 @@ func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey strin
 	buyURL := buildGenericPurchaseURL(baseURL)
 	transferURL := buildGenericTransferURL(baseURL)
 	openURL := normalizeWebAppBaseURL(baseURL)
+	if strings.TrimSpace(openURLOverride) != "" {
+		openURL = strings.TrimSpace(openURLOverride)
+	}
 	if eventID > 0 {
 		if url := buildEventPurchaseURL(baseURL, eventID, accessKey); url != "" {
 			buyURL = url
@@ -711,6 +848,38 @@ func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey strin
 		return nil
 	}
 	return &integrations.ReplyMarkup{InlineKeyboard: rows}
+}
+
+// buildTelegramManagerOpenMarkup builds the single button that opens Space App in manager mode.
+func buildTelegramManagerOpenMarkup(baseURL string) *integrations.ReplyMarkup {
+	openURL := buildAdminPanelURL(baseURL)
+	if strings.TrimSpace(openURL) == "" {
+		return nil
+	}
+	return &integrations.ReplyMarkup{
+		InlineKeyboard: [][]integrations.InlineKeyboardButton{
+			{{
+				Text:   "ОТКРЫТЬ SPACE APP",
+				WebApp: &integrations.WebAppInfo{URL: openURL},
+			}},
+		},
+	}
+}
+
+// parseManagerCommandPassword extracts an inline password from `/manager <password>`.
+func parseManagerCommandPassword(text string) (string, bool) {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) < 2 {
+		return "", false
+	}
+	if !strings.HasPrefix(strings.ToLower(fields[0]), "/manager") {
+		return "", false
+	}
+	password := strings.TrimSpace(strings.Join(fields[1:], " "))
+	if password == "" {
+		return "", false
+	}
+	return password, true
 }
 
 // buildMediaPreviewURL builds media preview u r l.

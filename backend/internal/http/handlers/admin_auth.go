@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"gigme/backend/internal/auth"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // adminAuthRequest represents admin auth request.
@@ -33,42 +31,26 @@ func (h *Handler) AuthAdmin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "username and password required")
 		return
 	}
-	if h.cfg.AdminLogin == "" || (h.cfg.AdminPassword == "" && h.cfg.AdminPassHash == "") {
+	if h.adminAccess == nil || !h.adminAccess.HasAccounts() {
 		logger.Warn("action", "action", "auth_admin", "status", "disabled")
 		writeError(w, http.StatusUnauthorized, "admin login disabled")
 		return
 	}
-	if username != h.cfg.AdminLogin {
+	account, ok := h.adminAccess.Authenticate(username, password)
+	if !ok {
 		logger.Warn("action", "action", "auth_admin", "status", "invalid_credentials")
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	if h.cfg.AdminPassHash != "" {
-		if err := bcrypt.CompareHashAndPassword([]byte(h.cfg.AdminPassHash), []byte(password)); err != nil {
-			logger.Warn("action", "action", "auth_admin", "status", "invalid_credentials")
-			writeError(w, http.StatusUnauthorized, "invalid credentials")
-			return
-		}
-	} else if password != h.cfg.AdminPassword {
-		logger.Warn("action", "action", "auth_admin", "status", "invalid_credentials")
-		writeError(w, http.StatusUnauthorized, "invalid credentials")
-		return
-	}
-
-	telegramID, ok := h.resolveAdminTelegramID(req.TelegramID)
+	telegramID, ok := h.adminAccess.ResolveTelegramID(account, req.TelegramID)
 	if !ok {
 		writeError(w, http.StatusBadRequest, "telegramId required")
-		return
-	}
-	if _, allowed := h.cfg.AdminTGIDs[telegramID]; !allowed {
-		logger.Warn("action", "action", "auth_admin", "status", "forbidden", "telegram_id", telegramID)
-		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
-	user, err := h.repo.EnsureUserByTelegramID(ctx, telegramID, username, "Admin", "")
+	user, err := h.repo.EnsureUserByTelegramID(ctx, telegramID, username, username, "")
 	if err != nil {
 		logger.Error("action", "action", "auth_admin", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "db error")
@@ -76,29 +58,24 @@ func (h *Handler) AuthAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = h.repo.TouchUserLastSeen(ctx, user.ID)
 
-	token, err := auth.SignAccessToken(h.cfg.JWTSecret, user.ID, user.TelegramID, false, true)
+	token, err := auth.SignAccessTokenWithAdminPermissions(
+		h.cfg.JWTSecret,
+		user.ID,
+		user.TelegramID,
+		false,
+		true,
+		account.Permissions,
+	)
 	if err != nil {
 		logger.Error("action", "action", "auth_admin", "status", "token_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "token error")
 		return
 	}
+	user.AdminPermissions = append([]string(nil), account.Permissions...)
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"accessToken": token,
 		"user":        user,
 		"isNew":       false,
 	})
-}
-
-// resolveAdminTelegramID handles resolve admin telegram i d.
-func (h *Handler) resolveAdminTelegramID(requested *int64) (int64, bool) {
-	if requested != nil && *requested > 0 {
-		return *requested, true
-	}
-	if len(h.cfg.AdminTGIDs) == 1 {
-		for id := range h.cfg.AdminTGIDs {
-			return id, true
-		}
-	}
-	return 0, false
 }

@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
@@ -14,8 +12,6 @@ import '../../../core/models/event_detail.dart';
 import '../../../core/network/providers.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
-import '../../../core/utils/share_utils.dart';
-import '../../../integrations/telegram/telegram_web_app_bridge.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_badge.dart';
 import '../../../ui/components/app_states.dart';
@@ -60,7 +56,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
   bool _loading = true;
   bool _joining = false;
   bool _liking = false;
-  bool _sharing = false;
   bool _sendingComment = false;
   bool _deletingEvent = false;
   bool _updatingPriority = false;
@@ -279,29 +274,69 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                         ScreenHero(
                           title: detail.event.title,
                           subtitle: _eventMetaSubtitle(detail: detail),
-                          summary: [
-                            if (detail.event.isFeatured)
-                              const AppBadge(
-                                label: 'Лучшее событие',
-                                variant: AppBadgeVariant.accent,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SectionCard(
+                          title: 'Действия',
+                          subtitle:
+                              'Главное действие вынесено наверх, вторичные сценарии собраны отдельно.',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              PrimaryButton(
+                                label: hasAnyProducts
+                                    ? (hasTicketProducts
+                                        ? 'Купить билет'
+                                        : 'Купить трансфер')
+                                    : (detail.isJoined
+                                        ? 'Вы уже присоединились'
+                                        : 'Присоединиться к событию'),
+                                onPressed: hasAnyProducts
+                                    ? () => showPurchaseTicketFlow(
+                                          context,
+                                          eventId: detail.event.id,
+                                          mode: hasTicketProducts
+                                              ? PurchaseFlowMode.ticket
+                                              : PurchaseFlowMode.transfer,
+                                        )
+                                    : (detail.isJoined || _joining)
+                                        ? null
+                                        : () => _join(detail),
+                                expand: true,
+                                loading: _joining && !hasAnyProducts,
                               ),
-                            AppBadge(
-                              label:
-                                  '${detail.event.participantsCount} участников',
-                              variant: AppBadgeVariant.neutral,
-                            ),
-                            AppBadge(
-                              label:
-                                  '${detail.event.commentsCount} комментариев',
-                              variant: AppBadgeVariant.ghost,
-                            ),
-                            if (detail.event.capacity != null)
-                              AppBadge(
-                                label:
-                                    '${(detail.event.capacity! - detail.event.participantsCount).clamp(0, 9999)} мест осталось',
-                                variant: AppBadgeVariant.info,
+                              if (hasTicketProducts && hasTransferProducts) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                SecondaryButton(
+                                  label: 'Купить трансфер',
+                                  icon: const Icon(
+                                    Icons.airport_shuttle_rounded,
+                                  ),
+                                  outline: true,
+                                  onPressed: () => showPurchaseTicketFlow(
+                                    context,
+                                    eventId: detail.event.id,
+                                    mode: PurchaseFlowMode.transfer,
+                                  ),
+                                  expand: true,
+                                ),
+                              ],
+                              const SizedBox(height: AppSpacing.xs),
+                              Wrap(
+                                spacing: AppSpacing.xs,
+                                runSpacing: AppSpacing.xs,
+                                children: [
+                                  SecondaryButton(
+                                    label: 'Открыть на карте',
+                                    icon:
+                                        const Icon(Icons.location_on_outlined),
+                                    onPressed: () => _openMap(detail),
+                                    outline: true,
+                                  ),
+                                ],
                               ),
-                          ],
+                            ],
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         SectionCard(
@@ -392,11 +427,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                 spacing: AppSpacing.xs,
                                 runSpacing: AppSpacing.xs,
                                 children: [
-                                  AppBadge(
-                                    label:
-                                        'Участники: ${detail.event.participantsCount}',
-                                    variant: AppBadgeVariant.neutral,
-                                  ),
                                   _buildLikeChip(detail: detail),
                                   AppBadge(
                                     label:
@@ -415,90 +445,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        SectionCard(
-                          title: 'Действия',
-                          subtitle:
-                              'Главное действие вынесено наверх, вторичные сценарии собраны отдельно.',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              PrimaryButton(
-                                label: hasAnyProducts
-                                    ? (hasTicketProducts
-                                        ? 'Купить билет'
-                                        : 'Купить трансфер')
-                                    : (detail.isJoined
-                                        ? 'Вы уже присоединились'
-                                        : 'Присоединиться к событию'),
-                                onPressed: hasAnyProducts
-                                    ? () => showPurchaseTicketFlow(
-                                          context,
-                                          eventId: detail.event.id,
-                                          mode: hasTicketProducts
-                                              ? PurchaseFlowMode.ticket
-                                              : PurchaseFlowMode.transfer,
-                                        )
-                                    : (detail.isJoined || _joining)
-                                        ? null
-                                        : () => _join(detail),
-                                expand: true,
-                                loading: _joining && !hasAnyProducts,
-                              ),
-                              if (hasTicketProducts && hasTransferProducts) ...[
-                                const SizedBox(height: AppSpacing.xs),
-                                SecondaryButton(
-                                  label: 'Купить трансфер',
-                                  icon: const Icon(
-                                    Icons.airport_shuttle_rounded,
-                                  ),
-                                  outline: true,
-                                  onPressed: () => showPurchaseTicketFlow(
-                                    context,
-                                    eventId: detail.event.id,
-                                    mode: PurchaseFlowMode.transfer,
-                                  ),
-                                  expand: true,
-                                ),
-                              ],
-                              const SizedBox(height: AppSpacing.xs),
-                              Wrap(
-                                spacing: AppSpacing.xs,
-                                runSpacing: AppSpacing.xs,
-                                children: [
-                                  SecondaryButton(
-                                    label:
-                                        _sharing ? 'Подготовка…' : 'Поделиться',
-                                    icon: const Icon(Icons.share_outlined),
-                                    outline: true,
-                                    onPressed: _sharing ? null : _share,
-                                  ),
-                                  SecondaryButton(
-                                    label: detail.isJoined
-                                        ? (_joining
-                                            ? 'Выход…'
-                                            : 'Покинуть событие')
-                                        : (_joining
-                                            ? 'Вход…'
-                                            : 'Присоединиться'),
-                                    outline: true,
-                                    onPressed: _joining
-                                        ? null
-                                        : () => detail.isJoined
-                                            ? _leave(detail)
-                                            : _join(detail),
-                                  ),
-                                  SecondaryButton(
-                                    label: 'Открыть на карте',
-                                    icon:
-                                        const Icon(Icons.location_on_outlined),
-                                    onPressed: () => _openMap(detail),
-                                    outline: true,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
                         if (isAdmin) ...[
                           const SizedBox(height: AppSpacing.sm),
                           SectionCard(
@@ -634,34 +580,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        SectionCard(
-                          title: 'Участники',
-                          subtitle: 'Всего: ${detail.participants.length}',
-                          child: detail.participants.isEmpty
-                              ? const EmptyState(
-                                  title: 'Пока нет участников',
-                                  subtitle:
-                                      'Событие только начинает собирать аудиторию.',
-                                )
-                              : Column(
-                                  children: [
-                                    for (final participant
-                                        in detail.participants)
-                                      ListTile(
-                                        dense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: const Icon(
-                                          Icons.person_outline_rounded,
-                                        ),
-                                        title: Text(participant.name),
-                                        subtitle: Text(
-                                          formatDateTime(participant.joinedAt),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
                         SecondaryButton(
                           label:
                               inAdminRoute ? 'Вернуться в админку' : 'В ленту',
@@ -697,25 +615,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         eventId: detail.event.id,
         accessKey: widget.eventKey,
       );
-      await _load();
-    } catch (error) {
-      _showMessage('$error', tone: AppToastTone.error);
-    } finally {
-      if (mounted) {
-        setState(() => _joining = false);
-      }
-    }
-  }
-
-  /// _leave handles leave.
-
-  Future<void> _leave(EventDetail detail) async {
-    setState(() => _joining = true);
-    try {
-      await ref.read(eventsControllerProvider).leaveEvent(
-            eventId: detail.event.id,
-            accessKey: widget.eventKey,
-          );
       await _load();
     } catch (error) {
       _showMessage('$error', tone: AppToastTone.error);
@@ -765,45 +664,6 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     } finally {
       if (mounted) {
         setState(() => _sendingComment = false);
-      }
-    }
-  }
-
-  /// _share handles internal share behavior.
-
-  Future<void> _share() async {
-    final detail = _detail;
-    if (detail == null) return;
-
-    setState(() => _sharing = true);
-    try {
-      final events = ref.read(eventsControllerProvider);
-      final config = ref.read(appConfigProvider);
-      final refCode = await events.loadReferralCode();
-      final accessKey = events.accessKeyFor(detail.event.id,
-          fallback: detail.event.accessKey);
-
-      final url = buildEventShareUrl(
-        eventId: detail.event.id,
-        eventKey: accessKey,
-        refCode: refCode,
-        botUsername: config.botUsername,
-      );
-
-      final text = 'Event: ${detail.event.title}\n$url';
-
-      if (kIsWeb && config.botUsername.trim().isNotEmpty) {
-        final tgShareUrl =
-            'https://t.me/share/url?url=${Uri.encodeComponent(url)}&text=${Uri.encodeComponent('Event: ${detail.event.title}')}';
-        TelegramWebAppBridge.openLink(tgShareUrl);
-      } else {
-        await Share.share(text, subject: detail.event.title);
-      }
-    } catch (error) {
-      _showMessage('$error');
-    } finally {
-      if (mounted) {
-        setState(() => _sharing = false);
       }
     }
   }

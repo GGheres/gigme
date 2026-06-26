@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/models"
 
@@ -924,7 +925,7 @@ func (h *Handler) AddEventComment(w http.ResponseWriter, r *http.Request) {
 // PromoteEvent handles promote event.
 func (h *Handler) PromoteEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "promote_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "promote_event", adminaccess.PermissionEvents); !ok {
 		return
 	}
 

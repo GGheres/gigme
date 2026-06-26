@@ -1,13 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../app/theme_mode_provider.dart';
+import '../../../core/constants/admin_permissions.dart';
 import '../../../core/network/providers.dart';
+import '../../../core/utils/admin_access.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/action_buttons.dart';
@@ -17,8 +18,8 @@ import '../../../ui/components/app_button.dart';
 import '../../../ui/components/app_card.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/inline_status_banner.dart';
-import '../../../ui/components/screen_hero.dart';
 import '../../../ui/layout/app_scaffold.dart';
+import '../../../ui/theme/app_colors.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../events/application/events_controller.dart';
 import '../application/profile_controller.dart';
@@ -50,8 +51,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final state = controller.state;
     final config = ref.watch(appConfigProvider);
     final themeMode = ref.watch(appThemeModeProvider);
-    final isAdmin = state.user != null &&
-        config.adminTelegramIds.contains(state.user!.telegramId);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final actionIconColor =
+        isDark ? AppColors.darkIconAccent : AppColors.textPrimary;
+    final backgroundColor =
+        isDark ? AppColors.darkSurface : AppColors.backgroundSoft;
+    final isAdmin = canAccessAdminPanel(state.user, config);
 
     if (!_loaded) {
       _loaded = true;
@@ -59,37 +64,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     return AppScaffold(
+      backgroundColor: backgroundColor,
+      showBackgroundDecor: false,
       appBar: AppBar(
-        title: const Text('Профиль'),
-        actions: [
-          if (isAdmin)
+        backgroundColor: backgroundColor,
+        foregroundColor: actionIconColor,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        iconTheme: IconThemeData(color: actionIconColor),
+        actionsIconTheme: IconThemeData(color: actionIconColor),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isAdmin)
+              IconButton(
+                onPressed: () => context.push(AppRoutes.admin),
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                tooltip: 'Админ-панель',
+              ),
             IconButton(
-              onPressed: () => context.push(AppRoutes.admin),
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              tooltip: 'Админ-панель',
+              tooltip: 'Настройки',
+              onPressed: () => context.push(AppRoutes.settings),
+              icon: const Icon(Icons.settings_outlined),
             ),
-          IconButton(
-            onPressed: () => ref.read(profileControllerProvider).load(),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          IconButton(
-            tooltip: 'Настройки',
-            onPressed: () => context.push(AppRoutes.settings),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-          IconButton(
-            tooltip: 'Тема',
-            onPressed: () =>
-                ref.read(appThemeModeProvider.notifier).cycleMode(),
-            icon: Icon(
-              switch (themeMode) {
-                ThemeMode.system => Icons.brightness_auto_rounded,
-                ThemeMode.light => Icons.light_mode_rounded,
-                ThemeMode.dark => Icons.dark_mode_rounded,
-              },
+            IconButton(
+              tooltip: 'Тема',
+              onPressed: () =>
+                  ref.read(appThemeModeProvider.notifier).cycleMode(),
+              icon: Icon(
+                switch (themeMode) {
+                  ThemeMode.system => Icons.brightness_auto_rounded,
+                  ThemeMode.light => Icons.light_mode_rounded,
+                  ThemeMode.dark => Icons.dark_mode_rounded,
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       child: state.loading && state.user == null
           ? const Center(
@@ -103,48 +115,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  ScreenHero(
-                    title: 'Профиль',
-                    subtitle: isAdmin
-                        ? 'Аккаунт, быстрые действия и доступ к админ-инструментам'
-                        : 'Аккаунт, билеты и ваши последние события',
-                    summary: [
-                      AppBadge(
-                        label: '${state.total} событий',
-                        variant: AppBadgeVariant.neutral,
-                      ),
-                      AppBadge(
-                        label: _themeModeLabel(themeMode),
-                        variant: AppBadgeVariant.ghost,
-                      ),
-                      if (isAdmin)
-                        const AppBadge(
-                          label: 'Админ-доступ',
-                          variant: AppBadgeVariant.accent,
-                        ),
-                    ],
-                    actions: [
-                      PrimaryButton(
-                        label: 'Мои билеты',
-                        icon: const Icon(Icons.qr_code_rounded),
-                        onPressed: () => context.push(AppRoutes.myTickets),
-                      ),
-                      SecondaryButton(
-                        label: 'Настройки',
-                        icon: const Icon(Icons.settings_outlined),
-                        outline: true,
-                        onPressed: () => context.push(AppRoutes.settings),
-                      ),
-                      if (kDebugMode)
-                        AppButton(
-                          label: 'UI Preview',
-                          variant: AppButtonVariant.ghost,
-                          onPressed: () => context.push(AppRoutes.uiPreview),
-                        ),
-                    ],
-                  ),
                   if ((state.error ?? '').isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.sm),
                     InlineStatusBanner(
                       title: 'Не удалось обновить профиль',
                       message: state.error!,
@@ -162,7 +133,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       tone: InlineStatusBannerTone.info,
                     ),
                   ],
-                  const SizedBox(height: AppSpacing.sm),
                   ProfileSummaryCard(
                     user: state.user,
                   ),
@@ -197,48 +167,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           spacing: AppSpacing.xs,
                           runSpacing: AppSpacing.xs,
                           children: [
-                            AppButton(
-                              label: 'Заказы',
-                              size: AppButtonSize.sm,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: () =>
-                                  context.push(AppRoutes.adminOrders),
-                            ),
-                            AppButton(
-                              label: 'Сообщения',
-                              size: AppButtonSize.sm,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: () =>
-                                  context.push(AppRoutes.adminBotMessages),
-                            ),
-                            AppButton(
-                              label: 'QR-сканер',
-                              size: AppButtonSize.sm,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: () =>
-                                  context.push(AppRoutes.adminScanner),
-                            ),
-                            AppButton(
-                              label: 'Продукты',
-                              size: AppButtonSize.sm,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: () =>
-                                  context.push(AppRoutes.adminProducts),
-                            ),
-                            AppButton(
-                              label: 'Промокоды',
-                              size: AppButtonSize.sm,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: () =>
-                                  context.push(AppRoutes.adminPromos),
-                            ),
-                            AppButton(
-                              label: 'Статистика',
-                              size: AppButtonSize.sm,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: () =>
-                                  context.push(AppRoutes.adminStats),
-                            ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.orders,
+                            ))
+                              AppButton(
+                                label: 'Заказы',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminOrders),
+                              ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.transfers,
+                            ))
+                              AppButton(
+                                label: 'Трансферы',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminTransfers),
+                              ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.scanner,
+                            ))
+                              AppButton(
+                                label: 'QR-сканер',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminScanner),
+                              ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.botMessages,
+                            ))
+                              AppButton(
+                                label: 'Сообщения',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminBotMessages),
+                              ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.products,
+                            ))
+                              AppButton(
+                                label: 'Продукты',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminProducts),
+                              ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.promos,
+                            ))
+                              AppButton(
+                                label: 'Промокоды',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminPromos),
+                              ),
+                            if (hasAdminPermission(
+                              state.user,
+                              config,
+                              AdminPermissions.stats,
+                            ))
+                              AppButton(
+                                label: 'Статистика',
+                                size: AppButtonSize.sm,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () =>
+                                    context.push(AppRoutes.adminStats),
+                              ),
                           ],
                         ),
                       ],
@@ -347,15 +359,5 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
     );
-  }
-
-  /// _themeModeLabel handles theme mode label.
-
-  String _themeModeLabel(ThemeMode themeMode) {
-    return switch (themeMode) {
-      ThemeMode.system => 'Тема: система',
-      ThemeMode.light => 'Тема: светлая',
-      ThemeMode.dark => 'Тема: темная',
-    };
   }
 }

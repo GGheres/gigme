@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/http/middleware"
 	tochkaapi "gigme/backend/internal/integrations/tochka"
 	"gigme/backend/internal/models"
@@ -573,7 +574,7 @@ func (h *Handler) ListMyTickets(w http.ResponseWriter, r *http.Request) {
 // ListAdminOrders lists admin orders.
 func (h *Handler) ListAdminOrders(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_orders"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_orders", adminaccess.PermissionOrders); !ok {
 		return
 	}
 	limit := parseIntQuery(r, "limit", 50)
@@ -623,7 +624,7 @@ func (h *Handler) ListAdminOrders(w http.ResponseWriter, r *http.Request) {
 // ListAdminTransferOrders lists ordered transfers for admins.
 func (h *Handler) ListAdminTransferOrders(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_transfer_orders"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_transfer_orders", adminaccess.PermissionTransfers); !ok {
 		return
 	}
 	limit := parseIntQuery(r, "limit", 50)
@@ -654,7 +655,7 @@ func (h *Handler) ListAdminTransferOrders(w http.ResponseWriter, r *http.Request
 // MoveAdminTransferOrder moves one ordered transfer row to another product.
 func (h *Handler) MoveAdminTransferOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_move_transfer_order"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_move_transfer_order", adminaccess.PermissionTransfers); !ok {
 		return
 	}
 	rawItemID := strings.TrimSpace(chi.URLParam(r, "itemId"))
@@ -690,7 +691,7 @@ func (h *Handler) MoveAdminTransferOrder(w http.ResponseWriter, r *http.Request)
 // GetAdminOrder returns admin order.
 func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_get_order"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_get_order", adminaccess.PermissionOrders); !ok {
 		return
 	}
 	orderID := resolveOrderIDParam(r)
@@ -717,7 +718,7 @@ func (h *Handler) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
 // ConfirmOrder handles confirm order.
 func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_confirm_order"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_confirm_order", adminaccess.PermissionOrders); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -770,7 +771,7 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 // DeleteAdminOrder deletes admin order.
 func (h *Handler) DeleteAdminOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_order"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_delete_order", adminaccess.PermissionOrders); !ok {
 		return
 	}
 	orderID := resolveOrderIDParam(r)
@@ -803,7 +804,7 @@ func (h *Handler) DeleteAdminOrder(w http.ResponseWriter, r *http.Request) {
 // CancelOrder handles cancel order.
 func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_cancel_order"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_cancel_order", adminaccess.PermissionOrders); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -835,7 +836,7 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 // RedeemTicket handles redeem ticket.
 func (h *Handler) RedeemTicket(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_redeem_ticket"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_redeem_ticket", adminaccess.PermissionScanner); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -865,7 +866,7 @@ func (h *Handler) RedeemTicket(w http.ResponseWriter, r *http.Request) {
 // AdminRedeemTicket handles admin redeem ticket.
 func (h *Handler) AdminRedeemTicket(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_redeem_ticket"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_redeem_ticket", adminaccess.PermissionScanner); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -908,7 +909,7 @@ func (h *Handler) AdminRedeemTicket(w http.ResponseWriter, r *http.Request) {
 // AdminStats handles admin stats.
 func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_stats"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_stats", adminaccess.PermissionStats); !ok {
 		return
 	}
 
@@ -944,7 +945,7 @@ func (h *Handler) GetPaymentSettings(w http.ResponseWriter, r *http.Request) {
 // GetAdminPaymentSettings returns admin payment settings.
 func (h *Handler) GetAdminPaymentSettings(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_get_payment_settings"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_get_payment_settings", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	ctx, cancel := h.withTimeout(r.Context())
@@ -956,7 +957,7 @@ func (h *Handler) GetAdminPaymentSettings(w http.ResponseWriter, r *http.Request
 // UpsertAdminPaymentSettings handles upsert admin payment settings.
 func (h *Handler) UpsertAdminPaymentSettings(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_upsert_payment_settings"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_upsert_payment_settings", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -995,7 +996,7 @@ func (h *Handler) UpsertAdminPaymentSettings(w http.ResponseWriter, r *http.Requ
 // ListAdminTicketProducts lists admin ticket products.
 func (h *Handler) ListAdminTicketProducts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_ticket_products"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_ticket_products", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	eventID, active, err := parseProductFilters(r)
@@ -1017,7 +1018,7 @@ func (h *Handler) ListAdminTicketProducts(w http.ResponseWriter, r *http.Request
 // CreateAdminTicketProduct creates admin ticket product.
 func (h *Handler) CreateAdminTicketProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_create_ticket_product"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_create_ticket_product", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -1043,7 +1044,7 @@ func (h *Handler) CreateAdminTicketProduct(w http.ResponseWriter, r *http.Reques
 // PatchAdminTicketProduct updates admin ticket product.
 func (h *Handler) PatchAdminTicketProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_patch_ticket_product"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_patch_ticket_product", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
@@ -1069,7 +1070,7 @@ func (h *Handler) PatchAdminTicketProduct(w http.ResponseWriter, r *http.Request
 // DeleteAdminTicketProduct deletes admin ticket product.
 func (h *Handler) DeleteAdminTicketProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_ticket_product"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_delete_ticket_product", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
@@ -1089,7 +1090,14 @@ func (h *Handler) DeleteAdminTicketProduct(w http.ResponseWriter, r *http.Reques
 // ListAdminTransferProducts lists admin transfer products.
 func (h *Handler) ListAdminTransferProducts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_transfer_products"); !ok {
+	if _, ok := h.requireAdminPermission(
+		logger,
+		w,
+		r,
+		"admin_list_transfer_products",
+		adminaccess.PermissionTransfers,
+		adminaccess.PermissionProducts,
+	); !ok {
 		return
 	}
 	eventID, active, err := parseProductFilters(r)
@@ -1111,7 +1119,7 @@ func (h *Handler) ListAdminTransferProducts(w http.ResponseWriter, r *http.Reque
 // CreateAdminTransferProduct creates admin transfer product.
 func (h *Handler) CreateAdminTransferProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_create_transfer_product"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_create_transfer_product", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -1137,7 +1145,7 @@ func (h *Handler) CreateAdminTransferProduct(w http.ResponseWriter, r *http.Requ
 // PatchAdminTransferProduct updates admin transfer product.
 func (h *Handler) PatchAdminTransferProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_patch_transfer_product"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_patch_transfer_product", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
@@ -1163,7 +1171,7 @@ func (h *Handler) PatchAdminTransferProduct(w http.ResponseWriter, r *http.Reque
 // DeleteAdminTransferProduct deletes admin transfer product.
 func (h *Handler) DeleteAdminTransferProduct(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_transfer_product"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_delete_transfer_product", adminaccess.PermissionProducts); !ok {
 		return
 	}
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
@@ -1183,7 +1191,7 @@ func (h *Handler) DeleteAdminTransferProduct(w http.ResponseWriter, r *http.Requ
 // ListAdminPromoCodes lists admin promo codes.
 func (h *Handler) ListAdminPromoCodes(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_promo_codes"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_promo_codes", adminaccess.PermissionPromos); !ok {
 		return
 	}
 	eventID, active, err := parseProductFilters(r)
@@ -1205,7 +1213,7 @@ func (h *Handler) ListAdminPromoCodes(w http.ResponseWriter, r *http.Request) {
 // CreateAdminPromoCode creates admin promo code.
 func (h *Handler) CreateAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_create_promo_code"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_create_promo_code", adminaccess.PermissionPromos); !ok {
 		return
 	}
 	adminID, ok := middleware.UserIDFromContext(r.Context())
@@ -1231,7 +1239,7 @@ func (h *Handler) CreateAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 // PatchAdminPromoCode updates admin promo code.
 func (h *Handler) PatchAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_patch_promo_code"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_patch_promo_code", adminaccess.PermissionPromos); !ok {
 		return
 	}
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
@@ -1257,7 +1265,7 @@ func (h *Handler) PatchAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 // DeleteAdminPromoCode deletes admin promo code.
 func (h *Handler) DeleteAdminPromoCode(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_promo_code"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_delete_promo_code", adminaccess.PermissionPromos); !ok {
 		return
 	}
 	id := strings.TrimSpace(chi.URLParam(r, "id"))

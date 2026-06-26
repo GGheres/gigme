@@ -18,6 +18,7 @@ import '../../../ui/components/section_card.dart';
 import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../auth/application/auth_state.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
 import 'ticketing_ui_utils.dart';
@@ -47,6 +48,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   bool _loading = true;
   String? _error;
   OrdersListModel? _orders;
+  String? _lastLoadedToken;
+  String? _scheduledReloadToken;
 
   /// initState handles init state.
 
@@ -67,15 +70,19 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   /// _load loads data from the underlying source.
 
   Future<void> _load() async {
-    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    final authState = ref.read(authControllerProvider).state;
+    final token = authState.token?.trim() ?? '';
     if (token.isEmpty) {
       setState(() {
-        _loading = false;
-        _error = 'Требуется авторизация';
+        _loading = authState.status == AuthStatus.loading;
+        _error = authState.status == AuthStatus.loading
+            ? null
+            : 'Требуется авторизация';
       });
       return;
     }
 
+    _lastLoadedToken = token;
     setState(() {
       _loading = true;
       _error = null;
@@ -103,10 +110,78 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     }
   }
 
+  /// _handleAuthStateChange reloads orders after delayed session restore.
+
+  void _handleAuthStateChange(AuthState? previous, AuthState next) {
+    if (!mounted) return;
+    final previousToken = previous?.token?.trim() ?? '';
+    final nextToken = next.token?.trim() ?? '';
+
+    if (nextToken.isNotEmpty && nextToken != previousToken) {
+      _scheduleReload(nextToken);
+      return;
+    }
+
+    if (nextToken.isEmpty && next.status == AuthStatus.loading) {
+      if (_loading && _error == null) {
+        return;
+      }
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      return;
+    }
+
+    if (nextToken.isEmpty && next.status == AuthStatus.unauthenticated) {
+      setState(() {
+        _lastLoadedToken = null;
+        _loading = false;
+        _error = 'Требуется авторизация';
+        _orders = null;
+      });
+    }
+  }
+
+  /// _scheduleReload reloads once when a restored token becomes available.
+
+  void _scheduleReload(String token) {
+    if (_scheduledReloadToken == token) {
+      return;
+    }
+    _scheduledReloadToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _scheduledReloadToken != token) {
+        return;
+      }
+      _scheduledReloadToken = null;
+      unawaited(_load());
+    });
+  }
+
+  /// _reloadIfSessionWasRestored catches auth restore that completed before listen.
+
+  void _reloadIfSessionWasRestored(AuthState authState) {
+    final token = authState.token?.trim() ?? '';
+    if (token.isEmpty || _loading || _lastLoadedToken == token) {
+      return;
+    }
+    _scheduleReload(token);
+  }
+
   /// build renders the widget tree for this component.
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(
+      authControllerProvider.select((controller) => controller.state),
+    );
+    ref.listen<AuthState>(
+      authControllerProvider.select((controller) => controller.state),
+      _handleAuthStateChange,
+    );
+    _reloadIfSessionWasRestored(authState);
+
     final items = _orders?.items ?? <OrderSummaryModel>[];
 
     final body = _buildBody(context, items);

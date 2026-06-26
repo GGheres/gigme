@@ -11,20 +11,34 @@ const accessTokenTTL = 15 * time.Minute
 
 // AccessClaims represents access claims.
 type AccessClaims struct {
-	UserID     int64 `json:"uid"`
-	TelegramID int64 `json:"tgid"`
-	IsNew      bool  `json:"new,omitempty"`
-	IsAdmin    bool  `json:"admin,omitempty"`
+	UserID           int64    `json:"uid"`
+	TelegramID       int64    `json:"tgid"`
+	IsNew            bool     `json:"new,omitempty"`
+	IsAdmin          bool     `json:"admin,omitempty"`
+	AdminPermissions []string `json:"admin_permissions,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // SignAccessToken signs access token.
 func SignAccessToken(secret string, userID int64, telegramID int64, isNew bool, isAdmin bool) (string, error) {
+	return SignAccessTokenWithAdminPermissions(secret, userID, telegramID, isNew, isAdmin, nil)
+}
+
+// SignAccessTokenWithAdminPermissions signs access token with scoped admin permissions.
+func SignAccessTokenWithAdminPermissions(
+	secret string,
+	userID int64,
+	telegramID int64,
+	isNew bool,
+	isAdmin bool,
+	adminPermissions []string,
+) (string, error) {
 	claims := AccessClaims{
-		UserID:     userID,
-		TelegramID: telegramID,
-		IsNew:      isNew,
-		IsAdmin:    isAdmin,
+		UserID:           userID,
+		TelegramID:       telegramID,
+		IsNew:            isNew,
+		IsAdmin:          isAdmin,
+		AdminPermissions: append([]string(nil), adminPermissions...),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

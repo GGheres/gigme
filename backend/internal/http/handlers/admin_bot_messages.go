@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/models"
 )
 
@@ -27,7 +28,7 @@ type adminBotReplyRequest struct {
 // ListAdminBotMessages lists admin bot messages.
 func (h *Handler) ListAdminBotMessages(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_bot_messages"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_bot_messages", adminaccess.PermissionBotMessages); !ok {
 		return
 	}
 
@@ -54,7 +55,13 @@ func (h *Handler) ListAdminBotMessages(w http.ResponseWriter, r *http.Request) {
 // ReplyAdminBotMessage handles reply admin bot message.
 func (h *Handler) ReplyAdminBotMessage(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	adminTelegramID, ok := h.requireAdmin(logger, w, r, "admin_reply_bot_message")
+	adminTelegramID, ok := h.requireAdminPermission(
+		logger,
+		w,
+		r,
+		"admin_reply_bot_message",
+		adminaccess.PermissionBotMessages,
+	)
 	if !ok {
 		return
 	}

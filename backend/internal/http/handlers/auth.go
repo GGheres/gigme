@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/auth"
 	"gigme/backend/internal/models"
 )
@@ -52,12 +53,21 @@ func (h *Handler) AuthTelegram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.SignAccessToken(h.cfg.JWTSecret, stored.ID, stored.TelegramID, isNew, false)
+	adminPermissions := h.effectiveAdminPermissionsForTelegramID(stored.TelegramID)
+	token, err := auth.SignAccessTokenWithAdminPermissions(
+		h.cfg.JWTSecret,
+		stored.ID,
+		stored.TelegramID,
+		isNew,
+		adminaccess.HasPanelAccess(adminPermissions),
+		adminPermissions,
+	)
 	if err != nil {
 		logger.Error("action", "action", "auth_telegram", "status", "token_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "token error")
 		return
 	}
+	stored.AdminPermissions = adminPermissions
 
 	logger.Info("action", "action", "auth_telegram", "status", "success", "user_id", stored.ID, "telegram_id", stored.TelegramID)
 	writeJSON(w, http.StatusOK, map[string]interface{}{

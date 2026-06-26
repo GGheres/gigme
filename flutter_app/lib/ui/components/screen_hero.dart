@@ -15,6 +15,8 @@ class ScreenHero extends StatelessWidget {
     this.statusBadge,
     this.summary = const <AppBadge>[],
     this.actions = const <Widget>[],
+    this.titleColor,
+    this.subtitleColor,
     super.key,
   });
 
@@ -24,6 +26,8 @@ class ScreenHero extends StatelessWidget {
   final Widget? statusBadge;
   final List<AppBadge> summary;
   final List<Widget> actions;
+  final Color? titleColor;
+  final Color? subtitleColor;
 
   /// build renders the widget tree for this component.
 
@@ -40,6 +44,8 @@ class ScreenHero extends StatelessWidget {
           subtitle: subtitle,
           trailing: trailing,
           padding: EdgeInsets.zero,
+          titleColor: titleColor,
+          subtitleColor: subtitleColor,
         ),
         if (statusBadge != null || hasSummary || hasActions)
           const SizedBox(height: AppSpacing.sm),

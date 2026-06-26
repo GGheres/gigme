@@ -6,7 +6,6 @@ import 'app_router.dart';
 import 'push_bootstrap.dart';
 import 'theme_mode_provider.dart';
 import 'theme.dart';
-import '../ui/layout/app_background.dart';
 
 /// GigMeApp represents gig me app.
 
@@ -38,11 +37,7 @@ class GigMeApp extends ConsumerWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         routerConfig: router,
-        builder: (context, child) => SelectionArea(
-          child: AppBackground(
-            child: child ?? const SizedBox.shrink(),
-          ),
-        ),
+        builder: (context, child) => child ?? const SizedBox.shrink(),
         debugShowCheckedModeBanner: false,
       ),
     );

@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/models"
 
@@ -99,6 +100,9 @@ func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *ht
 	if isAdmin, ok := middleware.IsAdminFromContext(r.Context()); ok && isAdmin {
 		return telegramID, true
 	}
+	if adminaccess.HasPanelAccess(h.currentAdminPermissions(r, telegramID)) {
+		return telegramID, true
+	}
 	if _, allowed := h.cfg.AdminTGIDs[telegramID]; !allowed {
 		logger.Warn("action", "action", action, "status", "forbidden", "telegram_id", telegramID)
 		writeError(w, http.StatusForbidden, "forbidden")
@@ -107,10 +111,42 @@ func (h *Handler) requireAdmin(logger *slog.Logger, w http.ResponseWriter, r *ht
 	return telegramID, true
 }
 
+// requireAdminPermission handles require admin permission.
+func (h *Handler) requireAdminPermission(
+	logger *slog.Logger,
+	w http.ResponseWriter,
+	r *http.Request,
+	action string,
+	permissions ...string,
+) (int64, bool) {
+	telegramID, ok := h.requireAdmin(logger, w, r, action)
+	if !ok {
+		return 0, false
+	}
+	if len(permissions) == 0 {
+		return telegramID, true
+	}
+	if adminaccess.HasAnyPermission(h.currentAdminPermissions(r, telegramID), permissions...) {
+		return telegramID, true
+	}
+	logger.Warn("action", "action", action, "status", "forbidden", "telegram_id", telegramID)
+	writeError(w, http.StatusForbidden, "forbidden")
+	return 0, false
+}
+
+// decorateUserWithAdminAccess handles decorate user with admin access.
+func (h *Handler) decorateUserWithAdminAccess(r *http.Request, user models.User) models.User {
+	if user.TelegramID == 0 {
+		return user
+	}
+	user.AdminPermissions = h.currentAdminPermissions(r, user.TelegramID)
+	return user
+}
+
 // ListAdminUsers lists admin users.
 func (h *Handler) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_users"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_users", adminaccess.PermissionUsers); !ok {
 		return
 	}
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
@@ -152,7 +188,7 @@ func (h *Handler) ListAdminUsers(w http.ResponseWriter, r *http.Request) {
 // GetAdminUser returns admin user.
 func (h *Handler) GetAdminUser(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_get_user"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_get_user", adminaccess.PermissionUsers); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -186,7 +222,7 @@ func (h *Handler) GetAdminUser(w http.ResponseWriter, r *http.Request) {
 // BlockUser handles block user.
 func (h *Handler) BlockUser(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_block_user"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_block_user", adminaccess.PermissionUsers); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -214,7 +250,7 @@ func (h *Handler) BlockUser(w http.ResponseWriter, r *http.Request) {
 // UnblockUser handles unblock user.
 func (h *Handler) UnblockUser(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_unblock_user"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_unblock_user", adminaccess.PermissionUsers); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -236,7 +272,7 @@ func (h *Handler) UnblockUser(w http.ResponseWriter, r *http.Request) {
 // CreateBroadcast creates broadcast.
 func (h *Handler) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_create_broadcast"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_create_broadcast", adminaccess.PermissionBroadcasts); !ok {
 		return
 	}
 	adminUserID, ok := middleware.UserIDFromContext(r.Context())
@@ -330,7 +366,7 @@ func (h *Handler) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
 // StartBroadcast handles start broadcast.
 func (h *Handler) StartBroadcast(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_start_broadcast"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_start_broadcast", adminaccess.PermissionBroadcasts); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -361,7 +397,7 @@ func (h *Handler) StartBroadcast(w http.ResponseWriter, r *http.Request) {
 // ListBroadcasts lists broadcasts.
 func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_list_broadcasts"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_list_broadcasts", adminaccess.PermissionBroadcasts); !ok {
 		return
 	}
 	limit := 50
@@ -393,7 +429,7 @@ func (h *Handler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
 // GetBroadcast returns broadcast.
 func (h *Handler) GetBroadcast(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_get_broadcast"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_get_broadcast", adminaccess.PermissionBroadcasts); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -420,7 +456,7 @@ func (h *Handler) GetBroadcast(w http.ResponseWriter, r *http.Request) {
 // HideEvent handles hide event.
 func (h *Handler) HideEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "hide_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "hide_event", adminaccess.PermissionEvents); !ok {
 		return
 	}
 
@@ -453,7 +489,7 @@ func (h *Handler) HideEvent(w http.ResponseWriter, r *http.Request) {
 // UpdateEventAdmin updates event admin.
 func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_update_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_update_event", adminaccess.PermissionEvents); !ok {
 		return
 	}
 
@@ -680,7 +716,7 @@ func (h *Handler) UpdateEventAdmin(w http.ResponseWriter, r *http.Request) {
 // DeleteEventAdmin deletes event admin.
 func (h *Handler) DeleteEventAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_delete_event", adminaccess.PermissionEvents); !ok {
 		return
 	}
 
@@ -712,7 +748,7 @@ func (h *Handler) DeleteEventAdmin(w http.ResponseWriter, r *http.Request) {
 // DeleteEventCommentAdmin deletes event comment admin.
 func (h *Handler) DeleteEventCommentAdmin(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_delete_comment"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_delete_comment", adminaccess.PermissionEvents); !ok {
 		return
 	}
 

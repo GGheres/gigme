@@ -210,6 +210,7 @@ func (h *Handler) authVKLegacy(
 		writeError(w, http.StatusInternalServerError, "token error")
 		return
 	}
+	stored = h.decorateUserWithAdminAccess(r, stored)
 
 	logger.Info(
 		"action", "action", "auth_vk",
@@ -344,6 +345,7 @@ func (h *Handler) authVKCodeFlow(
 		writeError(w, http.StatusInternalServerError, "token error")
 		return
 	}
+	stored = h.decorateUserWithAdminAccess(r, stored)
 
 	logger.Info(
 		"action", "action", "auth_vk",

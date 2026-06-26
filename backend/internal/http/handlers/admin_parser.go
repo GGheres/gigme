@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"gigme/backend/internal/adminaccess"
 	parsercore "gigme/backend/internal/eventparser/core"
 	"gigme/backend/internal/geocode"
 	"gigme/backend/internal/http/middleware"
@@ -90,7 +91,7 @@ type importParsedEventRequest struct {
 // ListParserSources lists parser sources.
 func (h *Handler) ListParserSources(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_list_sources"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_list_sources", adminaccess.PermissionParser); !ok {
 		return
 	}
 	limit := 50
@@ -120,7 +121,7 @@ func (h *Handler) ListParserSources(w http.ResponseWriter, r *http.Request) {
 // CreateParserSource creates parser source.
 func (h *Handler) CreateParserSource(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_create_source"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_create_source", adminaccess.PermissionParser); !ok {
 		return
 	}
 	adminUserID, ok := middleware.UserIDFromContext(r.Context())
@@ -162,7 +163,7 @@ func (h *Handler) CreateParserSource(w http.ResponseWriter, r *http.Request) {
 // UpdateParserSource updates parser source.
 func (h *Handler) UpdateParserSource(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_update_source"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_update_source", adminaccess.PermissionParser); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -197,7 +198,7 @@ func (h *Handler) UpdateParserSource(w http.ResponseWriter, r *http.Request) {
 // ParseParserSource parses parser source.
 func (h *Handler) ParseParserSource(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_parse_source"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_parse_source", adminaccess.PermissionParser); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -239,7 +240,7 @@ func (h *Handler) ParseParserSource(w http.ResponseWriter, r *http.Request) {
 // ParseParserInput parses parser input.
 func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_parse_input"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_parse_input", adminaccess.PermissionParser); !ok {
 		return
 	}
 	var req parseInputRequest
@@ -279,7 +280,7 @@ func (h *Handler) ParseParserInput(w http.ResponseWriter, r *http.Request) {
 // GeocodeParserLocation handles geocode parser location.
 func (h *Handler) GeocodeParserLocation(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_geocode"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_geocode", adminaccess.PermissionParser); !ok {
 		return
 	}
 	var req geocodeLocationRequest
@@ -313,7 +314,7 @@ func (h *Handler) GeocodeParserLocation(w http.ResponseWriter, r *http.Request) 
 // ListParsedEvents lists parsed events.
 func (h *Handler) ListParsedEvents(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_list_events"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_list_events", adminaccess.PermissionParser); !ok {
 		return
 	}
 	limit := 50
@@ -353,7 +354,7 @@ func (h *Handler) ListParsedEvents(w http.ResponseWriter, r *http.Request) {
 // RejectParsedEvent rejects parsed event.
 func (h *Handler) RejectParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_reject_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_reject_event", adminaccess.PermissionParser); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -378,7 +379,7 @@ func (h *Handler) RejectParsedEvent(w http.ResponseWriter, r *http.Request) {
 // DeleteParsedEvent deletes parsed event.
 func (h *Handler) DeleteParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_delete_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_delete_event", adminaccess.PermissionParser); !ok {
 		return
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -403,7 +404,7 @@ func (h *Handler) DeleteParsedEvent(w http.ResponseWriter, r *http.Request) {
 // ImportParsedEvent imports parsed event.
 func (h *Handler) ImportParsedEvent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_parser_import_event"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_parser_import_event", adminaccess.PermissionParser); !ok {
 		return
 	}
 	adminUserID, ok := middleware.UserIDFromContext(r.Context())

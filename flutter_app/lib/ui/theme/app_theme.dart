@@ -48,7 +48,7 @@ ThemeData buildAppTheme({
       isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
   final navUnselectedColor = isDark
       ? AppColors.darkTextPrimary.withValues(alpha: 0.78)
-      : textSecondary.withValues(alpha: 0.86);
+      : textPrimary.withValues(alpha: 0.8);
   final navSelectedColor = isDark ? AppColors.darkTextPrimary : textPrimary;
 
   return base.copyWith(
@@ -198,11 +198,11 @@ ThemeData buildAppTheme({
       backgroundColor: Colors.transparent,
       indicatorColor: colorScheme.primary.withValues(alpha: 0.16),
       selectedIconTheme: IconThemeData(color: colorScheme.primary),
-      unselectedIconTheme: IconThemeData(color: textSecondary),
+      unselectedIconTheme: IconThemeData(color: navUnselectedColor),
       selectedLabelTextStyle:
           textTheme.labelSmall?.copyWith(color: colorScheme.primary),
       unselectedLabelTextStyle:
-          textTheme.labelSmall?.copyWith(color: textSecondary),
+          textTheme.labelSmall?.copyWith(color: navUnselectedColor),
       useIndicator: true,
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(

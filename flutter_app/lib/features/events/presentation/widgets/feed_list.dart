@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../../core/models/event_card.dart';
 import '../../../../ui/components/app_button.dart';
@@ -15,7 +14,6 @@ class FeedList extends StatelessWidget {
   /// FeedList handles feed list.
   const FeedList({
     required this.items,
-    required this.referencePoint,
     required this.onTap,
     required this.onLikeTap,
     required this.apiUrl,
@@ -26,7 +24,6 @@ class FeedList extends StatelessWidget {
   });
 
   final List<EventCard> items;
-  final LatLng? referencePoint;
   final ValueChanged<EventCard> onTap;
   final ValueChanged<EventCard> onLikeTap;
   final String apiUrl;
@@ -47,7 +44,7 @@ class FeedList extends StatelessWidget {
           const SizedBox(height: 80),
           const EmptyState(
             title: 'Событий пока нет',
-            subtitle: 'Попробуйте обновить ленту или скорректировать фильтры.',
+            subtitle: 'Попробуйте обновить ленту позже.',
           ),
           const SizedBox(height: AppSpacing.sm),
           AppCard(
@@ -76,7 +73,6 @@ class FeedList extends StatelessWidget {
             event: event,
             apiUrl: apiUrl,
             accessKey: accessKey,
-            referencePoint: referencePoint,
             onTap: () => onTap(event),
             onLikeTap: () => onLikeTap(event),
             likeLoading: likeLoadingIds.contains(event.id),

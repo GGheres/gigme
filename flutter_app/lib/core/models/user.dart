@@ -16,6 +16,10 @@ class User {
       rating: asDouble(map['rating']),
       ratingCount: asInt(map['ratingCount']),
       balanceTokens: asInt(map['balanceTokens']),
+      adminPermissions: asList(map['adminPermissions'])
+          .map((value) => asString(value).trim().toLowerCase())
+          .where((value) => value.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -30,6 +34,7 @@ class User {
     required this.rating,
     required this.ratingCount,
     required this.balanceTokens,
+    required this.adminPermissions,
   });
 
   final int id;
@@ -41,6 +46,7 @@ class User {
   final double rating;
   final int ratingCount;
   final int balanceTokens;
+  final List<String> adminPermissions;
 
   /// toJson handles to json.
 
@@ -55,6 +61,7 @@ class User {
       'rating': rating,
       'ratingCount': ratingCount,
       'balanceTokens': balanceTokens,
+      'adminPermissions': adminPermissions,
     };
   }
 
@@ -74,6 +81,18 @@ class User {
 
   String get handle => username.trim().isEmpty ? '' : '@${username.trim()}';
 
+  /// canAccessAdminPanel reports whether admin panel access condition is met.
+
+  bool get canAccessAdminPanel => adminPermissions.isNotEmpty;
+
+  /// hasAdminPermission reports whether the requested permission is present.
+
+  bool hasAdminPermission(String permission) {
+    final normalized = permission.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return adminPermissions.any((value) => value == normalized);
+  }
+
   /// copyWith handles copy with.
 
   User copyWith({
@@ -86,6 +105,7 @@ class User {
     double? rating,
     int? ratingCount,
     int? balanceTokens,
+    List<String>? adminPermissions,
   }) {
     return User(
       id: id ?? this.id,
@@ -97,6 +117,7 @@ class User {
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
       balanceTokens: balanceTokens ?? this.balanceTokens,
+      adminPermissions: adminPermissions ?? this.adminPermissions,
     );
   }
 }

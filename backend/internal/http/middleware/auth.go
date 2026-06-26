@@ -12,10 +12,11 @@ import (
 type contextKey string
 
 const (
-	userIDKey     contextKey = "user_id"
-	telegramIDKey contextKey = "telegram_id"
-	isNewKey      contextKey = "is_new"
-	isAdminKey    contextKey = "is_admin"
+	userIDKey           contextKey = "user_id"
+	telegramIDKey       contextKey = "telegram_id"
+	isNewKey            contextKey = "is_new"
+	isAdminKey          contextKey = "is_admin"
+	adminPermissionsKey contextKey = "admin_permissions"
 )
 
 // UserIDFromContext handles user i d from context.
@@ -42,6 +43,12 @@ func IsAdminFromContext(ctx context.Context) (bool, bool) {
 	return val, ok
 }
 
+// AdminPermissionsFromContext handles admin permissions from context.
+func AdminPermissionsFromContext(ctx context.Context) ([]string, bool) {
+	val, ok := ctx.Value(adminPermissionsKey).([]string)
+	return val, ok
+}
+
 // AuthMiddleware authenticates middleware.
 func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -65,6 +72,7 @@ func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, telegramIDKey, claims.TelegramID)
 			ctx = context.WithValue(ctx, isNewKey, claims.IsNew)
 			ctx = context.WithValue(ctx, isAdminKey, claims.IsAdmin)
+			ctx = context.WithValue(ctx, adminPermissionsKey, claims.AdminPermissions)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -93,6 +101,7 @@ func OptionalAuthMiddleware(secret string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, telegramIDKey, claims.TelegramID)
 			ctx = context.WithValue(ctx, isNewKey, claims.IsNew)
 			ctx = context.WithValue(ctx, isAdminKey, claims.IsAdmin)
+			ctx = context.WithValue(ctx, adminPermissionsKey, claims.AdminPermissions)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

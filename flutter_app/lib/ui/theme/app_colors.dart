@@ -8,7 +8,7 @@ class AppColors {
 
   static const Color background = Color(0xFF101A35);
   static const Color backgroundDeep = Color(0xFF0A1228);
-  static const Color backgroundSoft = Color(0xFFF4F7FC);
+  static const Color backgroundSoft = Color(0xFFF0F2F5);
 
   static const Color surface = Color(0xF8FFFFFF);
   static const Color surfaceStrong = Color(0xFFFFFFFF);
@@ -37,8 +37,9 @@ class AppColors {
   static const Color darkSurfaceMuted = Color(0xFF223665);
   static const Color darkTextPrimary = Color(0xFFF3F6FF);
   static const Color darkTextSecondary = Color(0xFFB3C2E8);
-  static const Color darkBorder = Color(0x33DDE7FF);
-  static const Color darkBorderStrong = Color(0x4DDDE7FF);
+  static const Color darkIconAccent = Color(0xFFF3E7A5);
+  static const Color darkBorder = Color(0x44E6EEFF);
+  static const Color darkBorderStrong = Color(0x70EEF4FF);
 
   static const LinearGradient appBackgroundGradientWide = LinearGradient(
     begin: Alignment.topLeft,

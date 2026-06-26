@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../components/app_section_header.dart';
 import '../theme/app_breakpoints.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
 /// AppScaffold represents app scaffold.
@@ -111,121 +109,14 @@ class AppScaffold extends StatelessWidget {
       body = SafeArea(child: body);
     }
 
-    final shouldRenderBackdrop = showBackgroundDecor && !kIsWeb;
-
     return Scaffold(
       appBar: appBar,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
       bottomSheet: bottomSheet,
-      backgroundColor: backgroundColor ?? Colors.transparent,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (shouldRenderBackdrop) const _ScaffoldBackdrop(),
-          body,
-        ],
-      ),
-    );
-  }
-}
-
-/// _ScaffoldBackdrop represents scaffold backdrop.
-
-class _ScaffoldBackdrop extends StatelessWidget {
-  /// _ScaffoldBackdrop handles scaffold backdrop.
-  const _ScaffoldBackdrop();
-
-  /// build renders the widget tree for this component.
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? AppColors.appBackgroundGradientWide
-                : const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: <Color>[
-                      Color(0xFFF8FAFF),
-                      Color(0xFFF3F7FF),
-                      Color(0xFFF9FBFF),
-                    ],
-                  ),
-          ),
-        ),
-        Positioned(
-          top: -120,
-          left: -80,
-          width: 300,
-          height: 300,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: <Color>[
-                    (isDark ? AppColors.primary : AppColors.secondary)
-                        .withValues(alpha: 0.24),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -160,
-          right: -130,
-          width: 360,
-          height: 360,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: <Color>[
-                    (isDark ? AppColors.secondary : AppColors.primary)
-                        .withValues(alpha: 0.22),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (isDark)
-          Positioned(
-            top: 84,
-            right: -36,
-            width: 180,
-            height: 180,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: <Color>[
-                      AppColors.accentPurple.withValues(alpha: 0.16),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ColoredBox(
-          color: isDark
-              ? Colors.black.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.02),
-        ),
-      ],
+      backgroundColor:
+          backgroundColor ?? Theme.of(context).scaffoldBackgroundColor,
+      body: body,
     );
   }
 }

@@ -100,7 +100,7 @@ func TestBuildEventPurchaseURLs(t *testing.T) {
 
 // TestBuildTelegramStartMenuMarkup verifies the three /start WebApp buttons.
 func TestBuildTelegramStartMenuMarkup(t *testing.T) {
-	markup := buildTelegramStartMenuMarkup("https://spacefestival.fun", 0, "")
+	markup := buildTelegramStartMenuMarkup("https://spacefestival.fun", 0, "", "")
 	if markup == nil {
 		t.Fatalf("expected markup")
 	}
@@ -119,6 +119,57 @@ func TestBuildTelegramStartMenuMarkup(t *testing.T) {
 		if button.WebApp == nil || button.WebApp.URL == "" {
 			t.Fatalf("expected button %d to have web app url", index)
 		}
+	}
+}
+
+// TestBuildTelegramStartMenuMarkupUsesManagerOpenURL verifies the Open Space App button can point to admin mode.
+func TestBuildTelegramStartMenuMarkupUsesManagerOpenURL(t *testing.T) {
+	overrideURL := buildAdminPanelURL("https://spacefestival.fun")
+	markup := buildTelegramStartMenuMarkup(
+		"https://spacefestival.fun",
+		0,
+		"",
+		overrideURL,
+	)
+	if markup == nil {
+		t.Fatalf("expected markup")
+	}
+
+	button := markup.InlineKeyboard[2][0]
+	if button.WebApp == nil {
+		t.Fatalf("expected open button web app payload")
+	}
+	parsed, err := url.Parse(button.WebApp.URL)
+	if err != nil {
+		t.Fatalf("parse url: %v", err)
+	}
+	if parsed.Path != "/space_app/admin" {
+		t.Fatalf("expected manager open path, got %q", parsed.Path)
+	}
+}
+
+// TestBuildTelegramManagerOpenMarkup verifies the dedicated manager button markup.
+func TestBuildTelegramManagerOpenMarkup(t *testing.T) {
+	markup := buildTelegramManagerOpenMarkup("https://spacefestival.fun")
+	if markup == nil {
+		t.Fatalf("expected manager markup")
+	}
+	if len(markup.InlineKeyboard) != 1 || len(markup.InlineKeyboard[0]) != 1 {
+		t.Fatalf("unexpected manager markup rows: %+v", markup.InlineKeyboard)
+	}
+	button := markup.InlineKeyboard[0][0]
+	if button.Text != "ОТКРЫТЬ SPACE APP" {
+		t.Fatalf("unexpected button text: %q", button.Text)
+	}
+	if button.WebApp == nil {
+		t.Fatalf("expected manager web app payload")
+	}
+	parsed, err := url.Parse(button.WebApp.URL)
+	if err != nil {
+		t.Fatalf("parse manager url: %v", err)
+	}
+	if parsed.Path != "/space_app/admin" {
+		t.Fatalf("expected /space_app/admin path, got %q", parsed.Path)
 	}
 }
 
@@ -174,6 +225,17 @@ func TestParseAdminReplyPayload(t *testing.T) {
 	}
 	if chatID != 998877 {
 		t.Fatalf("expected chat id 998877, got %d", chatID)
+	}
+}
+
+// TestParseManagerCommandPassword verifies `/manager <password>` inline parsing.
+func TestParseManagerCommandPassword(t *testing.T) {
+	password, ok := parseManagerCommandPassword("/manager secret-pass")
+	if !ok {
+		t.Fatalf("expected manager password to be parsed")
+	}
+	if password != "secret-pass" {
+		t.Fatalf("unexpected parsed password: %q", password)
 	}
 }
 

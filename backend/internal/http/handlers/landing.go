@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/http/middleware"
 	"gigme/backend/internal/models"
 
@@ -194,7 +195,7 @@ func (h *Handler) LandingContent(w http.ResponseWriter, r *http.Request) {
 // UpsertLandingContent handles upsert landing content.
 func (h *Handler) UpsertLandingContent(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_upsert_landing_content"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_upsert_landing_content", adminaccess.PermissionLanding); !ok {
 		return
 	}
 
@@ -248,7 +249,7 @@ func (h *Handler) UpsertLandingContent(w http.ResponseWriter, r *http.Request) {
 // SetEventLandingPublished sets event landing published.
 func (h *Handler) SetEventLandingPublished(w http.ResponseWriter, r *http.Request) {
 	logger := h.loggerForRequest(r)
-	if _, ok := h.requireAdmin(logger, w, r, "admin_set_landing_published"); !ok {
+	if _, ok := h.requireAdminPermission(logger, w, r, "admin_set_landing_published", adminaccess.PermissionLanding); !ok {
 		return
 	}
 

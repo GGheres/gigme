@@ -419,8 +419,14 @@ class AuthController extends ChangeNotifier {
   void _requestTelegramWriteAccessIfNeeded() {
     if (!kIsWeb || !config.isTelegramWebMode) return;
     if (!TelegramWebAppBridge.isAvailable()) return;
+    final bridgeInitData = TelegramWebAppBridge.getInitData();
+    if (bridgeInitData == null || bridgeInitData.isEmpty) return;
     if (TelegramWebAppBridge.allowsWriteToPm() == true) return;
-    TelegramWebAppBridge.requestWriteAccess();
+    try {
+      TelegramWebAppBridge.requestWriteAccess();
+    } catch (_) {
+      // Write-access prompt is optional and must not break a valid session.
+    }
   }
 
   /// _claimPendingReferralIfNeeded claims pending referral if needed.

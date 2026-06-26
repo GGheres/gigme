@@ -46,6 +46,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
+	user = h.decorateUserWithAdminAccess(r, user)
 	logger.Info("action", "action", "me", "status", "success")
 	writeJSON(w, http.StatusOK, user)
 }

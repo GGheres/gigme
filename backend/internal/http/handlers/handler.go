@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"gigme/backend/internal/adminaccess"
 	"gigme/backend/internal/config"
 	"gigme/backend/internal/eventparser"
 	parsercore "gigme/backend/internal/eventparser/core"
@@ -31,10 +32,14 @@ type Handler struct {
 	geocoder         *geocode.Client
 	cfg              *config.Config
 	logger           *slog.Logger
+	adminAccess      *adminaccess.Resolver
 	validator        *validator.Validate
 	joinLeaveLimiter *rate.WindowLimiter
 	replyTargetsMu   sync.RWMutex
 	adminReplyTarget map[int64]int64
+	managerAccessMu  sync.RWMutex
+	managerPrompts   map[int64]time.Time
+	managerSessions  map[int64]time.Time
 }
 
 // New builds a handler with default parser, geocoder, validator, and rate limiter dependencies.
@@ -51,9 +56,12 @@ func New(repo *repository.Repository, s3 *integrations.S3Client, telegram *integ
 		geocoder:         geocode.NewClient(geocode.Config{}),
 		cfg:              cfg,
 		logger:           logger,
+		adminAccess:      adminaccess.NewResolver(cfg),
 		validator:        validator.New(),
 		joinLeaveLimiter: rate.NewWindowLimiter(10, time.Minute),
 		adminReplyTarget: make(map[int64]int64),
+		managerPrompts:   make(map[int64]time.Time),
+		managerSessions:  make(map[int64]time.Time),
 	}
 }
 

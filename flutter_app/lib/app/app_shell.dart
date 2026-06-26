@@ -36,24 +36,21 @@ class _AppShellState extends ConsumerState<AppShell> {
     _ShellDestination(
       label: 'Лента',
       icon: Icons.view_list_rounded,
+      branchIndex: 0,
     ),
 
     /// _ShellDestination handles shell destination.
     _ShellDestination(
       label: 'Карта',
       icon: Icons.map_rounded,
-    ),
-
-    /// _ShellDestination handles shell destination.
-    _ShellDestination(
-      label: 'Создать',
-      icon: Icons.add_circle_outline_rounded,
+      branchIndex: 1,
     ),
 
     /// _ShellDestination handles shell destination.
     _ShellDestination(
       label: 'Профиль',
       icon: Icons.person_outline_rounded,
+      branchIndex: 3,
     ),
   ];
 
@@ -85,16 +82,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = widget.navigationShell.currentIndex;
     final isAdminRoute = location.startsWith(AppRoutes.admin);
+    final isCreateRoute = location.startsWith(AppRoutes.create);
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = width >= AppBreakpoints.smMax;
+    final selectedNavIndex = _selectedDestinationIndex(currentIndex);
 
-    if (!isAdminRoute && isDesktop) {
+    if (!isAdminRoute && !isCreateRoute && isDesktop) {
       return Scaffold(
         body: Row(
           children: [
             SafeArea(
               child: _AppNavigationRail(
-                selectedIndex: currentIndex,
+                selectedIndex: selectedNavIndex,
                 destinations: _destinations,
                 onSelected: _onDestinationSelected,
               ),
@@ -108,10 +107,10 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     return Scaffold(
       body: widget.navigationShell,
-      bottomNavigationBar: isAdminRoute
+      bottomNavigationBar: isAdminRoute || isCreateRoute
           ? null
           : _AppBottomDock(
-              selectedIndex: currentIndex,
+              selectedIndex: selectedNavIndex,
               destinations: _destinations,
               onSelected: _onDestinationSelected,
             ),
@@ -122,8 +121,18 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _onDestinationSelected(int index) {
     if (index < 0 || index >= _destinations.length) return;
-    if (index == widget.navigationShell.currentIndex) return;
-    widget.navigationShell.goBranch(index);
+    final branchIndex = _destinations[index].branchIndex;
+    if (branchIndex == widget.navigationShell.currentIndex) return;
+    widget.navigationShell.goBranch(branchIndex);
+  }
+
+  /// _selectedDestinationIndex maps shell branch index to visible nav index.
+
+  int _selectedDestinationIndex(int branchIndex) {
+    final index = _destinations.indexWhere(
+      (destination) => destination.branchIndex == branchIndex,
+    );
+    return index >= 0 ? index : 0;
   }
 }
 
@@ -170,9 +179,9 @@ class _AppBottomDock extends StatelessWidget {
                     (isDark
                             ? AppColors.darkSurfaceStrong
                             : AppColors.surfaceStrong)
-                        .withValues(alpha: isDark ? 0.92 : 0.9),
+                        .withValues(alpha: isDark ? 0.92 : 0.96),
                     (isDark ? AppColors.darkSurface : AppColors.surface)
-                        .withValues(alpha: isDark ? 0.9 : 0.86),
+                        .withValues(alpha: isDark ? 0.9 : 0.94),
                   ],
                 ),
                 border: Border.all(
@@ -230,7 +239,9 @@ class _AppNavigationRail extends StatelessWidget {
       margin: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.xxl),
-        color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 0.66),
+        color: theme.colorScheme.surface.withValues(
+          alpha: isDark ? 0.8 : 0.92,
+        ),
         border: Border.all(
           color: theme.colorScheme.outline.withValues(alpha: isDark ? 0.8 : 1),
         ),
@@ -271,8 +282,10 @@ class _ShellDestination {
   const _ShellDestination({
     required this.label,
     required this.icon,
+    required this.branchIndex,
   });
 
   final String label;
   final IconData icon;
+  final int branchIndex;
 }

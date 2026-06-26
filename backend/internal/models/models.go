@@ -4,17 +4,18 @@ import "time"
 
 // User represents user.
 type User struct {
-	ID            int64     `json:"id"`
-	TelegramID    int64     `json:"telegramId"`
-	Username      string    `json:"username,omitempty"`
-	FirstName     string    `json:"firstName"`
-	LastName      string    `json:"lastName,omitempty"`
-	PhotoURL      string    `json:"photoUrl,omitempty"`
-	Rating        float64   `json:"rating"`
-	RatingCount   int       `json:"ratingCount"`
-	BalanceTokens int64     `json:"balanceTokens"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID               int64     `json:"id"`
+	TelegramID       int64     `json:"telegramId"`
+	Username         string    `json:"username,omitempty"`
+	FirstName        string    `json:"firstName"`
+	LastName         string    `json:"lastName,omitempty"`
+	PhotoURL         string    `json:"photoUrl,omitempty"`
+	Rating           float64   `json:"rating"`
+	RatingCount      int       `json:"ratingCount"`
+	BalanceTokens    int64     `json:"balanceTokens"`
+	AdminPermissions []string  `json:"adminPermissions,omitempty"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // UserPushToken represents user push token.

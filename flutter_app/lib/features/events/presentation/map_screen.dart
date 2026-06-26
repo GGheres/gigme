@@ -41,6 +41,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final eventsController = ref.watch(eventsControllerProvider);
     final locationController = ref.watch(locationControllerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDark ? AppColors.darkSurface : AppColors.backgroundSoft;
 
     if (!_loadedOnce && !locationController.state.loading) {
       _loadedOnce = true;
@@ -56,12 +59,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final center = locationController.state.center;
 
     return AppScaffold(
-      title: 'Карта',
-      subtitle: 'События рядом с вами',
-      showBackgroundDecor: true,
-      titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
+      backgroundColor: backgroundColor,
+      showBackgroundDecor: false,
       child: Column(
         children: [
           Wrap(
