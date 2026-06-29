@@ -111,6 +111,65 @@ func TestBuildAdminBotMessageNotificationText(t *testing.T) {
 	}
 }
 
+// TestBuildAdminBotMessageNotificationTextPhoto verifies photo messages are visible to admins.
+func TestBuildAdminBotMessageNotificationTextPhoto(t *testing.T) {
+	msg := telegramMessage{
+		MessageID: 88,
+		Caption:   "Чек оплаты",
+		Chat:      telegramChat{ID: 123456},
+		From: telegramFrom{
+			ID:        123456,
+			Username:  "alex_user",
+			FirstName: "Alex",
+		},
+		Photo: []telegramPhotoSize{{FileID: "photo-1"}},
+	}
+
+	got := buildAdminBotMessageNotificationText(msg, "my_bot")
+	parts := []string{
+		"Новое сообщение в боте",
+		"Вложение: photo",
+		"Текст:",
+		"Чек оплаты",
+	}
+	for _, part := range parts {
+		if !strings.Contains(got, part) {
+			t.Fatalf("expected %q in %q", part, got)
+		}
+	}
+}
+
+// TestBuildAdminBotMessageNotificationTextDocumentWithoutCaption verifies document messages remain visible without caption.
+func TestBuildAdminBotMessageNotificationTextDocumentWithoutCaption(t *testing.T) {
+	msg := telegramMessage{
+		MessageID: 89,
+		Chat:      telegramChat{ID: 123456},
+		From: telegramFrom{
+			ID:        123456,
+			Username:  "alex_user",
+			FirstName: "Alex",
+		},
+		Document: &telegramDocument{
+			FileID:   "doc-1",
+			FileName: "receipt.pdf",
+			MimeType: "application/pdf",
+		},
+	}
+
+	got := buildAdminBotMessageNotificationText(msg, "my_bot")
+	parts := []string{
+		"Новое сообщение в боте",
+		"Вложение: document receipt.pdf (application/pdf)",
+		"Текст:",
+		"[без подписи]",
+	}
+	for _, part := range parts {
+		if !strings.Contains(got, part) {
+			t.Fatalf("expected %q in %q", part, got)
+		}
+	}
+}
+
 // TestBuildAdminBotMessageNotificationTextEmpty verifies build admin bot message notification text empty behavior.
 func TestBuildAdminBotMessageNotificationTextEmpty(t *testing.T) {
 	msg := telegramMessage{}

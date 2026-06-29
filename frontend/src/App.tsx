@@ -49,7 +49,6 @@ import {
   claimReferral,
   topupCard,
   topupToken,
-  presignMedia,
   unlikeEvent,
   updateEventAdmin,
   uploadMedia,
@@ -537,15 +536,6 @@ const normalizeHandle = (value: string, hosts: string[]) => {
     }
   }
   return out
-}
-
-// isPresignEnabled reports whether presign enabled condition is met.
-const isPresignEnabled = () => {
-  const raw = String(import.meta.env.VITE_PRESIGN_ENABLED || '').trim().toLowerCase()
-  if (!raw) return true
-  if (['false', '0', 'no', 'off'].includes(raw)) return false
-  if (['true', '1', 'yes', 'on'].includes(raw)) return true
-  return true
 }
 
 // buildContactHref builds contact href.
@@ -2623,7 +2613,6 @@ function App() {
     const fileArray = Array.from(files).slice(0, 5 - uploadedMedia.length)
     if (fileArray.length === 0) return
     setUploading(true)
-    const presignEnabled = isPresignEnabled()
     try {
       logInfo('media_upload_start', { count: fileArray.length })
       for (const originalFile of fileArray) {
@@ -2637,46 +2626,9 @@ function App() {
         }
         const previewUrl = URL.createObjectURL(file)
         try {
-          let fileUrl = ''
-          if (presignEnabled) {
-            try {
-              // Prefer presigned uploads to keep large files off the API server.
-              logDebug('media_presign_request', { fileName: file.name, sizeBytes: file.size, contentType: file.type })
-              const presign = await presignMedia(token, {
-                fileName: file.name,
-                contentType: file.type,
-                sizeBytes: file.size,
-              })
-              try {
-                new URL(presign.uploadUrl)
-              } catch {
-                throw new Error(
-                  `Upload URL is invalid. Check S3_PUBLIC_ENDPOINT (got ${presign.uploadUrl}).`
-                )
-              }
-              const uploadRes = await fetch(presign.uploadUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': file.type },
-                body: file,
-              })
-              if (!uploadRes.ok) {
-                throw new Error(`Upload failed (${uploadRes.status})`)
-              }
-              fileUrl = presign.fileUrl
-              logInfo('media_upload_presigned_success', { fileName: file.name })
-            } catch (presignErr: any) {
-              const uploaded = await uploadMedia(token, file)
-              fileUrl = uploaded.fileUrl
-              if (!fileUrl) {
-                throw presignErr
-              }
-              logInfo('media_upload_fallback_success', { fileName: file.name })
-            }
-          } else {
-            const uploaded = await uploadMedia(token, file)
-            fileUrl = uploaded.fileUrl
-            logInfo('media_upload_direct_success', { fileName: file.name })
-          }
+          const uploaded = await uploadMedia(token, file)
+          const fileUrl = uploaded.fileUrl
+          logInfo('media_upload_direct_success', { fileName: file.name })
           setUploadedMedia((prev) => [...prev, { fileUrl, previewUrl }])
         } catch (err) {
           URL.revokeObjectURL(previewUrl)

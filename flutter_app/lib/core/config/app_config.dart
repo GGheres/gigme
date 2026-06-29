@@ -2,10 +2,7 @@ import 'package:flutter/foundation.dart';
 
 /// AuthMode represents auth mode.
 
-enum AuthMode {
-  telegramWeb,
-  standalone,
-}
+enum AuthMode { telegramWeb, standalone }
 
 /// AppConfig represents app config.
 
@@ -25,6 +22,7 @@ class AppConfig {
     required this.paymentUsdtNetwork,
     required this.paymentUsdtMemo,
     required this.paymentQrData,
+    required this.managerAppMode,
   });
 
   final String apiUrl;
@@ -40,6 +38,7 @@ class AppConfig {
   final String paymentUsdtNetwork;
   final String paymentUsdtMemo;
   final String paymentQrData;
+  final bool managerAppMode;
 
   /// isTelegramWebMode reports whether telegram web mode condition is met.
 
@@ -49,35 +48,59 @@ class AppConfig {
 
   static AppConfig fromEnvironment() {
     const envApiUrl = String.fromEnvironment('API_URL', defaultValue: '');
-    const rawBotUsername =
-        String.fromEnvironment('BOT_USERNAME', defaultValue: '');
+    const rawBotUsername = String.fromEnvironment(
+      'BOT_USERNAME',
+      defaultValue: '',
+    );
     const rawVkAppId = String.fromEnvironment('VK_APP_ID', defaultValue: '');
     const rawAuthMode = String.fromEnvironment('AUTH_MODE', defaultValue: '');
-    const rawStandaloneAuthUrl =
-        String.fromEnvironment('STANDALONE_AUTH_URL', defaultValue: '');
+    const rawStandaloneAuthUrl = String.fromEnvironment(
+      'STANDALONE_AUTH_URL',
+      defaultValue: '',
+    );
     const rawStandaloneRedirectUri = String.fromEnvironment(
-        'STANDALONE_REDIRECT_URI',
-        defaultValue: 'gigme://auth');
-    const rawEnablePush =
-        String.fromEnvironment('ENABLE_PUSH', defaultValue: 'false');
-    const rawAdminTelegramIds =
-        String.fromEnvironment('ADMIN_TELEGRAM_IDS', defaultValue: '');
-    const rawPaymentPhone =
-        String.fromEnvironment('PAYMENT_PHONE_NUMBER', defaultValue: '');
-    const rawPaymentUsdtWallet =
-        String.fromEnvironment('PAYMENT_USDT_WALLET', defaultValue: '');
-    const rawPaymentUsdtNetwork =
-        String.fromEnvironment('PAYMENT_USDT_NETWORK', defaultValue: 'TRC20');
-    const rawPaymentUsdtMemo =
-        String.fromEnvironment('PAYMENT_USDT_MEMO', defaultValue: '');
-    const rawPaymentQrData =
-        String.fromEnvironment('PAYMENT_QR_DATA', defaultValue: '');
+      'STANDALONE_REDIRECT_URI',
+      defaultValue: 'gigme://auth',
+    );
+    const rawEnablePush = String.fromEnvironment(
+      'ENABLE_PUSH',
+      defaultValue: 'false',
+    );
+    const rawAdminTelegramIds = String.fromEnvironment(
+      'ADMIN_TELEGRAM_IDS',
+      defaultValue: '',
+    );
+    const rawPaymentPhone = String.fromEnvironment(
+      'PAYMENT_PHONE_NUMBER',
+      defaultValue: '',
+    );
+    const rawPaymentUsdtWallet = String.fromEnvironment(
+      'PAYMENT_USDT_WALLET',
+      defaultValue: '',
+    );
+    const rawPaymentUsdtNetwork = String.fromEnvironment(
+      'PAYMENT_USDT_NETWORK',
+      defaultValue: 'TRC20',
+    );
+    const rawPaymentUsdtMemo = String.fromEnvironment(
+      'PAYMENT_USDT_MEMO',
+      defaultValue: '',
+    );
+    const rawPaymentQrData = String.fromEnvironment(
+      'PAYMENT_QR_DATA',
+      defaultValue: '',
+    );
+    const rawManagerAppMode = String.fromEnvironment(
+      'MANAGER_APP_MODE',
+      defaultValue: '',
+    );
     const defaultApiUrl = kIsWeb ? '/api' : 'https://spacefestival.fun/api';
     final rawApiUrl = envApiUrl.trim().isEmpty ? defaultApiUrl : envApiUrl;
     final apiUrl = _normalizeApiUrl(rawApiUrl);
-    final standaloneRedirectUri = rawStandaloneRedirectUri.trim().isEmpty
-        ? 'gigme://auth'
-        : rawStandaloneRedirectUri.trim();
+    final standaloneRedirectUri =
+        rawStandaloneRedirectUri.trim().isEmpty
+            ? 'gigme://auth'
+            : rawStandaloneRedirectUri.trim();
 
     return AppConfig(
       apiUrl: apiUrl,
@@ -96,7 +119,21 @@ class AppConfig {
       paymentUsdtNetwork: rawPaymentUsdtNetwork.trim(),
       paymentUsdtMemo: rawPaymentUsdtMemo.trim(),
       paymentQrData: rawPaymentQrData.trim(),
+      managerAppMode: _resolveManagerAppMode(rawManagerAppMode),
     );
+  }
+
+  /// _resolveManagerAppMode decides whether native Android should boot into the password-only manager panel.
+
+  static bool _resolveManagerAppMode(String rawValue) {
+    final normalized = rawValue.toLowerCase().trim();
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+    return !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   }
 
   /// _resolveAuthMode handles resolve auth mode.
@@ -182,11 +219,12 @@ class AppConfig {
     if (!kIsWeb) return '';
     final base = Uri.base;
     if (base.scheme.isEmpty || base.host.isEmpty) return '';
-    final port = base.hasPort &&
-            !((base.scheme == 'http' && base.port == 80) ||
-                (base.scheme == 'https' && base.port == 443))
-        ? ':${base.port}'
-        : '';
+    final port =
+        base.hasPort &&
+                !((base.scheme == 'http' && base.port == 80) ||
+                    (base.scheme == 'https' && base.port == 443))
+            ? ':${base.port}'
+            : '';
     return '${base.scheme}://${base.host}$port';
   }
 

@@ -211,7 +211,7 @@ _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
   switch (size) {
     case AppButtonSize.sm:
       return _ButtonMetrics(
-        height: 36,
+        height: 48,
         horizontalPadding: 14,
         verticalPadding: 8,
         iconSize: 16,
@@ -219,7 +219,7 @@ _ButtonMetrics _resolveMetrics(AppButtonSize size, ThemeData theme) {
       );
     case AppButtonSize.md:
       return _ButtonMetrics(
-        height: 44,
+        height: 48,
         horizontalPadding: 18,
         verticalPadding: 10,
         iconSize: 18,

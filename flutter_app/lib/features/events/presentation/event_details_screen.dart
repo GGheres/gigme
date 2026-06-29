@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes.dart';
+import '../../../core/constants/admin_permissions.dart';
 import '../../../core/constants/event_filters.dart';
 import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
 import '../../../core/network/providers.dart';
+import '../../../core/utils/admin_access.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../core/utils/event_media_url_utils.dart';
 import '../../../ui/components/action_buttons.dart';
@@ -166,9 +168,11 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     final authState = ref.watch(authControllerProvider).state;
     final inAdminRoute =
         GoRouterState.of(context).uri.path.startsWith('/space_app/admin/');
-    final isAdmin = inAdminRoute ||
-        (authState.user != null &&
-            config.adminTelegramIds.contains(authState.user!.telegramId));
+    final isAdmin = hasAdminPermission(
+      authState.user,
+      config,
+      AdminPermissions.events,
+    );
     final detailAccessKey = detail == null
         ? (widget.eventKey ?? '').trim()
         : (detail.event.accessKey.trim().isNotEmpty

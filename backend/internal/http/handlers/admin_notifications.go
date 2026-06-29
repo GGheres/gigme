@@ -108,7 +108,8 @@ func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64, u
 // buildAdminBotMessageNotificationText builds admin bot message notification text.
 func buildAdminBotMessageNotificationText(message telegramMessage, botUsername string) string {
 	text := incomingTelegramMessageText(&message)
-	if text == "" {
+	attachmentSummary := telegramMessageAttachmentSummary(&message)
+	if text == "" && attachmentSummary == "" {
 		return ""
 	}
 
@@ -126,8 +127,15 @@ func buildAdminBotMessageNotificationText(message telegramMessage, botUsername s
 	if message.MessageID > 0 {
 		lines = append(lines, fmt.Sprintf("Message ID: %d", message.MessageID))
 	}
+	if attachmentSummary != "" {
+		lines = append(lines, fmt.Sprintf("Вложение: %s", attachmentSummary))
+	}
 	lines = append(lines, "Текст:")
-	lines = append(lines, trimMessageForAdmin(text))
+	if text == "" {
+		lines = append(lines, "[без подписи]")
+	} else {
+		lines = append(lines, trimMessageForAdmin(text))
+	}
 	return strings.Join(lines, "\n")
 }
 
@@ -140,6 +148,32 @@ func incomingTelegramMessageText(message *telegramMessage) string {
 		return text
 	}
 	return strings.TrimSpace(message.Caption)
+}
+
+// telegramMessageAttachmentSummary builds a human-readable attachment summary for admins.
+func telegramMessageAttachmentSummary(message *telegramMessage) string {
+	if message == nil {
+		return ""
+	}
+	if len(message.Photo) > 0 {
+		return "photo"
+	}
+	if message.Document == nil {
+		return ""
+	}
+
+	fileName := strings.TrimSpace(message.Document.FileName)
+	mimeType := strings.TrimSpace(message.Document.MimeType)
+	switch {
+	case fileName != "" && mimeType != "":
+		return fmt.Sprintf("document %s (%s)", fileName, mimeType)
+	case fileName != "":
+		return fmt.Sprintf("document %s", fileName)
+	case mimeType != "":
+		return fmt.Sprintf("document (%s)", mimeType)
+	default:
+		return "document"
+	}
 }
 
 // formatTelegramSender formats telegram sender.

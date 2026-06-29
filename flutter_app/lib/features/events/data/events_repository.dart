@@ -459,40 +459,6 @@ class EventsRepository {
         );
   }
 
-  /// presignMedia handles presign media.
-
-  Future<PresignResponse> presignMedia({
-    required String token,
-    required String fileName,
-    required String contentType,
-    required int sizeBytes,
-  }) {
-    return _ref.read(apiClientProvider).post<PresignResponse>(
-          ApiPaths.mediaPresign,
-          token: token,
-          body: <String, dynamic>{
-            'fileName': fileName,
-            'contentType': contentType,
-            'sizeBytes': sizeBytes,
-          },
-          decoder: PresignResponse.fromJson,
-        );
-  }
-
-  /// uploadPresigned handles upload presigned.
-
-  Future<void> uploadPresigned({
-    required String uploadUrl,
-    required Uint8List bytes,
-    required String contentType,
-  }) {
-    return _ref.read(apiClientProvider).putBytes(
-          uploadUrl,
-          bytes: bytes,
-          contentType: contentType,
-        );
-  }
-
   /// uploadMedia handles upload media.
 
   Future<String> uploadMedia({

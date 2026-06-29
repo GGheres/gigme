@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -12,68 +11,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
-
-// presignRequest represents presign request.
-type presignRequest struct {
-	FileName    string `json:"fileName"`
-	ContentType string `json:"contentType"`
-	SizeBytes   int64  `json:"sizeBytes"`
-}
-
-// PresignMedia handles presign media.
-func (h *Handler) PresignMedia(w http.ResponseWriter, r *http.Request) {
-	logger := h.loggerForRequest(r)
-	var req presignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.Warn("action", "action", "presign_media", "status", "invalid_json")
-		writeError(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-
-	if req.FileName == "" || req.ContentType == "" || req.SizeBytes == 0 {
-		logger.Warn("action", "action", "presign_media", "status", "missing_fields")
-		writeError(w, http.StatusBadRequest, "missing fields")
-		return
-	}
-	if req.SizeBytes > 5*1024*1024 {
-		logger.Warn("action", "action", "presign_media", "status", "file_too_large", "size_bytes", req.SizeBytes)
-		writeError(w, http.StatusBadRequest, "file too large")
-		return
-	}
-
-	allowed := map[string]struct{}{
-		"image/jpeg": {},
-		"image/png":  {},
-		"image/webp": {},
-	}
-	if _, ok := allowed[strings.ToLower(req.ContentType)]; !ok {
-		logger.Warn("action", "action", "presign_media", "status", "invalid_content_type", "content_type", req.ContentType)
-		writeError(w, http.StatusBadRequest, "invalid content type")
-		return
-	}
-
-	if h.s3 == nil {
-		logger.Error("action", "action", "presign_media", "status", "s3_not_configured")
-		writeError(w, http.StatusInternalServerError, "media not configured")
-		return
-	}
-
-	ctx, cancel := h.withTimeout(r.Context())
-	defer cancel()
-
-	uploadURL, fileURL, err := h.s3.PresignPutObject(ctx, req.FileName, req.ContentType)
-	if err != nil {
-		logger.Error("action", "action", "presign_media", "status", "presign_failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "presign failed")
-		return
-	}
-
-	logger.Info("action", "action", "presign_media", "status", "success", "file_name", req.FileName, "content_type", req.ContentType, "size_bytes", req.SizeBytes)
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"uploadUrl": uploadURL,
-		"fileUrl":   fileURL,
-	})
-}
 
 // UploadMedia handles upload media.
 func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
@@ -84,11 +21,15 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024)
-	if err := r.ParseMultipartForm(5 * 1024 * 1024); err != nil {
+	// Multipart framing needs a small allowance in addition to the actual file.
+	r.Body = http.MaxBytesReader(w, r.Body, maxMediaBytes+(1<<20))
+	if err := r.ParseMultipartForm(maxMediaBytes + (1 << 20)); err != nil {
 		logger.Warn("action", "action", "upload_media", "status", "invalid_multipart")
 		writeError(w, http.StatusBadRequest, "invalid multipart data")
 		return
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
 	}
 
 	file, header, err := r.FormFile("file")
@@ -98,22 +39,18 @@ func (h *Handler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	if header.Size <= 0 || header.Size > maxMediaBytes {
+		logger.Warn("action", "action", "upload_media", "status", "file_too_large", "size_bytes", header.Size)
+		writeError(w, http.StatusBadRequest, "file must be between 1 byte and 5 MB")
+		return
+	}
 
-	contentType := header.Header.Get("Content-Type")
 	buffer := make([]byte, 512)
 	n, _ := io.ReadFull(file, buffer)
 	buffer = buffer[:n]
-	if contentType == "" {
-		contentType = http.DetectContentType(buffer)
-	}
-
-	allowed := map[string]struct{}{
-		"image/jpeg": {},
-		"image/png":  {},
-		"image/webp": {},
-	}
-	if _, ok := allowed[strings.ToLower(contentType)]; !ok {
-		logger.Warn("action", "action", "upload_media", "status", "invalid_content_type", "content_type", contentType)
+	contentType, ok := detectAllowedImageContentType(buffer)
+	if !ok {
+		logger.Warn("action", "action", "upload_media", "status", "invalid_content_type", "declared_content_type", header.Header.Get("Content-Type"))
 		writeError(w, http.StatusBadRequest, "invalid content type")
 		return
 	}
@@ -199,8 +136,16 @@ func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 			obj, err := h.s3.GetObject(ctx, key)
 			if err == nil {
 				defer obj.Body.Close()
-				if obj.ContentType != nil {
-					w.Header().Set("Content-Type", *obj.ContentType)
+				payload, readErr := readBoundedMedia(obj.Body)
+				if readErr != nil {
+					logger.Warn("action", "action", "event_media", "status", "invalid_s3_payload", "event_id", eventID, "error", readErr)
+					writeError(w, http.StatusBadGateway, "invalid media payload")
+					return
+				}
+				contentType, validImage := detectAllowedImageContentType(payload)
+				if !validImage {
+					writeError(w, http.StatusBadGateway, "invalid media type")
+					return
 				}
 				if obj.CacheControl != nil {
 					w.Header().Set("Cache-Control", *obj.CacheControl)
@@ -213,20 +158,23 @@ func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 				if obj.LastModified != nil {
 					w.Header().Set("Last-Modified", obj.LastModified.UTC().Format(http.TimeFormat))
 				}
-				w.WriteHeader(http.StatusOK)
-				_, _ = io.Copy(w, obj.Body)
+				writeMediaPayload(w, contentType, payload)
 				return
 			}
 			logger.Warn("action", "action", "event_media", "status", "s3_get_failed", "event_id", eventID, "error", err)
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	parsedURL, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid url")
 		return
 	}
-	resp, err := http.DefaultClient.Do(req)
+	if err := validateRemoteMediaURL(parsedURL.URL); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid media url")
+		return
+	}
+	resp, err := safeMediaHTTPClient.Do(parsedURL)
 	if err != nil {
 		logger.Error("action", "action", "event_media", "status", "fetch_failed", "event_id", eventID, "error", err)
 		writeError(w, http.StatusBadGateway, "fetch failed")
@@ -239,8 +187,16 @@ func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ct := resp.Header.Get("Content-Type"); ct != "" {
-		w.Header().Set("Content-Type", ct)
+	payload, err := readBoundedMedia(resp.Body)
+	if err != nil {
+		logger.Warn("action", "action", "event_media", "status", "invalid_upstream_payload", "event_id", eventID, "error", err)
+		writeError(w, http.StatusBadGateway, "invalid media payload")
+		return
+	}
+	contentType, validImage := detectAllowedImageContentType(payload)
+	if !validImage {
+		writeError(w, http.StatusBadGateway, "invalid media type")
+		return
 	}
 	if cc := resp.Header.Get("Cache-Control"); cc != "" {
 		w.Header().Set("Cache-Control", cc)
@@ -253,6 +209,47 @@ func (h *Handler) EventMedia(w http.ResponseWriter, r *http.Request) {
 	if lm := resp.Header.Get("Last-Modified"); lm != "" {
 		w.Header().Set("Last-Modified", lm)
 	}
+	writeMediaPayload(w, contentType, payload)
+}
+
+// readBoundedMedia reads at most the supported image size and returns an error
+// instead of forwarding a truncated or unbounded upstream response.
+func readBoundedMedia(reader io.Reader) ([]byte, error) {
+	payload, err := io.ReadAll(io.LimitReader(reader, maxMediaBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(payload) == 0 || int64(len(payload)) > maxMediaBytes {
+		return nil, errors.New("media payload size is invalid")
+	}
+	return payload, nil
+}
+
+// detectAllowedImageContentType validates image bytes instead of trusting a
+// client or upstream Content-Type header, which can be trivially spoofed.
+func detectAllowedImageContentType(payload []byte) (string, bool) {
+	contentType := strings.ToLower(strings.TrimSpace(
+		strings.Split(http.DetectContentType(payload), ";")[0],
+	))
+	if len(payload) >= 12 &&
+		bytes.Equal(payload[0:4], []byte("RIFF")) &&
+		bytes.Equal(payload[8:12], []byte("WEBP")) {
+		contentType = "image/webp"
+	}
+	switch contentType {
+	case "image/jpeg", "image/png", "image/webp":
+		return contentType, true
+	default:
+		return "", false
+	}
+}
+
+// writeMediaPayload writes a validated image with nosniff and an exact content
+// length so browsers cannot reinterpret attacker-controlled bytes as markup.
+func writeMediaPayload(w http.ResponseWriter, contentType string, payload []byte) {
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(w, resp.Body)
+	_, _ = w.Write(payload)
 }

@@ -87,7 +87,7 @@ func NewResolver(cfg *config.Config) *Resolver {
 		TelegramIDs:  cloneIDSet(cfg.ManagerTGIDs),
 		Permissions:  ManagerPermissions(),
 	}
-	if managerLogin != "" && len(managerAccount.TelegramIDs) == 0 {
+	if managerLogin != "" {
 		managerAccount.SyntheticTelegramID = syntheticTelegramID(managerLogin)
 	}
 	resolver.addAccount(managerAccount)

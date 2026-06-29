@@ -155,5 +155,13 @@ void main() {
 
     expect(likesTapped, 1);
     expect(cardTapped, 0);
+    expect(
+      tester.getSize(find.byIcon(Icons.favorite_border_rounded).hitTestable()),
+      const Size(20, 20),
+    );
+    final likeInk = find.byWidgetPredicate(
+      (widget) => widget is Ink && widget.width == 48 && widget.height == 48,
+    );
+    expect(tester.getSize(likeInk), const Size(48, 48));
   });
 }

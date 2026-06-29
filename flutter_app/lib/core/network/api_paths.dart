@@ -4,6 +4,8 @@ class ApiPaths {
   static const authVkStart = '/auth/vk/start';
   static const authVk = '/auth/vk';
   static const authVkMiniApp = '/auth/vk/miniapp';
+  static const authAdmin = '/auth/admin';
+  static const authManager = '/auth/manager';
   static const me = '/me';
   static const meLocation = '/me/location';
   static const mePushToken = '/me/push-token';
@@ -41,7 +43,6 @@ class ApiPaths {
   static String adminCommentById(int id) => '/admin/comments/$id';
   static const adminLandingContent = '/admin/landing/content';
 
-  static const mediaPresign = '/media/presign';
   static const mediaUpload = '/media/upload';
 
   static const referralCode = '/referrals/my-code';

@@ -1,28 +1,5 @@
 import '../utils/json_utils.dart';
 
-/// PresignResponse represents presign response.
-
-class PresignResponse {
-  /// PresignResponse handles presign response.
-
-  factory PresignResponse.fromJson(dynamic json) {
-    final map = asMap(json);
-    return PresignResponse(
-      uploadUrl: asString(map['uploadUrl']),
-      fileUrl: asString(map['fileUrl']),
-    );
-  }
-
-  /// PresignResponse handles presign response.
-  PresignResponse({
-    required this.uploadUrl,
-    required this.fileUrl,
-  });
-
-  final String uploadUrl;
-  final String fileUrl;
-}
-
 /// CreateEventResponse represents create event response.
 
 class CreateEventResponse {

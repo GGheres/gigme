@@ -84,8 +84,8 @@ flutter run -d chrome \
 - `API_PUBLIC_URL` - optional public API base URL for notification media (example `https://spacefestival.fun/api`)
 - `ADMIN_TELEGRAM_IDS` - allowlist admin ids (comma-separated)
 - `ADMIN_LOGIN` / `ADMIN_PASSWORD` / `ADMIN_PASSWORD_HASH` - full admin login credentials for `/auth/admin`
-- `MANAGER_LOGIN` / `MANAGER_PASSWORD` / `MANAGER_PASSWORD_HASH` - scoped manager login credentials for `/auth/admin`
-- `MANAGER_TELEGRAM_IDS` - optional comma-separated Telegram ids for manager accounts; if omitted, backend creates a synthetic local-only manager user
+- `MANAGER_LOGIN` / `MANAGER_PASSWORD` / `MANAGER_PASSWORD_HASH` - scoped manager login credentials for `/auth/admin` and password-only `/auth/manager`
+- `MANAGER_TELEGRAM_IDS` - optional comma-separated Telegram ids for manager accounts; backend also creates a synthetic local-only manager user for password-only APK sessions
 - `PHONE_NUMBER` - manual transfer recipient shown for `PHONE` payment method
 - `USDT_WALLET` - wallet shown for `USDT` payment method
 - `USDT_NETWORK` - network label (default `TRC20`)
@@ -115,7 +115,6 @@ flutter run -d chrome \
 - `VITE_LOG_LEVEL` - `debug|info|warn|error|off` (default: `info`). Overrides can be set at runtime with `localStorage.setItem('gigme:logLevel', 'debug')`.
 - `VITE_LOG_TO_SERVER` - `true|false` (default: `true` in dev, `false` in prod). Runtime override: `localStorage.setItem('gigme:logToServer', 'true')`.
 - `VITE_LOG_ENDPOINT` - optional full URL for client log sink (defaults to `${VITE_API_URL}/logs/client`).
-- `VITE_PRESIGN_ENABLED` - `true|false` (default: `true`). Set `false` to always upload via API instead of presigned S3.
 - In production this client is disabled by default (`frontend` service is behind compose profile `legacy`).
 
 ### Flutter frontend
@@ -126,6 +125,7 @@ flutter run -d chrome \
 - `STANDALONE_REDIRECT_URI` - deep-link URL for Mode B callback (default `gigme://auth`)
 - `ENABLE_PUSH` - `true|false` toggle for FCM scaffold initialization in standalone mode
 - `ADMIN_TELEGRAM_IDS` - optional comma-separated allowlist for showing admin UI entrypoint
+- `MANAGER_APP_MODE` - `true|false` toggle; Android defaults to manager panel startup when omitted
 - `PAYMENT_PHONE_NUMBER` - phone transfer recipient shown on checkout screen
 - `PAYMENT_USDT_WALLET` - USDT wallet shown on checkout screen
 - `PAYMENT_USDT_NETWORK` - USDT network label (default `TRC20`)
@@ -210,7 +210,7 @@ Implemented endpoints:
 - `POST /tickets/{id}/redeem` (admin only)
 - `POST /promo-codes/validate`
 - `POST /events/{id}/promote` (admin only)
-- `POST /media/presign`
+- `POST /media/upload`
 - `POST /wallet/topup/token`
 - `POST /wallet/topup/card`
 - `POST /admin/events/{id}/hide`

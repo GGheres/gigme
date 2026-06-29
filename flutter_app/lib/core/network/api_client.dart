@@ -109,29 +109,6 @@ class ApiClient {
     return decoder(response.data);
   }
 
-  /// putBytes handles put bytes.
-
-  Future<void> putBytes(
-    String url, {
-    required Uint8List bytes,
-    required String contentType,
-  }) async {
-    try {
-      await _dio.putUri<void>(
-        Uri.parse(url),
-        data: bytes,
-        options: Options(
-          headers: {
-            'Content-Type': contentType,
-          },
-          responseType: ResponseType.plain,
-        ),
-      );
-    } on DioException catch (error) {
-      throw _toException(error);
-    }
-  }
-
   /// T handles internal t behavior.
 
   Future<T> postMultipart<T>(

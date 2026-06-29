@@ -22,13 +22,27 @@ class AdminRepository {
     required String password,
     int? telegramId,
   }) {
-    return _ref.read(apiClientProvider).post<AdminLoginResponse>(
-          '/auth/admin',
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminLoginResponse>(
+          ApiPaths.authAdmin,
           body: <String, dynamic>{
             'username': username,
             'password': password,
             if (telegramId != null && telegramId > 0) 'telegramId': telegramId,
           },
+          decoder: AdminLoginResponse.fromJson,
+        );
+  }
+
+  /// loginManager authenticates the manager app with the configured backend password-only manager account.
+
+  Future<AdminLoginResponse> loginManager({required String password}) {
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminLoginResponse>(
+          ApiPaths.authManager,
+          body: <String, dynamic>{'password': password},
           decoder: AdminLoginResponse.fromJson,
         );
   }
@@ -42,7 +56,9 @@ class AdminRepository {
     int limit = 50,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<AdminUsersResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminUsersResponse>(
           '/admin/users',
           token: token,
           query: <String, dynamic>{
@@ -61,7 +77,9 @@ class AdminRepository {
     required String token,
     required int id,
   }) {
-    return _ref.read(apiClientProvider).get<AdminUserDetailResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminUserDetailResponse>(
           '/admin/users/$id',
           token: token,
           decoder: AdminUserDetailResponse.fromJson,
@@ -76,23 +94,22 @@ class AdminRepository {
     required int id,
     required String reason,
   }) {
-    return _ref.read(apiClientProvider).post<void>(
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           '/admin/users/$id/block',
           token: token,
-          body: <String, dynamic>{
-            'reason': reason,
-          },
+          body: <String, dynamic>{'reason': reason},
           decoder: (_) {},
         );
   }
 
   /// unblockUser handles unblock user.
 
-  Future<void> unblockUser({
-    required String token,
-    required int id,
-  }) {
-    return _ref.read(apiClientProvider).post<void>(
+  Future<void> unblockUser({required String token, required int id}) {
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           '/admin/users/$id/unblock',
           token: token,
           body: const <String, dynamic>{},
@@ -107,13 +124,12 @@ class AdminRepository {
     int limit = 50,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<AdminBroadcastsResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminBroadcastsResponse>(
           '/admin/broadcasts',
           token: token,
-          query: <String, dynamic>{
-            'limit': limit,
-            'offset': offset,
-          },
+          query: <String, dynamic>{'limit': limit, 'offset': offset},
           decoder: AdminBroadcastsResponse.fromJson,
         );
   }
@@ -128,7 +144,9 @@ class AdminRepository {
     Map<String, dynamic>? filters,
     List<BroadcastButton>? buttons,
   }) {
-    return _ref.read(apiClientProvider).post<AdminCreateBroadcastResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminCreateBroadcastResponse>(
           '/admin/broadcasts',
           token: token,
           body: <String, dynamic>{
@@ -146,11 +164,10 @@ class AdminRepository {
 
   /// startBroadcast handles start broadcast.
 
-  Future<void> startBroadcast({
-    required String token,
-    required int id,
-  }) {
-    return _ref.read(apiClientProvider).post<void>(
+  Future<void> startBroadcast({required String token, required int id}) {
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           '/admin/broadcasts/$id/start',
           token: token,
           body: const <String, dynamic>{},
@@ -165,13 +182,12 @@ class AdminRepository {
     int limit = 100,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<AdminParserSourcesResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminParserSourcesResponse>(
           '/admin/parser/sources',
           token: token,
-          query: <String, dynamic>{
-            'limit': limit,
-            'offset': offset,
-          },
+          query: <String, dynamic>{'limit': limit, 'offset': offset},
           decoder: AdminParserSourcesResponse.fromJson,
         );
   }
@@ -185,7 +201,9 @@ class AdminRepository {
     String? title,
     bool isActive = true,
   }) {
-    return _ref.read(apiClientProvider).post<AdminParserSource>(
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminParserSource>(
           '/admin/parser/sources',
           token: token,
           body: <String, dynamic>{
@@ -205,7 +223,9 @@ class AdminRepository {
     required int id,
     required bool isActive,
   }) {
-    return _ref.read(apiClientProvider).patch<void>(
+    return _ref
+        .read(apiClientProvider)
+        .patch<void>(
           '/admin/parser/sources/$id',
           token: token,
           body: <String, dynamic>{'isActive': isActive},
@@ -219,7 +239,9 @@ class AdminRepository {
     required String token,
     required int id,
   }) {
-    return _ref.read(apiClientProvider).post<AdminParserParseResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminParserParseResponse>(
           '/admin/parser/sources/$id/parse',
           token: token,
           body: const <String, dynamic>{},
@@ -234,13 +256,12 @@ class AdminRepository {
     required String sourceType,
     required String input,
   }) {
-    return _ref.read(apiClientProvider).post<AdminParserParseResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminParserParseResponse>(
           '/admin/parser/parse',
           token: token,
-          body: <String, dynamic>{
-            'sourceType': sourceType,
-            'input': input,
-          },
+          body: <String, dynamic>{'sourceType': sourceType, 'input': input},
           decoder: AdminParserParseResponse.fromJson,
         );
   }
@@ -254,7 +275,9 @@ class AdminRepository {
     int limit = 100,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<AdminParsedEventsResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminParsedEventsResponse>(
           '/admin/parser/events',
           token: token,
           query: <String, dynamic>{
@@ -274,13 +297,12 @@ class AdminRepository {
     required String query,
     int limit = 1,
   }) {
-    return _ref.read(apiClientProvider).post<GeocodeResultsResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .post<GeocodeResultsResponse>(
           '/admin/parser/geocode',
           token: token,
-          body: <String, dynamic>{
-            'query': query,
-            'limit': limit,
-          },
+          body: <String, dynamic>{'query': query, 'limit': limit},
           decoder: GeocodeResultsResponse.fromJson,
         );
   }
@@ -300,36 +322,38 @@ class AdminRepository {
     List<String>? links,
     List<String>? filters,
   }) {
-    return _ref.read(apiClientProvider).post<int>(
-      '/admin/parser/events/$id/import',
-      token: token,
-      body: <String, dynamic>{
-        if ((title ?? '').trim().isNotEmpty) 'title': title!.trim(),
-        if ((description ?? '').trim().isNotEmpty)
-          'description': description!.trim(),
-        if ((startsAt ?? '').trim().isNotEmpty) 'startsAt': startsAt!.trim(),
-        'lat': lat,
-        'lng': lng,
-        if ((addressLabel ?? '').trim().isNotEmpty)
-          'addressLabel': addressLabel!.trim(),
-        if ((media ?? const <String>[]).isNotEmpty) 'media': media,
-        if ((links ?? const <String>[]).isNotEmpty) 'links': links,
-        if ((filters ?? const <String>[]).isNotEmpty) 'filters': filters,
-      },
-      decoder: (data) {
-        final map = asMap(data);
-        return asInt(map['eventId']);
-      },
-    );
+    return _ref
+        .read(apiClientProvider)
+        .post<int>(
+          '/admin/parser/events/$id/import',
+          token: token,
+          body: <String, dynamic>{
+            if ((title ?? '').trim().isNotEmpty) 'title': title!.trim(),
+            if ((description ?? '').trim().isNotEmpty)
+              'description': description!.trim(),
+            if ((startsAt ?? '').trim().isNotEmpty)
+              'startsAt': startsAt!.trim(),
+            'lat': lat,
+            'lng': lng,
+            if ((addressLabel ?? '').trim().isNotEmpty)
+              'addressLabel': addressLabel!.trim(),
+            if ((media ?? const <String>[]).isNotEmpty) 'media': media,
+            if ((links ?? const <String>[]).isNotEmpty) 'links': links,
+            if ((filters ?? const <String>[]).isNotEmpty) 'filters': filters,
+          },
+          decoder: (data) {
+            final map = asMap(data);
+            return asInt(map['eventId']);
+          },
+        );
   }
 
   /// rejectParsedEvent rejects parsed event.
 
-  Future<void> rejectParsedEvent({
-    required String token,
-    required int id,
-  }) {
-    return _ref.read(apiClientProvider).post<void>(
+  Future<void> rejectParsedEvent({required String token, required int id}) {
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           '/admin/parser/events/$id/reject',
           token: token,
           body: const <String, dynamic>{},
@@ -339,11 +363,10 @@ class AdminRepository {
 
   /// deleteParsedEvent deletes parsed event.
 
-  Future<void> deleteParsedEvent({
-    required String token,
-    required int id,
-  }) {
-    return _ref.read(apiClientProvider).delete<void>(
+  Future<void> deleteParsedEvent({required String token, required int id}) {
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           '/admin/parser/events/$id',
           token: token,
           decoder: (_) {},
@@ -356,12 +379,11 @@ class AdminRepository {
     int limit = 100,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<LandingEventsResponse>(
+    return _ref
+        .read(apiClientProvider)
+        .get<LandingEventsResponse>(
           ApiPaths.landingEvents,
-          query: <String, dynamic>{
-            'limit': limit,
-            'offset': offset,
-          },
+          query: <String, dynamic>{'limit': limit, 'offset': offset},
           decoder: LandingEventsResponse.fromJson,
         );
   }
@@ -373,7 +395,9 @@ class AdminRepository {
     required int eventId,
     required bool published,
   }) {
-    return _ref.read(apiClientProvider).post<void>(
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           ApiPaths.adminLandingPublish(eventId),
           token: token,
           body: <String, dynamic>{'published': published},
@@ -387,18 +411,20 @@ class AdminRepository {
     required String token,
     required int eventId,
   }) {
-    return _ref.read(apiClientProvider).get<List<String>>(
-      ApiPaths.eventById(eventId),
-      token: token,
-      decoder: (data) {
-        final map = asMap(data);
-        return asList(map['media'])
-            .map((item) => asString(item).trim())
-            .where((item) => item.isNotEmpty)
-            .toList();
-      },
-      retry: false,
-    );
+    return _ref
+        .read(apiClientProvider)
+        .get<List<String>>(
+          ApiPaths.eventById(eventId),
+          token: token,
+          decoder: (data) {
+            final map = asMap(data);
+            return asList(map['media'])
+                .map((item) => asString(item).trim())
+                .where((item) => item.isNotEmpty)
+                .toList();
+          },
+          retry: false,
+        );
   }
 
   /// updateEventMedia updates event media.
@@ -408,7 +434,9 @@ class AdminRepository {
     required int eventId,
     required List<String> media,
   }) {
-    return _ref.read(apiClientProvider).patch<void>(
+    return _ref
+        .read(apiClientProvider)
+        .patch<void>(
           ApiPaths.adminEventById(eventId),
           token: token,
           body: <String, dynamic>{'media': media},
@@ -418,11 +446,10 @@ class AdminRepository {
 
   /// deleteEvent deletes event.
 
-  Future<void> deleteEvent({
-    required String token,
-    required int eventId,
-  }) {
-    return _ref.read(apiClientProvider).delete<void>(
+  Future<void> deleteEvent({required String token, required int eventId}) {
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           ApiPaths.adminEventById(eventId),
           token: token,
           decoder: (_) {},
@@ -431,11 +458,10 @@ class AdminRepository {
 
   /// deleteComment deletes comment.
 
-  Future<void> deleteComment({
-    required String token,
-    required int commentId,
-  }) {
-    return _ref.read(apiClientProvider).delete<void>(
+  Future<void> deleteComment({required String token, required int commentId}) {
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           ApiPaths.adminCommentById(commentId),
           token: token,
           decoder: (_) {},
@@ -445,7 +471,9 @@ class AdminRepository {
   /// getLandingContent returns landing content.
 
   Future<LandingContent> getLandingContent() {
-    return _ref.read(apiClientProvider).get<LandingContent>(
+    return _ref
+        .read(apiClientProvider)
+        .get<LandingContent>(
           ApiPaths.landingContent,
           decoder: LandingContent.fromJson,
         );
@@ -457,7 +485,9 @@ class AdminRepository {
     required String token,
     required LandingContent content,
   }) {
-    return _ref.read(apiClientProvider).post<void>(
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           ApiPaths.adminLandingContent,
           token: token,
           body: content.toJson(),
@@ -467,6 +497,5 @@ class AdminRepository {
 }
 
 final adminRepositoryProvider =
-
-    /// AdminRepository handles admin repository.
-    Provider<AdminRepository>((ref) => AdminRepository(ref));
+/// AdminRepository handles admin repository.
+Provider<AdminRepository>((ref) => AdminRepository(ref));

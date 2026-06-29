@@ -1,7 +1,7 @@
-FROM ghcr.io/cirruslabs/flutter:3.27.3 AS build
+FROM ghcr.io/cirruslabs/flutter:3.38.9 AS build
 
 WORKDIR /app
-COPY pubspec.yaml ./
+COPY pubspec.yaml pubspec.lock ./
 RUN flutter config --enable-web
 RUN flutter pub get
 COPY . ./

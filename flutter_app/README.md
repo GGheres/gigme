@@ -30,6 +30,7 @@ Flutter migration of GigMe frontend with unchanged Go backend contracts.
 - `STANDALONE_REDIRECT_URI` (deep-link target for helper callback, default `gigme://auth`)
 - `ENABLE_PUSH` (`true|false`, default `false`; enables FCM init scaffold in standalone mode)
 - `ADMIN_TELEGRAM_IDS` (optional comma-separated allowlist to show admin entrypoint in UI)
+- `MANAGER_APP_MODE` (`true|false`; defaults to `true` on Android and opens the password-only manager panel)
 
 For `ENABLE_PUSH=true`, add standard Firebase platform files first:
 - Android: `android/app/google-services.json`
@@ -60,6 +61,7 @@ flutter run -d android \
   --dart-define=AUTH_MODE=standalone \
   --dart-define=STANDALONE_AUTH_URL=https://spacefestival.fun/api/auth/standalone \
   --dart-define=STANDALONE_REDIRECT_URI=gigme://auth \
+  --dart-define=MANAGER_APP_MODE=true \
   --dart-define=ENABLE_PUSH=false
 ```
 

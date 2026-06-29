@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/models/event_card.dart';
 import '../../../../ui/components/app_button.dart';
@@ -14,6 +15,7 @@ class FeedList extends StatelessWidget {
   /// FeedList handles feed list.
   const FeedList({
     required this.items,
+    required this.referencePoint,
     required this.onTap,
     required this.onLikeTap,
     required this.apiUrl,
@@ -24,6 +26,7 @@ class FeedList extends StatelessWidget {
   });
 
   final List<EventCard> items;
+  final LatLng? referencePoint;
   final ValueChanged<EventCard> onTap;
   final ValueChanged<EventCard> onLikeTap;
   final String apiUrl;
@@ -71,6 +74,7 @@ class FeedList extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: itemSpacing),
           child: EventCardTile(
             event: event,
+            referencePoint: referencePoint,
             apiUrl: apiUrl,
             accessKey: accessKey,
             onTap: () => onTap(event),

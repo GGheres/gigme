@@ -90,6 +90,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   .refresh(center: location.state.center),
               child: FeedList(
                 items: state.feed,
+                referencePoint: location.state.center,
                 apiUrl: config.apiUrl,
                 eventAccessKeys: events.eventAccessKeys,
                 likeLoadingIds: _likeLoadingIds,

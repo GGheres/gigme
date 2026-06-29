@@ -776,19 +776,6 @@ export function addEventComment(token: string, id: number, body: string, accessK
   )
 }
 
-// presignMedia handles presign media.
-export function presignMedia(token: string, payload: {
-  fileName: string
-  contentType: string
-  sizeBytes: number
-}) {
-  return apiFetch<{ uploadUrl: string; fileUrl: string }>(
-    '/media/presign',
-    { method: 'POST', body: JSON.stringify(payload) },
-    token
-  )
-}
-
 // uploadMedia handles upload media.
 export async function uploadMedia(token: string, file: File) {
   const form = new FormData()

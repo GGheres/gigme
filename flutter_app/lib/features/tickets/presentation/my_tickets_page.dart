@@ -31,22 +31,52 @@ class MyTicketsPage extends ConsumerStatefulWidget {
 
 /// _MyTicketsPageState represents my tickets page state.
 
-class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
+class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
+    with WidgetsBindingObserver {
+  static const Duration _refreshInterval = Duration(seconds: 15);
+
   bool _loading = true;
+  bool _requestInFlight = false;
   String? _error;
   List<TicketModel> _tickets = <TicketModel>[];
+  Timer? _refreshTimer;
 
   /// initState handles init state.
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshTimer = Timer.periodic(
+      _refreshInterval,
+      (_) => unawaited(_load(showLoading: false)),
+    );
     unawaited(_load());
+  }
+
+  /// dispose releases page resources.
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// didChangeAppLifecycleState refreshes tickets after returning to the app.
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(showLoading: false));
+    }
   }
 
   /// _load loads data from the underlying source.
 
-  Future<void> _load() async {
+  Future<void> _load({bool showLoading = true}) async {
+    if (_requestInFlight) return;
+
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) {
       setState(() {
@@ -56,10 +86,17 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    _requestInFlight = true;
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else if (_error != null) {
+      setState(() {
+        _error = null;
+      });
+    }
 
     try {
       final response = await ref
@@ -69,6 +106,7 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
       setState(() {
         _tickets = response.items;
         _loading = false;
+        _error = null;
       });
     } catch (error) {
       if (!mounted) return;
@@ -76,6 +114,8 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage> {
         _loading = false;
         _error = '$error';
       });
+    } finally {
+      _requestInFlight = false;
     }
   }
 

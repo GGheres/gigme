@@ -5,7 +5,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/constants/admin_permissions.dart';
 import '../core/network/providers.dart';
 import '../core/utils/admin_access.dart';
 import '../features/landing/presentation/landing_screen.dart';
@@ -32,6 +31,7 @@ import '../features/tickets/presentation/my_tickets_page.dart';
 import '../features/tickets/presentation/purchase_entry_screen.dart';
 import '../features/tickets/presentation/purchase_ticket_flow.dart';
 import '../ui/layout/landing_backdrop.dart';
+import 'admin_route_permission.dart';
 import 'app_shell.dart';
 import 'routes.dart';
 
@@ -44,7 +44,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   }
 
   return GoRouter(
-    initialLocation: AppRoutes.landing,
+    initialLocation:
+        config.managerAppMode ? AppRoutes.admin : AppRoutes.landing,
     refreshListenable: auth,
     redirect: (context, state) {
       final status = auth.state.status;
@@ -72,7 +73,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      final isAdminRoute = location.startsWith(AppRoutes.admin);
+      final isAdminLoginRoute = location == AppRoutes.admin;
 
       if (location == AppRoutes.appRoot) {
         if (status == AuthStatus.authenticated) {
@@ -82,16 +83,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final inAuth = location == AppRoutes.auth;
-      final redirectToAuthWithNext =
-          _authRouteWithNext(targetUri: state.uri, alreadyInAuth: inAuth);
+      final redirectToAuthWithNext = _authRouteWithNext(
+        targetUri: state.uri,
+        alreadyInAuth: inAuth,
+      );
 
       if (status == AuthStatus.loading) {
-        if (isAdminRoute) return null;
+        if (isAdminLoginRoute) return null;
         return redirectToAuthWithNext;
       }
 
       if (status == AuthStatus.unauthenticated) {
-        if (isAdminRoute) return null;
+        if (isAdminLoginRoute) return null;
         return redirectToAuthWithNext;
       }
 
@@ -100,10 +103,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return next ?? AppRoutes.feed;
       }
 
-      final requiredAdminPermission = _requiredAdminPermission(location);
+      final requiredPermission = requiredAdminPermission(location);
       if (status == AuthStatus.authenticated &&
-          requiredAdminPermission != null &&
-          !canUseAdminPermission(requiredAdminPermission)) {
+          requiredPermission != null &&
+          !canUseAdminPermission(requiredPermission)) {
         return AppRoutes.admin;
       }
 
@@ -112,8 +115,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.landing,
-        pageBuilder: (context, state) =>
-            _noTransitionPage(state, const LandingScreen()),
+        pageBuilder:
+            (context, state) => _noTransitionPage(state, const LandingScreen()),
       ),
       GoRoute(
         path: AppRoutes.appRoot,
@@ -127,21 +130,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.auth,
-        pageBuilder: (context, state) =>
-            _noTransitionPage(state, const AuthScreen()),
+        pageBuilder:
+            (context, state) => _noTransitionPage(state, const AuthScreen()),
       ),
       StatefulShellRoute.indexedStack(
-        pageBuilder: (context, state, navigationShell) => _noTransitionPage(
-          state,
-          AppShell(navigationShell: navigationShell),
-        ),
+        pageBuilder:
+            (context, state, navigationShell) => _noTransitionPage(
+              state,
+              AppShell(navigationShell: navigationShell),
+            ),
         branches: [
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppRoutes.feed,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const FeedScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const FeedScreen()),
               ),
             ],
           ),
@@ -149,8 +154,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.map,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const MapScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const MapScreen()),
               ),
             ],
           ),
@@ -158,8 +164,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.create,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const CreateEventScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const CreateEventScreen()),
               ),
             ],
           ),
@@ -167,94 +174,113 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.profile,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const ProfileScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const ProfileScreen()),
               ),
               GoRoute(
                 path: AppRoutes.settings,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const SettingsScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const SettingsScreen()),
               ),
               GoRoute(
                 path: AppRoutes.uiPreview,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const UiPreviewScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const UiPreviewScreen()),
               ),
               GoRoute(
                 path: AppRoutes.myTickets,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const MyTicketsPage()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const MyTicketsPage()),
               ),
               GoRoute(
                 path: AppRoutes.buy,
-                pageBuilder: (context, state) => _noTransitionPage(
-                  state,
-                  const PurchaseEntryScreen(mode: PurchaseFlowMode.ticket),
-                ),
+                pageBuilder:
+                    (context, state) => _noTransitionPage(
+                      state,
+                      const PurchaseEntryScreen(mode: PurchaseFlowMode.ticket),
+                    ),
               ),
               GoRoute(
                 path: AppRoutes.transfer,
-                pageBuilder: (context, state) => _noTransitionPage(
-                  state,
-                  const PurchaseEntryScreen(mode: PurchaseFlowMode.transfer),
-                ),
+                pageBuilder:
+                    (context, state) => _noTransitionPage(
+                      state,
+                      const PurchaseEntryScreen(
+                        mode: PurchaseFlowMode.transfer,
+                      ),
+                    ),
               ),
               GoRoute(
                 path: AppRoutes.admin,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminScreen()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const AdminScreen()),
               ),
               GoRoute(
                 path: AppRoutes.adminOrders,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminOrdersPage()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const AdminOrdersPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminTransfers,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminTransferOrdersPage()),
+                pageBuilder:
+                    (context, state) => _noTransitionPage(
+                      state,
+                      const AdminTransferOrdersPage(),
+                    ),
               ),
               GoRoute(
                 path: AppRoutes.adminBotMessages,
-                pageBuilder: (context, state) => _noTransitionPage(
-                  state,
-                  AdminBotMessagesPage(
-                    initialChatId: int.tryParse(
-                      state.uri.queryParameters['chatId'] ??
-                          state.uri.queryParameters['chat_id'] ??
-                          '',
+                pageBuilder:
+                    (context, state) => _noTransitionPage(
+                      state,
+                      AdminBotMessagesPage(
+                        initialChatId: int.tryParse(
+                          state.uri.queryParameters['chatId'] ??
+                              state.uri.queryParameters['chat_id'] ??
+                              '',
+                        ),
+                      ),
                     ),
-                  ),
-                ),
               ),
               GoRoute(
                 path: '/space_app/admin/orders/:id',
-                pageBuilder: (context, state) => _noTransitionPage(
-                  state,
-                  AdminOrderDetailPage(
-                    orderId: state.pathParameters['id'] ?? '',
-                  ),
-                ),
+                pageBuilder:
+                    (context, state) => _noTransitionPage(
+                      state,
+                      AdminOrderDetailPage(
+                        orderId: state.pathParameters['id'] ?? '',
+                      ),
+                    ),
               ),
               GoRoute(
                 path: AppRoutes.adminScanner,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminQrScannerPage()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const AdminQrScannerPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminProducts,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminProductsPage()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const AdminProductsPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminPromos,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminPromoCodesPage()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const AdminPromoCodesPage()),
               ),
               GoRoute(
                 path: AppRoutes.adminStats,
-                pageBuilder: (context, state) =>
-                    _noTransitionPage(state, const AdminStatsPage()),
+                pageBuilder:
+                    (context, state) =>
+                        _noTransitionPage(state, const AdminStatsPage()),
               ),
             ],
           ),
@@ -268,7 +294,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             state,
             EventDetailsScreen(
               eventId: eventId,
-              eventKey: state.uri.queryParameters['key'] ??
+              eventKey:
+                  state.uri.queryParameters['key'] ??
                   state.uri.queryParameters['eventKey'],
             ),
           );
@@ -296,7 +323,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             state,
             EventDetailsScreen(
               eventId: eventId,
-              eventKey: state.uri.queryParameters['key'] ??
+              eventKey:
+                  state.uri.queryParameters['key'] ??
                   state.uri.queryParameters['eventKey'],
             ),
           );
@@ -326,9 +354,10 @@ String? _readAuthNext(Uri authUri) {
   final rawQueryNext = authUri.queryParameters['next']?.trim() ?? '';
   final rawState = _extractStateFromAuthUri(authUri)?.trim() ?? '';
   final rawStateNext = _extractNextFromSignedVKState(rawState) ?? '';
-  final raw = rawQueryNext.isNotEmpty
-      ? rawQueryNext
-      : (rawStateNext.isNotEmpty ? rawStateNext : rawState);
+  final raw =
+      rawQueryNext.isNotEmpty
+          ? rawQueryNext
+          : (rawStateNext.isNotEmpty ? rawStateNext : rawState);
   if (raw.isEmpty) return null;
   final parsed = Uri.tryParse(raw);
   if (parsed == null) return null;
@@ -449,40 +478,9 @@ String? _startupEventLocation({
   return uri.toString();
 }
 
-String? _requiredAdminPermission(String location) {
-  if (location == AppRoutes.admin || !location.startsWith(AppRoutes.admin)) {
-    return null;
-  }
-  if (location.startsWith(AppRoutes.adminOrders)) {
-    return AdminPermissions.orders;
-  }
-  if (location.startsWith(AppRoutes.adminTransfers)) {
-    return AdminPermissions.transfers;
-  }
-  if (location.startsWith(AppRoutes.adminScanner)) {
-    return AdminPermissions.scanner;
-  }
-  if (location.startsWith(AppRoutes.adminBotMessages)) {
-    return AdminPermissions.botMessages;
-  }
-  if (location.startsWith(AppRoutes.adminProducts)) {
-    return AdminPermissions.products;
-  }
-  if (location.startsWith(AppRoutes.adminPromos)) {
-    return AdminPermissions.promos;
-  }
-  if (location.startsWith(AppRoutes.adminStats)) {
-    return AdminPermissions.stats;
-  }
-  return null;
-}
-
 /// _noTransitionPage handles no transition page.
 
-Page<void> _noTransitionPage(
-  GoRouterState state,
-  Widget child,
-) {
+Page<void> _noTransitionPage(GoRouterState state, Widget child) {
   final shouldUseLandingBackdropOnWeb =
       kIsWeb && state.matchedLocation != AppRoutes.landing;
 
@@ -492,9 +490,7 @@ Page<void> _noTransitionPage(
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned.fill(
-            child: IgnorePointer(child: LandingBackdrop()),
-          ),
+          const Positioned.fill(child: IgnorePointer(child: LandingBackdrop())),
           Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -507,8 +503,5 @@ Page<void> _noTransitionPage(
     );
   }
 
-  return NoTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-  );
+  return NoTransitionPage<void>(key: state.pageKey, child: child);
 }

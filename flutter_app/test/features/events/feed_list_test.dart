@@ -9,10 +9,7 @@ import 'package:gigme_flutter/features/events/presentation/widgets/feed_list.dar
 
 void main() {
   testWidgets('renders feed list items', (tester) async {
-    final items = [
-      _event(1, 'Event A'),
-      _event(2, 'Event B'),
-    ];
+    final items = [_event(1, 'Event A'), _event(2, 'Event B')];
 
     await tester.pumpWidget(
       MaterialApp(
@@ -32,6 +29,7 @@ void main() {
     );
 
     expect(find.text('Event A'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Event B'), 400);
     expect(find.text('Event B'), findsOneWidget);
   });
 }

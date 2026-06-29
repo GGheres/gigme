@@ -5,6 +5,7 @@ backend/bin/
 *.log
 .env
 .DS_Store
+/.android/
 /.claude/
 /openclaw/
 /skills/

@@ -204,10 +204,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     super.dispose();
   }
 
+  /// Applies a local UI mutation only while this screen is still mounted.
+  /// Administrative requests can finish after navigation, so every state
+  /// update in this screen goes through this lifecycle-safe boundary.
+  void _setStateIfMounted(VoidCallback update) {
+    if (!mounted) return;
+    setState(update);
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider).state;
     final config = ref.watch(appConfigProvider);
+    final managerMode = config.managerAppMode;
     final visibleTabs = _buildVisibleTabs(
       resolveAdminPermissions(authState.user, config),
     );
@@ -220,13 +229,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
     if (token.isEmpty) {
       _lastAuthedToken = null;
-      return _buildAdminLogin();
+      return _buildAdminLogin(managerMode: managerMode);
     }
 
     if (_accessDenied) {
       return _buildAccessDenied(
         context,
         message: 'Доступ запрещен (401/403).',
+        managerMode: managerMode,
       );
     }
 
@@ -234,6 +244,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       return _buildAccessDenied(
         context,
         message: 'У текущего пользователя нет прав администратора.',
+        managerMode: managerMode,
       );
     }
 
@@ -241,11 +252,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       length: visibleTabs.length,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Панель администратора'),
-          leading: IconButton(
-            onPressed: () => context.go(AppRoutes.profile),
-            icon: const Icon(Icons.arrow_back_rounded),
+          title: Text(
+            managerMode ? 'Панель менеджера' : 'Панель администратора',
           ),
+          leading:
+              managerMode
+                  ? null
+                  : IconButton(
+                    onPressed: () => context.go(AppRoutes.profile),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
           actions: [
             IconButton(
               tooltip: 'Обновить всё',
@@ -255,9 +271,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           ],
           bottom: TabBar(
             isScrollable: true,
-            tabs: [
-              for (final tab in visibleTabs) Tab(text: tab.label),
-            ],
+            tabs: [for (final tab in visibleTabs) Tab(text: tab.label)],
           ),
         ),
         body: Stack(
@@ -265,9 +279,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           children: [
             const AdminPanelBackground(),
             TabBarView(
-              children: [
-                for (final tab in visibleTabs) tab.builder(),
-              ],
+              children: [for (final tab in visibleTabs) tab.builder()],
             ),
           ],
         ),
@@ -275,15 +287,22 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     );
   }
 
-  Widget _buildAdminLogin() {
+  /// _buildAdminLogin renders either the password-only manager login or the full administrator login.
+  Widget _buildAdminLogin({required bool managerMode}) {
     return AppScaffold(
       bodyBackground: const AdminPanelBackground(),
-      appBar: AppBar(title: const Text('Вход в админку')),
-      title: 'Админ-доступ',
-      subtitle: 'Авторизуйтесь для управления пользователями и заказами',
+      appBar: AppBar(
+        title: Text(managerMode ? 'Вход менеджера' : 'Вход в админку'),
+      ),
+      title: managerMode ? 'Режим менеджера' : 'Админ-доступ',
+      subtitle:
+          managerMode
+              ? 'Введите пароль менеджера для доступа к заказам, трансферам и сканеру'
+              : 'Авторизуйтесь для управления пользователями и заказами',
       titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      subtitleColor: Theme.of(
+        context,
+      ).colorScheme.onSurface.withValues(alpha: 0.74),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -293,28 +312,36 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             children: [
               SectionCard(
                 title: 'Вход',
-                subtitle: 'Используйте учетные данные администратора',
+                subtitle:
+                    managerMode
+                        ? 'Доступ ограничен операционными разделами'
+                        : 'Используйте учетные данные администратора',
                 child: Column(
                   children: [
-                    InputField(
-                      controller: _adminLoginCtrl,
-                      label: 'Логин',
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
+                    if (!managerMode) ...[
+                      InputField(controller: _adminLoginCtrl, label: 'Логин'),
+                      const SizedBox(height: AppSpacing.xs),
+                    ],
                     InputField(
                       controller: _adminPasswordCtrl,
-                      label: 'Пароль',
+                      label: managerMode ? 'Пароль менеджера' : 'Пароль',
                       obscureText: true,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    InputField(
-                      controller: _adminTelegramIdCtrl,
-                      keyboardType: TextInputType.number,
-                      label: 'Telegram ID (необязательно)',
-                    ),
+                    if (!managerMode) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      InputField(
+                        controller: _adminTelegramIdCtrl,
+                        keyboardType: TextInputType.number,
+                        label: 'Telegram ID (необязательно)',
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.sm),
                     PrimaryButton(
-                      onPressed: _adminLoginBusy ? null : _handleAdminLogin,
+                      onPressed:
+                          _adminLoginBusy
+                              ? null
+                              : () =>
+                                  _handleAdminLogin(managerMode: managerMode),
                       label: _adminLoginBusy ? 'Вход…' : 'Войти',
                       expand: true,
                     ),
@@ -325,7 +352,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 ErrorState(
                   message: _adminLoginError!,
-                  onRetry: _adminLoginBusy ? null : _handleAdminLogin,
+                  onRetry:
+                      _adminLoginBusy
+                          ? null
+                          : () => _handleAdminLogin(managerMode: managerMode),
                   retryLabel: 'Повторить',
                 ),
               ],
@@ -339,26 +369,34 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Widget _buildAccessDenied(
     BuildContext context, {
     required String message,
+    required bool managerMode,
   }) {
     return AppScaffold(
       bodyBackground: const AdminPanelBackground(),
       appBar: AppBar(
         title: const Text('Админка'),
-        leading: IconButton(
-          onPressed: () => context.go(AppRoutes.profile),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
+        leading:
+            managerMode
+                ? null
+                : IconButton(
+                  onPressed: () => context.go(AppRoutes.profile),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
       ),
       title: 'Доступ ограничен',
       subtitle: 'У текущего пользователя нет прав администратора',
       titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      subtitleColor: Theme.of(
+        context,
+      ).colorScheme.onSurface.withValues(alpha: 0.74),
       child: Center(
         child: ErrorState(
           message: message,
-          onRetry: () => context.go(AppRoutes.profile),
-          retryLabel: 'Вернуться в профиль',
+          onRetry:
+              managerMode
+                  ? () => unawaited(ref.read(authControllerProvider).logout())
+                  : () => context.go(AppRoutes.profile),
+          retryLabel: managerMode ? 'Войти менеджером' : 'Вернуться в профиль',
         ),
       ),
     );
@@ -448,11 +486,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 DropdownMenuItem(value: 'all', child: Text('Все')),
                 DropdownMenuItem(value: 'active', child: Text('Активные')),
                 DropdownMenuItem(
-                    value: 'blocked', child: Text('Заблокированные')),
+                  value: 'blocked',
+                  child: Text('Заблокированные'),
+                ),
               ],
               onChanged: (value) {
                 if (value == null) return;
-                setState(() => _usersBlockedFilter = value);
+                _setStateIfMounted(() => _usersBlockedFilter = value);
                 unawaited(_loadUsers());
               },
             ),
@@ -466,11 +506,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
         const SizedBox(height: 10),
         if ((_usersError ?? '').trim().isNotEmpty)
           Text(_usersError!, style: const TextStyle(color: Colors.red)),
-        Row(
-          children: [
-            Text('Всего: $_usersTotal'),
-          ],
-        ),
+        Row(children: [Text('Всего: $_usersTotal')]),
         const SizedBox(height: 8),
         if (_users.isEmpty && !_usersLoading)
           const Card(
@@ -485,21 +521,26 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               child: ListTile(
                 onTap: () => _openUserDetail(user.id),
                 leading: CircleAvatar(
-                  backgroundImage: user.photoUrl.trim().isEmpty
-                      ? null
-                      : NetworkImage(user.photoUrl),
-                  child: user.photoUrl.trim().isEmpty
-                      ? Text(user.displayName.trim().isNotEmpty
-                          ? user.displayName
-                              .trim()
-                              .substring(0, 1)
-                              .toUpperCase()
-                          : 'П')
-                      : null,
+                  backgroundImage:
+                      user.photoUrl.trim().isEmpty
+                          ? null
+                          : NetworkImage(user.photoUrl),
+                  child:
+                      user.photoUrl.trim().isEmpty
+                          ? Text(
+                            user.displayName.trim().isNotEmpty
+                                ? user.displayName
+                                    .trim()
+                                    .substring(0, 1)
+                                    .toUpperCase()
+                                : 'П',
+                          )
+                          : null,
                 ),
                 title: Text(user.displayName),
                 subtitle: Text(
-                    '@${user.username.isEmpty ? 'без_username' : user.username} • TG ${user.telegramId}'),
+                  '@${user.username.isEmpty ? 'без_username' : user.username} • TG ${user.telegramId}',
+                ),
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -526,24 +567,31 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Создать рассылку',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Создать рассылку',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   // ignore: deprecated_member_use
                   value: _broadcastAudience,
                   items: const [
                     DropdownMenuItem(
-                        value: 'all', child: Text('Все активные пользователи')),
+                      value: 'all',
+                      child: Text('Все активные пользователи'),
+                    ),
                     DropdownMenuItem(
-                        value: 'selected',
-                        child: Text('Выбранные ID пользователей')),
+                      value: 'selected',
+                      child: Text('Выбранные ID пользователей'),
+                    ),
                     DropdownMenuItem(
-                        value: 'filter', child: Text('По фильтру')),
+                      value: 'filter',
+                      child: Text('По фильтру'),
+                    ),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(() => _broadcastAudience = value);
+                    _setStateIfMounted(() => _broadcastAudience = value);
                   },
                   decoration: const InputDecoration(labelText: 'Аудитория'),
                 ),
@@ -552,7 +600,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   TextField(
                     controller: _broadcastUserIdsCtrl,
                     decoration: const InputDecoration(
-                        labelText: 'ID пользователей (через запятую)'),
+                      labelText: 'ID пользователей (через запятую)',
+                    ),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -561,7 +610,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                     controller: _broadcastMinBalanceCtrl,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                        labelText: 'Мин. баланс (необязательно)'),
+                      labelText: 'Мин. баланс (необязательно)',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -593,27 +643,32 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                         Expanded(
                           child: TextField(
                             controller: item.textCtrl,
-                            decoration:
-                                const InputDecoration(labelText: 'Текст'),
+                            decoration: const InputDecoration(
+                              labelText: 'Текст',
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: item.urlCtrl,
-                            decoration:
-                                const InputDecoration(labelText: 'Ссылка'),
+                            decoration: const InputDecoration(
+                              labelText: 'Ссылка',
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
                         IconButton(
-                          onPressed: _broadcastButtons.length <= 1
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _broadcastButtons.removeAt(index).dispose();
-                                  });
-                                },
+                          onPressed:
+                              _broadcastButtons.length <= 1
+                                  ? null
+                                  : () {
+                                    _setStateIfMounted(() {
+                                      _broadcastButtons
+                                          .removeAt(index)
+                                          .dispose();
+                                    });
+                                  },
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                       ],
@@ -624,8 +679,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
                     onPressed: () {
-                      setState(() => _broadcastButtons
-                          .add(_BroadcastButtonDraft(text: '', url: '')));
+                      _setStateIfMounted(
+                        () => _broadcastButtons.add(
+                          _BroadcastButtonDraft(text: '', url: ''),
+                        ),
+                      );
                     },
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('Добавить кнопку'),
@@ -635,12 +693,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 FilledButton(
                   onPressed: _broadcastCreateBusy ? null : _createBroadcast,
                   child: Text(
-                      _broadcastCreateBusy ? 'Создаем…' : 'Создать рассылку'),
+                    _broadcastCreateBusy ? 'Создаем…' : 'Создать рассылку',
+                  ),
                 ),
                 if ((_broadcastsError ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(_broadcastsError!,
-                      style: const TextStyle(color: Colors.red)),
+                  Text(
+                    _broadcastsError!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ],
               ],
             ),
@@ -674,16 +735,20 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   '${item.sent}/${item.failed}/${item.targeted} • ${formatDateTime(item.createdAt)}\n${item.message}',
                 ),
                 isThreeLine: true,
-                trailing: item.status == 'pending'
-                    ? OutlinedButton(
-                        onPressed: _broadcastStartBusyId == item.id
-                            ? null
-                            : () => _startBroadcast(item.id),
-                        child: Text(_broadcastStartBusyId == item.id
-                            ? 'Запускаем…'
-                            : 'Запустить'),
-                      )
-                    : null,
+                trailing:
+                    item.status == 'pending'
+                        ? OutlinedButton(
+                          onPressed:
+                              _broadcastStartBusyId == item.id
+                                  ? null
+                                  : () => _startBroadcast(item.id),
+                          child: Text(
+                            _broadcastStartBusyId == item.id
+                                ? 'Запускаем…'
+                                : 'Запустить',
+                          ),
+                        )
+                        : null,
               ),
             ),
           ),
@@ -701,19 +766,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Источники парсера',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Источники парсера',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _parserSourceTitleCtrl,
                   decoration: const InputDecoration(
-                      labelText: 'Название (необязательно)'),
+                    labelText: 'Название (необязательно)',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _parserSourceInputCtrl,
                   decoration: const InputDecoration(
-                      labelText: 'Источник (URL или канал)'),
+                    labelText: 'Источник (URL или канал)',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -722,15 +791,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('auto')),
                     DropdownMenuItem(
-                        value: 'telegram', child: Text('telegram')),
+                      value: 'telegram',
+                      child: Text('telegram'),
+                    ),
                     DropdownMenuItem(value: 'web', child: Text('web')),
                     DropdownMenuItem(
-                        value: 'instagram', child: Text('instagram')),
+                      value: 'instagram',
+                      child: Text('instagram'),
+                    ),
                     DropdownMenuItem(value: 'vk', child: Text('vk')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(() => _parserSourceType = value);
+                    _setStateIfMounted(() => _parserSourceType = value);
                   },
                   decoration: const InputDecoration(labelText: 'Тип источника'),
                 ),
@@ -738,9 +811,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 FilledButton(
                   onPressed:
                       _parserCreateSourceBusy ? null : _createParserSource,
-                  child: Text(_parserCreateSourceBusy
-                      ? 'Сохраняем…'
-                      : 'Добавить источник'),
+                  child: Text(
+                    _parserCreateSourceBusy
+                        ? 'Сохраняем…'
+                        : 'Добавить источник',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -758,29 +833,37 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 ..._parserSources.map(
                   (source) => Card(
                     child: ListTile(
-                      title: Text(source.title.trim().isEmpty
-                          ? '#${source.id}'
-                          : source.title),
+                      title: Text(
+                        source.title.trim().isEmpty
+                            ? '#${source.id}'
+                            : source.title,
+                      ),
                       subtitle: Text(
-                          '${source.sourceType} • ${source.input}\nПоследний парсинг: ${formatDateTime(source.lastParsedAt)}'),
+                        '${source.sourceType} • ${source.input}\nПоследний парсинг: ${formatDateTime(source.lastParsedAt)}',
+                      ),
                       isThreeLine: true,
                       trailing: Wrap(
                         spacing: 6,
                         children: [
                           OutlinedButton(
-                            onPressed: _parserSourceBusyId == source.id
-                                ? null
-                                : () => _parseSource(source.id),
-                            child: Text(_parserSourceBusyId == source.id
-                                ? '…'
-                                : 'Парсить'),
+                            onPressed:
+                                _parserSourceBusyId == source.id
+                                    ? null
+                                    : () => _parseSource(source.id),
+                            child: Text(
+                              _parserSourceBusyId == source.id
+                                  ? '…'
+                                  : 'Парсить',
+                            ),
                           ),
                           OutlinedButton(
-                            onPressed: _parserSourceBusyId == source.id
-                                ? null
-                                : () => _toggleParserSource(source),
+                            onPressed:
+                                _parserSourceBusyId == source.id
+                                    ? null
+                                    : () => _toggleParserSource(source),
                             child: Text(
-                                source.isActive ? 'Отключить' : 'Включить'),
+                              source.isActive ? 'Отключить' : 'Включить',
+                            ),
                           ),
                         ],
                       ),
@@ -798,8 +881,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Быстрый парсинг',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Быстрый парсинг',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _parserQuickInputCtrl,
@@ -812,23 +897,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   items: const [
                     DropdownMenuItem(value: 'auto', child: Text('auto')),
                     DropdownMenuItem(
-                        value: 'telegram', child: Text('telegram')),
+                      value: 'telegram',
+                      child: Text('telegram'),
+                    ),
                     DropdownMenuItem(value: 'web', child: Text('web')),
                     DropdownMenuItem(
-                        value: 'instagram', child: Text('instagram')),
+                      value: 'instagram',
+                      child: Text('instagram'),
+                    ),
                     DropdownMenuItem(value: 'vk', child: Text('vk')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(() => _parserQuickType = value);
+                    _setStateIfMounted(() => _parserQuickType = value);
                   },
                   decoration: const InputDecoration(labelText: 'Тип источника'),
                 ),
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed: _parserQuickBusy ? null : _parseQuick,
-                  child:
-                      Text(_parserQuickBusy ? 'Парсим…' : 'Запустить парсинг'),
+                  child: Text(
+                    _parserQuickBusy ? 'Парсим…' : 'Запустить парсинг',
+                  ),
                 ),
               ],
             ),
@@ -843,13 +933,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 DropdownMenuItem(value: 'all', child: Text('Все статусы')),
                 DropdownMenuItem(value: 'pending', child: Text('В ожидании')),
                 DropdownMenuItem(
-                    value: 'imported', child: Text('Импортировано')),
+                  value: 'imported',
+                  child: Text('Импортировано'),
+                ),
                 DropdownMenuItem(value: 'rejected', child: Text('Отклонено')),
                 DropdownMenuItem(value: 'error', child: Text('Ошибка')),
               ],
               onChanged: (value) {
                 if (value == null) return;
-                setState(() => _parsedStatusFilter = value);
+                _setStateIfMounted(() => _parsedStatusFilter = value);
                 unawaited(_loadParsedEvents());
               },
             ),
@@ -925,19 +1017,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Тексты лендинга',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Тексты лендинга',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _landingHeroEyebrowCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Hero-подзаголовок'),
+                  decoration: const InputDecoration(
+                    labelText: 'Hero-подзаголовок',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingHeroTitleCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Hero-заголовок'),
+                  decoration: const InputDecoration(
+                    labelText: 'Hero-заголовок',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -956,22 +1052,25 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingAboutTitleCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Заголовок блока О нас'),
+                  decoration: const InputDecoration(
+                    labelText: 'Заголовок блока О нас',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingAboutDescriptionCtrl,
                   minLines: 2,
                   maxLines: 6,
-                  decoration:
-                      const InputDecoration(labelText: 'Описание блока О нас'),
+                  decoration: const InputDecoration(
+                    labelText: 'Описание блока О нас',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _landingPartnersTitleCtrl,
                   decoration: const InputDecoration(
-                      labelText: 'Заголовок блока Партнеры'),
+                    labelText: 'Заголовок блока Партнеры',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1013,12 +1112,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   onPressed: _landingContentBusy ? null : _saveLandingContent,
                   icon: const Icon(Icons.save_outlined),
                   label: Text(
-                      _landingContentBusy ? 'Сохраняем…' : 'Сохранить тексты'),
+                    _landingContentBusy ? 'Сохраняем…' : 'Сохранить тексты',
+                  ),
                 ),
                 if ((_landingError ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(_landingError!,
-                      style: const TextStyle(color: Colors.red)),
+                  Text(
+                    _landingError!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ],
               ],
             ),
@@ -1031,8 +1133,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Публикация события на лендинге',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Публикация события на лендинге',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -1051,13 +1155,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       value: _landingPublishedValue,
                       items: const [
                         DropdownMenuItem<bool>(
-                            value: true, child: Text('Опубликовать')),
+                          value: true,
+                          child: Text('Опубликовать'),
+                        ),
                         DropdownMenuItem<bool>(
-                            value: false, child: Text('Снять с публикации')),
+                          value: false,
+                          child: Text('Снять с публикации'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
-                        setState(() => _landingPublishedValue = value);
+                        _setStateIfMounted(
+                          () => _landingPublishedValue = value,
+                        );
                       },
                     ),
                   ],
@@ -1085,19 +1195,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   runSpacing: 8,
                   children: [
                     FilledButton(
-                      onPressed: _landingBusy || _landingImageBusy
-                          ? null
-                          : _applyLandingPublicationFromInput,
+                      onPressed:
+                          _landingBusy || _landingImageBusy
+                              ? null
+                              : _applyLandingPublicationFromInput,
                       child: Text(_landingBusy ? 'Сохраняем…' : 'Применить'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _landingBusy || _landingImageBusy
-                          ? null
-                          : _saveLandingEventImageFromInput,
+                      onPressed:
+                          _landingBusy || _landingImageBusy
+                              ? null
+                              : _saveLandingEventImageFromInput,
                       icon: const Icon(Icons.image_outlined),
-                      label: Text(_landingImageBusy
-                          ? 'Сохраняем…'
-                          : 'Сохранить изображение карточки'),
+                      label: Text(
+                        _landingImageBusy
+                            ? 'Сохраняем…'
+                            : 'Сохранить изображение карточки',
+                      ),
                     ),
                   ],
                 ),
@@ -1110,24 +1224,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       onPressed:
                           _landingModerationBusy ? null : _deleteEventByInput,
                       icon: const Icon(Icons.delete_forever_outlined),
-                      label: Text(_landingModerationBusy
-                          ? 'Удаляем…'
-                          : 'Удалить событие'),
+                      label: Text(
+                        _landingModerationBusy ? 'Удаляем…' : 'Удалить событие',
+                      ),
                     ),
                     OutlinedButton.icon(
                       onPressed:
                           _landingModerationBusy ? null : _deleteCommentByInput,
                       icon: const Icon(Icons.delete_outline_rounded),
-                      label: Text(_landingModerationBusy
-                          ? 'Удаляем…'
-                          : 'Удалить комментарий'),
+                      label: Text(
+                        _landingModerationBusy
+                            ? 'Удаляем…'
+                            : 'Удалить комментарий',
+                      ),
                     ),
                   ],
                 ),
                 if ((_landingError ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(_landingError!,
-                      style: const TextStyle(color: Colors.red)),
+                  Text(
+                    _landingError!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ],
               ],
             ),
@@ -1169,7 +1287,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             (event) => Card(
               child: ListTile(
                 onTap: () {
-                  setState(() {
+                  _setStateIfMounted(() {
                     _landingEventIdCtrl.text = '${event.id}';
                     _landingImageUrlCtrl.text = event.thumbnailUrl.trim();
                     _landingPublishedValue = true;
@@ -1185,18 +1303,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   spacing: 6,
                   children: [
                     OutlinedButton(
-                      onPressed: () =>
-                          context.push(AppRoutes.adminEvent(event.id)),
+                      onPressed:
+                          () => context.push(AppRoutes.adminEvent(event.id)),
                       child: const Text('Открыть'),
                     ),
                     FilledButton.tonal(
-                      onPressed: _landingBusy || _landingImageBusy
-                          ? null
-                          : () => _setLandingPublished(
-                              eventId: event.id, published: false),
-                      child: Text(_landingActionEventId == event.id
-                          ? '…'
-                          : 'Снять с публикации'),
+                      onPressed:
+                          _landingBusy || _landingImageBusy
+                              ? null
+                              : () => _setLandingPublished(
+                                eventId: event.id,
+                                published: false,
+                              ),
+                      child: Text(
+                        _landingActionEventId == event.id
+                            ? '…'
+                            : 'Снять с публикации',
+                      ),
                     ),
                   ],
                 ),
@@ -1251,21 +1374,25 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                '${item.name.isEmpty ? 'Без названия' : item.name} • ${item.status}'),
+              '${item.name.isEmpty ? 'Без названия' : item.name} • ${item.status}',
+            ),
             if (item.importedEventId != null) ...[
               const SizedBox(height: 4),
               Text('ID события: #${item.importedEventId}'),
             ],
             const SizedBox(height: 4),
             Text(
-                '${item.sourceType} • распознано ${formatDateTime(item.parsedAt)}'),
+              '${item.sourceType} • распознано ${formatDateTime(item.parsedAt)}',
+            ),
             if (item.location.trim().isNotEmpty)
               Text('Локация: ${item.location}'),
             if (item.parserError.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(item.parserError,
-                    style: const TextStyle(color: Colors.red)),
+                child: Text(
+                  item.parserError,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             if (item.status == 'pending') ...[
               const SizedBox(height: 10),
@@ -1294,8 +1421,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   Expanded(
                     child: TextField(
                       controller: draft.latCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(labelText: 'Lat'),
                     ),
                   ),
@@ -1303,8 +1431,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   Expanded(
                     child: TextField(
                       controller: draft.lngCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(labelText: 'Lng'),
                     ),
                   ),
@@ -1321,7 +1450,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 minLines: 3,
                 maxLines: 6,
                 decoration: const InputDecoration(
-                    labelText: 'Ссылки (по одной в строке)'),
+                  labelText: 'Ссылки (по одной в строке)',
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -1329,7 +1459,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 minLines: 2,
                 maxLines: 5,
                 decoration: const InputDecoration(
-                    labelText: 'Медиа-ссылки (по одной в строке)'),
+                  labelText: 'Медиа-ссылки (по одной в строке)',
+                ),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -1337,36 +1468,46 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 runSpacing: 8,
                 children: [
                   FilledButton.tonal(
-                    onPressed: _parserGeocodeBusyId == item.id
-                        ? null
-                        : () => _geocodeDraft(item),
-                    child: Text(_parserGeocodeBusyId == item.id
-                        ? 'Геокодируем…'
-                        : 'Геокодировать'),
+                    onPressed:
+                        _parserGeocodeBusyId == item.id
+                            ? null
+                            : () => _geocodeDraft(item),
+                    child: Text(
+                      _parserGeocodeBusyId == item.id
+                          ? 'Геокодируем…'
+                          : 'Геокодировать',
+                    ),
                   ),
                   FilledButton(
-                    onPressed: _parserImportBusyId == item.id
-                        ? null
-                        : () => _importParsed(item),
-                    child: Text(_parserImportBusyId == item.id
-                        ? 'Импортируем…'
-                        : 'Импортировать в события'),
+                    onPressed:
+                        _parserImportBusyId == item.id
+                            ? null
+                            : () => _importParsed(item),
+                    child: Text(
+                      _parserImportBusyId == item.id
+                          ? 'Импортируем…'
+                          : 'Импортировать в события',
+                    ),
                   ),
                   OutlinedButton(
-                    onPressed: _parserRejectBusyId == item.id
-                        ? null
-                        : () => _rejectParsed(item.id),
-                    child: Text(_parserRejectBusyId == item.id
-                        ? 'Отклоняем…'
-                        : 'Отклонить'),
+                    onPressed:
+                        _parserRejectBusyId == item.id
+                            ? null
+                            : () => _rejectParsed(item.id),
+                    child: Text(
+                      _parserRejectBusyId == item.id
+                          ? 'Отклоняем…'
+                          : 'Отклонить',
+                    ),
                   ),
                   OutlinedButton(
-                    onPressed: _parserDeleteBusyId == item.id
-                        ? null
-                        : () => _deleteParsed(item.id),
-                    child: Text(_parserDeleteBusyId == item.id
-                        ? 'Удаляем…'
-                        : 'Удалить'),
+                    onPressed:
+                        _parserDeleteBusyId == item.id
+                            ? null
+                            : () => _deleteParsed(item.id),
+                    child: Text(
+                      _parserDeleteBusyId == item.id ? 'Удаляем…' : 'Удалить',
+                    ),
                   ),
                 ],
               ),
@@ -1376,18 +1517,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                 children: [
                   if (item.importedEventId != null)
                     FilledButton.tonal(
-                      onPressed: () => context
-                          .push(AppRoutes.adminEvent(item.importedEventId!)),
+                      onPressed:
+                          () => context.push(
+                            AppRoutes.adminEvent(item.importedEventId!),
+                          ),
                       child: Text('Открыть событие #${item.importedEventId}'),
                     ),
                   const SizedBox(width: 8),
                   OutlinedButton(
-                    onPressed: _parserDeleteBusyId == item.id
-                        ? null
-                        : () => _deleteParsed(item.id),
-                    child: Text(_parserDeleteBusyId == item.id
-                        ? 'Удаляем…'
-                        : 'Удалить из БД'),
+                    onPressed:
+                        _parserDeleteBusyId == item.id
+                            ? null
+                            : () => _deleteParsed(item.id),
+                    child: Text(
+                      _parserDeleteBusyId == item.id
+                          ? 'Удаляем…'
+                          : 'Удалить из БД',
+                    ),
                   ),
                 ],
               ),
@@ -1421,39 +1567,50 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     await Future.wait<void>(loads);
   }
 
-  Future<void> _handleAdminLogin() async {
+  /// _handleAdminLogin authenticates the current admin entry mode and stores the returned scoped session.
+  Future<void> _handleAdminLogin({required bool managerMode}) async {
     final username = _adminLoginCtrl.text.trim();
     final password = _adminPasswordCtrl.text;
     final telegramId = int.tryParse(_adminTelegramIdCtrl.text.trim());
-    if (username.isEmpty || password.isEmpty) {
-      setState(() => _adminLoginError = 'Введите логин и пароль');
+    if (password.isEmpty || (!managerMode && username.isEmpty)) {
+      _setStateIfMounted(
+        () =>
+            _adminLoginError =
+                managerMode
+                    ? 'Введите пароль менеджера'
+                    : 'Введите логин и пароль',
+      );
       return;
     }
 
-    setState(() {
+    _setStateIfMounted(() {
       _adminLoginBusy = true;
       _adminLoginError = null;
     });
 
     try {
-      final response = await ref.read(adminRepositoryProvider).login(
-            username: username,
-            password: password,
-            telegramId: telegramId,
-          );
+      final repository = ref.read(adminRepositoryProvider);
+      final response =
+          managerMode
+              ? await repository.loginManager(password: password)
+              : await repository.login(
+                username: username,
+                password: password,
+                telegramId: telegramId,
+              );
       await ref.read(authControllerProvider).applySession(response.session);
-      setState(() {
+      _setStateIfMounted(() {
         _accessDenied = false;
       });
       if (!mounted) return;
       await _bootstrapLoads();
     } catch (error) {
-      setState(() {
+      _setStateIfMounted(() {
         _adminLoginError = '$error';
       });
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _adminLoginBusy = false;
         });
       }
@@ -1464,25 +1621,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _usersLoading = true;
       _usersError = null;
     });
 
     try {
-      final blocked = _usersBlockedFilter == 'all'
-          ? null
-          : _usersBlockedFilter == 'blocked'
+      final blocked =
+          _usersBlockedFilter == 'all'
+              ? null
+              : _usersBlockedFilter == 'blocked'
               ? 'true'
               : 'false';
-      final response = await ref.read(adminRepositoryProvider).listUsers(
+      final response = await ref
+          .read(adminRepositoryProvider)
+          .listUsers(
             token: token,
             search: _usersSearchCtrl.text.trim(),
             blocked: blocked,
             limit: 50,
             offset: 0,
           );
-      setState(() {
+      _setStateIfMounted(() {
         _users = response.items;
         _usersTotal = response.total;
       });
@@ -1490,7 +1650,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _usersError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _usersLoading = false;
         });
       }
@@ -1501,7 +1661,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _userDetailLoading = true;
       _userDetailError = null;
       _userDetail = null;
@@ -1511,14 +1671,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       final detail = await ref
           .read(adminRepositoryProvider)
           .getUser(token: token, id: userId);
-      setState(() {
+      _setStateIfMounted(() {
         _userDetail = detail;
       });
     } catch (error) {
       _handleAdminError(error, setter: (value) => _userDetailError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _userDetailLoading = false;
         });
       }
@@ -1534,91 +1694,102 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
         final detail = _userDetail;
         return Padding(
           padding: EdgeInsets.fromLTRB(
-              16, 0, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+            16,
+            0,
+            16,
+            MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
           child: SingleChildScrollView(
-            child: _userDetailLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: SizedBox(
-                      height: 180,
-                      child: PremiumLoadingView(
-                        compact: true,
-                        text: 'ПОЛЬЗОВАТЕЛЬ • ЗАГРУЗКА • ',
-                        subtitle: 'Загружаем пользователя',
+            child:
+                _userDetailLoading
+                    ? const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: SizedBox(
+                        height: 180,
+                        child: PremiumLoadingView(
+                          compact: true,
+                          text: 'ПОЛЬЗОВАТЕЛЬ • ЗАГРУЗКА • ',
+                          subtitle: 'Загружаем пользователя',
+                        ),
                       ),
-                    ),
-                  )
-                : (_userDetailError ?? '').isNotEmpty
+                    )
+                    : (_userDetailError ?? '').isNotEmpty
                     ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(_userDetailError!,
-                            style: const TextStyle(color: Colors.red)),
-                      )
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _userDetailError!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    )
                     : detail == null
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text('Пользователь не найден'),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(detail.user.displayName,
-                                  style:
-                                      Theme.of(context).textTheme.titleLarge),
-                              const SizedBox(height: 6),
-                              Text(
-                                  'TG: ${detail.user.telegramId} • @${detail.user.username}'),
-                              const SizedBox(height: 6),
-                              Text('Баланс: ${detail.user.balanceTokens} GT'),
-                              Text(
-                                  'Последняя активность: ${formatDateTime(detail.user.lastSeenAt)}'),
-                              const SizedBox(height: 10),
-                              if (!detail.user.isBlocked)
-                                TextField(
-                                  controller: _blockReasonCtrl,
-                                  decoration: const InputDecoration(
-                                      labelText:
-                                          'Причина блокировки (необязательно)'),
-                                ),
-                              const SizedBox(height: 8),
-                              FilledButton(
-                                onPressed: _userBlockBusy
-                                    ? null
-                                    : () async {
-                                        final navigator = Navigator.of(context);
-                                        await _toggleBlockUser(detail.user);
-                                        if (!mounted) return;
-                                        navigator.pop();
-                                      },
-                                child: Text(
-                                  _userBlockBusy
-                                      ? 'Сохраняем…'
-                                      : detail.user.isBlocked
-                                          ? 'Разблокировать'
-                                          : 'Заблокировать',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                  'Созданные события (${detail.createdEvents.length})',
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium),
-                              const SizedBox(height: 6),
-                              ...detail.createdEvents.map(
-                                (event) => ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text('${event.title} (#${event.id})'),
-                                  subtitle: Text(
-                                      '${formatDateTime(event.startsAt)} • ${event.participantsCount} участников'),
-                                  onTap: () {
-                                    Navigator.of(context).pop();
-                                    context
-                                        .push(AppRoutes.adminEvent(event.id));
-                                  },
-                                ),
-                              ),
-                            ],
+                    ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text('Пользователь не найден'),
+                    )
+                    : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          detail.user.displayName,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'TG: ${detail.user.telegramId} • @${detail.user.username}',
+                        ),
+                        const SizedBox(height: 6),
+                        Text('Баланс: ${detail.user.balanceTokens} GT'),
+                        Text(
+                          'Последняя активность: ${formatDateTime(detail.user.lastSeenAt)}',
+                        ),
+                        const SizedBox(height: 10),
+                        if (!detail.user.isBlocked)
+                          TextField(
+                            controller: _blockReasonCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Причина блокировки (необязательно)',
+                            ),
                           ),
+                        const SizedBox(height: 8),
+                        FilledButton(
+                          onPressed:
+                              _userBlockBusy
+                                  ? null
+                                  : () async {
+                                    final navigator = Navigator.of(context);
+                                    await _toggleBlockUser(detail.user);
+                                    if (!mounted) return;
+                                    navigator.pop();
+                                  },
+                          child: Text(
+                            _userBlockBusy
+                                ? 'Сохраняем…'
+                                : detail.user.isBlocked
+                                ? 'Разблокировать'
+                                : 'Заблокировать',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Созданные события (${detail.createdEvents.length})',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        ...detail.createdEvents.map(
+                          (event) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('${event.title} (#${event.id})'),
+                            subtitle: Text(
+                              '${formatDateTime(event.startsAt)} • ${event.participantsCount} участников',
+                            ),
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              context.push(AppRoutes.adminEvent(event.id));
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
           ),
         );
       },
@@ -1629,7 +1800,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _userBlockBusy = true;
       _userDetailError = null;
     });
@@ -1640,7 +1811,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             .read(adminRepositoryProvider)
             .unblockUser(token: token, id: user.id);
       } else {
-        await ref.read(adminRepositoryProvider).blockUser(
+        await ref
+            .read(adminRepositoryProvider)
+            .blockUser(
               token: token,
               id: user.id,
               reason: _blockReasonCtrl.text.trim(),
@@ -1651,14 +1824,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       final detail = await ref
           .read(adminRepositoryProvider)
           .getUser(token: token, id: user.id);
-      setState(() {
+      _setStateIfMounted(() {
         _userDetail = detail;
       });
     } catch (error) {
       _handleAdminError(error, setter: (value) => _userDetailError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _userBlockBusy = false;
         });
       }
@@ -1669,15 +1842,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _broadcastsLoading = true;
       _broadcastsError = null;
     });
 
     try {
-      final response =
-          await ref.read(adminRepositoryProvider).listBroadcasts(token: token);
-      setState(() {
+      final response = await ref
+          .read(adminRepositoryProvider)
+          .listBroadcasts(token: token);
+      _setStateIfMounted(() {
         _broadcasts = response.items;
         _broadcastsTotal = response.total;
       });
@@ -1685,7 +1859,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _broadcastsError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _broadcastsLoading = false;
         });
       }
@@ -1698,36 +1872,38 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
     final message = _broadcastMessageCtrl.text.trim();
     if (message.isEmpty) {
-      setState(() => _broadcastsError = 'Сообщение обязательно');
+      _setStateIfMounted(() => _broadcastsError = 'Сообщение обязательно');
       return;
     }
 
-    setState(() {
+    _setStateIfMounted(() {
       _broadcastCreateBusy = true;
       _broadcastsError = null;
     });
 
     try {
-      final cleanedButtons = _broadcastButtons
-          .map(
-            (item) => BroadcastButton(
-              text: item.textCtrl.text.trim(),
-              url: item.urlCtrl.text.trim(),
-            ),
-          )
-          .where((item) => item.text.isNotEmpty && item.url.isNotEmpty)
-          .toList();
+      final cleanedButtons =
+          _broadcastButtons
+              .map(
+                (item) => BroadcastButton(
+                  text: item.textCtrl.text.trim(),
+                  url: item.urlCtrl.text.trim(),
+                ),
+              )
+              .where((item) => item.text.isNotEmpty && item.url.isNotEmpty)
+              .toList();
 
       List<int>? userIds;
       Map<String, dynamic>? filters;
 
       if (_broadcastAudience == 'selected') {
-        userIds = _broadcastUserIdsCtrl.text
-            .split(',')
-            .map((value) => int.tryParse(value.trim()))
-            .whereType<int>()
-            .where((value) => value > 0)
-            .toList();
+        userIds =
+            _broadcastUserIdsCtrl.text
+                .split(',')
+                .map((value) => int.tryParse(value.trim()))
+                .whereType<int>()
+                .where((value) => value > 0)
+                .toList();
         if (userIds.isEmpty) {
           throw AppException('Укажите хотя бы один корректный ID пользователя');
         }
@@ -1744,13 +1920,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           final parsed = DateTime.tryParse(lastSeenAfter);
           if (parsed == null) {
             throw AppException(
-                'lastSeenAfter должен быть корректной ISO-датой');
+              'lastSeenAfter должен быть корректной ISO-датой',
+            );
           }
           filters['lastSeenAfter'] = parsed.toUtc().toIso8601String();
         }
       }
 
-      await ref.read(adminRepositoryProvider).createBroadcast(
+      await ref
+          .read(adminRepositoryProvider)
+          .createBroadcast(
             token: token,
             audience: _broadcastAudience,
             message: message,
@@ -1763,7 +1942,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _broadcastUserIdsCtrl.clear();
       _broadcastMinBalanceCtrl.clear();
       _broadcastLastSeenAfterCtrl.clear();
-      setState(() {
+      _setStateIfMounted(() {
         for (final item in _broadcastButtons) {
           item.dispose();
         }
@@ -1777,7 +1956,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _broadcastsError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _broadcastCreateBusy = false;
         });
       }
@@ -1788,7 +1967,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _broadcastStartBusyId = id;
       _broadcastsError = null;
     });
@@ -1802,7 +1981,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _broadcastsError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _broadcastStartBusyId = null;
         });
       }
@@ -1813,7 +1992,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserSourcesLoading = true;
       _parserError = null;
     });
@@ -1822,7 +2001,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       final response = await ref
           .read(adminRepositoryProvider)
           .listParserSources(token: token);
-      setState(() {
+      _setStateIfMounted(() {
         _parserSources = response.items;
         _parserSourcesTotal = response.total;
       });
@@ -1830,7 +2009,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserSourcesLoading = false;
         });
       }
@@ -1843,17 +2022,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
     final input = _parserSourceInputCtrl.text.trim();
     if (input.isEmpty) {
-      setState(() => _parserError = 'Поле источника обязательно');
+      _setStateIfMounted(() => _parserError = 'Поле источника обязательно');
       return;
     }
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserCreateSourceBusy = true;
       _parserError = null;
     });
 
     try {
-      await ref.read(adminRepositoryProvider).createParserSource(
+      await ref
+          .read(adminRepositoryProvider)
+          .createParserSource(
             token: token,
             sourceType: _parserSourceType,
             input: input,
@@ -1868,7 +2049,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserCreateSourceBusy = false;
         });
       }
@@ -1879,13 +2060,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserSourceBusyId = source.id;
       _parserError = null;
     });
 
     try {
-      await ref.read(adminRepositoryProvider).updateParserSource(
+      await ref
+          .read(adminRepositoryProvider)
+          .updateParserSource(
             token: token,
             id: source.id,
             isActive: !source.isActive,
@@ -1895,7 +2078,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserSourceBusyId = null;
         });
       }
@@ -1906,7 +2089,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserSourceBusyId = sourceId;
       _parserError = null;
     });
@@ -1916,7 +2099,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           .read(adminRepositoryProvider)
           .parseSource(token: token, id: sourceId);
       if (result.error.trim().isNotEmpty) {
-        setState(() => _parserError = result.error);
+        _setStateIfMounted(() => _parserError = result.error);
       }
       await _loadParserSources();
       await _loadParsedEvents();
@@ -1924,7 +2107,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserSourceBusyId = null;
         });
       }
@@ -1937,24 +2120,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
     final input = _parserQuickInputCtrl.text.trim();
     if (input.isEmpty) {
-      setState(
-          () => _parserError = 'Введите URL или канал для быстрого парсинга');
+      _setStateIfMounted(
+        () => _parserError = 'Введите URL или канал для быстрого парсинга',
+      );
       return;
     }
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserQuickBusy = true;
       _parserError = null;
     });
 
     try {
-      final result = await ref.read(adminRepositoryProvider).parseInput(
-            token: token,
-            sourceType: _parserQuickType,
-            input: input,
-          );
+      final result = await ref
+          .read(adminRepositoryProvider)
+          .parseInput(token: token, sourceType: _parserQuickType, input: input);
       if (result.error.trim().isNotEmpty) {
-        setState(() => _parserError = result.error);
+        _setStateIfMounted(() => _parserError = result.error);
       } else {
         _parserQuickInputCtrl.clear();
       }
@@ -1963,7 +2145,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserQuickBusy = false;
         });
       }
@@ -1974,30 +2156,31 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _parsedLoading = true;
       _parserError = null;
     });
 
     try {
       final status = _parsedStatusFilter == 'all' ? null : _parsedStatusFilter;
-      final response = await ref.read(adminRepositoryProvider).listParsedEvents(
-            token: token,
-            status: status,
-          );
-      setState(() {
+      final response = await ref
+          .read(adminRepositoryProvider)
+          .listParsedEvents(token: token, status: status);
+      _setStateIfMounted(() {
         _parsedEvents = response.items;
         _parsedTotal = response.total;
         for (final item in response.items) {
           _parserDrafts.putIfAbsent(
-              item.id, () => _ParserDraft.fromParsed(item));
+            item.id,
+            () => _ParserDraft.fromParsed(item),
+          );
         }
       });
     } catch (error) {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parsedLoading = false;
         });
       }
@@ -2009,18 +2192,20 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     if (token == null || token.isEmpty) return;
 
     final draft = _parserDrafts[item.id]!;
-    final query = draft.addressCtrl.text.trim().isNotEmpty
-        ? draft.addressCtrl.text.trim()
-        : (draft.titleCtrl.text.trim().isNotEmpty
-            ? draft.titleCtrl.text.trim()
-            : item.location.trim());
+    final query =
+        draft.addressCtrl.text.trim().isNotEmpty
+            ? draft.addressCtrl.text.trim()
+            : (draft.titleCtrl.text.trim().isNotEmpty
+                ? draft.titleCtrl.text.trim()
+                : item.location.trim());
     if (query.isEmpty) {
-      setState(
-          () => _parserError = 'Для геокодирования нужен адрес или название');
+      _setStateIfMounted(
+        () => _parserError = 'Для геокодирования нужен адрес или название',
+      );
       return;
     }
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserGeocodeBusyId = item.id;
       _parserError = null;
     });
@@ -2030,11 +2215,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           .read(adminRepositoryProvider)
           .geocode(token: token, query: query, limit: 1);
       if (response.items.isEmpty) {
-        setState(() => _parserError = 'Не найдены результаты геокодирования');
+        _setStateIfMounted(
+          () => _parserError = 'Не найдены результаты геокодирования',
+        );
         return;
       }
       final first = response.items.first;
-      setState(() {
+      _setStateIfMounted(() {
         draft.latCtrl.text = first.lat.toString();
         draft.lngCtrl.text = first.lng.toString();
         if (draft.addressCtrl.text.trim().isEmpty) {
@@ -2045,7 +2232,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserGeocodeBusyId = null;
         });
       }
@@ -2060,7 +2247,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final lat = double.tryParse(draft.latCtrl.text.trim());
     final lng = double.tryParse(draft.lngCtrl.text.trim());
     if (lat == null || lng == null) {
-      setState(() => _parserError = 'Для импорта требуются Lat/Lng');
+      _setStateIfMounted(() => _parserError = 'Для импорта требуются Lat/Lng');
       return;
     }
 
@@ -2068,8 +2255,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     if (draft.startsAtCtrl.text.trim().isNotEmpty) {
       final parsed = DateTime.tryParse(draft.startsAtCtrl.text.trim());
       if (parsed == null) {
-        setState(() =>
-            _parserError = 'startsAt должен быть корректным ISO-значением');
+        _setStateIfMounted(
+          () => _parserError = 'startsAt должен быть корректным ISO-значением',
+        );
         return;
       }
       startsAt = parsed.toUtc().toIso8601String();
@@ -2078,13 +2266,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final links = _dedupeTrimmed(draft.linksCtrl.text.split(RegExp(r'\r?\n')));
     final media = _dedupeTrimmed(draft.mediaCtrl.text.split(RegExp(r'\r?\n')));
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserImportBusyId = item.id;
       _parserError = null;
     });
 
     try {
-      final eventId = await ref.read(adminRepositoryProvider).importParsedEvent(
+      final eventId = await ref
+          .read(adminRepositoryProvider)
+          .importParsedEvent(
             token: token,
             id: item.id,
             title: draft.titleCtrl.text.trim(),
@@ -2107,7 +2297,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserImportBusyId = null;
         });
       }
@@ -2118,7 +2308,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserRejectBusyId = id;
       _parserError = null;
     });
@@ -2132,7 +2322,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserRejectBusyId = null;
         });
       }
@@ -2143,7 +2333,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _parserDeleteBusyId = id;
       _parserError = null;
     });
@@ -2157,7 +2347,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _parserError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _parserDeleteBusyId = null;
         });
       }
@@ -2165,7 +2355,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 
   Future<void> _loadLanding() async {
-    setState(() {
+    _setStateIfMounted(() {
       _landingLoading = true;
       _landingError = null;
     });
@@ -2179,7 +2369,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       final eventsResponse = responses[0] as LandingEventsResponse;
       final content = responses[1] as LandingContent;
       if (!mounted) return;
-      setState(() {
+      _setStateIfMounted(() {
         _landingEvents = eventsResponse.items;
         _landingTotal = eventsResponse.total;
       });
@@ -2188,7 +2378,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _landingLoading = false;
         });
       }
@@ -2245,13 +2435,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _landingContentBusy = true;
       _landingError = null;
     });
 
     try {
-      await ref.read(adminRepositoryProvider).updateLandingContent(
+      await ref
+          .read(adminRepositoryProvider)
+          .updateLandingContent(
             token: token,
             content: _landingContentFromInputs(),
           );
@@ -2261,7 +2453,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _landingContentBusy = false;
         });
       }
@@ -2271,7 +2463,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Future<void> _applyLandingPublicationFromInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
-      setState(() => _landingError = 'Нужен корректный ID события');
+      _setStateIfMounted(() => _landingError = 'Нужен корректный ID события');
       return;
     }
     await _setLandingPublished(eventId: id, published: _landingPublishedValue);
@@ -2280,40 +2472,40 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Future<void> _deleteEventByInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
-      setState(() => _landingError = 'Нужен корректный ID события');
+      _setStateIfMounted(() => _landingError = 'Нужен корректный ID события');
       return;
     }
 
     final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить событие?'),
-        content: Text('Удалить событие #$id безвозвратно?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Удалить событие?'),
+            content: Text('Удалить событие #$id безвозвратно?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Отмена'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Удалить'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
     );
     if (shouldDelete != true) return;
 
     final token = _token;
     if (token == null || token.isEmpty) return;
-    setState(() {
+    _setStateIfMounted(() {
       _landingModerationBusy = true;
       _landingError = null;
     });
     try {
-      await ref.read(adminRepositoryProvider).deleteEvent(
-            token: token,
-            eventId: id,
-          );
+      await ref
+          .read(adminRepositoryProvider)
+          .deleteEvent(token: token, eventId: id);
       if (!mounted) return;
       _landingEventIdCtrl.clear();
       _landingImageUrlCtrl.clear();
@@ -2323,7 +2515,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
-        setState(() => _landingModerationBusy = false);
+        _setStateIfMounted(() => _landingModerationBusy = false);
       }
     }
   }
@@ -2331,40 +2523,42 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Future<void> _deleteCommentByInput() async {
     final commentID = int.tryParse(_landingCommentIdCtrl.text.trim());
     if (commentID == null || commentID <= 0) {
-      setState(() => _landingError = 'Нужен корректный ID комментария');
+      _setStateIfMounted(
+        () => _landingError = 'Нужен корректный ID комментария',
+      );
       return;
     }
 
     final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить комментарий?'),
-        content: Text('Удалить комментарий #$commentID безвозвратно?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Удалить комментарий?'),
+            content: Text('Удалить комментарий #$commentID безвозвратно?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Отмена'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Удалить'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
     );
     if (shouldDelete != true) return;
 
     final token = _token;
     if (token == null || token.isEmpty) return;
-    setState(() {
+    _setStateIfMounted(() {
       _landingModerationBusy = true;
       _landingError = null;
     });
     try {
-      await ref.read(adminRepositoryProvider).deleteComment(
-            token: token,
-            commentId: commentID,
-          );
+      await ref
+          .read(adminRepositoryProvider)
+          .deleteComment(token: token, commentId: commentID);
       if (!mounted) return;
       _landingCommentIdCtrl.clear();
       _showSnackBar('Комментарий #$commentID удален');
@@ -2372,7 +2566,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
-        setState(() => _landingModerationBusy = false);
+        _setStateIfMounted(() => _landingModerationBusy = false);
       }
     }
   }
@@ -2380,18 +2574,21 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   Future<void> _saveLandingEventImageFromInput() async {
     final id = int.tryParse(_landingEventIdCtrl.text.trim());
     if (id == null || id <= 0) {
-      setState(() => _landingError = 'Нужен корректный ID события');
+      _setStateIfMounted(() => _landingError = 'Нужен корректный ID события');
       return;
     }
 
     final imageUrl = _landingImageUrlCtrl.text.trim();
     if (imageUrl.isEmpty) {
-      setState(() => _landingError = 'URL изображения обязателен');
+      _setStateIfMounted(() => _landingError = 'URL изображения обязателен');
       return;
     }
     if (!_isHttpUrl(imageUrl)) {
-      setState(() => _landingError =
-          'URL изображения должен быть корректной http(s)-ссылкой');
+      _setStateIfMounted(
+        () =>
+            _landingError =
+                'URL изображения должен быть корректной http(s)-ссылкой',
+      );
       return;
     }
 
@@ -2405,7 +2602,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _landingImageBusy = true;
       _landingActionEventId = eventId;
       _landingError = null;
@@ -2432,7 +2629,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _landingImageBusy = false;
           _landingActionEventId = null;
         });
@@ -2483,14 +2680,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     final token = _token;
     if (token == null || token.isEmpty) return;
 
-    setState(() {
+    _setStateIfMounted(() {
       _landingBusy = true;
       _landingActionEventId = eventId;
       _landingError = null;
     });
 
     try {
-      await ref.read(adminRepositoryProvider).setLandingPublished(
+      await ref
+          .read(adminRepositoryProvider)
+          .setLandingPublished(
             token: token,
             eventId: eventId,
             published: published,
@@ -2504,7 +2703,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _handleAdminError(error, setter: (value) => _landingError = value);
     } finally {
       if (mounted) {
-        setState(() {
+        _setStateIfMounted(() {
           _landingBusy = false;
           _landingActionEventId = null;
         });
@@ -2514,14 +2713,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
   void _showSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleAdminError(Object error, {void Function(String value)? setter}) {
     if (!mounted) return;
     if (error is AppException && (error.isUnauthorized || error.isForbidden)) {
-      setState(() {
+      _setStateIfMounted(() {
         _accessDenied = true;
       });
       return;
@@ -2529,7 +2729,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 
     final message = error.toString();
     if (setter != null) {
-      setState(() {
+      _setStateIfMounted(() {
         setter(message);
       });
     }
@@ -2541,8 +2741,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
 class _BroadcastButtonDraft {
   /// _BroadcastButtonDraft handles broadcast button draft.
   _BroadcastButtonDraft({required String text, required String url})
-      : textCtrl = TextEditingController(text: text),
-        urlCtrl = TextEditingController(text: url);
+    : textCtrl = TextEditingController(text: text),
+      urlCtrl = TextEditingController(text: url);
 
   final TextEditingController textCtrl;
   final TextEditingController urlCtrl;
@@ -2562,13 +2762,15 @@ class _ParserDraft {
   factory _ParserDraft.fromParsed(AdminParsedEvent item) {
     final imageLinks = _dedupeTrimmed(item.links.where(_isImageLink).toList());
     final eventLinks = _dedupeTrimmed(
-        item.links.where((link) => !_isImageLink(link)).toList());
+      item.links.where((link) => !_isImageLink(link)).toList(),
+    );
 
     return _ParserDraft(
       titleCtrl: TextEditingController(text: item.name),
       descriptionCtrl: TextEditingController(text: item.description),
       startsAtCtrl: TextEditingController(
-          text: item.dateTime?.toUtc().toIso8601String() ?? ''),
+        text: item.dateTime?.toUtc().toIso8601String() ?? '',
+      ),
       latCtrl: TextEditingController(text: '52.37'),
       lngCtrl: TextEditingController(text: '4.90'),
       addressCtrl: TextEditingController(text: item.location),
