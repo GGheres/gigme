@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/event_filters.dart';
-import '../../../core/error/app_exception.dart';
 import '../../../core/models/event_card.dart';
 import '../../../core/models/event_comment.dart';
 import '../../../core/models/event_detail.dart';
@@ -436,44 +435,12 @@ class EventsController extends ChangeNotifier {
       throw StateError('Missing auth token');
     }
 
-    final presign = await repository.presignMedia(
+    return repository.uploadMedia(
       token: token,
       fileName: fileName,
       contentType: contentType,
-      sizeBytes: bytes.lengthInBytes,
+      bytes: bytes,
     );
-
-    try {
-      await repository.uploadPresigned(
-        uploadUrl: presign.uploadUrl,
-        bytes: bytes,
-        contentType: contentType,
-      );
-    } on AppException catch (error) {
-      if (!_shouldFallbackToApiUpload(error)) {
-        rethrow;
-      }
-      return repository.uploadMedia(
-        token: token,
-        fileName: fileName,
-        contentType: contentType,
-        bytes: bytes,
-      );
-    }
-
-    return presign.fileUrl;
-  }
-
-  /// _shouldFallbackToApiUpload reports whether should fallback to api upload.
-
-  bool _shouldFallbackToApiUpload(AppException error) {
-    if (error.statusCode != null) return false;
-    return const <String>{
-      'connectionError',
-      'connectionTimeout',
-      'sendTimeout',
-      'receiveTimeout',
-    }.contains(error.code);
   }
 
   /// createEvent creates event.

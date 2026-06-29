@@ -41,7 +41,6 @@ class ApiPaths {
   static String adminCommentById(int id) => '/admin/comments/$id';
   static const adminLandingContent = '/admin/landing/content';
 
-  static const mediaPresign = '/media/presign';
   static const mediaUpload = '/media/upload';
 
   static const referralCode = '/referrals/my-code';

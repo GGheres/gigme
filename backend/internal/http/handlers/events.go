@@ -270,6 +270,12 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "media limit exceeded")
 		return
 	}
+	media, err := h.validateUploadedMediaURLs(req.Media)
+	if err != nil {
+		logger.Warn("action", "action", "create_event", "status", "invalid_media_url")
+		writeError(w, http.StatusBadRequest, "media must be uploaded through the media API")
+		return
+	}
 	filters, err := normalizeEventFilters(req.Filters, maxEventFilters)
 	if err != nil {
 		status := "invalid_filters"
@@ -383,7 +389,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		Filters:            filters,
 		IsPrivate:          req.IsPrivate,
 		AccessKey:          accessKey,
-	}, req.Media)
+	}, media)
 	if err != nil {
 		logger.Error("action", "action", "create_event", "status", "db_error", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create event")
@@ -405,8 +411,8 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	if addressLabel != "" {
 		payload["addressLabel"] = addressLabel
 	}
-	if len(req.Media) > 0 {
-		payload["photoUrl"] = req.Media[0]
+	if len(media) > 0 {
+		payload["photoUrl"] = media[0]
 	}
 	if !req.IsPrivate {
 		if count, err := h.repo.CreateNotificationJobsForAllUsers(ctx, eventID, "event_created", time.Now(), payload); err != nil {
@@ -439,7 +445,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		"lat", req.Lat,
 		"lng", req.Lng,
 		"capacity", req.Capacity,
-		"media_count", len(req.Media),
+		"media_count", len(media),
 		"filters", filters,
 	)
 	resp := map[string]interface{}{"eventId": eventID}
@@ -447,6 +453,30 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		resp["accessKey"] = accessKey
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// validateUploadedMediaURLs accepts only URLs that point to the configured
+// object store. This prevents ordinary event creation from persisting arbitrary
+// server-side fetch targets while preserving media uploaded through the API.
+func (h *Handler) validateUploadedMediaURLs(values []string) ([]string, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	if h.s3 == nil {
+		return nil, errors.New("media storage is not configured")
+	}
+	media := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := strings.TrimSpace(value)
+		if normalized == "" {
+			return nil, errors.New("media url is empty")
+		}
+		if _, ok := h.s3.KeyFromURL(normalized); !ok {
+			return nil, errors.New("media url is not owned by the configured store")
+		}
+		media = append(media, normalized)
+	}
+	return media, nil
 }
 
 // NearbyEvents handles nearby events.

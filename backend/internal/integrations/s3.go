@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,9 +24,9 @@ type S3Client struct {
 	endpoint       string
 	publicEndpoint string
 	client         *s3.Client
-	presign        *s3.PresignClient
-	publicPresign  *s3.PresignClient
 }
+
+var unsafeObjectKeyCharacters = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 // NewS3 creates s3.
 func NewS3(ctx context.Context, cfg config.S3Config) (*S3Client, error) {
@@ -54,42 +55,13 @@ func NewS3(ctx context.Context, cfg config.S3Config) (*S3Client, error) {
 	}
 
 	client := s3.New(options)
-	presign := s3.NewPresignClient(client)
-	publicPresign := presign
-	if publicEndpoint != "" && publicEndpoint != endpoint {
-		publicOptions := options
-		publicOptions.BaseEndpoint = aws.String(publicEndpoint)
-		publicClient := s3.New(publicOptions)
-		publicPresign = s3.NewPresignClient(publicClient)
-	}
 
 	return &S3Client{
 		bucket:         cfg.Bucket,
 		endpoint:       endpoint,
 		publicEndpoint: publicEndpoint,
 		client:         client,
-		presign:        presign,
-		publicPresign:  publicPresign,
 	}, nil
-}
-
-// PresignPutObject handles presign put object.
-func (s *S3Client) PresignPutObject(ctx context.Context, fileName, contentType string) (string, string, error) {
-	key := buildObjectKey(fileName)
-	input := &s3.PutObjectInput{
-		Bucket:      aws.String(s.bucket),
-		Key:         aws.String(key),
-		ContentType: aws.String(contentType),
-	}
-
-	resp, err := s.publicPresign.PresignPutObject(ctx, input, func(opts *s3.PresignOptions) {
-		opts.Expires = 15 * time.Minute
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	return resp.URL, s.publicURLForKey(key), nil
 }
 
 // GetObject returns object.
@@ -156,7 +128,11 @@ func (s *S3Client) KeyFromURL(rawURL string) (string, bool) {
 		return "", false
 	}
 	u, err := url.Parse(rawURL)
-	if err != nil {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return "", false
+	}
+	host := strings.ToLower(strings.TrimSpace(u.Hostname()))
+	if host == "" || !s.isConfiguredObjectHost(host) {
 		return "", false
 	}
 	pathPart := u.Path
@@ -164,13 +140,13 @@ func (s *S3Client) KeyFromURL(rawURL string) (string, bool) {
 		return "", false
 	}
 	needle := "/" + s.bucket + "/"
-	if idx := strings.Index(pathPart, needle); idx >= 0 {
-		key := strings.TrimPrefix(pathPart[idx+len(needle):], "/")
+	if strings.HasPrefix(pathPart, needle) {
+		key := strings.TrimPrefix(pathPart[len(needle):], "/")
 		if key != "" {
 			return key, true
 		}
 	}
-	if host := u.Hostname(); strings.HasPrefix(host, s.bucket+".") {
+	if strings.HasPrefix(host, strings.ToLower(s.bucket)+".") {
 		key := strings.TrimPrefix(pathPart, "/")
 		if key != "" {
 			return key, true
@@ -179,9 +155,27 @@ func (s *S3Client) KeyFromURL(rawURL string) (string, bool) {
 	return "", false
 }
 
+// isConfiguredObjectHost reports whether a media URL belongs to the configured
+// object store. Requiring an exact configured host prevents attacker-controlled
+// URLs with a matching bucket path from being treated as trusted S3 objects.
+func (s *S3Client) isConfiguredObjectHost(host string) bool {
+	for _, rawEndpoint := range []string{s.endpoint, s.publicEndpoint} {
+		endpoint, err := url.Parse(rawEndpoint)
+		if err == nil && strings.EqualFold(endpoint.Hostname(), host) {
+			return true
+		}
+	}
+	return strings.EqualFold(host, s.bucket+".s3.amazonaws.com")
+}
+
 // buildObjectKey builds object key.
 func buildObjectKey(fileName string) string {
-	safeName := strings.ReplaceAll(fileName, " ", "-")
+	safeName := path.Base(strings.TrimSpace(fileName))
+	safeName = unsafeObjectKeyCharacters.ReplaceAllString(safeName, "-")
+	safeName = strings.Trim(safeName, ".-")
+	if safeName == "" {
+		safeName = "upload"
+	}
 	now := time.Now().UTC()
 	return fmt.Sprintf("events/%d/%02d/%02d/%d-%s", now.Year(), now.Month(), now.Day(), now.UnixNano(), safeName)
 }

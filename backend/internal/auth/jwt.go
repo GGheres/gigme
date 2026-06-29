@@ -7,7 +7,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const accessTokenTTL = 15 * time.Minute
+const accessTokenTTL = 12 * time.Hour
+const managerAccessTokenTTL = 12 * time.Hour
 
 // AccessClaims represents access claims.
 type AccessClaims struct {
@@ -33,6 +34,47 @@ func SignAccessTokenWithAdminPermissions(
 	isAdmin bool,
 	adminPermissions []string,
 ) (string, error) {
+	return signAccessTokenWithTTL(
+		secret,
+		userID,
+		telegramID,
+		isNew,
+		isAdmin,
+		adminPermissions,
+		accessTokenTTL,
+	)
+}
+
+// SignManagerAccessTokenWithAdminPermissions signs a scoped manager session that remains valid for one work shift.
+// Manager APK users authenticate with a password and cannot silently renew through Telegram, so this dedicated TTL
+// prevents an active orders/transfers/scanner session from expiring every fifteen minutes.
+func SignManagerAccessTokenWithAdminPermissions(
+	secret string,
+	userID int64,
+	telegramID int64,
+	adminPermissions []string,
+) (string, error) {
+	return signAccessTokenWithTTL(
+		secret,
+		userID,
+		telegramID,
+		false,
+		false,
+		adminPermissions,
+		managerAccessTokenTTL,
+	)
+}
+
+// signAccessTokenWithTTL creates the common JWT payload while keeping each authentication flow's lifetime explicit.
+func signAccessTokenWithTTL(
+	secret string,
+	userID int64,
+	telegramID int64,
+	isNew bool,
+	isAdmin bool,
+	adminPermissions []string,
+	ttl time.Duration,
+) (string, error) {
 	claims := AccessClaims{
 		UserID:           userID,
 		TelegramID:       telegramID,
@@ -40,7 +82,7 @@ func SignAccessTokenWithAdminPermissions(
 		IsAdmin:          isAdmin,
 		AdminPermissions: append([]string(nil), adminPermissions...),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenTTL)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   "user",
 		},

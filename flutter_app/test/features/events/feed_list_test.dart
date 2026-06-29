@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:latlong2/latlong.dart';
 
 import 'package:gigme_flutter/core/models/event_card.dart';
 import 'package:gigme_flutter/features/events/presentation/widgets/feed_list.dart';
+import 'package:gigme_flutter/features/events/presentation/widgets/event_card_tile.dart';
 
 /// main is the application entry point.
 
@@ -19,7 +19,6 @@ void main() {
         home: Scaffold(
           body: FeedList(
             items: items,
-            referencePoint: const LatLng(52.37, 4.90),
             apiUrl: 'https://example.test/api',
             eventAccessKeys: const <int, String>{},
             likeLoadingIds: const <int>{},
@@ -31,8 +30,21 @@ void main() {
       ),
     );
 
-    expect(find.text('Event A'), findsOneWidget);
-    expect(find.text('Event B'), findsOneWidget);
+    expect(find.byType(EventCardTile), findsOneWidget);
+    expect(
+      tester.widget<EventCardTile>(find.byType(EventCardTile)).event.id,
+      1,
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EventCardTile), findsNWidgets(2));
+    final visibleIds = tester
+        .widgetList<EventCardTile>(find.byType(EventCardTile))
+        .map((tile) => tile.event.id)
+        .toSet();
+    expect(visibleIds, equals(<int>{1, 2}));
   });
 }
 
