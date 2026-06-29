@@ -139,7 +139,28 @@ func incomingTelegramMessageText(message *telegramMessage) string {
 	if text := strings.TrimSpace(message.Text); text != "" {
 		return text
 	}
-	return strings.TrimSpace(message.Caption)
+	if caption := strings.TrimSpace(message.Caption); caption != "" {
+		return caption
+	}
+	return telegramDocumentText(message.Document)
+}
+
+// telegramDocumentText builds a readable fallback for Telegram file messages.
+func telegramDocumentText(document *telegramDocument) string {
+	if document == nil {
+		return ""
+	}
+	parts := []string{"Файл"}
+	if fileName := strings.TrimSpace(document.FileName); fileName != "" {
+		parts = append(parts, fileName)
+	}
+	if mimeType := strings.TrimSpace(document.MimeType); mimeType != "" {
+		parts = append(parts, fmt.Sprintf("(%s)", mimeType))
+	}
+	if document.FileSize > 0 {
+		parts = append(parts, fmt.Sprintf("%d байт", document.FileSize))
+	}
+	return strings.Join(parts, " ")
 }
 
 // formatTelegramSender formats telegram sender.

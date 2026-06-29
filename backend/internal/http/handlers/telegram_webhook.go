@@ -27,11 +27,20 @@ type telegramUpdate struct {
 
 // telegramMessage represents telegram message.
 type telegramMessage struct {
-	MessageID int          `json:"message_id"`
-	Text      string       `json:"text"`
-	Caption   string       `json:"caption"`
-	Chat      telegramChat `json:"chat"`
-	From      telegramFrom `json:"from"`
+	MessageID int               `json:"message_id"`
+	Text      string            `json:"text"`
+	Caption   string            `json:"caption"`
+	Document  *telegramDocument `json:"document"`
+	Chat      telegramChat      `json:"chat"`
+	From      telegramFrom      `json:"from"`
+}
+
+// telegramDocument represents a file attached to a Telegram message.
+type telegramDocument struct {
+	FileID   string `json:"file_id"`
+	FileName string `json:"file_name"`
+	MimeType string `json:"mime_type"`
+	FileSize int64  `json:"file_size"`
 }
 
 // telegramChat represents telegram chat.

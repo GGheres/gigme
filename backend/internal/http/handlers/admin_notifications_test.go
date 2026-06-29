@@ -73,9 +73,58 @@ func TestIncomingTelegramMessageTextPrefersText(t *testing.T) {
 	msg := &telegramMessage{
 		Text:    "  hello from user  ",
 		Caption: "caption text",
+		Document: &telegramDocument{
+			FileName: "receipt.pdf",
+			MimeType: "application/pdf",
+		},
 	}
 	if got := incomingTelegramMessageText(msg); got != "hello from user" {
 		t.Fatalf("incomingTelegramMessageText() = %q, want %q", got, "hello from user")
+	}
+}
+
+// TestIncomingTelegramMessageTextUsesDocumentFallback verifies document-only Telegram messages are visible.
+func TestIncomingTelegramMessageTextUsesDocumentFallback(t *testing.T) {
+	msg := &telegramMessage{
+		Document: &telegramDocument{
+			FileName: "receipt.pdf",
+			MimeType: "application/pdf",
+			FileSize: 2048,
+		},
+	}
+
+	got := incomingTelegramMessageText(msg)
+	parts := []string{"Файл", "receipt.pdf", "application/pdf", "2048 байт"}
+	for _, part := range parts {
+		if !strings.Contains(got, part) {
+			t.Fatalf("expected %q in %q", part, got)
+		}
+	}
+}
+
+// TestBuildAdminBotMessageNotificationTextForPDF verifies PDF checks without captions notify admins.
+func TestBuildAdminBotMessageNotificationTextForPDF(t *testing.T) {
+	msg := telegramMessage{
+		MessageID: 88,
+		Document: &telegramDocument{
+			FileName: "check.pdf",
+			MimeType: "application/pdf",
+		},
+		Chat: telegramChat{ID: 123456},
+		From: telegramFrom{ID: 123456},
+	}
+
+	got := buildAdminBotMessageNotificationText(msg, "my_bot")
+	parts := []string{
+		"Новое сообщение в боте",
+		"Chat ID: 123456",
+		"Message ID: 88",
+		"Файл check.pdf (application/pdf)",
+	}
+	for _, part := range parts {
+		if !strings.Contains(got, part) {
+			t.Fatalf("expected %q in %q", part, got)
+		}
 	}
 }
 
