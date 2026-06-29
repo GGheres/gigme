@@ -157,6 +157,19 @@ func (t *TelegramClient) AnswerCallbackQuery(callbackQueryID string, text string
 	return t.post("answerCallbackQuery", payload)
 }
 
+// CopyMessage copies an existing Telegram message into another chat.
+func (t *TelegramClient) CopyMessage(chatID int64, fromChatID int64, messageID int64, markup *ReplyMarkup) error {
+	payload := map[string]interface{}{
+		"chat_id":      chatID,
+		"from_chat_id": fromChatID,
+		"message_id":   messageID,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	return t.post("copyMessage", payload)
+}
+
 // post handles internal post behavior.
 func (t *TelegramClient) post(method string, payload map[string]interface{}) error {
 	body, _ := json.Marshal(payload)

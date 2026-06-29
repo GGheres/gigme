@@ -27,15 +27,21 @@ type telegramUpdate struct {
 
 // telegramMessage represents telegram message.
 type telegramMessage struct {
-	MessageID int               `json:"message_id"`
-	Text      string            `json:"text"`
-	Caption   string            `json:"caption"`
-	Document  *telegramDocument `json:"document"`
-	Chat      telegramChat      `json:"chat"`
-	From      telegramFrom      `json:"from"`
+	MessageID int                 `json:"message_id"`
+	Text      string              `json:"text"`
+	Caption   string              `json:"caption"`
+	Chat      telegramChat        `json:"chat"`
+	From      telegramFrom        `json:"from"`
+	Photo     []telegramPhotoSize `json:"photo"`
+	Document  *telegramDocument   `json:"document"`
 }
 
-// telegramDocument represents a file attached to a Telegram message.
+// telegramPhotoSize represents Telegram photo size metadata.
+type telegramPhotoSize struct {
+	FileID string `json:"file_id"`
+}
+
+// telegramDocument represents Telegram document metadata.
 type telegramDocument struct {
 	FileID   string `json:"file_id"`
 	FileName string `json:"file_name"`
@@ -143,6 +149,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 
 	if !isAdmin {
 		h.storeIncomingBotMessage(r.Context(), logger, update.Message, trimmedText)
+		h.forwardIncomingBotMediaToAdmins(logger, update.Message)
 		h.notifyAdminsWithMarkup(
 			logger,
 			buildAdminBotMessageNotificationText(*update.Message, h.cfg.TelegramUser),
@@ -213,6 +220,46 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// forwardIncomingBotMediaToAdmins copies incoming user media messages to each admin chat.
+func (h *Handler) forwardIncomingBotMediaToAdmins(logger *slog.Logger, message *telegramMessage) {
+	if h == nil || h.telegram == nil || h.cfg == nil || message == nil {
+		return
+	}
+	if !telegramMessageHasCopyableMedia(message) {
+		return
+	}
+	adminIDs := adminTelegramIDs(h.cfg.AdminTGIDs)
+	if len(adminIDs) == 0 {
+		return
+	}
+	markup := buildAdminReplyMarkup(h.cfg.TelegramUser, message.Chat.ID)
+	for _, adminID := range adminIDs {
+		if err := h.telegram.CopyMessage(adminID, message.Chat.ID, int64(message.MessageID), markup); err != nil {
+			if logger != nil {
+				logger.Warn(
+					"action", "action", "telegram_webhook_copy_media_to_admin",
+					"status", "copy_failed",
+					"admin_telegram_id", adminID,
+					"chat_id", message.Chat.ID,
+					"message_id", message.MessageID,
+					"error", err,
+				)
+			}
+		}
+	}
+}
+
+// telegramMessageHasCopyableMedia reports whether message contains media worth copying to admins.
+func telegramMessageHasCopyableMedia(message *telegramMessage) bool {
+	if message == nil {
+		return false
+	}
+	if len(message.Photo) > 0 {
+		return true
+	}
+	return message.Document != nil && strings.TrimSpace(message.Document.FileID) != ""
 }
 
 // isAdminTelegramID reports whether admin telegram i d condition is met.

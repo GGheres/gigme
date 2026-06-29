@@ -73,58 +73,9 @@ func TestIncomingTelegramMessageTextPrefersText(t *testing.T) {
 	msg := &telegramMessage{
 		Text:    "  hello from user  ",
 		Caption: "caption text",
-		Document: &telegramDocument{
-			FileName: "receipt.pdf",
-			MimeType: "application/pdf",
-		},
 	}
 	if got := incomingTelegramMessageText(msg); got != "hello from user" {
 		t.Fatalf("incomingTelegramMessageText() = %q, want %q", got, "hello from user")
-	}
-}
-
-// TestIncomingTelegramMessageTextUsesDocumentFallback verifies document-only Telegram messages are visible.
-func TestIncomingTelegramMessageTextUsesDocumentFallback(t *testing.T) {
-	msg := &telegramMessage{
-		Document: &telegramDocument{
-			FileName: "receipt.pdf",
-			MimeType: "application/pdf",
-			FileSize: 2048,
-		},
-	}
-
-	got := incomingTelegramMessageText(msg)
-	parts := []string{"Файл", "receipt.pdf", "application/pdf", "2048 байт"}
-	for _, part := range parts {
-		if !strings.Contains(got, part) {
-			t.Fatalf("expected %q in %q", part, got)
-		}
-	}
-}
-
-// TestBuildAdminBotMessageNotificationTextForPDF verifies PDF checks without captions notify admins.
-func TestBuildAdminBotMessageNotificationTextForPDF(t *testing.T) {
-	msg := telegramMessage{
-		MessageID: 88,
-		Document: &telegramDocument{
-			FileName: "check.pdf",
-			MimeType: "application/pdf",
-		},
-		Chat: telegramChat{ID: 123456},
-		From: telegramFrom{ID: 123456},
-	}
-
-	got := buildAdminBotMessageNotificationText(msg, "my_bot")
-	parts := []string{
-		"Новое сообщение в боте",
-		"Chat ID: 123456",
-		"Message ID: 88",
-		"Файл check.pdf (application/pdf)",
-	}
-	for _, part := range parts {
-		if !strings.Contains(got, part) {
-			t.Fatalf("expected %q in %q", part, got)
-		}
 	}
 }
 
@@ -152,6 +103,65 @@ func TestBuildAdminBotMessageNotificationText(t *testing.T) {
 		"Message ID: 77",
 		"Текст:",
 		"Нужна помощь с заказом",
+	}
+	for _, part := range parts {
+		if !strings.Contains(got, part) {
+			t.Fatalf("expected %q in %q", part, got)
+		}
+	}
+}
+
+// TestBuildAdminBotMessageNotificationTextPhoto verifies photo messages are visible to admins.
+func TestBuildAdminBotMessageNotificationTextPhoto(t *testing.T) {
+	msg := telegramMessage{
+		MessageID: 88,
+		Caption:   "Чек оплаты",
+		Chat:      telegramChat{ID: 123456},
+		From: telegramFrom{
+			ID:        123456,
+			Username:  "alex_user",
+			FirstName: "Alex",
+		},
+		Photo: []telegramPhotoSize{{FileID: "photo-1"}},
+	}
+
+	got := buildAdminBotMessageNotificationText(msg, "my_bot")
+	parts := []string{
+		"Новое сообщение в боте",
+		"Вложение: photo",
+		"Текст:",
+		"Чек оплаты",
+	}
+	for _, part := range parts {
+		if !strings.Contains(got, part) {
+			t.Fatalf("expected %q in %q", part, got)
+		}
+	}
+}
+
+// TestBuildAdminBotMessageNotificationTextDocumentWithoutCaption verifies document messages remain visible without caption.
+func TestBuildAdminBotMessageNotificationTextDocumentWithoutCaption(t *testing.T) {
+	msg := telegramMessage{
+		MessageID: 89,
+		Chat:      telegramChat{ID: 123456},
+		From: telegramFrom{
+			ID:        123456,
+			Username:  "alex_user",
+			FirstName: "Alex",
+		},
+		Document: &telegramDocument{
+			FileID:   "doc-1",
+			FileName: "receipt.pdf",
+			MimeType: "application/pdf",
+		},
+	}
+
+	got := buildAdminBotMessageNotificationText(msg, "my_bot")
+	parts := []string{
+		"Новое сообщение в боте",
+		"Вложение: document receipt.pdf (application/pdf)",
+		"Текст:",
+		"[без подписи]",
 	}
 	for _, part := range parts {
 		if !strings.Contains(got, part) {
