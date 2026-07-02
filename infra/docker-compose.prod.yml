@@ -120,6 +120,17 @@ services:
       LOG_FORMAT: ${LOG_FORMAT}
       LOG_FILE: ${LOG_FILE}
 
+  telegram_poller:
+    build:
+      context: ../backend
+    depends_on:
+      api:
+        condition: service_started
+    command: ["/bin/telegram-poller"]
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_FORWARD_URL: http://api:8080/telegram/webhook
+
   frontend:
     profiles:
       - legacy

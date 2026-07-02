@@ -1,6 +1,7 @@
 node_modules/
 frontend/node_modules/
 frontend/dist/
+infra/.env.prod
 backend/bin/
 *.log
 .env

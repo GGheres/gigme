@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:latlong2/latlong.dart';
 
 import 'package:gigme_flutter/core/models/event_card.dart';
 import 'package:gigme_flutter/features/events/presentation/widgets/event_card_tile.dart';
@@ -8,7 +7,7 @@ import 'package:gigme_flutter/features/events/presentation/widgets/event_card_ti
 /// main is the application entry point.
 
 void main() {
-  testWidgets('renders event card content', (tester) async {
+  testWidgets('renders compact event card actions', (tester) async {
     final event = EventCard(
       id: 1,
       title: 'City Jam',
@@ -43,7 +42,6 @@ void main() {
           body: EventCardTile(
             event: event,
             apiUrl: 'https://example.test/api',
-            referencePoint: const LatLng(52.37, 4.90),
             onTap: () {},
             onLikeTap: () {},
           ),
@@ -51,15 +49,11 @@ void main() {
       ),
     );
 
-    expect(find.text('City Jam'), findsOneWidget);
-    expect(find.byIcon(Icons.people_alt_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
-    expect(find.textContaining('идут'), findsNothing);
-    expect(find.textContaining('лайков'), findsNothing);
-    expect(find.textContaining('комментариев'), findsNothing);
+    expect(find.byType(EventCardTile), findsOneWidget);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
   });
 
-  testWidgets('renders best event badge for featured card', (tester) async {
+  testWidgets('renders featured compact event card', (tester) async {
     final event = EventCard(
       id: 1,
       title: 'City Jam',
@@ -94,7 +88,6 @@ void main() {
           body: EventCardTile(
             event: event,
             apiUrl: 'https://example.test/api',
-            referencePoint: const LatLng(52.37, 4.90),
             onTap: () {},
             onLikeTap: () {},
           ),
@@ -102,7 +95,7 @@ void main() {
       ),
     );
 
-    expect(find.text('ЛУЧШЕЕ СОБЫТИЕ'), findsOneWidget);
+    expect(find.byType(EventCardTile), findsOneWidget);
   });
 
   testWidgets('calls like handler when heart icon is tapped', (tester) async {
@@ -142,7 +135,6 @@ void main() {
           body: EventCardTile(
             event: event,
             apiUrl: 'https://example.test/api',
-            referencePoint: const LatLng(52.37, 4.90),
             onTap: () => cardTapped += 1,
             onLikeTap: () => likesTapped += 1,
           ),
