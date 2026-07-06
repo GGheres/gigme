@@ -17,6 +17,7 @@ import '../features/events/presentation/create_event_screen.dart';
 import '../features/events/presentation/event_details_screen.dart';
 import '../features/events/presentation/feed_screen.dart';
 import '../features/events/presentation/map_screen.dart';
+import '../features/iskry/presentation/iskry_landing_page.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
 import '../features/tickets/presentation/admin_order_detail_page.dart';
@@ -117,6 +118,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.landing,
         pageBuilder:
             (context, state) => _noTransitionPage(state, const LandingScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.iskry,
+        pageBuilder:
+            (context, state) =>
+                _noTransitionPage(state, const IskryLandingPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.iskrySuccess,
+        pageBuilder:
+            (context, state) => _noTransitionPage(
+              state,
+              IskryPaymentResultPage(
+                kind: IskryPaymentResultKind.success,
+                orderId: state.uri.queryParameters['orderId'] ?? '',
+              ),
+            ),
+      ),
+      GoRoute(
+        path: AppRoutes.iskryFail,
+        pageBuilder:
+            (context, state) => _noTransitionPage(
+              state,
+              IskryPaymentResultPage(
+                kind: IskryPaymentResultKind.fail,
+                orderId: state.uri.queryParameters['orderId'] ?? '',
+              ),
+            ),
       ),
       GoRoute(
         path: AppRoutes.appRoot,
@@ -362,7 +391,7 @@ String? _readAuthNext(Uri authUri) {
   final parsed = Uri.tryParse(raw);
   if (parsed == null) return null;
   final path = parsed.path.trim();
-  if (!AppRoutes.isAppPath(path) || path == AppRoutes.auth) {
+  if (!AppRoutes.isAuthReturnPath(path) || path == AppRoutes.auth) {
     return null;
   }
   var out = path;
@@ -443,7 +472,7 @@ String _normalizeBase64(String source) {
 
 String? _normalizeAppLocation(Uri uri) {
   final path = uri.path.trim();
-  if (!AppRoutes.isAppPath(path)) {
+  if (!AppRoutes.isAuthReturnPath(path) || path == AppRoutes.auth) {
     return null;
   }
   var out = path;

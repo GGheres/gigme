@@ -18,20 +18,56 @@ import (
 )
 
 var (
-	ErrOrderNotFound         = errors.New("order not found")
-	ErrOrderStateNotAllowed  = errors.New("order state not allowed")
-	ErrInvalidProduct        = errors.New("invalid product selection")
-	ErrPromoInvalid          = errors.New("promo code is invalid")
-	ErrInventoryLimitReached = errors.New("inventory limit reached")
-	ErrTicketAlreadyRedeemed = errors.New("ticket already redeemed")
-	ErrTicketQRMismatch      = errors.New("ticket qr mismatch")
-	ErrTicketNotFound        = errors.New("ticket not found")
+	ErrOrderNotFound                = errors.New("order not found")
+	ErrOrderStateNotAllowed         = errors.New("order state not allowed")
+	ErrInvalidProduct               = errors.New("invalid product selection")
+	ErrInvalidTelegramContact       = errors.New("invalid telegram contact")
+	ErrPromoInvalid                 = errors.New("promo code is invalid")
+	ErrInventoryLimitReached        = errors.New("inventory limit reached")
+	ErrTicketAlreadyRedeemed        = errors.New("ticket already redeemed")
+	ErrTicketQRMismatch             = errors.New("ticket qr mismatch")
+	ErrTicketNotFound               = errors.New("ticket not found")
+	ErrTransferProductAlreadyExists = errors.New(
+		"transfer product with this direction already exists for selected page",
+	)
+)
+
+const (
+	iskryEventAccessKey                    = "iskry"
+	iskryDefaultTransferSeats              = 53
+	transferLandingKeyField                = "landingKey"
+	transferLandingSpace                   = "space"
+	transferLandingIskry                   = "iskry"
+	transferProductDirectionConstraintName = "transfer_products_event_id_direction_key"
+	transferProductLandingConstraintName   = "transfer_products_event_direction_landing_key_uidx"
 )
 
 // queryRunner represents query runner.
 type queryRunner interface {
 	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...interface{}) pgx.Row
+}
+
+// isIskryEventAccessKey reports whether the event uses the public ISKRY landing.
+func isIskryEventAccessKey(accessKey string) bool {
+	return strings.EqualFold(strings.TrimSpace(accessKey), iskryEventAccessKey)
+}
+
+// effectiveTransferInventoryLimit resolves the seat limit for a transfer product.
+func effectiveTransferInventoryLimit(accessKey string, inventoryLimit *int) (int, bool) {
+	if inventoryLimit != nil {
+		return *inventoryLimit, true
+	}
+	if isIskryEventAccessKey(accessKey) {
+		return iskryDefaultTransferSeats, true
+	}
+	return 0, false
+}
+
+// requiresTransferTelegramContact reports whether a transfer order must collect an explicit Telegram username.
+func requiresTransferTelegramContact(accessKey string, info map[string]interface{}) bool {
+	return isIskryEventAccessKey(accessKey) &&
+		transferProductLandingKey(info) == transferLandingIskry
 }
 
 // GetPaymentSettings returns payment settings.
@@ -213,7 +249,11 @@ RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory
 		in.IsActive,
 		nullInt64Ptr(&createdBy),
 	)
-	return scanTransferProduct(row)
+	item, err := scanTransferProduct(row)
+	if isTransferProductUniqueViolation(err) {
+		return models.TransferProduct{}, ErrTransferProductAlreadyExists
+	}
+	return item, err
 }
 
 // UpdateTransferProduct updates transfer product.
@@ -223,23 +263,33 @@ func (r *Repository) UpdateTransferProduct(ctx context.Context, id string, patch
 		buf, _ := json.Marshal(patch.Info)
 		infoRaw = buf
 	}
+	var name interface{}
+	if patch.Name != nil {
+		name = strings.TrimSpace(*patch.Name)
+	}
 
 	row := r.pool.QueryRow(ctx, `
 UPDATE transfer_products
-SET price_cents = COALESCE($2, price_cents),
-	info_json = COALESCE($3::jsonb, info_json),
-	inventory_limit = COALESCE($4, inventory_limit),
-	is_active = COALESCE($5, is_active),
+SET name = COALESCE($2, name),
+	price_cents = COALESCE($3, price_cents),
+	info_json = COALESCE($4::jsonb, info_json),
+	inventory_limit = COALESCE($5, inventory_limit),
+	is_active = COALESCE($6, is_active),
 	updated_at = now()
 WHERE id = $1::uuid
 RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory_limit, sold_count, is_active, created_by, created_at, updated_at;`,
 		id,
+		name,
 		int64PtrOrNil(patch.PriceCents),
 		infoRaw,
 		nullIntPtr(patch.InventoryLimit),
 		boolPtrOrNil(patch.IsActive),
 	)
-	return scanTransferProduct(row)
+	item, err := scanTransferProduct(row)
+	if isTransferProductUniqueViolation(err) {
+		return models.TransferProduct{}, ErrTransferProductAlreadyExists
+	}
+	return item, err
 }
 
 // DeleteTransferProduct deletes transfer product.
@@ -348,11 +398,60 @@ func (r *Repository) ListEventProductsForPurchase(ctx context.Context, eventID i
 	if err != nil {
 		return nil, nil, err
 	}
+
+	var eventAccessKey string
+	if err := r.pool.QueryRow(ctx, `
+SELECT COALESCE(access_key, '')
+FROM events
+WHERE id = $1;`, eventID).Scan(&eventAccessKey); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, ErrInvalidProduct
+		}
+		return nil, nil, err
+	}
+
 	transfers, err := r.ListTransferProducts(ctx, &eid, &onlyActive)
 	if err != nil {
 		return nil, nil, err
 	}
+	if isIskryEventAccessKey(eventAccessKey) {
+		return tickets, filterTransferProductsByLanding(transfers, transferLandingSpace), nil
+	}
 	return tickets, transfers, nil
+}
+
+// filterTransferProductsByLanding keeps only transfer products assigned to the requested landing bucket.
+func filterTransferProductsByLanding(products []models.TransferProduct, landingKey string) []models.TransferProduct {
+	expected := normalizeTransferLandingKey(landingKey)
+	filtered := make([]models.TransferProduct, 0, len(products))
+	for _, product := range products {
+		if transferProductLandingKey(product.Info) == expected {
+			filtered = append(filtered, product)
+		}
+	}
+	return filtered
+}
+
+// transferProductLandingKey resolves the landing bucket stored in transfer info.
+func transferProductLandingKey(info map[string]interface{}) string {
+	if info == nil {
+		return transferLandingSpace
+	}
+	raw, ok := info[transferLandingKeyField]
+	if !ok || raw == nil {
+		return transferLandingSpace
+	}
+	return normalizeTransferLandingKey(fmt.Sprint(raw))
+}
+
+// normalizeTransferLandingKey maps arbitrary input to one of the supported landing buckets.
+func normalizeTransferLandingKey(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case transferLandingIskry:
+		return transferLandingIskry
+	default:
+		return transferLandingSpace
+	}
 }
 
 // ValidatePromoCode validates promo code.
@@ -455,13 +554,16 @@ func (r *Repository) createOrderTx(
 	out *models.OrderDetail,
 ) error {
 	var eventTitle string
-	if err := tx.QueryRow(ctx, `SELECT title FROM events WHERE id = $1`, params.EventID).Scan(&eventTitle); err != nil {
+	var eventAccessKey string
+	if err := tx.QueryRow(ctx, `
+SELECT title, COALESCE(access_key, '')
+FROM events
+WHERE id = $1;`, params.EventID).Scan(&eventTitle, &eventAccessKey); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrInvalidProduct
 		}
 		return err
 	}
-
 	// itemDraft represents item draft.
 	type itemDraft struct {
 		ItemType       string
@@ -530,12 +632,14 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &ticketType, &priceCents, &isActi
 		var direction string
 		var priceCents int64
 		var isActive bool
+		var inventoryLimit sql.NullInt32
+		var soldCount int
 		var infoRaw []byte
 		if err := tx.QueryRow(ctx, `
-SELECT id::text, event_id, COALESCE(name, ''), direction, price_cents, is_active, info_json
+SELECT id::text, event_id, COALESCE(name, ''), direction, price_cents, is_active, info_json, inventory_limit, sold_count
 FROM transfer_products
 WHERE id = $1::uuid
-FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &isActive, &infoRaw); err != nil {
+FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &isActive, &infoRaw, &inventoryLimit, &soldCount); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrInvalidProduct
 			}
@@ -547,6 +651,14 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &
 		transferTicketType := models.TransferTicketType(direction)
 		if transferTicketType == "" {
 			return ErrInvalidProduct
+		}
+		if limit, ok := effectiveTransferInventoryLimit(eventAccessKey, nullInt32ToIntPtr(inventoryLimit)); ok && soldCount+quantity > limit {
+			return ErrInventoryLimitReached
+		}
+		info := decodeJSONMap(infoRaw)
+		if requiresTransferTelegramContact(eventAccessKey, info) &&
+			strings.TrimSpace(params.ContactTelegram) == "" {
+			return ErrInvalidTelegramContact
 		}
 		lineTotal := priceCents * int64(quantity)
 		subtotal += lineTotal
@@ -560,7 +672,7 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &
 			Meta: map[string]interface{}{
 				"direction": direction,
 				"name":      strings.TrimSpace(name),
-				"info":      decodeJSONMap(infoRaw),
+				"info":      info,
 			},
 		})
 		ticketDrafts = append(ticketDrafts, ticketDraft{TicketType: transferTicketType, Quantity: quantity})
@@ -646,6 +758,9 @@ WHERE id = $1::uuid;`, promoID); err != nil {
 INSERT INTO orders (
 	user_id,
 	event_id,
+	contact_telegram,
+	contact_name,
+	contact_phone,
 	status,
 	payment_method,
 	payment_reference,
@@ -666,11 +781,17 @@ INSERT INTO orders (
 	$8,
 	$9,
 	$10,
-	$11
+	$11,
+	$12,
+	$13,
+	$14
 )
-RETURNING id::text, user_id, event_id, ''::text, status, payment_method, payment_reference, payment_notes, promo_code_id::text, subtotal_cents, discount_cents, total_cents, currency, confirmed_at, canceled_at, redeemed_at, confirmed_by, canceled_by, canceled_reason, created_at, updated_at;`,
+RETURNING id::text, user_id, event_id, ''::text, contact_telegram, contact_name, contact_phone, status, payment_method, payment_reference, payment_notes, promo_code_id::text, subtotal_cents, discount_cents, total_cents, currency, confirmed_at, canceled_at, redeemed_at, confirmed_by, canceled_by, canceled_reason, created_at, updated_at;`,
 		params.UserID,
 		params.EventID,
+		nullString(strings.TrimSpace(params.ContactTelegram)),
+		nullString(strings.TrimSpace(params.ContactName)),
+		nullString(strings.TrimSpace(params.ContactPhone)),
 		models.OrderStatusPending,
 		params.PaymentMethod,
 		nullString(strings.TrimSpace(params.PaymentReference)),
@@ -774,6 +895,9 @@ SELECT
 	o.user_id,
 	o.event_id,
 	e.title,
+	o.contact_telegram,
+	o.contact_name,
+	o.contact_phone,
 	o.status,
 	o.payment_method,
 	o.payment_reference,
@@ -861,6 +985,9 @@ SELECT
 	o.event_id,
 	e.title,
 	o.user_id,
+	o.contact_telegram,
+	o.contact_name,
+	o.contact_phone,
 	u.id,
 	u.telegram_id,
 	u.first_name,
@@ -922,6 +1049,7 @@ func (r *Repository) MoveTransferOrderItem(ctx context.Context, itemID int64, ta
 			orderStatus      string
 			userID           int64
 			eventID          int64
+			eventAccessKey   string
 			currentProductID string
 			currentDirection string
 			quantity         int
@@ -935,12 +1063,14 @@ SELECT
 	o.status,
 	o.user_id,
 	o.event_id,
+	COALESCE(e.access_key, ''),
 	oi.product_id::text,
 	oi.product_ref,
 	oi.quantity,
 	oi.line_total_cents
 FROM order_items oi
 JOIN orders o ON o.id = oi.order_id
+JOIN events e ON e.id = o.event_id
 WHERE oi.id = $1
 	AND oi.item_type = $2
 FOR UPDATE OF oi, o;`, itemID, models.ItemTypeTransfer).Scan(
@@ -948,6 +1078,7 @@ FOR UPDATE OF oi, o;`, itemID, models.ItemTypeTransfer).Scan(
 			&current.orderStatus,
 			&current.userID,
 			&current.eventID,
+			&current.eventAccessKey,
 			&current.currentProductID,
 			&current.currentDirection,
 			&current.quantity,
@@ -978,17 +1109,20 @@ FOR UPDATE OF oi, o;`, itemID, models.ItemTypeTransfer).Scan(
 
 		// targetTransferProduct contains the product selected as the new transfer target.
 		type targetTransferProduct struct {
-			id         string
-			eventID    int64
-			name       string
-			direction  string
-			priceCents int64
-			infoRaw    []byte
+			id             string
+			eventID        int64
+			name           string
+			direction      string
+			priceCents     int64
+			infoRaw        []byte
+			inventoryLimit *int
+			soldCount      int
 		}
 
 		var target targetTransferProduct
+		var inventoryLimit sql.NullInt32
 		if err := tx.QueryRow(ctx, `
-SELECT id::text, event_id, COALESCE(name, ''), direction, price_cents, info_json
+SELECT id::text, event_id, COALESCE(name, ''), direction, price_cents, info_json, inventory_limit, sold_count
 FROM transfer_products
 WHERE id = $1::uuid
 FOR UPDATE;`, targetProductID).Scan(
@@ -998,12 +1132,15 @@ FOR UPDATE;`, targetProductID).Scan(
 			&target.direction,
 			&target.priceCents,
 			&target.infoRaw,
+			&inventoryLimit,
+			&target.soldCount,
 		); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrInvalidProduct
 			}
 			return err
 		}
+		target.inventoryLimit = nullInt32ToIntPtr(inventoryLimit)
 
 		target.direction = strings.ToUpper(strings.TrimSpace(target.direction))
 		if target.eventID != current.eventID || models.TransferTicketType(target.direction) == "" {
@@ -1018,17 +1155,15 @@ SET sold_count = GREATEST(0, sold_count - $2),
 WHERE id = $1::uuid;`, current.currentProductID, current.quantity); err != nil {
 				return err
 			}
-			cmd, err := tx.Exec(ctx, `
+			if limit, ok := effectiveTransferInventoryLimit(current.eventAccessKey, target.inventoryLimit); ok && target.soldCount+current.quantity > limit {
+				return ErrInventoryLimitReached
+			}
+			if _, err := tx.Exec(ctx, `
 UPDATE transfer_products
 SET sold_count = sold_count + $2,
 	updated_at = now()
-WHERE id = $1::uuid
-	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, target.id, current.quantity)
-			if err != nil {
+WHERE id = $1::uuid;`, target.id, current.quantity); err != nil {
 				return err
-			}
-			if cmd.RowsAffected() == 0 {
-				return ErrInventoryLimitReached
 			}
 		}
 
@@ -1100,6 +1235,9 @@ SELECT
 	o.event_id,
 	e.title,
 	o.user_id,
+	o.contact_telegram,
+	o.contact_name,
+	o.contact_phone,
 	u.id,
 	u.telegram_id,
 	u.first_name,
@@ -1150,6 +1288,9 @@ SELECT
 	o.user_id,
 	o.event_id,
 	e.title,
+	o.contact_telegram,
+	o.contact_name,
+	o.contact_phone,
 	o.status,
 	o.payment_method,
 	o.payment_reference,
@@ -1211,6 +1352,9 @@ SELECT
 	o.user_id,
 	o.event_id,
 	e.title,
+	o.contact_telegram,
+	o.contact_name,
+	o.contact_phone,
 	o.status,
 	o.payment_method,
 	o.payment_reference,
@@ -1336,11 +1480,13 @@ func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID i
 		var orderStatus string
 		var userID int64
 		var eventID int64
+		var eventAccessKey string
 		if err := tx.QueryRow(ctx, `
-SELECT status, user_id, event_id
-FROM orders
-WHERE id = $1::uuid
-			FOR UPDATE;`, orderID).Scan(&orderStatus, &userID, &eventID); err != nil {
+SELECT o.status, o.user_id, o.event_id, COALESCE(e.access_key, '')
+FROM orders o
+JOIN events e ON e.id = o.event_id
+WHERE o.id = $1::uuid
+			FOR UPDATE OF o;`, orderID).Scan(&orderStatus, &userID, &eventID, &eventAccessKey); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrOrderNotFound
 			}
@@ -1394,17 +1540,27 @@ WHERE id = $1::uuid
 						return ErrInventoryLimitReached
 					}
 				case models.ItemTypeTransfer:
-					cmd, err := tx.Exec(ctx, `
+					var inventoryLimit sql.NullInt32
+					var soldCount int
+					if err := tx.QueryRow(ctx, `
+SELECT inventory_limit, sold_count
+FROM transfer_products
+WHERE id = $1::uuid
+FOR UPDATE;`, item.productID).Scan(&inventoryLimit, &soldCount); err != nil {
+						if errors.Is(err, pgx.ErrNoRows) {
+							return ErrInvalidProduct
+						}
+						return err
+					}
+					if limit, ok := effectiveTransferInventoryLimit(eventAccessKey, nullInt32ToIntPtr(inventoryLimit)); ok && soldCount+item.quantity > limit {
+						return ErrInventoryLimitReached
+					}
+					if _, err := tx.Exec(ctx, `
 UPDATE transfer_products
 SET sold_count = sold_count + $2,
 	 updated_at = now()
-WHERE id = $1::uuid
-	AND (inventory_limit IS NULL OR sold_count + $2 <= inventory_limit);`, item.productID, item.quantity)
-					if err != nil {
+WHERE id = $1::uuid;`, item.productID, item.quantity); err != nil {
 						return err
-					}
-					if cmd.RowsAffected() == 0 {
-						return ErrInventoryLimitReached
 					}
 				}
 			}
@@ -2528,6 +2684,9 @@ func scanPromoCode(row pgx.Row) (models.PromoCode, error) {
 func scanOrder(row pgx.Row) (models.Order, error) {
 	var out models.Order
 	var eventTitle sql.NullString
+	var contactTelegram sql.NullString
+	var contactName sql.NullString
+	var contactPhone sql.NullString
 	var paymentRef sql.NullString
 	var paymentNotes sql.NullString
 	var promoCodeID sql.NullString
@@ -2542,6 +2701,9 @@ func scanOrder(row pgx.Row) (models.Order, error) {
 		&out.UserID,
 		&out.EventID,
 		&eventTitle,
+		&contactTelegram,
+		&contactName,
+		&contactPhone,
 		&out.Status,
 		&out.PaymentMethod,
 		&paymentRef,
@@ -2564,6 +2726,15 @@ func scanOrder(row pgx.Row) (models.Order, error) {
 	}
 	if eventTitle.Valid {
 		out.EventTitle = eventTitle.String
+	}
+	if contactTelegram.Valid {
+		out.ContactTelegram = contactTelegram.String
+	}
+	if contactName.Valid {
+		out.ContactName = contactName.String
+	}
+	if contactPhone.Valid {
+		out.ContactPhone = contactPhone.String
 	}
 	if paymentRef.Valid {
 		out.PaymentReference = paymentRef.String
@@ -2598,6 +2769,9 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	var order models.Order
 	var user models.OrderUserSummary
 	var eventTitle sql.NullString
+	var contactTelegram sql.NullString
+	var contactName sql.NullString
+	var contactPhone sql.NullString
 	var paymentRef sql.NullString
 	var paymentNotes sql.NullString
 	var promoCodeID sql.NullString
@@ -2615,6 +2789,9 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 		&order.UserID,
 		&order.EventID,
 		&eventTitle,
+		&contactTelegram,
+		&contactName,
+		&contactPhone,
 		&order.Status,
 		&order.PaymentMethod,
 		&paymentRef,
@@ -2642,6 +2819,15 @@ func scanOrderSummary(row pgx.Row) (models.OrderSummary, error) {
 	}
 	if eventTitle.Valid {
 		order.EventTitle = eventTitle.String
+	}
+	if contactTelegram.Valid {
+		order.ContactTelegram = contactTelegram.String
+	}
+	if contactName.Valid {
+		order.ContactName = contactName.String
+	}
+	if contactPhone.Valid {
+		order.ContactPhone = contactPhone.String
 	}
 	if paymentRef.Valid {
 		order.PaymentReference = paymentRef.String
@@ -2687,6 +2873,9 @@ func scanTransferOrderSummary(row pgx.Row) (models.TransferOrderSummary, error) 
 	var user models.OrderUserSummary
 	var item models.OrderItem
 	var eventTitle sql.NullString
+	var contactTelegram sql.NullString
+	var contactName sql.NullString
+	var contactPhone sql.NullString
 	var firstName sql.NullString
 	var lastName sql.NullString
 	var username sql.NullString
@@ -2698,6 +2887,9 @@ func scanTransferOrderSummary(row pgx.Row) (models.TransferOrderSummary, error) 
 		&out.EventID,
 		&eventTitle,
 		&out.UserID,
+		&contactTelegram,
+		&contactName,
+		&contactPhone,
 		&user.ID,
 		&user.TelegramID,
 		&firstName,
@@ -2718,6 +2910,15 @@ func scanTransferOrderSummary(row pgx.Row) (models.TransferOrderSummary, error) 
 	}
 	if eventTitle.Valid {
 		out.EventTitle = eventTitle.String
+	}
+	if contactTelegram.Valid {
+		out.ContactTelegram = contactTelegram.String
+	}
+	if contactName.Valid {
+		out.ContactName = contactName.String
+	}
+	if contactPhone.Valid {
+		out.ContactPhone = contactPhone.String
 	}
 	if firstName.Valid {
 		user.FirstName = firstName.String
@@ -2991,6 +3192,17 @@ func safeMap(input map[string]interface{}) map[string]interface{} {
 		return map[string]interface{}{}
 	}
 	return input
+}
+
+// isTransferProductUniqueViolation reports duplicate transfer direction collisions.
+func isTransferProductUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return false
+	}
+	name := strings.TrimSpace(pgErr.ConstraintName)
+	return strings.EqualFold(name, transferProductDirectionConstraintName) ||
+		strings.EqualFold(name, transferProductLandingConstraintName)
 }
 
 // decodeJSONMap decodes j s o n map.

@@ -18,7 +18,9 @@ class TicketingRepository {
     required String token,
     required int eventId,
   }) {
-    return _ref.read(apiClientProvider).get<EventProductsModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<EventProductsModel>(
           '/events/$eventId/products',
           token: token,
           decoder: EventProductsModel.fromJson,
@@ -34,7 +36,9 @@ class TicketingRepository {
     required String code,
     required int subtotalCents,
   }) {
-    return _ref.read(apiClientProvider).post<PromoValidationModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<PromoValidationModel>(
           '/promo-codes/validate',
           token: token,
           body: <String, dynamic>{
@@ -52,7 +56,9 @@ class TicketingRepository {
     required String token,
     required CreateOrderPayload payload,
   }) {
-    return _ref.read(apiClientProvider).post<OrderDetailModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<OrderDetailModel>(
           '/orders',
           token: token,
           body: payload.toJson(),
@@ -67,11 +73,16 @@ class TicketingRepository {
     required CreateOrderPayload payload,
     String redirectUrl = '',
   }) {
-    return _ref.read(apiClientProvider).post<CreateSbpQrOrderResponseModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<CreateSbpQrOrderResponseModel>(
           '/payments/sbp/qr/create',
           token: token,
           body: <String, dynamic>{
             'eventId': payload.eventId,
+            'contactTelegram': payload.contactTelegram.trim(),
+            'contactName': payload.contactName.trim(),
+            'contactPhone': payload.contactPhone.trim(),
             'ticketItems':
                 payload.ticketItems.map((item) => item.toJson()).toList(),
             'transferItems':
@@ -90,7 +101,9 @@ class TicketingRepository {
     required String token,
     required String orderId,
   }) {
-    return _ref.read(apiClientProvider).get<SbpQrStatusResponseModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<SbpQrStatusResponseModel>(
           '/payments/sbp/qr/$orderId/status',
           token: token,
           decoder: SbpQrStatusResponseModel.fromJson,
@@ -104,7 +117,9 @@ class TicketingRepository {
     required String token,
     PaymentSettingsScope scope = PaymentSettingsScope.ticket,
   }) {
-    return _ref.read(apiClientProvider).get<PaymentSettingsModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<PaymentSettingsModel>(
           '/payments/settings',
           token: token,
           query: <String, dynamic>{'scope': scope.apiValue},
@@ -119,7 +134,9 @@ class TicketingRepository {
     required String token,
     PaymentSettingsScope scope = PaymentSettingsScope.ticket,
   }) {
-    return _ref.read(apiClientProvider).get<PaymentSettingsModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<PaymentSettingsModel>(
           '/admin/payment-settings',
           token: token,
           query: <String, dynamic>{'scope': scope.apiValue},
@@ -147,7 +164,9 @@ class TicketingRepository {
     String? qrDescription,
     String? sbpDescription,
   }) {
-    return _ref.read(apiClientProvider).post<PaymentSettingsModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<PaymentSettingsModel>(
           '/admin/payment-settings',
           token: token,
           query: <String, dynamic>{'scope': scope.apiValue},
@@ -179,24 +198,22 @@ class TicketingRepository {
     int limit = 50,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<OrdersListModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<OrdersListModel>(
           '/orders/my',
           token: token,
-          query: <String, dynamic>{
-            'limit': limit,
-            'offset': offset,
-          },
+          query: <String, dynamic>{'limit': limit, 'offset': offset},
           decoder: OrdersListModel.fromJson,
         );
   }
 
   /// listMyTickets lists my tickets.
 
-  Future<MyTicketsModel> listMyTickets({
-    required String token,
-    int? eventId,
-  }) {
-    return _ref.read(apiClientProvider).get<MyTicketsModel>(
+  Future<MyTicketsModel> listMyTickets({required String token, int? eventId}) {
+    return _ref
+        .read(apiClientProvider)
+        .get<MyTicketsModel>(
           '/tickets/my',
           token: token,
           query: <String, dynamic>{
@@ -217,7 +234,9 @@ class TicketingRepository {
     int limit = 100,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<OrdersListModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<OrdersListModel>(
           '/admin/orders',
           token: token,
           query: <String, dynamic>{
@@ -243,7 +262,9 @@ class TicketingRepository {
     int limit = 100,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<AdminTransferOrdersListModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminTransferOrdersListModel>(
           '/admin/transfers/orders',
           token: token,
           query: <String, dynamic>{
@@ -266,12 +287,12 @@ class TicketingRepository {
     required int itemId,
     required String targetProductId,
   }) {
-    return _ref.read(apiClientProvider).post<AdminTransferOrderModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<AdminTransferOrderModel>(
           '/admin/transfers/orders/$itemId/move',
           token: token,
-          body: <String, dynamic>{
-            'targetProductId': targetProductId.trim(),
-          },
+          body: <String, dynamic>{'targetProductId': targetProductId.trim()},
           decoder: AdminTransferOrderModel.fromJson,
         );
   }
@@ -284,7 +305,9 @@ class TicketingRepository {
     int limit = 100,
     int offset = 0,
   }) {
-    return _ref.read(apiClientProvider).get<AdminBotMessagesListModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminBotMessagesListModel>(
           '/admin/bot/messages',
           token: token,
           query: <String, dynamic>{
@@ -303,13 +326,12 @@ class TicketingRepository {
     required int chatId,
     required String text,
   }) {
-    return _ref.read(apiClientProvider).post<void>(
+    return _ref
+        .read(apiClientProvider)
+        .post<void>(
           '/admin/bot/messages/reply',
           token: token,
-          body: <String, dynamic>{
-            'chatId': chatId,
-            'text': text.trim(),
-          },
+          body: <String, dynamic>{'chatId': chatId, 'text': text.trim()},
           decoder: (_) {},
         );
   }
@@ -320,7 +342,9 @@ class TicketingRepository {
     required String token,
     required String orderId,
   }) {
-    return _ref.read(apiClientProvider).get<OrderDetailModel>(
+    return _ref
+        .read(apiClientProvider)
+        .get<OrderDetailModel>(
           '/admin/orders/$orderId',
           token: token,
           decoder: OrderDetailModel.fromJson,
@@ -334,7 +358,9 @@ class TicketingRepository {
     required String token,
     required String orderId,
   }) {
-    return _ref.read(apiClientProvider).post<OrderDetailModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<OrderDetailModel>(
           '/admin/orders/$orderId/confirm',
           token: token,
           body: const <String, dynamic>{},
@@ -349,7 +375,9 @@ class TicketingRepository {
     required String orderId,
     required String password,
   }) {
-    return _ref.read(apiClientProvider).delete<void>(
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           '/admin/orders/$orderId',
           token: token,
           body: <String, dynamic>{'password': password.trim()},
@@ -364,7 +392,9 @@ class TicketingRepository {
     required String orderId,
     String reason = '',
   }) {
-    return _ref.read(apiClientProvider).post<OrderDetailModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<OrderDetailModel>(
           '/orders/$orderId/cancel',
           token: token,
           body: <String, dynamic>{
@@ -381,7 +411,9 @@ class TicketingRepository {
     required String ticketId,
     String qrPayload = '',
   }) {
-    return _ref.read(apiClientProvider).post<TicketRedeemResultModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<TicketRedeemResultModel>(
           '/admin/tickets/redeem',
           token: token,
           body: <String, dynamic>{
@@ -394,11 +426,10 @@ class TicketingRepository {
 
   /// getAdminStats returns admin stats.
 
-  Future<AdminStatsModel> getAdminStats({
-    required String token,
-    int? eventId,
-  }) {
-    return _ref.read(apiClientProvider).get<AdminStatsModel>(
+  Future<AdminStatsModel> getAdminStats({required String token, int? eventId}) {
+    return _ref
+        .read(apiClientProvider)
+        .get<AdminStatsModel>(
           '/admin/stats',
           token: token,
           query: <String, dynamic>{
@@ -415,18 +446,22 @@ class TicketingRepository {
     int? eventId,
     bool? active,
   }) {
-    return _ref.read(apiClientProvider).get<List<TicketProductModel>>(
-      '/admin/products/tickets',
-      token: token,
-      query: <String, dynamic>{
-        if (eventId != null && eventId > 0) 'event_id': eventId,
-        if (active != null) 'active': active,
-      },
-      decoder: (data) {
-        final map = asMap(data);
-        return asList(map['items']).map(TicketProductModel.fromJson).toList();
-      },
-    );
+    return _ref
+        .read(apiClientProvider)
+        .get<List<TicketProductModel>>(
+          '/admin/products/tickets',
+          token: token,
+          query: <String, dynamic>{
+            if (eventId != null && eventId > 0) 'event_id': eventId,
+            if (active != null) 'active': active,
+          },
+          decoder: (data) {
+            final map = asMap(data);
+            return asList(
+              map['items'],
+            ).map(TicketProductModel.fromJson).toList();
+          },
+        );
   }
 
   /// createAdminTicketProduct creates admin ticket product.
@@ -440,7 +475,9 @@ class TicketingRepository {
     int? inventoryLimit,
     bool isActive = true,
   }) {
-    return _ref.read(apiClientProvider).post<TicketProductModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<TicketProductModel>(
           '/admin/products/tickets',
           token: token,
           body: <String, dynamic>{
@@ -465,7 +502,9 @@ class TicketingRepository {
     int? inventoryLimit,
     bool? isActive,
   }) {
-    return _ref.read(apiClientProvider).patch<TicketProductModel>(
+    return _ref
+        .read(apiClientProvider)
+        .patch<TicketProductModel>(
           '/admin/products/tickets/$productId',
           token: token,
           body: <String, dynamic>{
@@ -483,7 +522,9 @@ class TicketingRepository {
     required String token,
     required String productId,
   }) {
-    return _ref.read(apiClientProvider).delete<void>(
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           '/admin/products/tickets/$productId',
           token: token,
           decoder: (_) {},
@@ -497,18 +538,22 @@ class TicketingRepository {
     int? eventId,
     bool? active,
   }) {
-    return _ref.read(apiClientProvider).get<List<TransferProductModel>>(
-      '/admin/products/transfers',
-      token: token,
-      query: <String, dynamic>{
-        if (eventId != null && eventId > 0) 'event_id': eventId,
-        if (active != null) 'active': active,
-      },
-      decoder: (data) {
-        final map = asMap(data);
-        return asList(map['items']).map(TransferProductModel.fromJson).toList();
-      },
-    );
+    return _ref
+        .read(apiClientProvider)
+        .get<List<TransferProductModel>>(
+          '/admin/products/transfers',
+          token: token,
+          query: <String, dynamic>{
+            if (eventId != null && eventId > 0) 'event_id': eventId,
+            if (active != null) 'active': active,
+          },
+          decoder: (data) {
+            final map = asMap(data);
+            return asList(
+              map['items'],
+            ).map(TransferProductModel.fromJson).toList();
+          },
+        );
   }
 
   /// createAdminTransferProduct creates admin transfer product.
@@ -523,7 +568,9 @@ class TicketingRepository {
     int? inventoryLimit,
     bool isActive = true,
   }) {
-    return _ref.read(apiClientProvider).post<TransferProductModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<TransferProductModel>(
           '/admin/products/transfers',
           token: token,
           body: <String, dynamic>{
@@ -545,15 +592,19 @@ class TicketingRepository {
   Future<TransferProductModel> patchAdminTransferProduct({
     required String token,
     required String productId,
+    String? name,
     int? priceCents,
     Map<String, dynamic>? info,
     int? inventoryLimit,
     bool? isActive,
   }) {
-    return _ref.read(apiClientProvider).patch<TransferProductModel>(
+    return _ref
+        .read(apiClientProvider)
+        .patch<TransferProductModel>(
           '/admin/products/transfers/$productId',
           token: token,
           body: <String, dynamic>{
+            if (name != null) 'name': name.trim(),
             if (priceCents != null) 'priceCents': priceCents,
             if (info != null) 'info': info,
             if (inventoryLimit != null) 'inventoryLimit': inventoryLimit,
@@ -569,7 +620,9 @@ class TicketingRepository {
     required String token,
     required String productId,
   }) {
-    return _ref.read(apiClientProvider).delete<void>(
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           '/admin/products/transfers/$productId',
           token: token,
           decoder: (_) {},
@@ -583,18 +636,22 @@ class TicketingRepository {
     int? eventId,
     bool? active,
   }) {
-    return _ref.read(apiClientProvider).get<List<PromoCodeViewModel>>(
-      '/admin/promo-codes',
-      token: token,
-      query: <String, dynamic>{
-        if (eventId != null && eventId > 0) 'event_id': eventId,
-        if (active != null) 'active': active,
-      },
-      decoder: (data) {
-        final map = asMap(data);
-        return asList(map['items']).map(PromoCodeViewModel.fromJson).toList();
-      },
-    );
+    return _ref
+        .read(apiClientProvider)
+        .get<List<PromoCodeViewModel>>(
+          '/admin/promo-codes',
+          token: token,
+          query: <String, dynamic>{
+            if (eventId != null && eventId > 0) 'event_id': eventId,
+            if (active != null) 'active': active,
+          },
+          decoder: (data) {
+            final map = asMap(data);
+            return asList(
+              map['items'],
+            ).map(PromoCodeViewModel.fromJson).toList();
+          },
+        );
   }
 
   /// createAdminPromoCode creates admin promo code.
@@ -610,7 +667,9 @@ class TicketingRepository {
     int? eventId,
     bool isActive = true,
   }) {
-    return _ref.read(apiClientProvider).post<PromoCodeViewModel>(
+    return _ref
+        .read(apiClientProvider)
+        .post<PromoCodeViewModel>(
           '/admin/promo-codes',
           token: token,
           body: <String, dynamic>{
@@ -640,7 +699,9 @@ class TicketingRepository {
     int? eventId,
     bool? isActive,
   }) {
-    return _ref.read(apiClientProvider).patch<PromoCodeViewModel>(
+    return _ref
+        .read(apiClientProvider)
+        .patch<PromoCodeViewModel>(
           '/admin/promo-codes/$promoId',
           token: token,
           body: <String, dynamic>{
@@ -663,7 +724,9 @@ class TicketingRepository {
     required String token,
     required String promoId,
   }) {
-    return _ref.read(apiClientProvider).delete<void>(
+    return _ref
+        .read(apiClientProvider)
+        .delete<void>(
           '/admin/promo-codes/$promoId',
           token: token,
           decoder: (_) {},
@@ -718,6 +781,5 @@ class PromoCodeViewModel {
 }
 
 final ticketingRepositoryProvider =
-
-    /// TicketingRepository handles ticketing repository.
-    Provider<TicketingRepository>((ref) => TicketingRepository(ref));
+/// TicketingRepository handles ticketing repository.
+Provider<TicketingRepository>((ref) => TicketingRepository(ref));

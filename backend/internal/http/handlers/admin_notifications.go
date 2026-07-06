@@ -101,6 +101,15 @@ func buildAdminOrderNotificationText(order models.Order, fallbackUserID int64, u
 	if status := strings.TrimSpace(order.Status); status != "" {
 		lines = append(lines, fmt.Sprintf("Статус: %s", strings.ToUpper(status)))
 	}
+	if contact := strings.TrimSpace(order.ContactTelegram); contact != "" {
+		lines = append(lines, fmt.Sprintf("Контакт TG: %s", contact))
+	}
+	if contact := strings.TrimSpace(order.ContactName); contact != "" {
+		lines = append(lines, fmt.Sprintf("Имя: %s", contact))
+	}
+	if contact := strings.TrimSpace(order.ContactPhone); contact != "" {
+		lines = append(lines, fmt.Sprintf("Телефон: %s", contact))
+	}
 
 	return strings.Join(lines, "\n")
 }

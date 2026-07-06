@@ -122,6 +122,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if update.CallbackQuery != nil {
+		h.rememberTelegramContact(r.Context(), logger, update.CallbackQuery.From)
 		h.handleTelegramCallbackQuery(logger, update.CallbackQuery)
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
@@ -130,6 +131,7 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
+	h.rememberTelegramContact(r.Context(), logger, update.Message.From)
 
 	text := incomingTelegramMessageText(update.Message)
 	trimmedText := strings.TrimSpace(text)
@@ -220,6 +222,29 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// rememberTelegramContact persists Telegram sender data so QR delivery can work after a bot interaction even without app auth.
+func (h *Handler) rememberTelegramContact(ctx context.Context, logger *slog.Logger, from telegramFrom) {
+	if h == nil || h.repo == nil || from.ID <= 0 {
+		return
+	}
+	saveCtx, cancel := h.withTimeout(ctx)
+	defer cancel()
+	if _, _, err := h.repo.UpsertUser(saveCtx, models.User{
+		TelegramID: from.ID,
+		Username:   strings.TrimSpace(from.Username),
+		FirstName:  strings.TrimSpace(from.FirstName),
+		LastName:   strings.TrimSpace(from.LastName),
+	}); err != nil && logger != nil {
+		logger.Warn(
+			"action", "action", "telegram_contact_remember",
+			"status", "db_error",
+			"telegram_id", from.ID,
+			"username", strings.TrimSpace(from.Username),
+			"error", err,
+		)
+	}
 }
 
 // forwardIncomingBotMediaToAdmins copies incoming user media messages to each admin chat.

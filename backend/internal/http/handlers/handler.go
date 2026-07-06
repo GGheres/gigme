@@ -70,6 +70,11 @@ func (h *Handler) withTimeout(ctx context.Context) (context.Context, context.Can
 	return context.WithTimeout(ctx, 5*time.Second)
 }
 
+// withDetachedTimeout returns a short-lived context that keeps request values but ignores request cancellation.
+func (h *Handler) withDetachedTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), timeout)
+}
+
 // loggerForRequest enriches the base logger with request, user, and telegram identifiers from context.
 func (h *Handler) loggerForRequest(r *http.Request) *slog.Logger {
 	logger := h.logger

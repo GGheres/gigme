@@ -74,6 +74,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   final TextEditingController _transferPriceCtrl = TextEditingController();
   final TextEditingController _transferTimeCtrl = TextEditingController();
   final TextEditingController _transferPickupCtrl = TextEditingController();
+  final TextEditingController _transferArrivalCtrl = TextEditingController();
+  final TextEditingController _transferCapacityCtrl = TextEditingController();
   final TextEditingController _transferNotesCtrl = TextEditingController();
   final TextEditingController _promoCodeCtrl = TextEditingController();
   final TextEditingController _promoValueCtrl = TextEditingController();
@@ -81,6 +83,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
   String _ticketType = 'SINGLE';
   String _transferDirection = 'THERE';
+  String _transferLandingKey = TransferProductModel.landingKeySpace;
   String _promoDiscountType = 'PERCENT';
   DateTime? _promoActiveFrom;
   DateTime? _promoActiveTo;
@@ -115,6 +118,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _transferPaymentUsdtNetworkCtrl.text = 'TRC20';
     _ticketPriceCtrl.text = '0';
     _transferPriceCtrl.text = '0';
+    _transferCapacityCtrl.text = '53';
     _promoValueCtrl.text = '10';
     unawaited(_load());
   }
@@ -148,6 +152,8 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     _transferPriceCtrl.dispose();
     _transferTimeCtrl.dispose();
     _transferPickupCtrl.dispose();
+    _transferArrivalCtrl.dispose();
+    _transferCapacityCtrl.dispose();
     _transferNotesCtrl.dispose();
     _promoCodeCtrl.dispose();
     _promoValueCtrl.dispose();
@@ -185,9 +191,13 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           scope: PaymentSettingsScope.transfer,
         ),
         repo.listAdminTicketProducts(
-            token: token, eventId: (eventId ?? 0) > 0 ? eventId : null),
+          token: token,
+          eventId: (eventId ?? 0) > 0 ? eventId : null,
+        ),
         repo.listAdminTransferProducts(
-            token: token, eventId: (eventId ?? 0) > 0 ? eventId : null),
+          token: token,
+          eventId: (eventId ?? 0) > 0 ? eventId : null,
+        ),
         repo.listAdminPromoCodes(
           token: token,
           eventId: (eventId ?? 0) > 0 ? eventId : null,
@@ -226,7 +236,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
     setState(() => _busy = true);
     try {
-      await ref.read(ticketingRepositoryProvider).createAdminTicketProduct(
+      await ref
+          .read(ticketingRepositoryProvider)
+          .createAdminTicketProduct(
             token: token,
             eventId: eventId,
             name: name,
@@ -249,25 +261,37 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     final eventId = int.tryParse(_eventCtrl.text.trim()) ?? 0;
     final name = _transferNameCtrl.text.trim();
     final price = int.tryParse(_transferPriceCtrl.text.trim()) ?? -1;
+    final capacityRaw = _transferCapacityCtrl.text.trim();
+    final capacity = capacityRaw.isEmpty ? null : int.tryParse(capacityRaw);
     if (token.isEmpty || eventId <= 0 || price < 0) {
       _showMessage('Нужны ID события и корректная цена трансфера');
+      return;
+    }
+    if (capacityRaw.isNotEmpty && (capacity == null || capacity <= 0)) {
+      _showMessage('Вместимость должна быть положительным числом');
       return;
     }
 
     setState(() => _busy = true);
     try {
-      await ref.read(ticketingRepositoryProvider).createAdminTransferProduct(
-        token: token,
-        eventId: eventId,
-        name: name,
-        direction: _transferDirection,
-        priceCents: price,
-        info: <String, dynamic>{
-          'time': _transferTimeCtrl.text.trim(),
-          'pickupPoint': _transferPickupCtrl.text.trim(),
-          'notes': _transferNotesCtrl.text.trim(),
-        },
-      );
+      await ref
+          .read(ticketingRepositoryProvider)
+          .createAdminTransferProduct(
+            token: token,
+            eventId: eventId,
+            name: name,
+            direction: _transferDirection,
+            priceCents: price,
+            info: <String, dynamic>{
+              'landingKey': _transferLandingKey,
+              'description': _transferNotesCtrl.text.trim(),
+              'time': _transferTimeCtrl.text.trim(),
+              'pickupPoint': _transferPickupCtrl.text.trim(),
+              'arrivalPoint': _transferArrivalCtrl.text.trim(),
+              'notes': _transferNotesCtrl.text.trim(),
+            },
+            inventoryLimit: capacity,
+          );
       _showMessage('Трансферный продукт создан');
       await _load();
     } catch (error) {
@@ -326,7 +350,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
     setState(() => _busy = true);
     try {
-      await ref.read(ticketingRepositoryProvider).createAdminPromoCode(
+      await ref
+          .read(ticketingRepositoryProvider)
+          .createAdminPromoCode(
             token: token,
             code: code,
             discountType: _promoDiscountType,
@@ -401,9 +427,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
   /// _pickPromoDateTime handles pick promo date time.
 
-  Future<DateTime?> _pickPromoDateTime({
-    required DateTime initial,
-  }) async {
+  Future<DateTime?> _pickPromoDateTime({required DateTime initial}) async {
     final now = DateTime.now();
     final firstDate = DateTime(now.year - 5, 1, 1);
     final lastDate = DateTime(now.year + 10, 12, 31);
@@ -431,13 +455,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       return null;
     }
 
-    return DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
   /// _deleteTicketProduct deletes ticket product.
@@ -483,7 +501,9 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     if (token.isEmpty) return;
     setState(() => _busy = true);
     try {
-      await ref.read(ticketingRepositoryProvider).patchAdminTicketProduct(
+      await ref
+          .read(ticketingRepositoryProvider)
+          .patchAdminTicketProduct(
             token: token,
             productId: item.id,
             isActive: !item.isActive,
@@ -504,12 +524,15 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
   /// _toggleTransferProductVisibility handles toggle transfer product visibility.
 
   Future<void> _toggleTransferProductVisibility(
-      TransferProductModel item) async {
+    TransferProductModel item,
+  ) async {
     final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
     if (token.isEmpty) return;
     setState(() => _busy = true);
     try {
-      await ref.read(ticketingRepositoryProvider).patchAdminTransferProduct(
+      await ref
+          .read(ticketingRepositoryProvider)
+          .patchAdminTransferProduct(
             token: token,
             productId: item.id,
             isActive: !item.isActive,
@@ -519,6 +542,185 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             ? 'Трансферный продукт снова в показе'
             : 'Трансферный продукт скрыт',
       );
+      await _load();
+    } catch (error) {
+      _showMessage('$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// _editTransferProduct updates editable transfer product fields.
+
+  Future<void> _editTransferProduct(TransferProductModel item) async {
+    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    if (token.isEmpty) return;
+
+    final nameCtrl = TextEditingController(text: item.name);
+    final priceCtrl = TextEditingController(text: '${item.priceCents}');
+    final timeCtrl = TextEditingController(
+      text: '${item.info['time'] ?? item.info['departureDatetime'] ?? ''}',
+    );
+    final pickupCtrl = TextEditingController(
+      text: '${item.info['pickupPoint'] ?? item.info['departurePoint'] ?? ''}',
+    );
+    final arrivalCtrl = TextEditingController(
+      text: '${item.info['arrivalPoint'] ?? ''}',
+    );
+    final descriptionCtrl = TextEditingController(
+      text: '${item.info['description'] ?? item.info['notes'] ?? ''}',
+    );
+    final capacityCtrl = TextEditingController(
+      text: item.inventoryLimit?.toString() ?? '53',
+    );
+    var editedLandingKey = item.landingKey;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder:
+              (context, setDialogState) => AlertDialog(
+                title: const Text('Редактировать трансфер'),
+                content: SizedBox(
+                  width: 520,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InputField(controller: nameCtrl, label: 'Название'),
+                        const SizedBox(height: AppSpacing.xs),
+                        DropdownButtonFormField<String>(
+                          initialValue: editedLandingKey,
+                          decoration: const InputDecoration(
+                            labelText: 'Публичная страница',
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: TransferProductModel.landingKeySpace,
+                              child: Text('SPACE'),
+                            ),
+                            DropdownMenuItem(
+                              value: TransferProductModel.landingKeyIskry,
+                              child: Text('ISKRY'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setDialogState(() {
+                              editedLandingKey =
+                                  value ?? TransferProductModel.landingKeySpace;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        InputField(
+                          controller: priceCtrl,
+                          keyboardType: TextInputType.number,
+                          label: 'Цена в центах',
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        InputField(
+                          controller: capacityCtrl,
+                          keyboardType: TextInputType.number,
+                          label: 'Вместимость',
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        InputField(
+                          controller: timeCtrl,
+                          label: 'Время отправления',
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        InputField(
+                          controller: pickupCtrl,
+                          label: 'Точка посадки',
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        InputField(
+                          controller: arrivalCtrl,
+                          label: 'Точка прибытия',
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        InputField(
+                          controller: descriptionCtrl,
+                          label: 'Описание',
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Отмена'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Сохранить'),
+                  ),
+                ],
+              ),
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      nameCtrl.dispose();
+      priceCtrl.dispose();
+      timeCtrl.dispose();
+      pickupCtrl.dispose();
+      arrivalCtrl.dispose();
+      descriptionCtrl.dispose();
+      capacityCtrl.dispose();
+      return;
+    }
+
+    final editedName = nameCtrl.text.trim();
+    final editedPriceRaw = priceCtrl.text.trim();
+    final editedTime = timeCtrl.text.trim();
+    final editedPickup = pickupCtrl.text.trim();
+    final editedArrival = arrivalCtrl.text.trim();
+    final editedDescription = descriptionCtrl.text.trim();
+    final capacityRaw = capacityCtrl.text.trim();
+    nameCtrl.dispose();
+    priceCtrl.dispose();
+    timeCtrl.dispose();
+    pickupCtrl.dispose();
+    arrivalCtrl.dispose();
+    descriptionCtrl.dispose();
+    capacityCtrl.dispose();
+
+    final price = int.tryParse(editedPriceRaw);
+    final capacity = capacityRaw.isEmpty ? null : int.tryParse(capacityRaw);
+    if (price == null || price < 0) {
+      _showMessage('Цена должна быть неотрицательным числом');
+      return;
+    }
+    if (capacityRaw.isNotEmpty && (capacity == null || capacity <= 0)) {
+      _showMessage('Вместимость должна быть положительным числом');
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(ticketingRepositoryProvider)
+          .patchAdminTransferProduct(
+            token: token,
+            productId: item.id,
+            name: editedName,
+            priceCents: price,
+            inventoryLimit: capacity,
+            info: <String, dynamic>{
+              'landingKey': editedLandingKey,
+              'description': editedDescription,
+              'time': editedTime,
+              'pickupPoint': editedPickup,
+              'arrivalPoint': editedArrival,
+              'notes': editedDescription,
+            },
+          );
+      _showMessage('Трансфер обновлен');
       await _load();
     } catch (error) {
       _showMessage('$error');
@@ -611,14 +813,15 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
       appBar: AppBar(
         title: const Text('Админ-продукты'),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))
+          IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
       title: 'Продукты и платежи',
       subtitle: 'Управление билетами, трансферами и реквизитами',
       titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      subtitleColor: Theme.of(
+        context,
+      ).colorScheme.onSurface.withValues(alpha: 0.74),
       child: body,
     );
   }
@@ -641,10 +844,7 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         if ((_error ?? '').trim().isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: ErrorState(
-              message: _error!,
-              onRetry: _load,
-            ),
+            child: ErrorState(message: _error!, onRetry: _load),
           ),
         _paymentSettingsSection(
           title: 'Платежные настройки билетов',
@@ -653,11 +853,11 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           usdtEnabled: _usdtEnabled,
           paymentQrEnabled: _paymentQrEnabled,
           sbpEnabled: _sbpEnabled,
-          onPhoneEnabledChanged: (value) =>
-              setState(() => _phoneEnabled = value),
+          onPhoneEnabledChanged:
+              (value) => setState(() => _phoneEnabled = value),
           onUsdtEnabledChanged: (value) => setState(() => _usdtEnabled = value),
-          onPaymentQrEnabledChanged: (value) =>
-              setState(() => _paymentQrEnabled = value),
+          onPaymentQrEnabledChanged:
+              (value) => setState(() => _paymentQrEnabled = value),
           onSbpEnabledChanged: (value) => setState(() => _sbpEnabled = value),
           phoneCtrl: _paymentPhoneCtrl,
           usdtWalletCtrl: _paymentUsdtWalletCtrl,
@@ -678,14 +878,14 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
           usdtEnabled: _transferUsdtEnabled,
           paymentQrEnabled: _transferPaymentQrEnabled,
           sbpEnabled: _transferSbpEnabled,
-          onPhoneEnabledChanged: (value) =>
-              setState(() => _transferPhoneEnabled = value),
-          onUsdtEnabledChanged: (value) =>
-              setState(() => _transferUsdtEnabled = value),
-          onPaymentQrEnabledChanged: (value) =>
-              setState(() => _transferPaymentQrEnabled = value),
-          onSbpEnabledChanged: (value) =>
-              setState(() => _transferSbpEnabled = value),
+          onPhoneEnabledChanged:
+              (value) => setState(() => _transferPhoneEnabled = value),
+          onUsdtEnabledChanged:
+              (value) => setState(() => _transferUsdtEnabled = value),
+          onPaymentQrEnabledChanged:
+              (value) => setState(() => _transferPaymentQrEnabled = value),
+          onSbpEnabledChanged:
+              (value) => setState(() => _transferSbpEnabled = value),
           phoneCtrl: _transferPaymentPhoneCtrl,
           usdtWalletCtrl: _transferPaymentUsdtWalletCtrl,
           usdtNetworkCtrl: _transferPaymentUsdtNetworkCtrl,
@@ -754,9 +954,10 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                           child: Text('Фикс (копейки)'),
                         ),
                       ],
-                      onChanged: _busy
-                          ? null
-                          : (value) => setState(
+                      onChanged:
+                          _busy
+                              ? null
+                              : (value) => setState(
                                 () => _promoDiscountType = value ?? 'PERCENT',
                               ),
                       decoration: const InputDecoration(
@@ -773,12 +974,14 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                     child: InputField(
                       controller: _promoValueCtrl,
                       keyboardType: TextInputType.number,
-                      label: _isPercentPromoDiscount
-                          ? 'Скидка (%)'
-                          : 'Скидка (копейки)',
-                      hint: _isPercentPromoDiscount
-                          ? 'от 1 до 100'
-                          : 'например 1500 = 15 RUB',
+                      label:
+                          _isPercentPromoDiscount
+                              ? 'Скидка (%)'
+                              : 'Скидка (копейки)',
+                      hint:
+                          _isPercentPromoDiscount
+                              ? 'от 1 до 100'
+                              : 'например 1500 = 15 RUB',
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
@@ -797,18 +1000,20 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                 label: 'Начало действия',
                 value: _promoActiveFrom,
                 onSelect: _pickPromoActiveFrom,
-                onClear: _promoActiveFrom == null
-                    ? null
-                    : () => setState(() => _promoActiveFrom = null),
+                onClear:
+                    _promoActiveFrom == null
+                        ? null
+                        : () => setState(() => _promoActiveFrom = null),
               ),
               const SizedBox(height: AppSpacing.xs),
               _DateSelectorField(
                 label: 'Окончание действия',
                 value: _promoActiveTo,
                 onSelect: _pickPromoActiveTo,
-                onClear: _promoActiveTo == null
-                    ? null
-                    : () => setState(() => _promoActiveTo = null),
+                onClear:
+                    _promoActiveTo == null
+                        ? null
+                        : () => setState(() => _promoActiveTo = null),
               ),
               const SizedBox(height: AppSpacing.xs),
               Row(
@@ -826,14 +1031,15 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                       children: [
                         Checkbox(
                           value: _promoActiveOnly,
-                          onChanged: _busy
-                              ? null
-                              : (value) {
-                                  setState(
-                                    () => _promoActiveOnly = value ?? false,
-                                  );
-                                  unawaited(_load());
-                                },
+                          onChanged:
+                              _busy
+                                  ? null
+                                  : (value) {
+                                    setState(
+                                      () => _promoActiveOnly = value ?? false,
+                                    );
+                                    unawaited(_load());
+                                  },
                         ),
                         const Expanded(
                           child: Text('Показывать только активные'),
@@ -849,39 +1055,41 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         const SizedBox(height: AppSpacing.sm),
         SectionCard(
           title: 'Промокоды (${_promoCodes.length})',
-          child: _promoCodes.isEmpty
-              ? const EmptyState(
-                  title: 'Промокодов нет',
-                  subtitle: 'Создайте первый промокод для текущего фильтра.',
-                )
-              : Column(
-                  children: [
-                    for (final item in _promoCodes)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                        child: AppCard(
-                          variant: AppCardVariant.plain,
-                          child: ListTile(
-                            title: Text(
-                              '${item.code} · ${_formatPromoDiscount(item)}',
-                            ),
-                            subtitle: Text(
-                              'Срабатываний: ${item.usedCount}/${item.usageLimit ?? '∞'}\n'
-                              'Период: ${_formatPromoDateRange(item.activeFrom, item.activeTo)}\n'
-                              'Событие: ${item.eventId ?? 'ALL'} · Активен: ${item.isActive ? 'да' : 'нет'}',
-                            ),
-                            isThreeLine: true,
-                            trailing: IconButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _deletePromoCode(item.id),
-                              icon: const Icon(Icons.delete_outline),
+          child:
+              _promoCodes.isEmpty
+                  ? const EmptyState(
+                    title: 'Промокодов нет',
+                    subtitle: 'Создайте первый промокод для текущего фильтра.',
+                  )
+                  : Column(
+                    children: [
+                      for (final item in _promoCodes)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: AppCard(
+                            variant: AppCardVariant.plain,
+                            child: ListTile(
+                              title: Text(
+                                '${item.code} · ${_formatPromoDiscount(item)}',
+                              ),
+                              subtitle: Text(
+                                'Срабатываний: ${item.usedCount}/${item.usageLimit ?? '∞'}\n'
+                                'Период: ${_formatPromoDateRange(item.activeFrom, item.activeTo)}\n'
+                                'Событие: ${item.eventId ?? 'ALL'} · Активен: ${item.isActive ? 'да' : 'нет'}',
+                              ),
+                              isThreeLine: true,
+                              trailing: IconButton(
+                                onPressed:
+                                    _busy
+                                        ? null
+                                        : () => _deletePromoCode(item.id),
+                                icon: const Icon(Icons.delete_outline),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
         ),
         const SizedBox(height: AppSpacing.sm),
         SectionCard(
@@ -902,14 +1110,21 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                       value: _ticketType,
                       items: const [
                         DropdownMenuItem(
-                            value: 'SINGLE', child: Text('SINGLE')),
+                          value: 'SINGLE',
+                          child: Text('SINGLE'),
+                        ),
                         DropdownMenuItem(
-                            value: 'GROUP2', child: Text('GROUP2')),
+                          value: 'GROUP2',
+                          child: Text('GROUP2'),
+                        ),
                         DropdownMenuItem(
-                            value: 'GROUP10', child: Text('GROUP10')),
+                          value: 'GROUP10',
+                          child: Text('GROUP10'),
+                        ),
                       ],
-                      onChanged: (value) =>
-                          setState(() => _ticketType = value ?? 'SINGLE'),
+                      onChanged:
+                          (value) =>
+                              setState(() => _ticketType = value ?? 'SINGLE'),
                       decoration: const InputDecoration(labelText: 'Тип'),
                     ),
                   ),
@@ -951,10 +1166,13 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                   DropdownMenuItem(value: 'THERE', child: Text('THERE')),
                   DropdownMenuItem(value: 'BACK', child: Text('BACK')),
                   DropdownMenuItem(
-                      value: 'ROUNDTRIP', child: Text('ROUNDTRIP')),
+                    value: 'ROUNDTRIP',
+                    child: Text('ROUNDTRIP'),
+                  ),
                 ],
-                onChanged: (value) =>
-                    setState(() => _transferDirection = value ?? 'THERE'),
+                onChanged:
+                    (value) =>
+                        setState(() => _transferDirection = value ?? 'THERE'),
               ),
               const SizedBox(height: AppSpacing.xs),
               InputField(
@@ -974,8 +1192,44 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
               ),
               const SizedBox(height: AppSpacing.xs),
               InputField(
+                controller: _transferArrivalCtrl,
+                label: 'Точка прибытия',
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              InputField(
+                controller: _transferCapacityCtrl,
+                keyboardType: TextInputType.number,
+                label: 'Вместимость',
+                hint: 'По умолчанию 53',
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              DropdownButtonFormField<String>(
+                initialValue: _transferLandingKey,
+                decoration: const InputDecoration(
+                  labelText: 'Публичная страница',
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: TransferProductModel.landingKeySpace,
+                    child: Text('SPACE'),
+                  ),
+                  DropdownMenuItem(
+                    value: TransferProductModel.landingKeyIskry,
+                    child: Text('ISKRY'),
+                  ),
+                ],
+                onChanged:
+                    (value) => setState(
+                      () =>
+                          _transferLandingKey =
+                              value ?? TransferProductModel.landingKeySpace,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              InputField(
                 controller: _transferNotesCtrl,
-                label: 'Примечания',
+                label: 'Описание / примечания',
+                maxLines: 3,
               ),
               const SizedBox(height: AppSpacing.xs),
               PrimaryButton(
@@ -989,102 +1243,126 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
         const SizedBox(height: AppSpacing.sm),
         SectionCard(
           title: 'Билетные продукты (${_ticketProducts.length})',
-          child: _ticketProducts.isEmpty
-              ? const EmptyState(
-                  title: 'Список пуст',
-                  subtitle: 'Создайте первый билетный продукт для события.',
-                )
-              : Column(
-                  children: [
-                    for (final item in _ticketProducts)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                        child: AppCard(
-                          variant: AppCardVariant.plain,
-                          child: ListTile(
-                            title: Text(
-                              '${item.label} · ${formatMoney(item.priceCents)}',
-                            ),
-                            subtitle: Text(
-                              'Event ${item.eventId} · code ${item.type} · sold ${item.soldCount} · ${item.isActive ? 'visible' : 'hidden'}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () =>
-                                          _toggleTicketProductVisibility(item),
-                                  icon: Icon(
-                                    item.isActive
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
+          child:
+              _ticketProducts.isEmpty
+                  ? const EmptyState(
+                    title: 'Список пуст',
+                    subtitle: 'Создайте первый билетный продукт для события.',
+                  )
+                  : Column(
+                    children: [
+                      for (final item in _ticketProducts)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: AppCard(
+                            variant: AppCardVariant.plain,
+                            child: ListTile(
+                              title: Text(
+                                '${item.label} · ${formatMoney(item.priceCents)}',
+                              ),
+                              subtitle: Text(
+                                'Event ${item.eventId} · code ${item.type} · sold ${item.soldCount} · ${item.isActive ? 'visible' : 'hidden'}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    onPressed:
+                                        _busy
+                                            ? null
+                                            : () =>
+                                                _toggleTicketProductVisibility(
+                                                  item,
+                                                ),
+                                    icon: Icon(
+                                      item.isActive
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
                                   ),
-                                ),
-                                IconButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _deleteTicketProduct(item.id),
-                                  icon: const Icon(Icons.delete_outline),
-                                ),
-                              ],
+                                  IconButton(
+                                    onPressed:
+                                        _busy
+                                            ? null
+                                            : () =>
+                                                _deleteTicketProduct(item.id),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
         ),
         const SizedBox(height: AppSpacing.sm),
         SectionCard(
           title: 'Трансферные продукты (${_transferProducts.length})',
-          child: _transferProducts.isEmpty
-              ? const EmptyState(
-                  title: 'Список пуст',
-                  subtitle: 'Создайте первый трансферный продукт для события.',
-                )
-              : Column(
-                  children: [
-                    for (final item in _transferProducts)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                        child: AppCard(
-                          variant: AppCardVariant.plain,
-                          child: ListTile(
-                            title: Text(
-                              '${item.label} · ${formatMoney(item.priceCents)}',
-                            ),
-                            subtitle: Text(
-                              'Event ${item.eventId} · code ${item.direction} · ${item.infoLabel} · ${item.isActive ? 'visible' : 'hidden'}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _toggleTransferProductVisibility(
-                                          item),
-                                  icon: Icon(
-                                    item.isActive
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
+          child:
+              _transferProducts.isEmpty
+                  ? const EmptyState(
+                    title: 'Список пуст',
+                    subtitle:
+                        'Создайте первый трансферный продукт для события.',
+                  )
+                  : Column(
+                    children: [
+                      for (final item in _transferProducts)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: AppCard(
+                            variant: AppCardVariant.plain,
+                            child: ListTile(
+                              title: Text(
+                                '${item.label} · ${formatMoney(item.priceCents)}',
+                              ),
+                              subtitle: Text(
+                                'Event ${item.eventId} · code ${item.direction} · '
+                                'landing ${item.landingLabel} · '
+                                'limit ${item.inventoryLimit?.toString() ?? 'not set'} · '
+                                'sold ${item.soldCount} · ${item.infoLabel} · '
+                                '${item.isActive ? 'visible' : 'hidden'}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    onPressed:
+                                        _busy
+                                            ? null
+                                            : () => _editTransferProduct(item),
+                                    icon: const Icon(Icons.edit_outlined),
                                   ),
-                                ),
-                                IconButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _deleteTransferProduct(item.id),
-                                  icon: const Icon(Icons.delete_outline),
-                                ),
-                              ],
+                                  IconButton(
+                                    onPressed:
+                                        _busy
+                                            ? null
+                                            : () =>
+                                                _toggleTransferProductVisibility(
+                                                  item,
+                                                ),
+                                    icon: Icon(
+                                      item.isActive
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed:
+                                        _busy
+                                            ? null
+                                            : () =>
+                                                _deleteTransferProduct(item.id),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
         ),
       ],
     );
@@ -1312,15 +1590,9 @@ class _DateSelectorField extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+                Text(label, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  text,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                Text(text, style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
           ),

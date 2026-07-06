@@ -126,6 +126,12 @@ class TransferProductModel {
     required this.isActive,
   });
 
+  /// landingKeySpace identifies regular SPACE transfer products.
+  static const String landingKeySpace = 'space';
+
+  /// landingKeyIskry identifies public ISKRY transfer products.
+  static const String landingKeyIskry = 'iskry';
+
   final String id;
   final int eventId;
   final String name;
@@ -151,15 +157,29 @@ class TransferProductModel {
     }
   }
 
+  /// landingKey normalizes the transfer product landing bucket.
+  String get landingKey {
+    final raw = asString(info['landingKey']).trim().toLowerCase();
+    if (raw == landingKeyIskry) {
+      return landingKeyIskry;
+    }
+    return landingKeySpace;
+  }
+
+  /// landingLabel returns a compact admin-facing landing title.
+  String get landingLabel => landingKey == landingKeyIskry ? 'ISKRY' : 'SPACE';
+
   /// infoLabel handles info label.
 
   String get infoLabel {
     final time = asString(info['time']);
     final pickup = asString(info['pickupPoint']);
     final notes = asString(info['notes']);
-    return [time, pickup, notes]
-        .where((item) => item.trim().isNotEmpty)
-        .join(' · ');
+    return [
+      time,
+      pickup,
+      notes,
+    ].where((item) => item.trim().isNotEmpty).join(' · ');
   }
 }
 
@@ -232,9 +252,9 @@ class OrderSelectionModel {
   /// toJson handles to json.
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'productId': productId,
-        'quantity': quantity,
-      };
+    'productId': productId,
+    'quantity': quantity,
+  };
 }
 
 /// CreateOrderPayload represents create order payload.
@@ -243,6 +263,9 @@ class CreateOrderPayload {
   /// CreateOrderPayload creates order payload.
   CreateOrderPayload({
     required this.eventId,
+    required this.contactTelegram,
+    required this.contactName,
+    required this.contactPhone,
     required this.paymentMethod,
     required this.paymentReference,
     required this.ticketItems,
@@ -251,6 +274,9 @@ class CreateOrderPayload {
   });
 
   final int eventId;
+  final String contactTelegram;
+  final String contactName;
+  final String contactPhone;
   final String paymentMethod;
   final String paymentReference;
   final List<OrderSelectionModel> ticketItems;
@@ -262,6 +288,9 @@ class CreateOrderPayload {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'eventId': eventId,
+      'contactTelegram': contactTelegram.trim(),
+      'contactName': contactName.trim(),
+      'contactPhone': contactPhone.trim(),
       'paymentMethod': paymentMethod,
       'paymentReference': paymentReference,
       'ticketItems': ticketItems.map((item) => item.toJson()).toList(),
@@ -417,6 +446,9 @@ class OrderModel {
       userId: asInt(map['userId']),
       eventId: asInt(map['eventId']),
       eventTitle: asString(map['eventTitle']),
+      contactTelegram: asString(map['contactTelegram']),
+      contactName: asString(map['contactName']),
+      contactPhone: asString(map['contactPhone']),
       status: asString(map['status']).toUpperCase(),
       paymentMethod: asString(map['paymentMethod']).toUpperCase(),
       paymentReference: asString(map['paymentReference']),
@@ -439,6 +471,9 @@ class OrderModel {
     required this.userId,
     required this.eventId,
     required this.eventTitle,
+    required this.contactTelegram,
+    required this.contactName,
+    required this.contactPhone,
     required this.status,
     required this.paymentMethod,
     required this.paymentReference,
@@ -458,6 +493,9 @@ class OrderModel {
   final int userId;
   final int eventId;
   final String eventTitle;
+  final String contactTelegram;
+  final String contactName;
+  final String contactPhone;
   final String status;
   final String paymentMethod;
   final String paymentReference;
@@ -513,10 +551,11 @@ class OrderUserModel {
   /// displayName handles display name.
 
   String get displayName {
-    final fullName = [firstName, lastName]
-        .where((item) => item.trim().isNotEmpty)
-        .join(' ')
-        .trim();
+    final fullName =
+        [
+          firstName,
+          lastName,
+        ].where((item) => item.trim().isNotEmpty).join(' ').trim();
     if (fullName.isNotEmpty) return fullName;
     if (username.trim().isNotEmpty) return '@${username.trim()}';
     return '#$id';
@@ -598,6 +637,9 @@ class TicketModel {
       ticketType: asString(map['ticketType']).toUpperCase(),
       quantity: asInt(map['quantity']),
       qrPayload: asString(map['qrPayload']),
+      qrIssuedAt: asDateTime(map['qrIssuedAt']),
+      qrDeliveredAt: asDateTime(map['qrDeliveredAt']),
+      qrDeliveryError: asString(map['qrDeliveryError']),
       redeemedAt: asDateTime(map['redeemedAt']),
       createdAt: asDateTime(map['createdAt']),
     );
@@ -613,6 +655,9 @@ class TicketModel {
     required this.ticketType,
     required this.quantity,
     required this.qrPayload,
+    required this.qrIssuedAt,
+    required this.qrDeliveredAt,
+    required this.qrDeliveryError,
     required this.redeemedAt,
     required this.createdAt,
   });
@@ -625,6 +670,9 @@ class TicketModel {
   final String ticketType;
   final int quantity;
   final String qrPayload;
+  final DateTime? qrIssuedAt;
+  final DateTime? qrDeliveredAt;
+  final String qrDeliveryError;
   final DateTime? redeemedAt;
   final DateTime? createdAt;
 
@@ -672,8 +720,9 @@ class OrderDetailModel {
       user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
       items: asList(map['items']).map(OrderItemModel.fromJson).toList(),
       tickets: asList(map['tickets']).map(TicketModel.fromJson).toList(),
-      paymentInstructions:
-          PaymentInstructionsModel.fromJson(map['paymentInstructions']),
+      paymentInstructions: PaymentInstructionsModel.fromJson(
+        map['paymentInstructions'],
+      ),
     );
   }
 
@@ -756,6 +805,9 @@ class AdminTransferOrderModel {
       eventId: asInt(map['eventId']),
       eventTitle: asString(map['eventTitle']),
       userId: asInt(map['userId']),
+      contactTelegram: asString(map['contactTelegram']),
+      contactName: asString(map['contactName']),
+      contactPhone: asString(map['contactPhone']),
       user: map['user'] == null ? null : OrderUserModel.fromJson(map['user']),
       item: OrderItemModel.fromJson(map['item']),
     );
@@ -769,6 +821,9 @@ class AdminTransferOrderModel {
     required this.eventId,
     required this.eventTitle,
     required this.userId,
+    required this.contactTelegram,
+    required this.contactName,
+    required this.contactPhone,
     required this.user,
     required this.item,
   });
@@ -779,6 +834,9 @@ class AdminTransferOrderModel {
   final int eventId;
   final String eventTitle;
   final int userId;
+  final String contactTelegram;
+  final String contactName;
+  final String contactPhone;
   final OrderUserModel? user;
   final OrderItemModel item;
 }
@@ -814,12 +872,14 @@ class AdminBotMessageModel {
       chatId: asInt(map['chatId']),
       direction: asString(map['direction']).toUpperCase(),
       text: asString(map['text']),
-      telegramMessageId: map['telegramMessageId'] == null
-          ? null
-          : asInt(map['telegramMessageId']),
-      senderTelegramId: map['senderTelegramId'] == null
-          ? null
-          : asInt(map['senderTelegramId']),
+      telegramMessageId:
+          map['telegramMessageId'] == null
+              ? null
+              : asInt(map['telegramMessageId']),
+      senderTelegramId:
+          map['senderTelegramId'] == null
+              ? null
+              : asInt(map['senderTelegramId']),
       senderUsername: asString(map['senderUsername']),
       senderFirstName: asString(map['senderFirstName']),
       senderLastName: asString(map['senderLastName']),
@@ -879,16 +939,18 @@ class AdminBotMessageModel {
     if (userUsername.trim().isNotEmpty) return '@${userUsername.trim()}';
     if (senderUsername.trim().isNotEmpty) return '@${senderUsername.trim()}';
 
-    final userFullName = [userFirstName, userLastName]
-        .where((item) => item.trim().isNotEmpty)
-        .join(' ')
-        .trim();
+    final userFullName =
+        [
+          userFirstName,
+          userLastName,
+        ].where((item) => item.trim().isNotEmpty).join(' ').trim();
     if (userFullName.isNotEmpty) return userFullName;
 
-    final senderFullName = [senderFirstName, senderLastName]
-        .where((item) => item.trim().isNotEmpty)
-        .join(' ')
-        .trim();
+    final senderFullName =
+        [
+          senderFirstName,
+          senderLastName,
+        ].where((item) => item.trim().isNotEmpty).join(' ').trim();
     if (senderFullName.isNotEmpty) return senderFullName;
     if (userId != null && userId! > 0) return 'Пользователь #${userId!}';
     return 'Пользователь';
@@ -985,10 +1047,8 @@ class AdminStatsBreakdownModel {
 
   /// purchasedTicketsCount handles purchased tickets count.
 
-  int get purchasedTicketsCount => ticketTypeCounts.values.fold(
-        0,
-        (sum, value) => sum + value,
-      );
+  int get purchasedTicketsCount =>
+      ticketTypeCounts.values.fold(0, (sum, value) => sum + value);
 
   /// _parseCountMap parses count map.
 
@@ -1093,10 +1153,7 @@ class CreateSbpQrOrderResponseModel {
   }
 
   /// CreateSbpQrOrderResponseModel creates sbp qr order response model.
-  CreateSbpQrOrderResponseModel({
-    required this.order,
-    required this.sbpQr,
-  });
+  CreateSbpQrOrderResponseModel({required this.order, required this.sbpQr});
 
   final OrderDetailModel order;
   final SbpQrModel sbpQr;
@@ -1116,9 +1173,10 @@ class SbpQrStatusResponseModel {
       paid: asBool(map['paid']),
       unknown: asBool(map['unknown']),
       message: asString(map['message']),
-      detail: map['detail'] == null
-          ? null
-          : OrderDetailModel.fromJson(map['detail']),
+      detail:
+          map['detail'] == null
+              ? null
+              : OrderDetailModel.fromJson(map['detail']),
     );
   }
 

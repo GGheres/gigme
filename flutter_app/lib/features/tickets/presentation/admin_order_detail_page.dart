@@ -26,7 +26,6 @@ class AdminOrderDetailPage extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<AdminOrderDetailPage> createState() =>
-
       /// _AdminOrderDetailPageState handles admin order detail page state.
       _AdminOrderDetailPageState();
 }
@@ -65,11 +64,9 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     });
 
     try {
-      final response =
-          await ref.read(ticketingRepositoryProvider).getAdminOrder(
-                token: token,
-                orderId: widget.orderId,
-              );
+      final response = await ref
+          .read(ticketingRepositoryProvider)
+          .getAdminOrder(token: token, orderId: widget.orderId);
       if (!mounted) return;
       setState(() {
         _detail = response;
@@ -91,10 +88,9 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
     if (token.isEmpty) return;
     setState(() => _busy = true);
     try {
-      final response = await ref.read(ticketingRepositoryProvider).confirmOrder(
-            token: token,
-            orderId: widget.orderId,
-          );
+      final response = await ref
+          .read(ticketingRepositoryProvider)
+          .confirmOrder(token: token, orderId: widget.orderId);
       if (!mounted) return;
       setState(() => _detail = response);
       _showMessage('Заказ подтвержден');
@@ -122,13 +118,15 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
           content: TextField(
             controller: reasonCtrl,
             maxLines: 3,
-            decoration:
-                const InputDecoration(hintText: 'Причина (необязательно)'),
+            decoration: const InputDecoration(
+              hintText: 'Причина (необязательно)',
+            ),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Закрыть')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Закрыть'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(context, reasonCtrl.text.trim()),
               child: const Text('Отменить заказ'),
@@ -142,11 +140,9 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
 
     setState(() => _busy = true);
     try {
-      final response = await ref.read(ticketingRepositoryProvider).cancelOrder(
-            token: token,
-            orderId: widget.orderId,
-            reason: reason,
-          );
+      final response = await ref
+          .read(ticketingRepositoryProvider)
+          .cancelOrder(token: token, orderId: widget.orderId, reason: reason);
       if (!mounted) return;
       setState(() => _detail = response);
       _showMessage('Заказ отменен');
@@ -218,25 +214,38 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
             ),
             child: Row(
               children: [
-                Text('Статус: ',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Статус: ',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 Chip(
                   label: Text(status),
-                  backgroundColor:
-                      statusColor(status, context).withValues(alpha: 0.12),
+                  backgroundColor: statusColor(
+                    status,
+                    context,
+                  ).withValues(alpha: 0.12),
                   side: BorderSide(color: statusColor(status, context)),
                   labelStyle: TextStyle(
-                      color: statusColor(status, context),
-                      fontWeight: FontWeight.w600),
+                    color: statusColor(status, context),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 10),
           Text(
-              'Событие: ${order.eventTitle.isEmpty ? order.eventId : order.eventTitle}'),
+            'Событие: ${order.eventTitle.isEmpty ? order.eventId : order.eventTitle}',
+          ),
           Text(
-              'Пользователь: ${detail.user?.displayName ?? '#${order.userId}'}'),
+            'Пользователь: ${detail.user?.displayName ?? '#${order.userId}'}',
+          ),
+          if (order.contactTelegram.trim().isNotEmpty)
+            Text('Telegram для QR: ${order.contactTelegram}'),
+          if (order.contactName.trim().isNotEmpty)
+            Text('Имя: ${order.contactName}'),
+          if (order.contactPhone.trim().isNotEmpty)
+            Text('Телефон: ${order.contactPhone}'),
           if (userTelegramId > 0) ...[
             const SizedBox(height: 8),
             Wrap(
@@ -244,9 +253,10 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
               runSpacing: 8,
               children: [
                 FilledButton.tonalIcon(
-                  onPressed: () => context.push(
-                    AppRoutes.adminBotMessagesForChat(userTelegramId),
-                  ),
+                  onPressed:
+                      () => context.push(
+                        AppRoutes.adminBotMessagesForChat(userTelegramId),
+                      ),
                   icon: const Icon(Icons.forum_outlined),
                   label: const Text('Диалог'),
                 ),
@@ -276,10 +286,9 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .tertiaryContainer
-                    .withValues(alpha: 0.5),
+                color: Theme.of(
+                  context,
+                ).colorScheme.tertiaryContainer.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -306,7 +315,8 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
               contentPadding: EdgeInsets.zero,
               title: Text('${item.itemType} · ${item.productRef}'),
               subtitle: Text(
-                  'Кол-во ${item.quantity}  ×  ${formatMoney(item.unitPriceCents)}'),
+                'Кол-во ${item.quantity}  ×  ${formatMoney(item.unitPriceCents)}',
+              ),
               trailing: Text(formatMoney(item.lineTotalCents)),
             ),
           ),
@@ -317,18 +327,34 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
             (ticket) => ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('Билет ${ticket.id}'),
-              subtitle:
-                  Text('${ticket.ticketType} · кол-во ${ticket.quantity}'),
+              subtitle: Text(
+                [
+                  '${ticket.ticketType} · кол-во ${ticket.quantity}',
+                  if (ticket.qrIssuedAt != null)
+                    'QR выпущен: ${ticket.qrIssuedAt!.toLocal()}',
+                  if (ticket.qrDeliveredAt != null)
+                    'QR доставлен: ${ticket.qrDeliveredAt!.toLocal()}',
+                  if (ticket.qrDeliveryError.trim().isNotEmpty)
+                    'Ошибка доставки: ${ticket.qrDeliveryError}',
+                ].join('\n'),
+              ),
+              isThreeLine:
+                  ticket.qrIssuedAt != null ||
+                  ticket.qrDeliveredAt != null ||
+                  ticket.qrDeliveryError.trim().isNotEmpty,
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Chip(
                     label: Text(ticket.status),
-                    backgroundColor: statusColor(ticket.status, context)
-                        .withValues(alpha: 0.12),
-                    side:
-                        BorderSide(color: statusColor(ticket.status, context)),
+                    backgroundColor: statusColor(
+                      ticket.status,
+                      context,
+                    ).withValues(alpha: 0.12),
+                    side: BorderSide(
+                      color: statusColor(ticket.status, context),
+                    ),
                     labelStyle: TextStyle(
                       color: statusColor(ticket.status, context),
                       fontWeight: FontWeight.w600,
@@ -377,8 +403,9 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// _openBotForUser handles open bot for user.
@@ -443,28 +470,32 @@ class _AdminOrderDetailPageState extends ConsumerState<AdminOrderDetailPage> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить заказ?'),
-        content: const Text(
-            'Заказ будет удален из базы без возможности восстановления и исчезнет из статистики.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Удалить заказ?'),
+            content: const Text(
+              'Заказ будет удален из базы без возможности восстановления и исчезнет из статистики.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Отмена'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Удалить'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
     );
     if (!mounted) return;
     if (confirmed != true) return;
 
     setState(() => _busy = true);
     try {
-      await ref.read(ticketingRepositoryProvider).deleteAdminOrder(
+      await ref
+          .read(ticketingRepositoryProvider)
+          .deleteAdminOrder(
             token: token,
             orderId: widget.orderId,
             password: password!,

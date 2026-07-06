@@ -66,13 +66,14 @@ Future<void> showPurchaseTicketFlow(
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (context) => Dialog(
-        child: SizedBox(
-          width: min(MediaQuery.of(context).size.width * 0.85, 760),
-          height: min(MediaQuery.of(context).size.height * 0.9, 760),
-          child: PurchaseTicketFlow(eventId: eventId, mode: mode),
-        ),
-      ),
+      builder:
+          (context) => Dialog(
+            child: SizedBox(
+              width: min(MediaQuery.of(context).size.width * 0.85, 760),
+              height: min(MediaQuery.of(context).size.height * 0.9, 760),
+              child: PurchaseTicketFlow(eventId: eventId, mode: mode),
+            ),
+          ),
     );
   }
   return showModalBottomSheet<void>(
@@ -146,9 +147,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     _draftStore = PurchaseTicketDraftStore(scope: widget.mode.draftScope);
     WidgetsBinding.instance.addObserver(this);
     unawaited(
-      ref.read(localReminderServiceProvider).cancelPurchaseReminder(
-            eventId: widget.eventId,
-          ),
+      ref
+          .read(localReminderServiceProvider)
+          .cancelPurchaseReminder(eventId: widget.eventId),
     );
     _promoCtrl.addListener(_onDraftChanged);
     unawaited(_bootstrapFlow());
@@ -163,15 +164,15 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     if (!_orderCompleted) {
       if (draftBeforeDispose.hasMeaningfulData) {
         unawaited(
-          ref.read(localReminderServiceProvider).schedulePurchaseReminder(
-                eventId: widget.eventId,
-              ),
+          ref
+              .read(localReminderServiceProvider)
+              .schedulePurchaseReminder(eventId: widget.eventId),
         );
       } else {
         unawaited(
-          ref.read(localReminderServiceProvider).cancelPurchaseReminder(
-                eventId: widget.eventId,
-              ),
+          ref
+              .read(localReminderServiceProvider)
+              .cancelPurchaseReminder(eventId: widget.eventId),
         );
       }
       unawaited(_persistDraft());
@@ -193,15 +194,15 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       if (draft.hasMeaningfulData) {
         _showResumeReminder = true;
         unawaited(
-          ref.read(localReminderServiceProvider).schedulePurchaseReminder(
-                eventId: widget.eventId,
-              ),
+          ref
+              .read(localReminderServiceProvider)
+              .schedulePurchaseReminder(eventId: widget.eventId),
         );
       } else {
         unawaited(
-          ref.read(localReminderServiceProvider).cancelPurchaseReminder(
-                eventId: widget.eventId,
-              ),
+          ref
+              .read(localReminderServiceProvider)
+              .cancelPurchaseReminder(eventId: widget.eventId),
         );
       }
       unawaited(_persistDraft());
@@ -210,9 +211,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
 
     if (state == AppLifecycleState.resumed) {
       unawaited(
-        ref.read(localReminderServiceProvider).cancelPurchaseReminder(
-              eventId: widget.eventId,
-            ),
+        ref
+            .read(localReminderServiceProvider)
+            .cancelPurchaseReminder(eventId: widget.eventId),
       );
       if (_showResumeReminder) {
         _showResumeReminder = false;
@@ -295,10 +296,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   Future<void> _persistDraft() async {
     if (_restoringDraft || _orderCompleted) return;
     _draftSaveDebounce?.cancel();
-    await _draftStore.save(
-      eventId: widget.eventId,
-      draft: _snapshotDraft(),
-    );
+    await _draftStore.save(eventId: widget.eventId, draft: _snapshotDraft());
   }
 
   void _updateStateAndSave(VoidCallback updateState) {
@@ -478,7 +476,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
 
     setState(() => _validatingPromo = true);
     try {
-      final result = await ref.read(ticketingRepositoryProvider).validatePromo(
+      final result = await ref
+          .read(ticketingRepositoryProvider)
+          .validatePromo(
             token: token,
             eventId: widget.eventId,
             code: code,
@@ -537,6 +537,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     try {
       final payload = CreateOrderPayload(
         eventId: widget.eventId,
+        contactTelegram: '',
+        contactName: '',
+        contactPhone: '',
         paymentMethod: _paymentMethod,
         paymentReference: '',
         ticketItems: ticketItems,
@@ -544,11 +547,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         promoCode: _promoCtrl.text.trim(),
       );
       if (_paymentMethod == 'TOCHKA_SBP_QR') {
-        final created =
-            await ref.read(ticketingRepositoryProvider).createSbpQrOrder(
-                  token: token,
-                  payload: payload,
-                );
+        final created = await ref
+            .read(ticketingRepositoryProvider)
+            .createSbpQrOrder(token: token, payload: payload);
         await _draftStore.clear(eventId: widget.eventId);
         await ref
             .read(localReminderServiceProvider)
@@ -557,10 +558,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         if (!mounted) return;
         setState(() => _createdSbpOrder = created);
       } else {
-        final created = await ref.read(ticketingRepositoryProvider).createOrder(
-              token: token,
-              payload: payload,
-            );
+        final created = await ref
+            .read(ticketingRepositoryProvider)
+            .createOrder(token: token, payload: payload);
         await _draftStore.clear(eventId: widget.eventId);
         await ref
             .read(localReminderServiceProvider)
@@ -611,8 +611,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         title: _orderTitle,
         subtitle: 'Подготавливаем данные',
         titleColor: Theme.of(context).colorScheme.onSurface,
-        subtitleColor:
-            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+        subtitleColor: Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.74),
         child: Center(
           child: LoadingState(
             title: _isTransferMode ? 'Загрузка трансферов' : 'Загрузка билетов',
@@ -634,8 +635,9 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         title: _orderTitle,
         subtitle: 'Не удалось загрузить данные',
         titleColor: Theme.of(context).colorScheme.onSurface,
-        subtitleColor:
-            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+        subtitleColor: Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.74),
         child: Center(
           child: ErrorState(
             message: _error!,
@@ -647,17 +649,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
     }
 
     if (_createdOrder != null) {
-      return PurchaseStatusPage(
-        detail: _createdOrder!,
-        onClose: _closeFlow,
-      );
+      return PurchaseStatusPage(detail: _createdOrder!, onClose: _closeFlow);
     }
 
     if (_createdSbpOrder != null) {
-      return SbpQrPaymentPage(
-        created: _createdSbpOrder!,
-        onClose: _closeFlow,
-      );
+      return SbpQrPaymentPage(created: _createdSbpOrder!, onClose: _closeFlow);
     }
 
     if (_showPaymentCheckout) {
@@ -704,17 +700,19 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       bottomSheet: StickyActionBar(
         primaryAction: PrimaryButton(
           label: 'Перейти к оплате',
-          onPressed: _submitting ||
-                  !_hasPurchasableSelection ||
-                  availablePaymentMethods.isEmpty
-              ? null
-              : _openPaymentCheckout,
+          onPressed:
+              _submitting ||
+                      !_hasPurchasableSelection ||
+                      availablePaymentMethods.isEmpty
+                  ? null
+                  : _openPaymentCheckout,
           expand: true,
         ),
         secondaryAction: SecondaryButton(
-          label: availablePaymentMethods.isEmpty
-              ? 'Оплата недоступна'
-              : 'К оплате: ${formatMoney(_totalCents)}',
+          label:
+              availablePaymentMethods.isEmpty
+                  ? 'Оплата недоступна'
+                  : 'К оплате: ${formatMoney(_totalCents)}',
           outline: true,
           onPressed: null,
           expand: true,
@@ -725,25 +723,28 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         children: [
           ScreenHero(
             title: _orderTitle,
-            subtitle: hasOrderDraft
-                ? 'Проверьте шаги и переходите к оплате.'
-                : _isTransferMode
+            subtitle:
+                hasOrderDraft
+                    ? 'Проверьте шаги и переходите к оплате.'
+                    : _isTransferMode
                     ? 'Выберите трансфер как отдельный продукт.'
                     : 'Выберите билет на событие без добавления трансфера.',
             summary: [
               if (!_isTransferMode)
                 AppBadge(
                   label: '$selectedTicketsCount билетов',
-                  variant: selectedTicketsCount > 0
-                      ? AppBadgeVariant.accent
-                      : AppBadgeVariant.neutral,
+                  variant:
+                      selectedTicketsCount > 0
+                          ? AppBadgeVariant.accent
+                          : AppBadgeVariant.neutral,
                 ),
               if (_isTransferMode)
                 AppBadge(
                   label: '$selectedTransferSeats мест трансфера',
-                  variant: selectedTransferSeats > 0
-                      ? AppBadgeVariant.accent
-                      : AppBadgeVariant.neutral,
+                  variant:
+                      selectedTransferSeats > 0
+                          ? AppBadgeVariant.accent
+                          : AppBadgeVariant.neutral,
                 ),
               AppBadge(
                 label: 'Итого: ${formatMoney(_totalCents)}',
@@ -754,9 +755,10 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
           const SizedBox(height: AppSpacing.sm),
           SectionCard(
             title: 'Готовность заказа',
-            subtitle: _isTransferMode
-                ? 'Трансфер: $selectedTransferSeats · К оплате: ${formatMoney(_totalCents)}'
-                : 'Билеты: $selectedTicketsCount · К оплате: ${formatMoney(_totalCents)}',
+            subtitle:
+                _isTransferMode
+                    ? 'Трансфер: $selectedTransferSeats · К оплате: ${formatMoney(_totalCents)}'
+                    : 'Билеты: $selectedTicketsCount · К оплате: ${formatMoney(_totalCents)}',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -846,10 +848,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
               ),
           ],
           const SizedBox(height: 16),
-          Text(
-            '2) Промокод',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('2) Промокод', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -874,9 +873,10 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
                   ? 'Скидка: ${formatMoney(_promoResult!.discountCents)}'
                   : 'Промокод не применился: ${_promoResult!.reason}',
               style: TextStyle(
-                color: _promoResult!.valid
-                    ? colorScheme.tertiary
-                    : colorScheme.error,
+                color:
+                    _promoResult!.valid
+                        ? colorScheme.tertiary
+                        : colorScheme.error,
               ),
             ),
           ],
@@ -901,10 +901,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
               ),
             ),
           if (availablePaymentMethods.isNotEmpty)
-            PaymentMethodPage(
-              method: _paymentMethod,
-              amountCents: _totalCents,
-            ),
+            PaymentMethodPage(method: _paymentMethod, amountCents: _totalCents),
           const SizedBox(height: 16),
           Text(
             '4) Итог заказа',
@@ -930,8 +927,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             !_hasPurchasableSelection
                 ? 'Сначала выберите $_productLabel.'
                 : availablePaymentMethods.isEmpty
-                    ? 'Сейчас нет доступных способов оплаты для этого события.'
-                    : 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».',
+                ? 'Сейчас нет доступных способов оплаты для этого события.'
+                : 'На следующем шаге вы увидите реквизиты и кнопку «Я оплатил(а)».',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 116),
@@ -1056,7 +1053,8 @@ class PurchaseStatusPage extends StatelessWidget {
     final order = detail.order;
     final instructions = detail.paymentInstructions;
     final transferItems = detail.transferItems;
-    final hasTransferOnly = transferItems.isNotEmpty &&
+    final hasTransferOnly =
+        transferItems.isNotEmpty &&
         !detail.items.any((item) => item.itemType.toUpperCase() == 'TICKET');
 
     return AppScaffold(
@@ -1070,8 +1068,9 @@ class PurchaseStatusPage extends StatelessWidget {
       title: 'Заказ создан',
       subtitle: 'Ожидаем подтверждение оплаты',
       titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      subtitleColor: Theme.of(
+        context,
+      ).colorScheme.onSurface.withValues(alpha: 0.74),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -1119,20 +1118,11 @@ class PurchaseStatusPage extends StatelessWidget {
           if (instructions.phoneNumber.trim().isNotEmpty)
             _CopyInfoRow(label: 'Phone', value: instructions.phoneNumber),
           if (instructions.usdtWallet.trim().isNotEmpty)
-            _CopyInfoRow(
-              label: 'USDT wallet',
-              value: instructions.usdtWallet,
-            ),
+            _CopyInfoRow(label: 'USDT wallet', value: instructions.usdtWallet),
           if (instructions.usdtNetwork.trim().isNotEmpty)
-            _CopyInfoRow(
-              label: 'Network',
-              value: instructions.usdtNetwork,
-            ),
+            _CopyInfoRow(label: 'Network', value: instructions.usdtNetwork),
           if (instructions.usdtMemo.trim().isNotEmpty)
-            _CopyInfoRow(
-              label: 'Memo',
-              value: instructions.usdtMemo,
-            ),
+            _CopyInfoRow(label: 'Memo', value: instructions.usdtMemo),
           if (instructions.paymentQrData.trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
             _CopyDataCard(
@@ -1171,19 +1161,14 @@ class _TransferItemsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Трансфер',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
+          Text('Трансфер', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.xs),
           ...items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(item.displayName),
-                  ),
+                  Expanded(child: Text(item.displayName)),
                   Text('${item.quantity} мест'),
                 ],
               ),
@@ -1244,7 +1229,6 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
   /// _token handles internal token behavior.
 
   String get _token =>
-
       /// read reads the requested data.
       ref.read(authControllerProvider).state.token?.trim() ?? '';
 
@@ -1271,10 +1255,9 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     });
 
     try {
-      final result = await ref.read(ticketingRepositoryProvider).getSbpQrStatus(
-            token: token,
-            orderId: widget.created.order.order.id,
-          );
+      final result = await ref
+          .read(ticketingRepositoryProvider)
+          .getSbpQrStatus(token: token, orderId: widget.created.order.order.id);
       if (!mounted) return;
       setState(() => _status = result);
       if (_isPaid(result)) {
@@ -1327,21 +1310,25 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final detail = _status?.detail ?? widget.created.order;
     final order = detail.order;
-    final paymentStatus = (_status?.paymentStatus.trim().isNotEmpty ?? false)
-        ? _status!.paymentStatus
-        : widget.created.sbpQr.status;
-    final isPaid = _isPaid(_status) ||
+    final paymentStatus =
+        (_status?.paymentStatus.trim().isNotEmpty ?? false)
+            ? _status!.paymentStatus
+            : widget.created.sbpQr.status;
+    final isPaid =
+        _isPaid(_status) ||
         order.status.toUpperCase() == 'PAID' ||
         order.status.toUpperCase() == 'REDEEMED' ||
         order.status.toUpperCase() == 'CONFIRMED';
-    final qrPayload = widget.created.sbpQr.payload.trim().isNotEmpty
-        ? widget.created.sbpQr.payload.trim()
-        : detail.paymentInstructions.paymentQrData.trim();
+    final qrPayload =
+        widget.created.sbpQr.payload.trim().isNotEmpty
+            ? widget.created.sbpQr.payload.trim()
+            : detail.paymentInstructions.paymentQrData.trim();
     final statusAccent = isPaid ? colorScheme.tertiary : colorScheme.primary;
     final statusBackgroundAlpha = isDark ? 0.28 : 0.14;
     final statusBorderAlpha = isDark ? 0.62 : 0.42;
     final transferItems = detail.transferItems;
-    final hasTransferOnly = transferItems.isNotEmpty &&
+    final hasTransferOnly =
+        transferItems.isNotEmpty &&
         !detail.items.any((item) => item.itemType.toUpperCase() == 'TICKET');
 
     return Scaffold(
@@ -1353,9 +1340,10 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
         ),
         actions: [
           IconButton(
-            onPressed: _loading
-                ? null
-                : () => unawaited(_pollStatus(scheduleNext: false)),
+            onPressed:
+                _loading
+                    ? null
+                    : () => unawaited(_pollStatus(scheduleNext: false)),
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -1375,10 +1363,11 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
             child: Row(
               children: [
                 Icon(
-                    isPaid
-                        ? Icons.check_circle_rounded
-                        : Icons.hourglass_top_rounded,
-                    color: statusAccent),
+                  isPaid
+                      ? Icons.check_circle_rounded
+                      : Icons.hourglass_top_rounded,
+                  color: statusAccent,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -1430,16 +1419,12 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
           ],
           const SizedBox(height: 14),
           if (qrPayload.isNotEmpty)
-            Center(
-              child: PsychedelicQrCard(
-                data: qrPayload,
-                size: 248,
-              ),
-            )
+            Center(child: PsychedelicQrCard(data: qrPayload, size: 248))
           else
             const _InfoCard(
-                text:
-                    'QR payload временно недоступен. Попробуйте обновить статус.'),
+              text:
+                  'QR payload временно недоступен. Попробуйте обновить статус.',
+            ),
           const SizedBox(height: 10),
           if (qrPayload.isNotEmpty)
             _CopyDataCard(
@@ -1449,9 +1434,10 @@ class _SbpQrPaymentPageState extends ConsumerState<SbpQrPaymentPage> {
             ),
           const SizedBox(height: 14),
           PrimaryButton(
-            onPressed: _loading
-                ? null
-                : () => unawaited(_pollStatus(scheduleNext: false)),
+            onPressed:
+                _loading
+                    ? null
+                    : () => unawaited(_pollStatus(scheduleNext: false)),
             icon: const Icon(Icons.refresh_rounded),
             label: _loading ? 'Проверка…' : 'Проверить оплату',
             expand: true,
@@ -1506,10 +1492,7 @@ class _TicketQuantityRow extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
@@ -1521,9 +1504,10 @@ class _TicketQuantityRow extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: quantity <= 0
-                      ? null
-                      : () => onChanged(max(0, quantity - 1)),
+                  onPressed:
+                      quantity <= 0
+                          ? null
+                          : () => onChanged(max(0, quantity - 1)),
                   icon: const Icon(Icons.remove_rounded),
                 ),
                 SizedBox(
@@ -1597,11 +1581,15 @@ class _PaymentMethodTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
@@ -1662,26 +1650,32 @@ class _PaymentCheckoutPage extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     final title = _methodTitle(paymentMethod);
     final promoOverride = _PromoPaymentOverride.forCode(promoCode);
-    final customSubtitle = paymentMethod == 'PHONE' && promoOverride != null
-        ? promoOverride.phoneDescription
-        : paymentSettings?.descriptionForMethod(paymentMethod);
-    final subtitle = (customSubtitle ?? '').trim().isNotEmpty
-        ? customSubtitle!.trim()
-        : _methodSubtitle(paymentMethod);
-    final phoneNumber = promoOverride != null
-        ? promoOverride.phoneNumber
-        : (paymentSettings?.phoneNumber ?? '').trim().isNotEmpty
+    final customSubtitle =
+        paymentMethod == 'PHONE' && promoOverride != null
+            ? promoOverride.phoneDescription
+            : paymentSettings?.descriptionForMethod(paymentMethod);
+    final subtitle =
+        (customSubtitle ?? '').trim().isNotEmpty
+            ? customSubtitle!.trim()
+            : _methodSubtitle(paymentMethod);
+    final phoneNumber =
+        promoOverride != null
+            ? promoOverride.phoneNumber
+            : (paymentSettings?.phoneNumber ?? '').trim().isNotEmpty
             ? paymentSettings!.phoneNumber.trim()
             : config.paymentPhoneNumber;
-    final usdtWallet = (paymentSettings?.usdtWallet ?? '').trim().isNotEmpty
-        ? paymentSettings!.usdtWallet.trim()
-        : config.paymentUsdtWallet;
-    final usdtNetwork = (paymentSettings?.usdtNetwork ?? '').trim().isNotEmpty
-        ? paymentSettings!.usdtNetwork.trim()
-        : config.paymentUsdtNetwork;
-    final usdtMemo = (paymentSettings?.usdtMemo ?? '').trim().isNotEmpty
-        ? paymentSettings!.usdtMemo.trim()
-        : config.paymentUsdtMemo;
+    final usdtWallet =
+        (paymentSettings?.usdtWallet ?? '').trim().isNotEmpty
+            ? paymentSettings!.usdtWallet.trim()
+            : config.paymentUsdtWallet;
+    final usdtNetwork =
+        (paymentSettings?.usdtNetwork ?? '').trim().isNotEmpty
+            ? paymentSettings!.usdtNetwork.trim()
+            : config.paymentUsdtNetwork;
+    final usdtMemo =
+        (paymentSettings?.usdtMemo ?? '').trim().isNotEmpty
+            ? paymentSettings!.usdtMemo.trim()
+            : config.paymentUsdtMemo;
     final paymentQrData =
         (paymentSettings?.paymentQrData ?? '').trim().isNotEmpty
             ? paymentSettings!.paymentQrData.trim()
@@ -1704,10 +1698,7 @@ class _PaymentCheckoutPage extends ConsumerWidget {
             subtitle:
                 'Проверьте реквизиты и завершите оплату выбранным способом.',
             summary: [
-              AppBadge(
-                label: title,
-                variant: AppBadgeVariant.neutral,
-              ),
+              AppBadge(label: title, variant: AppBadgeVariant.neutral),
               AppBadge(
                 label: formatMoney(amountCents),
                 variant: AppBadgeVariant.accent,
@@ -1740,9 +1731,10 @@ class _PaymentCheckoutPage extends ConsumerWidget {
                   ? Icons.qr_code_2_rounded
                   : Icons.check_circle_outline_rounded,
             ),
-            label: submitting
-                ? (isSbp ? 'Создание…' : 'Отправка…')
-                : (isSbp ? 'Создать SBP QR' : 'Я оплатил(а)'),
+            label:
+                submitting
+                    ? (isSbp ? 'Создание…' : 'Отправка…')
+                    : (isSbp ? 'Создать SBP QR' : 'Я оплатил(а)'),
             expand: true,
             loading: submitting,
           ),
@@ -1810,7 +1802,8 @@ class _PromoPaymentOverride {
   static const _alice26Code = 'ALICE26';
   static const _alice26 = _PromoPaymentOverride(
     phoneNumber: '+79841478036',
-    phoneDescription: 'Перевод СБП по номеру на T Bank\n'
+    phoneDescription:
+        'Перевод СБП по номеру на T Bank\n'
         'После перевода для ускорения обработки платежа скиньте чек транзакции в бота.',
   );
 
@@ -1863,9 +1856,10 @@ class _PaymentRequisitesBlock extends StatelessWidget {
           children: [
             _CopyDataCard(
               title: 'USDT кошелек',
-              value: normalizedWallet.isEmpty
-                  ? 'Кошелек не настроен. Укажите PAYMENT_USDT_WALLET.'
-                  : normalizedWallet,
+              value:
+                  normalizedWallet.isEmpty
+                      ? 'Кошелек не настроен. Укажите PAYMENT_USDT_WALLET.'
+                      : normalizedWallet,
               copyValue: normalizedWallet,
             ),
             const SizedBox(height: 8),
@@ -1888,9 +1882,10 @@ class _PaymentRequisitesBlock extends StatelessWidget {
       case 'PAYMENT_QR':
         return _CopyDataCard(
           title: 'QR payload',
-          value: normalizedQrData.isEmpty
-              ? 'QR payload не настроен. Укажите PAYMENT_QR_DATA.'
-              : normalizedQrData,
+          value:
+              normalizedQrData.isEmpty
+                  ? 'QR payload не настроен. Укажите PAYMENT_QR_DATA.'
+                  : normalizedQrData,
           copyValue: normalizedQrData,
         );
       case 'TOCHKA_SBP_QR':
@@ -1902,9 +1897,10 @@ class _PaymentRequisitesBlock extends StatelessWidget {
       default:
         return _CopyDataCard(
           title: 'Номер для перевода',
-          value: normalizedPhone.isEmpty
-              ? 'Номер не настроен. Укажите PAYMENT_PHONE_NUMBER.'
-              : normalizedPhone,
+          value:
+              normalizedPhone.isEmpty
+                  ? 'Номер не настроен. Укажите PAYMENT_PHONE_NUMBER.'
+                  : normalizedPhone,
           copyValue: normalizedPhone,
         );
     }
@@ -1943,9 +1939,10 @@ class _CopyDataCard extends StatelessWidget {
           SelectableText(value),
           const SizedBox(height: 8),
           SecondaryButton(
-            onPressed: canCopy
-                ? () => copyToClipboard(context, text: valueToCopy)
-                : null,
+            onPressed:
+                canCopy
+                    ? () => copyToClipboard(context, text: valueToCopy)
+                    : null,
             icon: const Icon(Icons.copy_rounded),
             label: 'Скопировать',
             outline: true,
@@ -1982,11 +1979,7 @@ class _CopyInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: SelectableText(
-            '$label: $normalizedValue',
-          ),
-        ),
+        Expanded(child: SelectableText('$label: $normalizedValue')),
         if (copyEnabled)
           IconButton(
             tooltip: 'Скопировать',
@@ -2016,9 +2009,10 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = emphasized
-        ? const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)
-        : Theme.of(context).textTheme.bodyMedium;
+    final style =
+        emphasized
+            ? const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)
+            : Theme.of(context).textTheme.bodyMedium;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

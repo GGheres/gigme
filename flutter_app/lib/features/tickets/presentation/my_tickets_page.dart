@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../auth/application/auth_state.dart';
 import '../../../ui/components/action_buttons.dart';
 import '../../../ui/components/app_states.dart';
 import '../../../ui/components/app_badge.dart';
@@ -35,6 +36,7 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
     with WidgetsBindingObserver {
   static const Duration _refreshInterval = Duration(seconds: 15);
 
+  String? _loadedToken;
   bool _loading = true;
   bool _requestInFlight = false;
   String? _error;
@@ -51,7 +53,6 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
       _refreshInterval,
       (_) => unawaited(_load(showLoading: false)),
     );
-    unawaited(_load());
   }
 
   /// dispose releases page resources.
@@ -77,11 +78,15 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
   Future<void> _load({bool showLoading = true}) async {
     if (_requestInFlight) return;
 
-    final token = ref.read(authControllerProvider).state.token?.trim() ?? '';
+    final authState = ref.read(authControllerProvider).state;
+    final token = authState.token?.trim() ?? '';
     if (token.isEmpty) {
       setState(() {
-        _loading = false;
-        _error = 'Требуется авторизация';
+        _loading = authState.status == AuthStatus.loading;
+        _error =
+            authState.status == AuthStatus.loading
+                ? null
+                : 'Требуется авторизация';
       });
       return;
     }
@@ -123,10 +128,29 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider).state;
+    final token = authState.token?.trim() ?? '';
+    if (authState.status == AuthStatus.authenticated &&
+        token.isNotEmpty &&
+        _loadedToken != token) {
+      _loadedToken = token;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_load());
+      });
+    } else if (authState.status != AuthStatus.authenticated &&
+        _loadedToken != null) {
+      _loadedToken = null;
+    }
+
+    final visibleError =
+        _error ??
+        (authState.status == AuthStatus.unauthenticated && _tickets.isEmpty
+            ? 'Требуется авторизация'
+            : null);
+
     return AppScaffold(
-      appBar: AppBar(
-        leading: BackButton(onPressed: _handleBack),
-      ),
+      appBar: AppBar(leading: BackButton(onPressed: _handleBack)),
       child: Column(
         children: [
           ScreenHero(
@@ -152,11 +176,11 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
               ),
             ],
           ),
-          if (_error != null) ...[
+          if (visibleError != null) ...[
             const SizedBox(height: AppSpacing.sm),
             InlineStatusBanner(
               title: 'Не удалось загрузить билеты',
-              message: _error!,
+              message: visibleError,
               tone: InlineStatusBannerTone.danger,
               actionLabel: 'Повторить',
               onAction: _load,
@@ -164,35 +188,35 @@ class _MyTicketsPageState extends ConsumerState<MyTicketsPage>
           ],
           const SizedBox(height: AppSpacing.sm),
           Expanded(
-            child: _loading
-                ? const Center(
-                    child: LoadingState(
-                      title: 'Загрузка билетов',
-                      subtitle: 'Проверяем активные заказы',
-                    ),
-                  )
-                : (_error != null)
+            child:
+                _loading
+                    ? const Center(
+                      child: LoadingState(
+                        title: 'Загрузка билетов',
+                        subtitle: 'Проверяем активные заказы',
+                      ),
+                    )
+                    : (visibleError != null)
                     ? const SizedBox.shrink()
                     : _tickets.isEmpty
-                        ? const Center(
-                            child: EmptyState(
-                              title: 'QR-кодов пока нет',
-                              subtitle:
-                                  'После подтверждения заказа здесь появится QR-код',
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: EdgeInsets.zero,
-                            itemCount: _tickets.length,
-                            itemBuilder: (context, index) {
-                              final ticket = _tickets[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                    bottom: AppSpacing.sm),
-                                child: TicketCard(ticket: ticket),
-                              );
-                            },
-                          ),
+                    ? const Center(
+                      child: EmptyState(
+                        title: 'QR-кодов пока нет',
+                        subtitle:
+                            'После подтверждения заказа здесь появится QR-код',
+                      ),
+                    )
+                    : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: _tickets.length,
+                      itemBuilder: (context, index) {
+                        final ticket = _tickets[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: TicketCard(ticket: ticket),
+                        );
+                      },
+                    ),
           ),
         ],
       ),

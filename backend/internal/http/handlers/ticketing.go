@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,9 @@ type orderSelectionRequest struct {
 // createOrderRequest represents create order request.
 type createOrderRequest struct {
 	EventID          int64                   `json:"eventId"`
+	ContactTelegram  string                  `json:"contactTelegram"`
+	ContactName      string                  `json:"contactName"`
+	ContactPhone     string                  `json:"contactPhone"`
 	PaymentMethod    string                  `json:"paymentMethod"`
 	PaymentReference string                  `json:"paymentReference"`
 	TicketItems      []orderSelectionRequest `json:"ticketItems"`
@@ -80,11 +84,14 @@ type adminRedeemTicketRequest struct {
 
 // createSbpQRCodeRequest represents create sbp q r code request.
 type createSbpQRCodeRequest struct {
-	EventID       int64                   `json:"eventId"`
-	TicketItems   []orderSelectionRequest `json:"ticketItems"`
-	TransferItems []orderSelectionRequest `json:"transferItems"`
-	PromoCode     string                  `json:"promoCode"`
-	RedirectURL   string                  `json:"redirectUrl"`
+	EventID         int64                   `json:"eventId"`
+	ContactTelegram string                  `json:"contactTelegram"`
+	ContactName     string                  `json:"contactName"`
+	ContactPhone    string                  `json:"contactPhone"`
+	TicketItems     []orderSelectionRequest `json:"ticketItems"`
+	TransferItems   []orderSelectionRequest `json:"transferItems"`
+	PromoCode       string                  `json:"promoCode"`
+	RedirectURL     string                  `json:"redirectUrl"`
 }
 
 // upsertPaymentSettingsRequest represents upsert payment settings request.
@@ -125,7 +132,14 @@ type sbpQRStatusResponse struct {
 const (
 	paymentProviderTochkaSBP = "tochka_sbp"
 	adminOrderDeletePassword = "FUCKSHIT"
+	iskryLandingAccessKey    = "iskry"
+	iskryDefaultCapacity     = 53
+	transferLandingKeyField  = "landingKey"
+	transferLandingSpace     = "space"
+	transferLandingIskry     = "iskry"
 )
+
+var telegramUsernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]{5,32}$`)
 
 // listOrdersResponse represents list orders response.
 type listOrdersResponse struct {
@@ -160,6 +174,31 @@ type transferProductsListResponse struct {
 	Items []models.TransferProduct `json:"items"`
 }
 
+// iskryTransferProductResponse represents a public ISKRY transfer product card.
+type iskryTransferProductResponse struct {
+	ID             string                 `json:"id"`
+	EventID        int64                  `json:"eventId"`
+	Name           string                 `json:"name,omitempty"`
+	Direction      string                 `json:"direction"`
+	PriceCents     int64                  `json:"priceCents"`
+	Info           map[string]interface{} `json:"info"`
+	Capacity       int                    `json:"capacity"`
+	SoldCount      int                    `json:"soldCount"`
+	AvailableSeats int                    `json:"availableSeats"`
+	IsActive       bool                   `json:"isActive"`
+}
+
+// iskryLandingResponse represents the public /iskry payload.
+type iskryLandingResponse struct {
+	EventID                int64                          `json:"eventId"`
+	EventTitle             string                         `json:"eventTitle"`
+	EventDescription       string                         `json:"eventDescription,omitempty"`
+	EventAccessKey         string                         `json:"eventAccessKey"`
+	StartsAt               time.Time                      `json:"startsAt"`
+	TransferPaymentEnabled bool                           `json:"transferPaymentEnabled"`
+	Products               []iskryTransferProductResponse `json:"products"`
+}
+
 // myTicketsResponse represents my tickets response.
 type myTicketsResponse struct {
 	Items []models.Ticket `json:"items"`
@@ -182,6 +221,11 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	paymentMethod := strings.ToUpper(strings.TrimSpace(req.PaymentMethod))
+	contactTelegram, err := normalizeTelegramContact(req.ContactTelegram)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
@@ -199,6 +243,9 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	detail, err := h.repo.CreateOrder(ctx, models.CreateOrderParams{
 		UserID:           userID,
 		EventID:          req.EventID,
+		ContactTelegram:  contactTelegram,
+		ContactName:      strings.TrimSpace(req.ContactName),
+		ContactPhone:     strings.TrimSpace(req.ContactPhone),
 		PaymentMethod:    paymentMethod,
 		PaymentReference: strings.TrimSpace(req.PaymentReference),
 		TicketItems:      mapSelections(req.TicketItems),
@@ -238,6 +285,11 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	contactTelegram, err := normalizeTelegramContact(req.ContactTelegram)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	ctx, cancel := h.withTimeout(r.Context())
 	defer cancel()
@@ -255,6 +307,9 @@ func (h *Handler) CreateSBPQRCodePayment(w http.ResponseWriter, r *http.Request)
 	detail, err := h.repo.CreateOrder(ctx, models.CreateOrderParams{
 		UserID:           userID,
 		EventID:          req.EventID,
+		ContactTelegram:  contactTelegram,
+		ContactName:      strings.TrimSpace(req.ContactName),
+		ContactPhone:     strings.TrimSpace(req.ContactPhone),
 		PaymentMethod:    models.PaymentMethodTochkaSBPQR,
 		PaymentReference: "",
 		TicketItems:      mapSelections(req.TicketItems),
@@ -445,6 +500,8 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 		response.OrderStatus = confirmedDetail.Order.Status
 		response.Paid = true
 		response.Detail = &confirmedDetail
+		postConfirmCtx, postConfirmCancel := h.withDetachedTimeout(r.Context(), 15*time.Second)
+		defer postConfirmCancel()
 
 		if confirmedNow {
 			notified := false
@@ -456,15 +513,13 @@ func (h *Handler) GetSBPQRCodePaymentStatus(w http.ResponseWriter, r *http.Reque
 				}
 			}
 			if !notified {
-				if err := h.enqueuePaymentConfirmedNotification(ctx, confirmedDetail.Order); err != nil {
+				if err := h.enqueuePaymentConfirmedNotification(postConfirmCtx, confirmedDetail.Order); err != nil {
 					logger.Warn("sbp_status_confirm", "status", "payment_confirm_enqueue_failed", "order_id", confirmedDetail.Order.ID, "error", err)
 				}
 			}
 		}
 
-		if telegramID > 0 {
-			h.deliverOrderQRCodes(ctx, logger, "sbp_status_confirm", telegramID, confirmedDetail)
-		}
+		h.deliverOrderQRCodesForOrder(postConfirmCtx, logger, "sbp_status_confirm", telegramID, confirmedDetail)
 
 		writeJSON(w, http.StatusOK, response)
 		return
@@ -517,6 +572,97 @@ func (h *Handler) ListEventProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ticketProductsResponse{Tickets: tickets, Transfers: transfers})
+}
+
+// GetIskryLanding returns public ISKRY transfer products for the standalone landing.
+func (h *Handler) GetIskryLanding(w http.ResponseWriter, r *http.Request) {
+	logger := h.loggerForRequest(r)
+	ctx, cancel := h.withTimeout(r.Context())
+	defer cancel()
+
+	event, err := h.repo.GetEventByAccessKey(ctx, iskryLandingAccessKey)
+	if err != nil {
+		h.handleTicketingError(logger, w, "iskry_landing", err)
+		return
+	}
+
+	onlyActive := true
+	products, err := h.repo.ListTransferProducts(ctx, &event.ID, &onlyActive)
+	if err != nil {
+		logger.Error("iskry_landing", "status", "db_error", "error", err)
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	products = filterTransferProductsByLanding(products, iskryLandingAccessKey)
+
+	paymentSettings := h.loadPaymentSettings(ctx, models.PaymentSettingsScopeTransfer)
+	responseProducts := make([]iskryTransferProductResponse, 0, len(products))
+	for _, product := range products {
+		capacity := iskryDefaultCapacity
+		if product.InventoryLimit != nil {
+			capacity = *product.InventoryLimit
+		}
+		availableSeats := capacity - product.SoldCount
+		if availableSeats < 0 {
+			availableSeats = 0
+		}
+		responseProducts = append(responseProducts, iskryTransferProductResponse{
+			ID:             product.ID,
+			EventID:        product.EventID,
+			Name:           product.Name,
+			Direction:      product.Direction,
+			PriceCents:     product.PriceCents,
+			Info:           product.Info,
+			Capacity:       capacity,
+			SoldCount:      product.SoldCount,
+			AvailableSeats: availableSeats,
+			IsActive:       product.IsActive,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, iskryLandingResponse{
+		EventID:                event.ID,
+		EventTitle:             event.Title,
+		EventDescription:       event.Description,
+		EventAccessKey:         event.AccessKey,
+		StartsAt:               event.StartsAt,
+		TransferPaymentEnabled: h.hasTochkaSBPConfig() && paymentSettings.SBPEnabled,
+		Products:               responseProducts,
+	})
+}
+
+// filterTransferProductsByLanding keeps only transfer products assigned to the requested public landing.
+func filterTransferProductsByLanding(products []models.TransferProduct, landingKey string) []models.TransferProduct {
+	expected := normalizeTransferLandingKey(landingKey)
+	filtered := make([]models.TransferProduct, 0, len(products))
+	for _, product := range products {
+		if transferProductLandingKey(product.Info) == expected {
+			filtered = append(filtered, product)
+		}
+	}
+	return filtered
+}
+
+// transferProductLandingKey resolves the public landing key stored in transfer info.
+func transferProductLandingKey(info map[string]interface{}) string {
+	if info == nil {
+		return transferLandingSpace
+	}
+	raw, ok := info[transferLandingKeyField]
+	if !ok || raw == nil {
+		return transferLandingSpace
+	}
+	return normalizeTransferLandingKey(fmt.Sprint(raw))
+}
+
+// normalizeTransferLandingKey maps arbitrary input to supported public landing keys.
+func normalizeTransferLandingKey(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case transferLandingIskry:
+		return transferLandingIskry
+	default:
+		return transferLandingSpace
+	}
 }
 
 // ListMyOrders lists my orders.
@@ -682,9 +828,9 @@ func (h *Handler) MoveAdminTransferOrder(w http.ResponseWriter, r *http.Request)
 		h.handleTicketingError(logger, w, "admin_move_transfer_order", err)
 		return
 	}
-	if telegramID > 0 {
-		h.deliverOrderQRCodes(ctx, logger, "admin_move_transfer_order", telegramID, detail)
-	}
+	postMoveCtx, postMoveCancel := h.withDetachedTimeout(r.Context(), 15*time.Second)
+	defer postMoveCancel()
+	h.deliverOrderQRCodesForOrder(postMoveCtx, logger, "admin_move_transfer_order", telegramID, detail)
 	writeJSON(w, http.StatusOK, item)
 }
 
@@ -744,6 +890,8 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 	if sbpQR, err := h.repo.GetSbpQRByOrderID(ctx, orderID); err == nil {
 		h.attachSBPInstructions(&detail, &sbpQR)
 	}
+	postConfirmCtx, postConfirmCancel := h.withDetachedTimeout(r.Context(), 15*time.Second)
+	defer postConfirmCancel()
 
 	if confirmedNow {
 		notified := false
@@ -755,15 +903,13 @@ func (h *Handler) ConfirmOrder(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !notified {
-			if err := h.enqueuePaymentConfirmedNotification(ctx, detail.Order); err != nil {
+			if err := h.enqueuePaymentConfirmedNotification(postConfirmCtx, detail.Order); err != nil {
 				logger.Warn("admin_confirm_order", "status", "payment_confirm_enqueue_failed", "order_id", detail.Order.ID, "error", err)
 			}
 		}
 	}
 
-	if telegramID > 0 {
-		h.deliverOrderQRCodes(ctx, logger, "admin_confirm_order", telegramID, detail)
-	}
+	h.deliverOrderQRCodesForOrder(postConfirmCtx, logger, "admin_confirm_order", telegramID, detail)
 
 	writeJSON(w, http.StatusOK, detail)
 }
@@ -1287,6 +1433,30 @@ func (h *Handler) sendTicketQrToBot(userTelegramID int64, ticket models.Ticket) 
 	return ticketdelivery.SendTicketQR(h.telegram, userTelegramID, ticket)
 }
 
+// deliverOrderQRCodesForOrder resolves the delivery target and records failures when contact routing is unavailable.
+func (h *Handler) deliverOrderQRCodesForOrder(
+	ctx context.Context,
+	logger *slog.Logger,
+	source string,
+	fallbackTelegramID int64,
+	detail models.OrderDetail,
+) {
+	deliveryTelegramID, err := h.resolveOrderDeliveryTelegramID(ctx, detail.Order, fallbackTelegramID)
+	if err != nil {
+		logger.Warn(source, "status", "ticket_delivery_target_resolve_failed", "order_id", detail.Order.ID, "error", err)
+		return
+	}
+	if deliveryTelegramID <= 0 {
+		contact := strings.TrimSpace(detail.Order.ContactTelegram)
+		if contact == "" {
+			return
+		}
+		h.markOrderQRDeliveryFailed(ctx, logger, source, detail, fmt.Sprintf("telegram contact %s has not started the Space bot yet", contact))
+		return
+	}
+	h.deliverOrderQRCodes(ctx, logger, source, deliveryTelegramID, detail)
+}
+
 // deliverOrderQRCodes sends not-yet-delivered QR codes for an order.
 func (h *Handler) deliverOrderQRCodes(ctx context.Context, logger *slog.Logger, source string, userTelegramID int64, detail models.OrderDetail) {
 	for _, ticket := range detail.Tickets {
@@ -1300,6 +1470,40 @@ func (h *Handler) deliverOrderQRCodes(ctx context.Context, logger *slog.Logger, 
 		}
 		if err := h.repo.MarkTicketQRDelivered(ctx, ticket.ID); err != nil {
 			logger.Warn(source, "status", "ticket_delivery_mark_failed", "ticket_id", ticket.ID, "telegram_id", userTelegramID, "error", err)
+		}
+	}
+}
+
+// resolveOrderDeliveryTelegramID picks the explicit contact username first and falls back to the order owner chat id.
+func (h *Handler) resolveOrderDeliveryTelegramID(ctx context.Context, order models.Order, fallbackTelegramID int64) (int64, error) {
+	contact := strings.TrimSpace(strings.TrimPrefix(order.ContactTelegram, "@"))
+	if contact == "" {
+		return fallbackTelegramID, nil
+	}
+	telegramID, err := h.repo.GetTelegramIDByUsername(ctx, contact)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return telegramID, nil
+}
+
+// markOrderQRDeliveryFailed writes a visible delivery error for every undelivered QR in the order.
+func (h *Handler) markOrderQRDeliveryFailed(
+	ctx context.Context,
+	logger *slog.Logger,
+	source string,
+	detail models.OrderDetail,
+	reason string,
+) {
+	for _, ticket := range detail.Tickets {
+		if strings.TrimSpace(ticket.QRPayload) == "" || ticket.QRDeliveredAt != nil {
+			continue
+		}
+		if err := h.repo.MarkTicketQRDeliveryFailed(ctx, ticket.ID, reason); err != nil {
+			logger.Warn(source, "status", "ticket_delivery_mark_failed", "ticket_id", ticket.ID, "error", err)
 		}
 	}
 }
@@ -1605,10 +1809,10 @@ func (h *Handler) handleTicketingError(logger interface {
 	case errors.Is(err, repository.ErrOrderNotFound), errors.Is(err, repository.ErrTicketNotFound), errors.Is(err, repository.ErrSbpQRNotFound), errors.Is(err, pgx.ErrNoRows):
 		logger.Warn(action, "status", "not_found", "error", err)
 		writeError(w, http.StatusNotFound, "not found")
-	case errors.Is(err, repository.ErrInvalidProduct), errors.Is(err, repository.ErrPromoInvalid), errors.Is(err, repository.ErrTicketQRMismatch):
+	case errors.Is(err, repository.ErrInvalidProduct), errors.Is(err, repository.ErrInvalidTelegramContact), errors.Is(err, repository.ErrPromoInvalid), errors.Is(err, repository.ErrTicketQRMismatch):
 		logger.Warn(action, "status", "invalid_request", "error", err)
 		writeError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, repository.ErrOrderStateNotAllowed), errors.Is(err, repository.ErrTicketAlreadyRedeemed), errors.Is(err, repository.ErrInventoryLimitReached):
+	case errors.Is(err, repository.ErrOrderStateNotAllowed), errors.Is(err, repository.ErrTicketAlreadyRedeemed), errors.Is(err, repository.ErrInventoryLimitReached), errors.Is(err, repository.ErrTransferProductAlreadyExists):
 		logger.Warn(action, "status", "conflict", "error", err)
 		writeError(w, http.StatusConflict, err.Error())
 	default:
@@ -1678,6 +1882,27 @@ func hasPositiveSelection(items []orderSelectionRequest) bool {
 		}
 	}
 	return false
+}
+
+// normalizeTelegramContact normalizes a Telegram username to the internal @username form.
+func normalizeTelegramContact(value string) (string, error) {
+	raw := strings.TrimSpace(value)
+	if raw == "" {
+		return "", nil
+	}
+	raw = strings.TrimPrefix(raw, "https://")
+	raw = strings.TrimPrefix(raw, "http://")
+	raw = strings.TrimPrefix(strings.TrimSpace(raw), "t.me/")
+	raw = strings.TrimPrefix(strings.TrimSpace(raw), "telegram.me/")
+	raw = strings.TrimPrefix(strings.TrimSpace(raw), "@")
+	raw = strings.TrimSpace(strings.Trim(raw, "/"))
+	if strings.Contains(raw, "/") || strings.ContainsAny(raw, " \t\n\r") {
+		return "", repository.ErrInvalidTelegramContact
+	}
+	if !telegramUsernamePattern.MatchString(raw) {
+		return "", repository.ErrInvalidTelegramContact
+	}
+	return "@" + raw, nil
 }
 
 // normalizePaymentSettingsScope normalizes payment settings scope.

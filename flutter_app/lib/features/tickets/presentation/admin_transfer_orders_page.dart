@@ -18,6 +18,7 @@ import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_radii.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../iskry/data/iskry_repository.dart';
 import '../../auth/application/auth_state.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -27,10 +28,7 @@ import 'ticketing_ui_utils.dart';
 
 class AdminTransferOrdersPage extends ConsumerStatefulWidget {
   /// AdminTransferOrdersPage handles admin transfer orders page.
-  const AdminTransferOrdersPage({
-    super.key,
-    this.embedded = false,
-  });
+  const AdminTransferOrdersPage({super.key, this.embedded = false});
 
   final bool embedded;
 
@@ -80,9 +78,10 @@ class _AdminTransferOrdersPageState
     if (token.isEmpty) {
       setState(() {
         _loading = authState.status == AuthStatus.loading;
-        _error = authState.status == AuthStatus.loading
-            ? null
-            : 'Требуется авторизация';
+        _error =
+            authState.status == AuthStatus.loading
+                ? null
+                : 'Требуется авторизация';
       });
       return;
     }
@@ -121,6 +120,19 @@ class _AdminTransferOrdersPageState
         _loading = false;
         _error = '$error';
       });
+    }
+  }
+
+  /// _applyIskryFilter resolves the public ISKRY event and reloads transfer orders for it.
+  Future<void> _applyIskryFilter() async {
+    try {
+      final landing = await ref.read(iskryRepositoryProvider).getLanding();
+      if (!mounted) return;
+      setState(() => _eventIdCtrl.text = '${landing.eventId}');
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = '$error');
     }
   }
 
@@ -202,15 +214,17 @@ class _AdminTransferOrdersPageState
 
     setState(() => _movingItemIds.add(item.item.id));
     try {
-      await ref.read(ticketingRepositoryProvider).moveAdminTransferOrder(
+      await ref
+          .read(ticketingRepositoryProvider)
+          .moveAdminTransferOrder(
             token: token,
             itemId: item.item.id,
             targetProductId: normalizedTarget,
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Трансфер перенесен')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Трансфер перенесен')));
       await _load();
     } catch (error) {
       if (!mounted) return;
@@ -250,18 +264,16 @@ class _AdminTransferOrdersPageState
       title: 'Трансферы',
       subtitle: 'Отдельный список заказанных мест на трансфер',
       titleColor: Theme.of(context).colorScheme.onSurface,
-      subtitleColor:
-          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.74),
+      subtitleColor: Theme.of(
+        context,
+      ).colorScheme.onSurface.withValues(alpha: 0.74),
       child: body,
     );
   }
 
   /// _buildBody builds the transfer orders body.
 
-  Widget _buildBody(
-    BuildContext context,
-    List<AdminTransferOrderModel> items,
-  ) {
+  Widget _buildBody(BuildContext context, List<AdminTransferOrderModel> items) {
     final totalSeats = items.fold<int>(
       0,
       (sum, item) => sum + item.item.quantity,
@@ -277,10 +289,7 @@ class _AdminTransferOrdersPageState
               label: '${items.length} заказов',
               variant: AppBadgeVariant.neutral,
             ),
-            AppBadge(
-              label: '$totalSeats мест',
-              variant: AppBadgeVariant.info,
-            ),
+            AppBadge(label: '$totalSeats мест', variant: AppBadgeVariant.info),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -320,6 +329,13 @@ class _AdminTransferOrdersPageState
                 label: _loading ? 'Загрузка…' : 'Применить фильтры',
                 expand: true,
               ),
+              const SizedBox(height: AppSpacing.xs),
+              SecondaryButton(
+                onPressed: _loading ? null : _applyIskryFilter,
+                label: 'Только ISKRY',
+                outline: true,
+                expand: true,
+              ),
             ],
           ),
         ),
@@ -335,36 +351,38 @@ class _AdminTransferOrdersPageState
         ],
         const SizedBox(height: AppSpacing.sm),
         Expanded(
-          child: _loading
-              ? const Center(
-                  child: LoadingState(
-                    title: 'Загрузка трансферов',
-                    subtitle: 'Получаем заказанные места',
-                  ),
-                )
-              : (_error != null)
+          child:
+              _loading
+                  ? const Center(
+                    child: LoadingState(
+                      title: 'Загрузка трансферов',
+                      subtitle: 'Получаем заказанные места',
+                    ),
+                  )
+                  : (_error != null)
                   ? const SizedBox.shrink()
                   : items.isEmpty
-                      ? const Center(
-                          child: EmptyState(
-                            title: 'Трансферов нет',
-                            subtitle: 'Пока нет заказанных трансферов.',
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            return _TransferOrderCard(
-                              item: item,
-                              moving: _movingItemIds.contains(item.item.id),
-                              products: _productsForItem(item),
-                              onMove: (targetProductId) =>
-                                  _moveTransferOrder(item, targetProductId),
-                            );
-                          },
-                        ),
+                  ? const Center(
+                    child: EmptyState(
+                      title: 'Трансферов нет',
+                      subtitle: 'Пока нет заказанных трансферов.',
+                    ),
+                  )
+                  : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _TransferOrderCard(
+                        item: item,
+                        moving: _movingItemIds.contains(item.item.id),
+                        products: _productsForItem(item),
+                        onMove:
+                            (targetProductId) =>
+                                _moveTransferOrder(item, targetProductId),
+                      );
+                    },
+                  ),
         ),
       ],
     );
@@ -414,9 +432,10 @@ class _AdminTransferOrdersPageState
   /// _productsForItem returns transfer products available for the item's event.
 
   List<TransferProductModel> _productsForItem(AdminTransferOrderModel item) {
-    final products = _transferProducts
-        .where((product) => product.eventId == item.eventId)
-        .toList();
+    final products =
+        _transferProducts
+            .where((product) => product.eventId == item.eventId)
+            .toList();
     products.sort((left, right) {
       final leftRank = _directionRank(left.direction);
       final rightRank = _directionRank(right.direction);
@@ -524,13 +543,20 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               InkWell(
-                onTap: () =>
-                    context.push(AppRoutes.adminOrderDetail(item.orderId)),
+                onTap:
+                    () =>
+                        context.push(AppRoutes.adminOrderDetail(item.orderId)),
                 borderRadius: BorderRadius.circular(AppRadii.xl),
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: _orderSummary(
-                      context, item, title, status, userDisplay, createdAt),
+                    context,
+                    item,
+                    title,
+                    status,
+                    userDisplay,
+                    createdAt,
+                  ),
                 ),
               ),
               Padding(
@@ -587,8 +613,10 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
             const SizedBox(width: AppSpacing.xs),
             Chip(
               label: Text(status),
-              backgroundColor:
-                  statusColor(status, context).withValues(alpha: 0.12),
+              backgroundColor: statusColor(
+                status,
+                context,
+              ).withValues(alpha: 0.12),
               side: BorderSide(color: statusColor(status, context)),
               labelStyle: TextStyle(
                 color: statusColor(status, context),
@@ -600,6 +628,15 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
         const SizedBox(height: AppSpacing.xs),
         Text('Заказ ${item.orderId}'),
         Text(userDisplay),
+        if (item.contactTelegram.trim().isNotEmpty) Text(item.contactTelegram),
+        if (item.contactName.trim().isNotEmpty ||
+            item.contactPhone.trim().isNotEmpty)
+          Text(
+            [
+              if (item.contactName.trim().isNotEmpty) item.contactName.trim(),
+              if (item.contactPhone.trim().isNotEmpty) item.contactPhone.trim(),
+            ].join(' · '),
+          ),
         Text(item.item.displayName),
         if (createdAt.isNotEmpty) Text(createdAt),
         const SizedBox(height: AppSpacing.xs),
@@ -633,7 +670,8 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
 
     final currentProductId = widget.item.item.productId.trim();
     final selectedProductId = _targetProductId;
-    final canMove = selectedProductId != null &&
+    final canMove =
+        selectedProductId != null &&
         selectedProductId.trim().isNotEmpty &&
         selectedProductId != currentProductId &&
         !widget.moving;
@@ -655,9 +693,10 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
                 ),
               ),
           ],
-          onChanged: widget.moving
-              ? null
-              : (value) => setState(() => _targetProductId = value),
+          onChanged:
+              widget.moving
+                  ? null
+                  : (value) => setState(() => _targetProductId = value),
         );
         final action = SecondaryButton(
           label: widget.moving ? 'Перенос…' : 'Перенести',
@@ -670,11 +709,7 @@ class _TransferOrderCardState extends State<_TransferOrderCard> {
         if (constraints.maxWidth < 640) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              selector,
-              const SizedBox(height: AppSpacing.xs),
-              action,
-            ],
+            children: [selector, const SizedBox(height: AppSpacing.xs), action],
           );
         }
         return Row(

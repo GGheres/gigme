@@ -121,6 +121,9 @@ type Order struct {
 	UserID           int64      `json:"userId"`
 	EventID          int64      `json:"eventId"`
 	EventTitle       string     `json:"eventTitle,omitempty"`
+	ContactTelegram  string     `json:"contactTelegram,omitempty"`
+	ContactName      string     `json:"contactName,omitempty"`
+	ContactPhone     string     `json:"contactPhone,omitempty"`
 	Status           string     `json:"status"`
 	PaymentMethod    string     `json:"paymentMethod"`
 	PaymentReference string     `json:"paymentReference,omitempty"`
@@ -277,14 +280,17 @@ type OrderSummary struct {
 
 // TransferOrderSummary represents an ordered transfer row for admin views.
 type TransferOrderSummary struct {
-	OrderID        string            `json:"orderId"`
-	OrderStatus    string            `json:"orderStatus"`
-	OrderCreatedAt time.Time         `json:"orderCreatedAt"`
-	EventID        int64             `json:"eventId"`
-	EventTitle     string            `json:"eventTitle,omitempty"`
-	UserID         int64             `json:"userId"`
-	User           *OrderUserSummary `json:"user,omitempty"`
-	Item           OrderItem         `json:"item"`
+	OrderID         string            `json:"orderId"`
+	OrderStatus     string            `json:"orderStatus"`
+	OrderCreatedAt  time.Time         `json:"orderCreatedAt"`
+	EventID         int64             `json:"eventId"`
+	EventTitle      string            `json:"eventTitle,omitempty"`
+	UserID          int64             `json:"userId"`
+	ContactTelegram string            `json:"contactTelegram,omitempty"`
+	ContactName     string            `json:"contactName,omitempty"`
+	ContactPhone    string            `json:"contactPhone,omitempty"`
+	User            *OrderUserSummary `json:"user,omitempty"`
+	Item            OrderItem         `json:"item"`
 }
 
 // OrderProductSelection represents order product selection.
@@ -297,6 +303,9 @@ type OrderProductSelection struct {
 type CreateOrderParams struct {
 	UserID           int64
 	EventID          int64
+	ContactTelegram  string
+	ContactName      string
+	ContactPhone     string
 	PaymentMethod    string
 	PaymentReference string
 	TicketItems      []OrderProductSelection
@@ -345,6 +354,7 @@ type TransferProductInput struct {
 
 // TransferProductPatch represents transfer product patch.
 type TransferProductPatch struct {
+	Name           *string                `json:"name,omitempty"`
 	PriceCents     *int64                 `json:"priceCents,omitempty"`
 	Info           map[string]interface{} `json:"info,omitempty"`
 	InventoryLimit *int                   `json:"inventoryLimit,omitempty"`

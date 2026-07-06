@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"gigme/backend/internal/models"
@@ -74,6 +75,35 @@ func (r *Repository) GetUserByID(ctx context.Context, id int64) (models.User, er
 		out.PhotoURL = photoURL.String
 	}
 	return out, err
+}
+
+// GetTelegramIDByUsername returns Telegram chat id by username when known from either app users or prior bot conversations.
+func (r *Repository) GetTelegramIDByUsername(ctx context.Context, username string) (int64, error) {
+	normalized := strings.TrimSpace(strings.TrimPrefix(username, "@"))
+	row := r.pool.QueryRow(ctx, `
+SELECT telegram_id
+FROM users
+WHERE lower(username) = lower($1)
+LIMIT 1;`, normalized)
+
+	var telegramID int64
+	if err := row.Scan(&telegramID); err != nil {
+		if err != pgx.ErrNoRows {
+			return 0, err
+		}
+		fallbackRow := r.pool.QueryRow(ctx, `
+SELECT COALESCE(sender_telegram_id, chat_id) AS telegram_id
+FROM admin_bot_messages
+WHERE direction = 'INCOMING'
+	AND lower(sender_username) = lower($1)
+	AND COALESCE(sender_telegram_id, chat_id) IS NOT NULL
+ORDER BY created_at DESC, id DESC
+LIMIT 1;`, normalized)
+		if fallbackErr := fallbackRow.Scan(&telegramID); fallbackErr != nil {
+			return 0, fallbackErr
+		}
+	}
+	return telegramID, nil
 }
 
 // UpdateUserLocation updates user location.
@@ -690,6 +720,90 @@ WHERE e.id = $1;`
 	}
 	if accessKey.Valid {
 		e.AccessKey = accessKey.String
+	}
+	return e, nil
+}
+
+// GetEventByAccessKey returns event by public access key.
+func (r *Repository) GetEventByAccessKey(ctx context.Context, accessKey string) (models.Event, error) {
+	query := `
+SELECT e.id, e.creator_user_id, e.title, e.description, e.starts_at, e.ends_at,
+	ST_Y(e.location::geometry) AS lat,
+	ST_X(e.location::geometry) AS lng,
+	e.links,
+	e.address_label,
+	e.contact_telegram, e.contact_whatsapp, e.contact_wechat, e.contact_fb_messenger, e.contact_snapchat,
+	e.capacity, e.is_hidden, e.is_private, e.is_landing_published, e.access_key, e.promoted_until, e.filters,
+	e.created_at, e.updated_at,
+	COALESCE(u.first_name || ' ' || u.last_name, u.first_name) AS creator_name,
+	(SELECT count(*) FROM event_participants WHERE event_id = e.id) AS participants_count,
+	(SELECT count(*) FROM event_likes WHERE event_id = e.id) AS likes_count,
+	(SELECT count(*) FROM event_comments WHERE event_id = e.id) AS comments_count
+FROM events e
+JOIN users u ON u.id = e.creator_user_id
+WHERE e.access_key = $1;`
+
+	row := r.pool.QueryRow(ctx, query, strings.TrimSpace(accessKey))
+	var e models.Event
+	var address sql.NullString
+	var contactTelegram sql.NullString
+	var contactWhatsapp sql.NullString
+	var contactWechat sql.NullString
+	var contactFbMessenger sql.NullString
+	var contactSnapchat sql.NullString
+	var accessKeyNull sql.NullString
+	if err := row.Scan(
+		&e.ID,
+		&e.CreatorUserID,
+		&e.Title,
+		&e.Description,
+		&e.StartsAt,
+		&e.EndsAt,
+		&e.Lat,
+		&e.Lng,
+		&e.Links,
+		&address,
+		&contactTelegram,
+		&contactWhatsapp,
+		&contactWechat,
+		&contactFbMessenger,
+		&contactSnapchat,
+		&e.Capacity,
+		&e.IsHidden,
+		&e.IsPrivate,
+		&e.IsLandingPublished,
+		&accessKeyNull,
+		&e.PromotedUntil,
+		&e.Filters,
+		&e.CreatedAt,
+		&e.UpdatedAt,
+		&e.CreatorName,
+		&e.Participants,
+		&e.LikesCount,
+		&e.CommentsCount,
+	); err != nil {
+		return models.Event{}, err
+	}
+	if address.Valid {
+		e.AddressLabel = address.String
+	}
+	if contactTelegram.Valid {
+		e.ContactTelegram = contactTelegram.String
+	}
+	if contactWhatsapp.Valid {
+		e.ContactWhatsapp = contactWhatsapp.String
+	}
+	if contactWechat.Valid {
+		e.ContactWechat = contactWechat.String
+	}
+	if contactFbMessenger.Valid {
+		e.ContactFbMessenger = contactFbMessenger.String
+	}
+	if contactSnapchat.Valid {
+		e.ContactSnapchat = contactSnapchat.String
+	}
+	if accessKeyNull.Valid {
+		e.AccessKey = accessKeyNull.String
 	}
 	return e, nil
 }
