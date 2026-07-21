@@ -18,7 +18,6 @@ import '../../../ui/layout/app_scaffold.dart';
 import '../../../ui/theme/app_radii.dart';
 import '../../../ui/theme/app_spacing.dart';
 import '../../auth/application/auth_controller.dart';
-import '../../iskry/data/iskry_repository.dart';
 import '../../auth/application/auth_state.dart';
 import '../data/ticketing_repository.dart';
 import '../domain/ticketing_models.dart';
@@ -120,19 +119,6 @@ class _AdminTransferOrdersPageState
         _loading = false;
         _error = '$error';
       });
-    }
-  }
-
-  /// _applyIskryFilter resolves the public ISKRY event and reloads transfer orders for it.
-  Future<void> _applyIskryFilter() async {
-    try {
-      final landing = await ref.read(iskryRepositoryProvider).getLanding();
-      if (!mounted) return;
-      setState(() => _eventIdCtrl.text = '${landing.eventId}');
-      await _load();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _error = '$error');
     }
   }
 
@@ -327,13 +313,6 @@ class _AdminTransferOrdersPageState
               PrimaryButton(
                 onPressed: _loading ? null : _load,
                 label: _loading ? 'Загрузка…' : 'Применить фильтры',
-                expand: true,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              SecondaryButton(
-                onPressed: _loading ? null : _applyIskryFilter,
-                label: 'Только ISKRY',
-                outline: true,
                 expand: true,
               ),
             ],

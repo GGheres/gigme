@@ -3,59 +3,55 @@ package repository
 import (
 	"testing"
 
+	"gigme/backend/internal/models"
+
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// TestRequiresTransferTelegramContact verifies Telegram contact requirements only apply to ISKRY landing transfers.
-func TestRequiresTransferTelegramContact(t *testing.T) {
+// TestFilterCurrentTransferProducts verifies legacy product scopes stay out of active catalogs.
+func TestFilterCurrentTransferProducts(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name      string
-		accessKey string
-		info      map[string]interface{}
-		want      bool
-	}{
+	products := []models.TransferProduct{
 		{
-			name:      "iskry landing requires contact",
-			accessKey: iskryEventAccessKey,
-			info: map[string]interface{}{
-				transferLandingKeyField: transferLandingIskry,
-			},
-			want: true,
+			ID: "implicit-default",
 		},
 		{
-			name:      "space landing on iskry event does not require contact",
-			accessKey: iskryEventAccessKey,
-			info: map[string]interface{}{
-				transferLandingKeyField: transferLandingSpace,
+			ID: "explicit-default",
+			Info: map[string]interface{}{
+				transferProductScopeField: transferProductDefaultScope,
 			},
-			want: false,
 		},
 		{
-			name:      "missing landing defaults to space",
-			accessKey: iskryEventAccessKey,
-			info:      map[string]interface{}{},
-			want:      false,
-		},
-		{
-			name:      "non iskry event never requires contact",
-			accessKey: "space",
-			info: map[string]interface{}{
-				transferLandingKeyField: transferLandingIskry,
+			ID: "legacy",
+			Info: map[string]interface{}{
+				transferProductScopeField: "legacy",
 			},
-			want: false,
 		},
 	}
 
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			if got := requiresTransferTelegramContact(tc.accessKey, tc.info); got != tc.want {
-				t.Fatalf("requiresTransferTelegramContact() = %v, want %v", got, tc.want)
-			}
-		})
+	got := filterCurrentTransferProducts(products)
+	if len(got) != 2 {
+		t.Fatalf("filterCurrentTransferProducts() returned %d products, want 2", len(got))
+	}
+	if got[0].ID != "implicit-default" || got[1].ID != "explicit-default" {
+		t.Fatalf("filterCurrentTransferProducts() returned unexpected products: %#v", got)
+	}
+}
+
+// TestNormalizeTransferProductInfo verifies clients cannot create a legacy product scope.
+func TestNormalizeTransferProductInfo(t *testing.T) {
+	t.Parallel()
+
+	got := normalizeTransferProductInfo(map[string]interface{}{
+		transferProductScopeField: "legacy",
+		"time":                    "12:00",
+	})
+	if got[transferProductScopeField] != transferProductDefaultScope {
+		t.Fatalf("scope = %v, want %q", got[transferProductScopeField], transferProductDefaultScope)
+	}
+	if got["time"] != "12:00" {
+		t.Fatalf("time = %v, want 12:00", got["time"])
 	}
 }
 

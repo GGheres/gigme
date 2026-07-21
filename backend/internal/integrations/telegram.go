@@ -40,7 +40,8 @@ type CopyTextButton struct {
 
 // ReplyMarkup represents reply markup.
 type ReplyMarkup struct {
-	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard,omitempty"`
+	RemoveKeyboard bool                     `json:"remove_keyboard,omitempty"`
 }
 
 // NewTelegramClient creates telegram client.

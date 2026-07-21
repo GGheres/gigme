@@ -47,7 +47,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/admin/panel_background.jpeg
-    - assets/images/iskry/iskry_background.jpg
-    - assets/videos/landing/IMG_9645.MP4
+    - assets/videos/landing/landing_background.mp4
   shaders:
     - assets/shaders/bubble_warp.frag

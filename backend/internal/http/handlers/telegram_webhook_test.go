@@ -148,6 +148,35 @@ func TestBuildTelegramStartMenuMarkupUsesManagerOpenURL(t *testing.T) {
 	}
 }
 
+// TestBuildTelegramStartMenuURLMarkup verifies the universal fallback buttons.
+func TestBuildTelegramStartMenuURLMarkup(t *testing.T) {
+	markup := buildTelegramStartMenuURLMarkup("https://spacefestival.fun", 0, "", "")
+	if markup == nil || len(markup.InlineKeyboard) != 3 {
+		t.Fatalf("expected 3 inline URL rows")
+	}
+	for index, row := range markup.InlineKeyboard {
+		if len(row) != 1 || row[0].URL == "" || row[0].WebApp != nil {
+			t.Fatalf("expected row %d to contain one URL-only button", index)
+		}
+	}
+}
+
+// TestIsTelegramStartCommand ensures only the exact bot command is accepted.
+func TestIsTelegramStartCommand(t *testing.T) {
+	tests := map[string]bool{
+		"/start":                  true,
+		"/START payload":          true,
+		"/start@spacetickets_bot": true,
+		"/starter":                false,
+		"hello":                   false,
+	}
+	for input, want := range tests {
+		if got := isTelegramStartCommand(input); got != want {
+			t.Fatalf("isTelegramStartCommand(%q): expected %t, got %t", input, want, got)
+		}
+	}
+}
+
 // TestBuildTelegramManagerOpenMarkup verifies the dedicated manager button markup.
 func TestBuildTelegramManagerOpenMarkup(t *testing.T) {
 	markup := buildTelegramManagerOpenMarkup("https://spacefestival.fun")

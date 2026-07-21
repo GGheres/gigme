@@ -1,9 +1,6 @@
 /// AppRoutes represents app routes.
 class AppRoutes {
   static const landing = '/';
-  static const iskry = '/iskry';
-  static const iskrySuccess = '/iskry/success';
-  static const iskryFail = '/iskry/fail';
 
   static const appRoot = '/space_app';
   static const auth = '/space_app/auth';
@@ -55,9 +52,6 @@ class AppRoutes {
 
   /// isAuthReturnPath reports whether auth can safely redirect to this path.
   static bool isAuthReturnPath(String location) {
-    return isAppPath(location) ||
-        location == landing ||
-        location == iskry ||
-        location.startsWith('$iskry/');
+    return isAppPath(location) || location == landing;
   }
 }

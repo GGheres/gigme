@@ -35,10 +35,7 @@ import '../data/landing_repository.dart';
 
 /// _WebLoginProvider represents web login provider.
 
-enum _WebLoginProvider {
-  telegram,
-  vk,
-}
+enum _WebLoginProvider { telegram, vk }
 
 /// LandingScreen represents landing screen.
 
@@ -56,8 +53,9 @@ class LandingScreen extends ConsumerStatefulWidget {
 
 class _LandingScreenState extends ConsumerState<LandingScreen>
     with SingleTickerProviderStateMixin {
-  final ScrollController _scrollController =
-      ScrollController(keepScrollOffset: false);
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: false,
+  );
   final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
   late final AnimationController _matrixPulseController;
   bool _didForceInitialTop = false;
@@ -113,10 +111,12 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       child: LayoutBuilder(
         builder: (context, constraints) {
           final viewport = Size(constraints.maxWidth, constraints.maxHeight);
-          final canvasHeight =
-              LandingLayoutConfig.canvasHeight(viewport: viewport);
-          final quietZoneWidth =
-              LandingLayoutConfig.quietZoneWidth(viewport.width);
+          final canvasHeight = LandingLayoutConfig.canvasHeight(
+            viewport: viewport,
+          );
+          final quietZoneWidth = LandingLayoutConfig.quietZoneWidth(
+            viewport.width,
+          );
           final quietZoneLeft = LandingLayoutConfig.quietZoneLeft(
             screenWidth: viewport.width,
             quietZoneWidth: quietZoneWidth,
@@ -188,9 +188,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
         parent: BouncingScrollPhysics(parent: ClampingScrollPhysics()),
       );
     }
-    return const AlwaysScrollableScrollPhysics(
-      parent: ClampingScrollPhysics(),
-    );
+    return const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics());
   }
 
   void _forceScrollTop() {
@@ -310,9 +308,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
   }
 
-  Future<void> _showWebLoginModal({
-    required String nextLocation,
-  }) async {
+  Future<void> _showWebLoginModal({required String nextLocation}) async {
     final telegramLoginUri = _telegramLoginUri(nextLocation: nextLocation);
     final vkAvailable = _canUseVkLogin();
     const isCompactWebModal = kIsWeb;
@@ -325,41 +321,44 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       return;
     }
 
-    final embeddedTelegramAuth = allowEmbeddedAuth && telegramLoginUri != null
-        ? buildTelegramAuthEmbed(
-            helperUri: telegramLoginUri,
-            onInitData: (initData) {
-              unawaited(
-                _completeTelegramModalLogin(
-                  initData: initData,
-                  nextLocation: nextLocation,
-                ),
-              );
-            },
-          )
-        : null;
+    final embeddedTelegramAuth =
+        allowEmbeddedAuth && telegramLoginUri != null
+            ? buildTelegramAuthEmbed(
+              helperUri: telegramLoginUri,
+              onInitData: (initData) {
+                unawaited(
+                  _completeTelegramModalLogin(
+                    initData: initData,
+                    nextLocation: nextLocation,
+                  ),
+                );
+              },
+            )
+            : null;
     final vkEmbedUri = _vkAuthEmbedUri(nextLocation: nextLocation);
-    final embeddedVkAuth = allowEmbeddedAuth && vkEmbedUri != null
-        ? buildVkAuthEmbed(
-            helperUri: vkEmbedUri,
-            onAuthCode: (code, state, deviceId) {
-              unawaited(
-                _completeVkModalLogin(
-                  code: code,
-                  state: state,
-                  deviceId: deviceId,
-                  nextLocation: nextLocation,
-                ),
-              );
-            },
-            onError: (message) {
-              _showMessage(message);
-            },
-          )
-        : null;
-    var selectedProvider = telegramLoginUri != null
-        ? _WebLoginProvider.telegram
-        : _WebLoginProvider.vk;
+    final embeddedVkAuth =
+        allowEmbeddedAuth && vkEmbedUri != null
+            ? buildVkAuthEmbed(
+              helperUri: vkEmbedUri,
+              onAuthCode: (code, state, deviceId) {
+                unawaited(
+                  _completeVkModalLogin(
+                    code: code,
+                    state: state,
+                    deviceId: deviceId,
+                    nextLocation: nextLocation,
+                  ),
+                );
+              },
+              onError: (message) {
+                _showMessage(message);
+              },
+            )
+            : null;
+    var selectedProvider =
+        telegramLoginUri != null
+            ? _WebLoginProvider.telegram
+            : _WebLoginProvider.vk;
 
     await showAppDialog<void>(
       context: context,
@@ -379,19 +378,21 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
             return AppModal(
               title: 'Вход в SPACE',
-              subtitle: isCompactWebModal
-                  ? 'Выберите способ авторизации.'
-                  : 'Выберите удобный способ авторизации. После входа вы вернетесь в приложение.',
+              subtitle:
+                  isCompactWebModal
+                      ? 'Выберите способ авторизации.'
+                      : 'Выберите удобный способ авторизации. После входа вы вернетесь в приложение.',
               onClose: () => Navigator.of(dialogContext).pop(),
-              constraints: isCompactWebModal
-                  ? const BoxConstraints.tightFor(
-                      width: compactWebModalSize,
-                      height: compactWebModalSize,
-                    )
-                  : BoxConstraints(
-                      maxWidth: 720,
-                      maxHeight: modalMaxHeight,
-                    ),
+              constraints:
+                  isCompactWebModal
+                      ? const BoxConstraints.tightFor(
+                        width: compactWebModalSize,
+                        height: compactWebModalSize,
+                      )
+                      : BoxConstraints(
+                        maxWidth: 720,
+                        maxHeight: modalMaxHeight,
+                      ),
               scrollBody: true,
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,9 +405,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                         AppButton(
                           label: 'Telegram',
                           icon: const Icon(Icons.telegram_rounded),
-                          variant: isTelegramSelected
-                              ? AppButtonVariant.primary
-                              : AppButtonVariant.outline,
+                          variant:
+                              isTelegramSelected
+                                  ? AppButtonVariant.primary
+                                  : AppButtonVariant.outline,
                           onPressed: () {
                             setModalState(
                               () =>
@@ -418,9 +420,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                         AppButton(
                           label: 'VK',
                           icon: const Icon(Icons.language_rounded),
-                          variant: !isTelegramSelected
-                              ? AppButtonVariant.primary
-                              : AppButtonVariant.outline,
+                          variant:
+                              !isTelegramSelected
+                                  ? AppButtonVariant.primary
+                                  : AppButtonVariant.outline,
                           onPressed: () {
                             setModalState(
                               () => selectedProvider = _WebLoginProvider.vk,
@@ -449,8 +452,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: AppColors.textPrimary
-                                    .withValues(alpha: 0.14),
+                                color: AppColors.textPrimary.withValues(
+                                  alpha: 0.14,
+                                ),
                               ),
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -478,8 +482,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: AppColors.textPrimary
-                                    .withValues(alpha: 0.14),
+                                color: AppColors.textPrimary.withValues(
+                                  alpha: 0.14,
+                                ),
                               ),
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -495,9 +500,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                 if (isTelegramSelected && telegramAvailable)
                   if (embeddedTelegramAuth == null)
                     AppButton(
-                      label: isCompactWebModal
-                          ? 'Войти через Telegram'
-                          : 'Login via Telegram',
+                      label:
+                          isCompactWebModal
+                              ? 'Войти через Telegram'
+                              : 'Login via Telegram',
                       variant: AppButtonVariant.primary,
                       icon: const Icon(Icons.telegram_rounded),
                       onPressed: () {
@@ -510,8 +516,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       label: 'Открыть в popup',
                       variant: AppButtonVariant.secondary,
                       icon: const Icon(Icons.open_in_new_rounded),
-                      onPressed: () =>
-                          unawaited(_openTelegramLogin(telegramLoginUri)),
+                      onPressed:
+                          () => unawaited(_openTelegramLogin(telegramLoginUri)),
                     ),
                 if (!isTelegramSelected && vkAvailable)
                   if (embeddedVkAuth == null)
@@ -530,8 +536,10 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
                       label: 'Открыть в новой вкладке',
                       variant: AppButtonVariant.secondary,
                       icon: const Icon(Icons.open_in_new_rounded),
-                      onPressed: () =>
-                          unawaited(_startVkLogin(nextLocation: nextLocation)),
+                      onPressed:
+                          () => unawaited(
+                            _startVkLogin(nextLocation: nextLocation),
+                          ),
                     ),
                 AppButton(
                   label: 'Отмена',
@@ -595,11 +603,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
     try {
       final auth = ref.read(authControllerProvider);
-      await auth.loginWithVkCode(
-        code: code,
-        state: state,
-        deviceId: deviceId,
-      );
+      await auth.loginWithVkCode(code: code, state: state, deviceId: deviceId);
       if (!mounted) return;
 
       final authState = auth.state;
@@ -628,9 +632,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     }
   }
 
-  Uri? _telegramLoginUri({
-    required String nextLocation,
-  }) {
+  Uri? _telegramLoginUri({required String nextLocation}) {
     final config = ref.read(appConfigProvider);
     final helperBase = _resolveStandaloneHelperBaseUri(
       rawStandaloneAuthUrl: config.standaloneAuthUrl,
@@ -674,9 +676,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     return _applyApiPrefixIfNeeded(helperUri: absolute, apiUrl: apiUrl);
   }
 
-  Uri? _vkAuthEmbedUri({
-    required String nextLocation,
-  }) {
+  Uri? _vkAuthEmbedUri({required String nextLocation}) {
     if (!kIsWeb || !_canUseVkLogin()) {
       return null;
     }
@@ -711,7 +711,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
     final tailIsAuthStandalone =
         helperSegments[helperSegments.length - 2].toLowerCase() == 'auth' &&
-            helperSegments.last.toLowerCase() == 'standalone';
+        helperSegments.last.toLowerCase() == 'standalone';
     if (!tailIsAuthStandalone) return helperUri;
 
     final apiUri = Uri.tryParse(apiUrl.trim());
@@ -722,7 +722,8 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     ];
     if (apiSegments.isEmpty) return helperUri;
 
-    final startsWithApiPrefix = helperSegments.length >= apiSegments.length &&
+    final startsWithApiPrefix =
+        helperSegments.length >= apiSegments.length &&
         _segmentsMatch(
           left: helperSegments.take(apiSegments.length),
           right: apiSegments,
@@ -782,10 +783,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       }
       return;
     }
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.platformDefault,
-    );
+    final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
     if (!opened) {
       _showMessage('Could not open Telegram login');
     }
@@ -796,10 +794,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
       TelegramWebAppBridge.redirect(uri.toString());
       return;
     }
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.platformDefault,
-    );
+    final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
     if (!opened) {
       _showMessage('Could not open VK login');
     }
@@ -811,9 +806,7 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     return config.vkAppId.trim().isNotEmpty;
   }
 
-  Future<void> _startVkLogin({
-    required String nextLocation,
-  }) async {
+  Future<void> _startVkLogin({required String nextLocation}) async {
     if (!_canUseVkLogin()) {
       _showMessage('VK login is disabled (VK_APP_ID is missing).');
       return;
@@ -826,7 +819,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
     );
 
     try {
-      final authorizeUri = await ref.read(authRepositoryProvider).startVkAuth(
+      final authorizeUri = await ref
+          .read(authRepositoryProvider)
+          .startVkAuth(
             redirectUri: _withoutFragment(redirect),
             next: nextLocation,
           );
@@ -862,8 +857,9 @@ class _LandingScreenState extends ConsumerState<LandingScreen>
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -921,8 +917,9 @@ class LandingLayoutConfig {
   static const bool forceReduceMotion = false;
   static const String frameTickerText =
       'SPACE • EVENT • 31–3 AUG • SPACE • EVENT • ';
+  static const Duration backgroundVideoStartDelay = Duration(milliseconds: 500);
   static const String backgroundVideoAssetPath =
-      'assets/videos/landing/IMG_9645.MP4';
+      'assets/videos/landing/landing_background.mp4';
 
   /// isDesktop reports whether desktop condition is met.
 
@@ -936,7 +933,8 @@ class LandingLayoutConfig {
 
   static bool shouldReduceMotion(BuildContext context) {
     final media = MediaQuery.maybeOf(context);
-    final userPrefersReduced = (media?.disableAnimations ?? false) ||
+    final userPrefersReduced =
+        (media?.disableAnimations ?? false) ||
         (media?.accessibleNavigation ?? false);
     return forceReduceMotion || userPrefersReduced;
   }
@@ -966,9 +964,7 @@ class LandingLayoutConfig {
 
   /// canvasHeight handles canvas height.
 
-  static double canvasHeight({
-    required Size viewport,
-  }) {
+  static double canvasHeight({required Size viewport}) {
     if (isDesktop(viewport.width)) {
       return viewport.height * desktopCanvasScreens;
     }
@@ -1099,12 +1095,14 @@ class _LandingForeground extends StatelessWidget {
                 error: error,
                 totalParticipants: totalParticipants,
                 content: content,
-                onPrimaryAction: featuredEvent != null && heroCtaIsTicket
-                    ? () => onBuy(featuredEvent)
-                    : onOpenApp,
-                onTransferAction: featuredEvent != null
-                    ? () => onBuyTransfer(featuredEvent)
-                    : null,
+                onPrimaryAction:
+                    featuredEvent != null && heroCtaIsTicket
+                        ? () => onBuy(featuredEvent)
+                        : onOpenApp,
+                onTransferAction:
+                    featuredEvent != null
+                        ? () => onBuyTransfer(featuredEvent)
+                        : null,
                 onOpenApp: onOpenApp,
               ),
             ),
@@ -1209,9 +1207,9 @@ class _HeroSection extends StatelessWidget {
             label: content.heroEyebrow.trim(),
             variant: AppBadgeVariant.info,
             textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
-                  letterSpacing: 1.4,
-                ),
+              color: Colors.white,
+              letterSpacing: 1.4,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           AppSectionHeader(
@@ -1228,17 +1226,17 @@ class _HeroSection extends StatelessWidget {
                   ? 'Сейчас в фокусе: $featuredTitle'
                   : 'Сейчас в фокусе: $featuredTitle · $featuredLocation',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.74),
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: Colors.white.withValues(alpha: 0.74),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
           const SizedBox(height: AppSpacing.xs),
           Text(
             description,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
-                ),
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           _HeroActions(
@@ -1257,9 +1255,7 @@ class _HeroSection extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.14),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               ),
               child: Row(
                 children: [
@@ -1273,8 +1269,8 @@ class _HeroSection extends StatelessWidget {
                     child: Text(
                       'Обновляем программу и ближайшие события',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.84),
-                          ),
+                        color: Colors.white.withValues(alpha: 0.84),
+                      ),
                     ),
                   ),
                 ],
@@ -1289,15 +1285,15 @@ class _HeroSection extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.danger.withValues(alpha: 0.42),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppColors.danger.withValues(alpha: 0.55)),
+                border: Border.all(
+                  color: AppColors.danger.withValues(alpha: 0.55),
+                ),
               ),
               child: Text(
                 'Не удалось обновить программу. $error!',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Colors.white),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
               ),
             ),
           ],
@@ -1435,8 +1431,8 @@ class _HeroPoster extends StatelessWidget {
                       return Image.network(
                         fallbackUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, _, __) =>
-                            const _PosterFallback(),
+                        errorBuilder:
+                            (context, _, __) => const _PosterFallback(),
                       );
                     }
                     return const _PosterFallback();
@@ -1495,7 +1491,7 @@ class _PosterFallback extends StatelessWidget {
           colors: <Color>[
             Color(0xFF21305D),
             Color(0xFF0D6A7A),
-            Color(0xFF1A1F3F)
+            Color(0xFF1A1F3F),
           ],
         ),
       ),
@@ -1559,16 +1555,16 @@ class _StageSection extends StatelessWidget {
                 label: eyebrow,
                 variant: AppBadgeVariant.ghost,
                 textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               AppBadge(
                 label: 'Live program',
                 variant: AppBadgeVariant.neutral,
-                textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
-                    ),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: Colors.white),
               ),
             ],
           ),
@@ -1635,8 +1631,9 @@ class _StageVisual extends StatelessWidget {
                 child: Image.network(
                   stageImageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, _, __) =>
-                      _StageVisualFallback(icon: icon, accent: accent),
+                  errorBuilder:
+                      (context, _, __) =>
+                          _StageVisualFallback(icon: icon, accent: accent),
                 ),
               )
             else
@@ -1664,9 +1661,9 @@ class _StageVisual extends StatelessWidget {
                   Text(
                     eyebrow.toUpperCase(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -1674,9 +1671,9 @@ class _StageVisual extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ],
               ),
@@ -1692,10 +1689,7 @@ class _StageVisual extends StatelessWidget {
 
 class _StageVisualFallback extends StatelessWidget {
   /// _StageVisualFallback handles fallback stage visual rendering.
-  const _StageVisualFallback({
-    required this.icon,
-    required this.accent,
-  });
+  const _StageVisualFallback({required this.icon, required this.accent});
 
   final IconData icon;
   final Color accent;
@@ -1759,18 +1753,19 @@ class _LandingParallaxCanvas extends StatelessWidget {
         viewport.height * LandingLayoutConfig.parallaxOverflowViewportFactor;
     final shouldUseVideoBackground =
         LandingLayoutConfig.shouldUseVideoBackground(
-      context,
-      reduceMotion: reduceMotion,
-    );
+          context,
+          reduceMotion: reduceMotion,
+        );
 
     return Stack(
       fit: StackFit.expand,
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: shouldUseVideoBackground
-                ? const _LandingVideoBackground()
-                : const _LandingVideoFallback(),
+            child:
+                shouldUseVideoBackground
+                    ? const _LandingVideoBackground()
+                    : const _LandingVideoFallback(),
           ),
         ),
         _ParallaxLayer(
@@ -1791,9 +1786,7 @@ class _LandingParallaxCanvas extends StatelessWidget {
           overflow: overflow,
           child: const CustomPaint(painter: _NearDecorPainter()),
         ),
-        const Positioned.fill(
-          child: IgnorePointer(child: _EdgeVignette()),
-        ),
+        const Positioned.fill(child: IgnorePointer(child: _EdgeVignette())),
         Positioned(
           top: 0,
           bottom: 0,
@@ -1832,7 +1825,6 @@ class _LandingVideoBackground extends StatefulWidget {
 
   @override
   State<_LandingVideoBackground> createState() =>
-
       /// _LandingVideoBackgroundState handles landing video background state.
       _LandingVideoBackgroundState();
 }
@@ -1848,7 +1840,9 @@ class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
   @override
   void initState() {
     super.initState();
-    unawaited(_initializeVideo());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initializeVideo());
+    });
   }
 
   /// dispose releases resources held by this instance.
@@ -1862,6 +1856,9 @@ class _LandingVideoBackgroundState extends State<_LandingVideoBackground> {
   /// _initializeVideo handles initialize video.
 
   Future<void> _initializeVideo() async {
+    await Future<void>.delayed(LandingLayoutConfig.backgroundVideoStartDelay);
+    if (!mounted) return;
+
     final controller = VideoPlayerController.asset(
       LandingLayoutConfig.backgroundVideoAssetPath,
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
@@ -1989,10 +1986,7 @@ class BreathingTextFrame extends StatelessWidget {
 
 class _AnimatedGrainOverlay extends StatefulWidget {
   /// _AnimatedGrainOverlay handles animated grain overlay.
-  const _AnimatedGrainOverlay({
-    required this.opacity,
-    required this.fps,
-  });
+  const _AnimatedGrainOverlay({required this.opacity, required this.fps});
 
   final double opacity;
   final double fps;
@@ -2161,10 +2155,11 @@ class _GrainOverlayPainter extends CustomPainter {
       drawHeight,
     );
     final src = Rect.fromLTWH(0, 0, imageWidth, imageHeight);
-    final paint = Paint()
-      ..blendMode = BlendMode.softLight
-      ..filterQuality = FilterQuality.low
-      ..color = Colors.white.withValues(alpha: opacity.clamp(0.0, 0.12));
+    final paint =
+        Paint()
+          ..blendMode = BlendMode.softLight
+          ..filterQuality = FilterQuality.low
+          ..color = Colors.white.withValues(alpha: opacity.clamp(0.0, 0.12));
     canvas.drawImageRect(image, src, dst, paint);
   }
 
@@ -2238,10 +2233,7 @@ class _ParallaxLayer extends StatelessWidget {
             factor: factor,
             overflow: overflow,
           );
-          return Transform.translate(
-            offset: Offset(0, dy),
-            child: staticChild,
-          );
+          return Transform.translate(offset: Offset(0, dy), child: staticChild);
         },
         child: RepaintBoundary(child: child),
       ),
@@ -2312,17 +2304,18 @@ class _AuroraPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final blend = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: <Color>[
-          Color(0x4010CFFF),
-          Color(0x2614CFA2),
-          Color(0x2F4277FF),
-          Color(0x00000000),
-        ],
-      ).createShader(rect);
+    final blend =
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              Color(0x4010CFFF),
+              Color(0x2614CFA2),
+              Color(0x2F4277FF),
+              Color(0x00000000),
+            ],
+          ).createShader(rect);
     canvas.drawRect(rect, blend);
 
     _orb(
@@ -2354,13 +2347,11 @@ class _AuroraPainter extends CustomPainter {
     required Color color,
   }) {
     final rect = Rect.fromCircle(center: center, radius: radius);
-    final paint = Paint()
-      ..shader = RadialGradient(
-        colors: <Color>[
-          color,
-          color.withValues(alpha: 0),
-        ],
-      ).createShader(rect);
+    final paint =
+        Paint()
+          ..shader = RadialGradient(
+            colors: <Color>[color, color.withValues(alpha: 0)],
+          ).createShader(rect);
     canvas.drawCircle(center, radius, paint);
   }
 
@@ -2380,40 +2371,42 @@ class _NearDecorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final wave = Path()
-      ..moveTo(0, size.height * 0.7)
-      ..quadraticBezierTo(
-        size.width * 0.18,
-        size.height * 0.63,
-        size.width * 0.35,
-        size.height * 0.7,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.55,
-        size.height * 0.78,
-        size.width * 0.8,
-        size.height * 0.71,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.91,
-        size.height * 0.67,
-        size.width,
-        size.height * 0.72,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
+    final wave =
+        Path()
+          ..moveTo(0, size.height * 0.7)
+          ..quadraticBezierTo(
+            size.width * 0.18,
+            size.height * 0.63,
+            size.width * 0.35,
+            size.height * 0.7,
+          )
+          ..quadraticBezierTo(
+            size.width * 0.55,
+            size.height * 0.78,
+            size.width * 0.8,
+            size.height * 0.71,
+          )
+          ..quadraticBezierTo(
+            size.width * 0.91,
+            size.height * 0.67,
+            size.width,
+            size.height * 0.72,
+          )
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height)
+          ..close();
 
-    final paint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: <Color>[
-          Color(0x002A77FF),
-          Color(0x2C194A94),
-          Color(0x5F12203F),
-        ],
-      ).createShader(Offset.zero & size);
+    final paint =
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              Color(0x002A77FF),
+              Color(0x2C194A94),
+              Color(0x5F12203F),
+            ],
+          ).createShader(Offset.zero & size);
     canvas.drawPath(wave, paint);
   }
 
@@ -2460,23 +2453,11 @@ class _BreathingFramePainter extends CustomPainter {
       breath: breath,
       timeSec: timeSec,
     );
-    _drawFrameStroke(
-      canvas: canvas,
-      frame: frame,
-      breath: breath,
-    );
+    _drawFrameStroke(canvas: canvas, frame: frame, breath: breath);
     if (enableShimmer && !reduceMotion) {
-      _drawShimmerStroke(
-        canvas: canvas,
-        frame: frame,
-        timeSec: timeSec,
-      );
+      _drawShimmerStroke(canvas: canvas, frame: frame, timeSec: timeSec);
     }
-    _drawTickerText(
-      canvas: canvas,
-      frame: frame,
-      breath: breath,
-    );
+    _drawTickerText(canvas: canvas, frame: frame, breath: breath);
   }
 
   /// _drawCornerAccents handles draw corner accents.
@@ -2493,23 +2474,22 @@ class _BreathingFramePainter extends CustomPainter {
       frame.rect.bottomRight,
       frame.rect.bottomLeft,
     ];
-    final radius = (math.min(frame.rect.width, frame.rect.height) * 0.09)
-        .clamp(24.0, 56.0);
+    final radius = (math.min(frame.rect.width, frame.rect.height) * 0.09).clamp(
+      24.0,
+      56.0,
+    );
 
     for (var i = 0; i < corners.length; i++) {
       final pulse =
           0.58 + (0.42 * (0.5 + (0.5 * math.sin((timeSec * 0.9) + (i * 0.8)))));
       final accentAlpha = (0.015 + (0.05 * breath * pulse)).clamp(0.0, 0.09);
       final rect = Rect.fromCircle(center: corners[i], radius: radius);
-      final paint = Paint()
-        ..shader = ui.Gradient.radial(
-          corners[i],
-          radius,
-          <Color>[
-            const Color(0xFF9BFFE3).withValues(alpha: accentAlpha),
-            const Color(0x00000000),
-          ],
-        );
+      final paint =
+          Paint()
+            ..shader = ui.Gradient.radial(corners[i], radius, <Color>[
+              const Color(0xFF9BFFE3).withValues(alpha: accentAlpha),
+              const Color(0x00000000),
+            ]);
       canvas.drawRect(rect, paint);
     }
   }
@@ -2524,17 +2504,19 @@ class _BreathingFramePainter extends CustomPainter {
     final glowAlpha = (0.10 + (0.18 * breath)).clamp(0.0, 0.38);
     final lineAlpha = (0.28 + (0.26 * breath)).clamp(0.0, 0.82);
 
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.6)
-      ..color = const Color(0xFF6FDEC0).withValues(alpha: glowAlpha);
+    final glowPaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.6)
+          ..color = const Color(0xFF6FDEC0).withValues(alpha: glowAlpha);
     canvas.drawPath(frame.path, glowPaint);
 
-    final linePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.15
-      ..color = const Color(0xFFC8FFEE).withValues(alpha: lineAlpha);
+    final linePaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.15
+          ..color = const Color(0xFFC8FFEE).withValues(alpha: lineAlpha);
     canvas.drawPath(frame.path, linePaint);
   }
 
@@ -2547,22 +2529,23 @@ class _BreathingFramePainter extends CustomPainter {
   }) {
     final shimmerProgress =
         ((timeSec * LandingLayoutConfig.shimmerSpeedPxPerSec) % frame.length) /
-            frame.length;
-    final shimmerPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.3
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.3)
-      ..shader = SweepGradient(
-        transform: GradientRotation(shimmerProgress * math.pi * 2),
-        colors: const <Color>[
-          Color(0x001FE5A3),
-          Color(0x4228E8AE),
-          Color(0x9DE8FFF7),
-          Color(0x4228E8AE),
-          Color(0x001FE5A3),
-        ],
-        stops: const <double>[0.0, 0.14, 0.22, 0.30, 1.0],
-      ).createShader(frame.rect);
+        frame.length;
+    final shimmerPaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.3
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.3)
+          ..shader = SweepGradient(
+            transform: GradientRotation(shimmerProgress * math.pi * 2),
+            colors: const <Color>[
+              Color(0x001FE5A3),
+              Color(0x4228E8AE),
+              Color(0x9DE8FFF7),
+              Color(0x4228E8AE),
+              Color(0x001FE5A3),
+            ],
+            stops: const <double>[0.0, 0.14, 0.22, 0.30, 1.0],
+          ).createShader(frame.rect);
     canvas.drawPath(frame.path, shimmerPaint);
   }
 
@@ -2595,12 +2578,15 @@ class _BreathingFramePainter extends CustomPainter {
     if (cursor > 0) cursor -= patternLength;
 
     // Traveling wave and shimmer move independently from the text crawl speed.
-    final waveCenter = reduceMotion
-        ? 0.0
-        : ((timeSec * LandingLayoutConfig.waveSpeed) % frame.length);
-    final shimmerCenter = (reduceMotion || !enableShimmer)
-        ? 0.0
-        : ((timeSec * LandingLayoutConfig.shimmerSpeedPxPerSec) % frame.length);
+    final waveCenter =
+        reduceMotion
+            ? 0.0
+            : ((timeSec * LandingLayoutConfig.waveSpeed) % frame.length);
+    final shimmerCenter =
+        (reduceMotion || !enableShimmer)
+            ? 0.0
+            : ((timeSec * LandingLayoutConfig.shimmerSpeedPxPerSec) %
+                frame.length);
     final waveSigma = LandingLayoutConfig.waveSigma.clamp(50.0, 260.0);
     final shimmerSigma = waveSigma * 0.72;
 
@@ -2620,22 +2606,24 @@ class _BreathingFramePainter extends CustomPainter {
           continue;
         }
 
-        final wave = reduceMotion
-            ? 0.0
-            : _gaussianOnLoop(
-                s: glyphCenter,
-                center: waveCenter,
-                length: frame.length,
-                sigma: waveSigma,
-              );
-        final shimmer = (reduceMotion || !enableShimmer)
-            ? 0.0
-            : _gaussianOnLoop(
-                s: glyphCenter,
-                center: shimmerCenter,
-                length: frame.length,
-                sigma: shimmerSigma,
-              );
+        final wave =
+            reduceMotion
+                ? 0.0
+                : _gaussianOnLoop(
+                  s: glyphCenter,
+                  center: waveCenter,
+                  length: frame.length,
+                  sigma: waveSigma,
+                );
+        final shimmer =
+            (reduceMotion || !enableShimmer)
+                ? 0.0
+                : _gaussianOnLoop(
+                  s: glyphCenter,
+                  center: shimmerCenter,
+                  length: frame.length,
+                  sigma: shimmerSigma,
+                );
 
         final localGlow = (0.14 +
                 (0.24 * breath) +
@@ -2695,8 +2683,9 @@ class _BreathingFramePainter extends CustomPainter {
       size.width - (inset * 2),
       size.height - (inset * 2),
     );
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
+    final path =
+        Path()
+          ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
     final metric = path.computeMetrics(forceClosed: true).first;
     final out = _FramePathData(
       rect: rect,
@@ -2735,11 +2724,15 @@ class _BreathingFramePainter extends CustomPainter {
     final base = glowPass ? const Color(0xFF3ACF9E) : const Color(0xFF2EB282);
     final highlight =
         glowPass ? const Color(0xFFEEFFF9) : const Color(0xFFD6FFF1);
-    final alpha = glowPass
-        ? (0.08 + (0.70 * intensity)).clamp(0.0, 1.0)
-        : (0.26 + (0.68 * intensity)).clamp(0.0, 1.0);
-    final color = Color.lerp(base, highlight, intensity)!
-        .withValues(alpha: alpha.toDouble());
+    final alpha =
+        glowPass
+            ? (0.08 + (0.70 * intensity)).clamp(0.0, 1.0)
+            : (0.26 + (0.68 * intensity)).clamp(0.0, 1.0);
+    final color = Color.lerp(
+      base,
+      highlight,
+      intensity,
+    )!.withValues(alpha: alpha.toDouble());
 
     final painter = TextPainter(
       text: TextSpan(
@@ -2750,16 +2743,17 @@ class _BreathingFramePainter extends CustomPainter {
           fontWeight: glowPass ? FontWeight.w600 : FontWeight.w500,
           fontSize: fontSize,
           height: 1.0,
-          shadows: glowPass
-              ? [
-                  Shadow(
-                    color: color.withValues(
-                      alpha: (0.16 + (0.42 * intensity)).clamp(0.0, 1.0),
+          shadows:
+              glowPass
+                  ? [
+                    Shadow(
+                      color: color.withValues(
+                        alpha: (0.16 + (0.42 * intensity)).clamp(0.0, 1.0),
+                      ),
+                      blurRadius: 6 + (8 * intensity),
                     ),
-                    blurRadius: 6 + (8 * intensity),
-                  ),
-                ]
-              : const <Shadow>[],
+                  ]
+                  : const <Shadow>[],
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -2774,10 +2768,7 @@ class _BreathingFramePainter extends CustomPainter {
 
   /// _glyphWidth handles glyph width.
 
-  double _glyphWidth({
-    required String glyph,
-    required double fontSize,
-  }) {
+  double _glyphWidth({required String glyph, required double fontSize}) {
     final key = '$glyph|${fontSize.toStringAsFixed(2)}';
     final cached = _glyphWidthCache[key];
     if (cached != null) {
@@ -2858,10 +2849,7 @@ class _FramePathData {
 
 class _GlassPanel extends StatelessWidget {
   /// _GlassPanel handles glass panel.
-  const _GlassPanel({
-    required this.child,
-    required this.padding,
-  });
+  const _GlassPanel({required this.child, required this.padding});
 
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -2881,8 +2869,9 @@ class _GlassPanel extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: borderRadius,
-            color: AppColors.backgroundDeep
-                .withValues(alpha: LandingLayoutConfig.overlayOpacity),
+            color: AppColors.backgroundDeep.withValues(
+              alpha: LandingLayoutConfig.overlayOpacity,
+            ),
             border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
             boxShadow: [
               BoxShadow(
@@ -2892,10 +2881,7 @@ class _GlassPanel extends StatelessWidget {
               ),
             ],
           ),
-          child: Padding(
-            padding: padding,
-            child: child,
-          ),
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );

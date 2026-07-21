@@ -28,16 +28,13 @@ var (
 	ErrTicketQRMismatch             = errors.New("ticket qr mismatch")
 	ErrTicketNotFound               = errors.New("ticket not found")
 	ErrTransferProductAlreadyExists = errors.New(
-		"transfer product with this direction already exists for selected page",
+		"transfer product with this direction already exists for selected event",
 	)
 )
 
 const (
-	iskryEventAccessKey                    = "iskry"
-	iskryDefaultTransferSeats              = 53
-	transferLandingKeyField                = "landingKey"
-	transferLandingSpace                   = "space"
-	transferLandingIskry                   = "iskry"
+	transferProductScopeField              = "landingKey"
+	transferProductDefaultScope            = "space"
 	transferProductDirectionConstraintName = "transfer_products_event_id_direction_key"
 	transferProductLandingConstraintName   = "transfer_products_event_direction_landing_key_uidx"
 )
@@ -48,26 +45,12 @@ type queryRunner interface {
 	QueryRow(context.Context, string, ...interface{}) pgx.Row
 }
 
-// isIskryEventAccessKey reports whether the event uses the public ISKRY landing.
-func isIskryEventAccessKey(accessKey string) bool {
-	return strings.EqualFold(strings.TrimSpace(accessKey), iskryEventAccessKey)
-}
-
 // effectiveTransferInventoryLimit resolves the seat limit for a transfer product.
-func effectiveTransferInventoryLimit(accessKey string, inventoryLimit *int) (int, bool) {
+func effectiveTransferInventoryLimit(inventoryLimit *int) (int, bool) {
 	if inventoryLimit != nil {
 		return *inventoryLimit, true
 	}
-	if isIskryEventAccessKey(accessKey) {
-		return iskryDefaultTransferSeats, true
-	}
 	return 0, false
-}
-
-// requiresTransferTelegramContact reports whether a transfer order must collect an explicit Telegram username.
-func requiresTransferTelegramContact(accessKey string, info map[string]interface{}) bool {
-	return isIskryEventAccessKey(accessKey) &&
-		transferProductLandingKey(info) == transferLandingIskry
 }
 
 // GetPaymentSettings returns payment settings.
@@ -230,12 +213,15 @@ ORDER BY created_at DESC;`, nullInt64Ptr(eventID), boolPtrOrNil(active))
 		}
 		items = append(items, product)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return filterCurrentTransferProducts(items), nil
 }
 
 // CreateTransferProduct creates transfer product.
 func (r *Repository) CreateTransferProduct(ctx context.Context, createdBy int64, in models.TransferProductInput) (models.TransferProduct, error) {
-	infoJSON, _ := json.Marshal(safeMap(in.Info))
+	infoJSON, _ := json.Marshal(normalizeTransferProductInfo(in.Info))
 	row := r.pool.QueryRow(ctx, `
 INSERT INTO transfer_products (event_id, name, direction, price_cents, info_json, inventory_limit, is_active, created_by)
 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
@@ -260,7 +246,7 @@ RETURNING id::text, event_id, name, direction, price_cents, info_json, inventory
 func (r *Repository) UpdateTransferProduct(ctx context.Context, id string, patch models.TransferProductPatch) (models.TransferProduct, error) {
 	var infoRaw interface{}
 	if patch.Info != nil {
-		buf, _ := json.Marshal(patch.Info)
+		buf, _ := json.Marshal(normalizeTransferProductInfo(patch.Info))
 		infoRaw = buf
 	}
 	var name interface{}
@@ -399,59 +385,53 @@ func (r *Repository) ListEventProductsForPurchase(ctx context.Context, eventID i
 		return nil, nil, err
 	}
 
-	var eventAccessKey string
+	var eventExists bool
 	if err := r.pool.QueryRow(ctx, `
-SELECT COALESCE(access_key, '')
-FROM events
-WHERE id = $1;`, eventID).Scan(&eventAccessKey); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, ErrInvalidProduct
-		}
+SELECT EXISTS(SELECT 1 FROM events WHERE id = $1);`, eventID).Scan(&eventExists); err != nil {
 		return nil, nil, err
+	}
+	if !eventExists {
+		return nil, nil, ErrInvalidProduct
 	}
 
 	transfers, err := r.ListTransferProducts(ctx, &eid, &onlyActive)
 	if err != nil {
 		return nil, nil, err
 	}
-	if isIskryEventAccessKey(eventAccessKey) {
-		return tickets, filterTransferProductsByLanding(transfers, transferLandingSpace), nil
-	}
 	return tickets, transfers, nil
 }
 
-// filterTransferProductsByLanding keeps only transfer products assigned to the requested landing bucket.
-func filterTransferProductsByLanding(products []models.TransferProduct, landingKey string) []models.TransferProduct {
-	expected := normalizeTransferLandingKey(landingKey)
+// filterCurrentTransferProducts excludes products retained only for historical orders.
+func filterCurrentTransferProducts(products []models.TransferProduct) []models.TransferProduct {
 	filtered := make([]models.TransferProduct, 0, len(products))
 	for _, product := range products {
-		if transferProductLandingKey(product.Info) == expected {
+		if isCurrentTransferProduct(product.Info) {
 			filtered = append(filtered, product)
 		}
 	}
 	return filtered
 }
 
-// transferProductLandingKey resolves the landing bucket stored in transfer info.
-func transferProductLandingKey(info map[string]interface{}) string {
+// isCurrentTransferProduct reports whether a transfer belongs to the active product catalog.
+func isCurrentTransferProduct(info map[string]interface{}) bool {
 	if info == nil {
-		return transferLandingSpace
+		return true
 	}
-	raw, ok := info[transferLandingKeyField]
+	raw, ok := info[transferProductScopeField]
 	if !ok || raw == nil {
-		return transferLandingSpace
+		return true
 	}
-	return normalizeTransferLandingKey(fmt.Sprint(raw))
+	return strings.EqualFold(strings.TrimSpace(fmt.Sprint(raw)), transferProductDefaultScope)
 }
 
-// normalizeTransferLandingKey maps arbitrary input to one of the supported landing buckets.
-func normalizeTransferLandingKey(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case transferLandingIskry:
-		return transferLandingIskry
-	default:
-		return transferLandingSpace
+// normalizeTransferProductInfo prevents API clients from creating legacy product scopes.
+func normalizeTransferProductInfo(info map[string]interface{}) map[string]interface{} {
+	normalized := make(map[string]interface{}, len(info)+1)
+	for key, value := range info {
+		normalized[key] = value
 	}
+	normalized[transferProductScopeField] = transferProductDefaultScope
+	return normalized
 }
 
 // ValidatePromoCode validates promo code.
@@ -554,11 +534,10 @@ func (r *Repository) createOrderTx(
 	out *models.OrderDetail,
 ) error {
 	var eventTitle string
-	var eventAccessKey string
 	if err := tx.QueryRow(ctx, `
-SELECT title, COALESCE(access_key, '')
+SELECT title
 FROM events
-WHERE id = $1;`, params.EventID).Scan(&eventTitle, &eventAccessKey); err != nil {
+WHERE id = $1;`, params.EventID).Scan(&eventTitle); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrInvalidProduct
 		}
@@ -652,13 +631,12 @@ FOR UPDATE;`, productID).Scan(&dbID, &eventID, &name, &direction, &priceCents, &
 		if transferTicketType == "" {
 			return ErrInvalidProduct
 		}
-		if limit, ok := effectiveTransferInventoryLimit(eventAccessKey, nullInt32ToIntPtr(inventoryLimit)); ok && soldCount+quantity > limit {
+		if limit, ok := effectiveTransferInventoryLimit(nullInt32ToIntPtr(inventoryLimit)); ok && soldCount+quantity > limit {
 			return ErrInventoryLimitReached
 		}
 		info := decodeJSONMap(infoRaw)
-		if requiresTransferTelegramContact(eventAccessKey, info) &&
-			strings.TrimSpace(params.ContactTelegram) == "" {
-			return ErrInvalidTelegramContact
+		if !isCurrentTransferProduct(info) {
+			return ErrInvalidProduct
 		}
 		lineTotal := priceCents * int64(quantity)
 		subtotal += lineTotal
@@ -1049,7 +1027,6 @@ func (r *Repository) MoveTransferOrderItem(ctx context.Context, itemID int64, ta
 			orderStatus      string
 			userID           int64
 			eventID          int64
-			eventAccessKey   string
 			currentProductID string
 			currentDirection string
 			quantity         int
@@ -1063,14 +1040,12 @@ SELECT
 	o.status,
 	o.user_id,
 	o.event_id,
-	COALESCE(e.access_key, ''),
 	oi.product_id::text,
 	oi.product_ref,
 	oi.quantity,
 	oi.line_total_cents
 FROM order_items oi
 JOIN orders o ON o.id = oi.order_id
-JOIN events e ON e.id = o.event_id
 WHERE oi.id = $1
 	AND oi.item_type = $2
 FOR UPDATE OF oi, o;`, itemID, models.ItemTypeTransfer).Scan(
@@ -1078,7 +1053,6 @@ FOR UPDATE OF oi, o;`, itemID, models.ItemTypeTransfer).Scan(
 			&current.orderStatus,
 			&current.userID,
 			&current.eventID,
-			&current.eventAccessKey,
 			&current.currentProductID,
 			&current.currentDirection,
 			&current.quantity,
@@ -1155,7 +1129,7 @@ SET sold_count = GREATEST(0, sold_count - $2),
 WHERE id = $1::uuid;`, current.currentProductID, current.quantity); err != nil {
 				return err
 			}
-			if limit, ok := effectiveTransferInventoryLimit(current.eventAccessKey, target.inventoryLimit); ok && target.soldCount+current.quantity > limit {
+			if limit, ok := effectiveTransferInventoryLimit(target.inventoryLimit); ok && target.soldCount+current.quantity > limit {
 				return ErrInventoryLimitReached
 			}
 			if _, err := tx.Exec(ctx, `
@@ -1480,13 +1454,11 @@ func (r *Repository) ConfirmOrder(ctx context.Context, orderID string, adminID i
 		var orderStatus string
 		var userID int64
 		var eventID int64
-		var eventAccessKey string
 		if err := tx.QueryRow(ctx, `
-SELECT o.status, o.user_id, o.event_id, COALESCE(e.access_key, '')
+SELECT o.status, o.user_id, o.event_id
 FROM orders o
-JOIN events e ON e.id = o.event_id
 WHERE o.id = $1::uuid
-			FOR UPDATE OF o;`, orderID).Scan(&orderStatus, &userID, &eventID, &eventAccessKey); err != nil {
+			FOR UPDATE OF o;`, orderID).Scan(&orderStatus, &userID, &eventID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrOrderNotFound
 			}
@@ -1552,7 +1524,7 @@ FOR UPDATE;`, item.productID).Scan(&inventoryLimit, &soldCount); err != nil {
 						}
 						return err
 					}
-					if limit, ok := effectiveTransferInventoryLimit(eventAccessKey, nullInt32ToIntPtr(inventoryLimit)); ok && soldCount+item.quantity > limit {
+					if limit, ok := effectiveTransferInventoryLimit(nullInt32ToIntPtr(inventoryLimit)); ok && soldCount+item.quantity > limit {
 						return ErrInventoryLimitReached
 					}
 					if _, err := tx.Exec(ctx, `

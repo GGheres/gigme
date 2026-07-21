@@ -260,7 +260,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         _selectedTransferId = draft.selectedTransferId;
         _transferQty = draft.transferQty;
         _paymentMethod = draft.paymentMethod;
-        _promoCtrl.text = draft.promoCode;
+        _promoCtrl.text = _isTransferMode ? '' : draft.promoCode;
         _showPaymentCheckout = draft.showPaymentCheckout;
         _promoResult = null;
       });
@@ -288,7 +288,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       selectedTransferId: _selectedTransferId,
       transferQty: _transferQty,
       paymentMethod: _paymentMethod,
-      promoCode: _promoCtrl.text,
+      promoCode: _isTransferMode ? '' : _promoCtrl.text,
       showPaymentCheckout: _showPaymentCheckout,
     );
   }
@@ -450,6 +450,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
       _isTransferMode ? _hasSelectedTransfer : _hasSelectedTickets;
 
   int get _discountCents {
+    if (_isTransferMode) return 0;
     final promo = _promoResult;
     if (promo == null || !promo.valid) return 0;
     return promo.discountCents;
@@ -461,6 +462,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   }
 
   Future<void> _validatePromo() async {
+    if (_isTransferMode) {
+      _promoCtrl.clear();
+      setState(() => _promoResult = null);
+      return;
+    }
     final token = _token?.trim() ?? '';
     if (token.isEmpty) return;
     final code = _promoCtrl.text.trim();
@@ -544,7 +550,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         paymentReference: '',
         ticketItems: ticketItems,
         transferItems: transferItems,
-        promoCode: _promoCtrl.text.trim(),
+        promoCode: _isTransferMode ? '' : _promoCtrl.text.trim(),
       );
       if (_paymentMethod == 'TOCHKA_SBP_QR') {
         final created = await ref
@@ -661,7 +667,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
         paymentMethod: _paymentMethod,
         amountCents: _totalCents,
         paymentSettings: _paymentSettings,
-        promoCode: _promoCtrl.text,
+        promoCode: _isTransferMode ? '' : _promoCtrl.text,
         onBack: () => _updateStateAndSave(() => _showPaymentCheckout = false),
         onPaid: _submitting ? null : _submitOrder,
         submitting: _submitting,
@@ -847,42 +853,44 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
                 ),
               ),
           ],
-          const SizedBox(height: 16),
-          Text('2) Промокод', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: InputField(
-                  controller: _promoCtrl,
-                  hint: 'Введите промокод',
+          if (!_isTransferMode) ...[
+            const SizedBox(height: 16),
+            Text('2) Промокод', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: InputField(
+                    controller: _promoCtrl,
+                    hint: 'Введите промокод',
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                SecondaryButton(
+                  onPressed: _validatingPromo ? null : _validatePromo,
+                  label: _validatingPromo ? 'Проверка…' : 'Применить',
+                  outline: true,
+                ),
+              ],
+            ),
+            if (_promoResult != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _promoResult!.valid
+                    ? 'Скидка: ${formatMoney(_promoResult!.discountCents)}'
+                    : 'Промокод не применился: ${_promoResult!.reason}',
+                style: TextStyle(
+                  color:
+                      _promoResult!.valid
+                          ? colorScheme.tertiary
+                          : colorScheme.error,
                 ),
               ),
-              const SizedBox(width: AppSpacing.xs),
-              SecondaryButton(
-                onPressed: _validatingPromo ? null : _validatePromo,
-                label: _validatingPromo ? 'Проверка…' : 'Применить',
-                outline: true,
-              ),
             ],
-          ),
-          if (_promoResult != null) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              _promoResult!.valid
-                  ? 'Скидка: ${formatMoney(_promoResult!.discountCents)}'
-                  : 'Промокод не применился: ${_promoResult!.reason}',
-              style: TextStyle(
-                color:
-                    _promoResult!.valid
-                        ? colorScheme.tertiary
-                        : colorScheme.error,
-              ),
-            ),
           ],
           const SizedBox(height: 16),
           Text(
-            '3) Выберите способ оплаты',
+            '${_isTransferMode ? 2 : 3}) Выберите способ оплаты',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -904,7 +912,7 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             PaymentMethodPage(method: _paymentMethod, amountCents: _totalCents),
           const SizedBox(height: 16),
           Text(
-            '4) Итог заказа',
+            '${_isTransferMode ? 3 : 4}) Итог заказа',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -912,10 +920,11 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
             label: _isTransferMode ? 'Трансфер' : 'Билеты',
             value: formatMoney(_subtotalCents),
           ),
-          _SummaryRow(
-            label: 'Скидка',
-            value: '- ${formatMoney(_discountCents)}',
-          ),
+          if (!_isTransferMode)
+            _SummaryRow(
+              label: 'Скидка',
+              value: '- ${formatMoney(_discountCents)}',
+            ),
           const Divider(),
           _SummaryRow(
             label: 'К оплате',
@@ -952,7 +961,8 @@ class _PurchaseTicketFlowState extends ConsumerState<PurchaseTicketFlow>
   }
 
   String _paymentSubtitle(String method) {
-    final promoOverride = _PromoPaymentOverride.forCode(_promoCtrl.text);
+    final promoOverride =
+        _isTransferMode ? null : _PromoPaymentOverride.forCode(_promoCtrl.text);
     if (method == 'PHONE' && promoOverride != null) {
       return promoOverride.phoneDescription;
     }

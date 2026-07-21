@@ -83,7 +83,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
 
   String _ticketType = 'SINGLE';
   String _transferDirection = 'THERE';
-  String _transferLandingKey = TransferProductModel.landingKeySpace;
   String _promoDiscountType = 'PERCENT';
   DateTime? _promoActiveFrom;
   DateTime? _promoActiveTo;
@@ -283,7 +282,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             direction: _transferDirection,
             priceCents: price,
             info: <String, dynamic>{
-              'landingKey': _transferLandingKey,
               'description': _transferNotesCtrl.text.trim(),
               'time': _transferTimeCtrl.text.trim(),
               'pickupPoint': _transferPickupCtrl.text.trim(),
@@ -573,8 +571,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
     final capacityCtrl = TextEditingController(
       text: item.inventoryLimit?.toString() ?? '53',
     );
-    var editedLandingKey = item.landingKey;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -589,29 +585,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         InputField(controller: nameCtrl, label: 'Название'),
-                        const SizedBox(height: AppSpacing.xs),
-                        DropdownButtonFormField<String>(
-                          initialValue: editedLandingKey,
-                          decoration: const InputDecoration(
-                            labelText: 'Публичная страница',
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: TransferProductModel.landingKeySpace,
-                              child: Text('SPACE'),
-                            ),
-                            DropdownMenuItem(
-                              value: TransferProductModel.landingKeyIskry,
-                              child: Text('ISKRY'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setDialogState(() {
-                              editedLandingKey =
-                                  value ?? TransferProductModel.landingKeySpace;
-                            });
-                          },
-                        ),
                         const SizedBox(height: AppSpacing.xs),
                         InputField(
                           controller: priceCtrl,
@@ -712,7 +685,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
             priceCents: price,
             inventoryLimit: capacity,
             info: <String, dynamic>{
-              'landingKey': editedLandingKey,
               'description': editedDescription,
               'time': editedTime,
               'pickupPoint': editedPickup,
@@ -1203,29 +1175,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                 hint: 'По умолчанию 53',
               ),
               const SizedBox(height: AppSpacing.xs),
-              DropdownButtonFormField<String>(
-                initialValue: _transferLandingKey,
-                decoration: const InputDecoration(
-                  labelText: 'Публичная страница',
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: TransferProductModel.landingKeySpace,
-                    child: Text('SPACE'),
-                  ),
-                  DropdownMenuItem(
-                    value: TransferProductModel.landingKeyIskry,
-                    child: Text('ISKRY'),
-                  ),
-                ],
-                onChanged:
-                    (value) => setState(
-                      () =>
-                          _transferLandingKey =
-                              value ?? TransferProductModel.landingKeySpace,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
               InputField(
                 controller: _transferNotesCtrl,
                 label: 'Описание / примечания',
@@ -1319,7 +1268,6 @@ class _AdminProductsPageState extends ConsumerState<AdminProductsPage> {
                               ),
                               subtitle: Text(
                                 'Event ${item.eventId} · code ${item.direction} · '
-                                'landing ${item.landingLabel} · '
                                 'limit ${item.inventoryLimit?.toString() ?? 'not set'} · '
                                 'sold ${item.soldCount} · ${item.infoLabel} · '
                                 '${item.isActive ? 'visible' : 'hidden'}',

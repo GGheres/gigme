@@ -91,7 +91,6 @@ func main() {
 	r.Get("/media/events/{id}/{index}", h.EventMedia)
 	r.Get("/landing/events", h.LandingEvents)
 	r.Get("/landing/content", h.LandingContent)
-	r.Get("/landing/iskry", h.GetIskryLanding)
 
 	r.Post("/auth/telegram", h.AuthTelegram)
 	r.Post("/auth/vk/start", h.AuthVKStart)

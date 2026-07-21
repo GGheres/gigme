@@ -132,11 +132,6 @@ type sbpQRStatusResponse struct {
 const (
 	paymentProviderTochkaSBP = "tochka_sbp"
 	adminOrderDeletePassword = "FUCKSHIT"
-	iskryLandingAccessKey    = "iskry"
-	iskryDefaultCapacity     = 53
-	transferLandingKeyField  = "landingKey"
-	transferLandingSpace     = "space"
-	transferLandingIskry     = "iskry"
 )
 
 var telegramUsernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]{5,32}$`)
@@ -172,31 +167,6 @@ type ticketProductsListResponse struct {
 // transferProductsListResponse represents transfer products list response.
 type transferProductsListResponse struct {
 	Items []models.TransferProduct `json:"items"`
-}
-
-// iskryTransferProductResponse represents a public ISKRY transfer product card.
-type iskryTransferProductResponse struct {
-	ID             string                 `json:"id"`
-	EventID        int64                  `json:"eventId"`
-	Name           string                 `json:"name,omitempty"`
-	Direction      string                 `json:"direction"`
-	PriceCents     int64                  `json:"priceCents"`
-	Info           map[string]interface{} `json:"info"`
-	Capacity       int                    `json:"capacity"`
-	SoldCount      int                    `json:"soldCount"`
-	AvailableSeats int                    `json:"availableSeats"`
-	IsActive       bool                   `json:"isActive"`
-}
-
-// iskryLandingResponse represents the public /iskry payload.
-type iskryLandingResponse struct {
-	EventID                int64                          `json:"eventId"`
-	EventTitle             string                         `json:"eventTitle"`
-	EventDescription       string                         `json:"eventDescription,omitempty"`
-	EventAccessKey         string                         `json:"eventAccessKey"`
-	StartsAt               time.Time                      `json:"startsAt"`
-	TransferPaymentEnabled bool                           `json:"transferPaymentEnabled"`
-	Products               []iskryTransferProductResponse `json:"products"`
 }
 
 // myTicketsResponse represents my tickets response.
@@ -572,97 +542,6 @@ func (h *Handler) ListEventProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ticketProductsResponse{Tickets: tickets, Transfers: transfers})
-}
-
-// GetIskryLanding returns public ISKRY transfer products for the standalone landing.
-func (h *Handler) GetIskryLanding(w http.ResponseWriter, r *http.Request) {
-	logger := h.loggerForRequest(r)
-	ctx, cancel := h.withTimeout(r.Context())
-	defer cancel()
-
-	event, err := h.repo.GetEventByAccessKey(ctx, iskryLandingAccessKey)
-	if err != nil {
-		h.handleTicketingError(logger, w, "iskry_landing", err)
-		return
-	}
-
-	onlyActive := true
-	products, err := h.repo.ListTransferProducts(ctx, &event.ID, &onlyActive)
-	if err != nil {
-		logger.Error("iskry_landing", "status", "db_error", "error", err)
-		writeError(w, http.StatusInternalServerError, "db error")
-		return
-	}
-	products = filterTransferProductsByLanding(products, iskryLandingAccessKey)
-
-	paymentSettings := h.loadPaymentSettings(ctx, models.PaymentSettingsScopeTransfer)
-	responseProducts := make([]iskryTransferProductResponse, 0, len(products))
-	for _, product := range products {
-		capacity := iskryDefaultCapacity
-		if product.InventoryLimit != nil {
-			capacity = *product.InventoryLimit
-		}
-		availableSeats := capacity - product.SoldCount
-		if availableSeats < 0 {
-			availableSeats = 0
-		}
-		responseProducts = append(responseProducts, iskryTransferProductResponse{
-			ID:             product.ID,
-			EventID:        product.EventID,
-			Name:           product.Name,
-			Direction:      product.Direction,
-			PriceCents:     product.PriceCents,
-			Info:           product.Info,
-			Capacity:       capacity,
-			SoldCount:      product.SoldCount,
-			AvailableSeats: availableSeats,
-			IsActive:       product.IsActive,
-		})
-	}
-
-	writeJSON(w, http.StatusOK, iskryLandingResponse{
-		EventID:                event.ID,
-		EventTitle:             event.Title,
-		EventDescription:       event.Description,
-		EventAccessKey:         event.AccessKey,
-		StartsAt:               event.StartsAt,
-		TransferPaymentEnabled: h.hasTochkaSBPConfig() && paymentSettings.SBPEnabled,
-		Products:               responseProducts,
-	})
-}
-
-// filterTransferProductsByLanding keeps only transfer products assigned to the requested public landing.
-func filterTransferProductsByLanding(products []models.TransferProduct, landingKey string) []models.TransferProduct {
-	expected := normalizeTransferLandingKey(landingKey)
-	filtered := make([]models.TransferProduct, 0, len(products))
-	for _, product := range products {
-		if transferProductLandingKey(product.Info) == expected {
-			filtered = append(filtered, product)
-		}
-	}
-	return filtered
-}
-
-// transferProductLandingKey resolves the public landing key stored in transfer info.
-func transferProductLandingKey(info map[string]interface{}) string {
-	if info == nil {
-		return transferLandingSpace
-	}
-	raw, ok := info[transferLandingKeyField]
-	if !ok || raw == nil {
-		return transferLandingSpace
-	}
-	return normalizeTransferLandingKey(fmt.Sprint(raw))
-}
-
-// normalizeTransferLandingKey maps arbitrary input to supported public landing keys.
-func normalizeTransferLandingKey(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case transferLandingIskry:
-		return transferLandingIskry
-	default:
-		return transferLandingSpace
-	}
 }
 
 // ListMyOrders lists my orders.

@@ -17,7 +17,6 @@ import '../features/events/presentation/create_event_screen.dart';
 import '../features/events/presentation/event_details_screen.dart';
 import '../features/events/presentation/feed_screen.dart';
 import '../features/events/presentation/map_screen.dart';
-import '../features/iskry/presentation/iskry_landing_page.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
 import '../features/tickets/presentation/admin_order_detail_page.dart';
@@ -48,6 +47,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation:
         config.managerAppMode ? AppRoutes.admin : AppRoutes.landing,
     refreshListenable: auth,
+    onException: (context, state, router) => router.go(AppRoutes.landing),
     redirect: (context, state) {
       final status = auth.state.status;
       final location = state.matchedLocation;
@@ -118,34 +118,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.landing,
         pageBuilder:
             (context, state) => _noTransitionPage(state, const LandingScreen()),
-      ),
-      GoRoute(
-        path: AppRoutes.iskry,
-        pageBuilder:
-            (context, state) =>
-                _noTransitionPage(state, const IskryLandingPage()),
-      ),
-      GoRoute(
-        path: AppRoutes.iskrySuccess,
-        pageBuilder:
-            (context, state) => _noTransitionPage(
-              state,
-              IskryPaymentResultPage(
-                kind: IskryPaymentResultKind.success,
-                orderId: state.uri.queryParameters['orderId'] ?? '',
-              ),
-            ),
-      ),
-      GoRoute(
-        path: AppRoutes.iskryFail,
-        pageBuilder:
-            (context, state) => _noTransitionPage(
-              state,
-              IskryPaymentResultPage(
-                kind: IskryPaymentResultKind.fail,
-                orderId: state.uri.queryParameters['orderId'] ?? '',
-              ),
-            ),
       ),
       GoRoute(
         path: AppRoutes.appRoot,

@@ -51,7 +51,8 @@ type telegramDocument struct {
 
 // telegramChat represents telegram chat.
 type telegramChat struct {
-	ID int64 `json:"id"`
+	ID   int64  `json:"id"`
+	Type string `json:"type"`
 }
 
 // telegramFrom represents telegram from.
@@ -78,6 +79,7 @@ var adminReplyHintCallbackDataRe = regexp.MustCompile(`(?i)^reply_hint:(\d+)$`)
 
 const (
 	telegramStartMenuText              = "Выберите раздел SPACE APP"
+	telegramKeyboardMigrationText      = "Меню обновлено. Используйте кнопки в сообщении ниже."
 	telegramManagerPromptText          = "Введите пароль менеджера одним сообщением"
 	telegramManagerEnabledText         = "Режим менеджера включен. Нажмите кнопку ниже, чтобы открыть SPACE APP."
 	telegramManagerAlreadyEnabledText  = "Режим менеджера уже включен. Нажмите кнопку ниже, чтобы открыть SPACE APP."
@@ -131,10 +133,17 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
-	h.rememberTelegramContact(r.Context(), logger, update.Message.From)
 
 	text := incomingTelegramMessageText(update.Message)
 	trimmedText := strings.TrimSpace(text)
+	if isTelegramStartCommand(trimmedText) {
+		h.handleTelegramStart(r.Context(), logger, update.Message, trimmedText)
+		h.rememberTelegramContact(r.Context(), logger, update.Message.From)
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+
+	h.rememberTelegramContact(r.Context(), logger, update.Message.From)
 	isAdmin := h.isAdminTelegramID(update.Message.From.ID)
 
 	if isAdmin {
@@ -159,44 +168,65 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	fields := strings.Fields(trimmedText)
-	if len(fields) == 0 || !strings.HasPrefix(fields[0], "/start") {
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// isTelegramStartCommand reports whether a message invokes the bot start command.
+func isTelegramStartCommand(text string) bool {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) == 0 {
+		return false
+	}
+	command := strings.SplitN(strings.ToLower(fields[0]), "@", 2)[0]
+	return command == "/start"
+}
+
+// handleTelegramStart sends the user menu before slower persistence and admin-notification work.
+func (h *Handler) handleTelegramStart(ctx context.Context, logger *slog.Logger, message *telegramMessage, text string) {
+	if h == nil || h.telegram == nil || h.cfg == nil || message == nil || message.Chat.ID == 0 {
 		return
 	}
 
 	webAppURL := normalizeWebAppBaseURL(h.cfg.BaseURL)
-	startPayload := strings.TrimSpace(strings.TrimPrefix(trimmedText, "/start"))
+	if webAppURL == "" {
+		logger.Warn("action", "action", "telegram_webhook", "status", "missing_base_url")
+		return
+	}
+
+	startPayload := telegramStartPayload(text)
 	eventID, accessKey := parseStartPayload(startPayload)
+	isPrivateChat := strings.EqualFold(strings.TrimSpace(message.Chat.Type), "private")
+	if isPrivateChat {
+		h.removeLegacyTelegramStartKeyboard(logger, message.Chat.ID)
+	}
 
 	if eventID > 0 {
-		ctx, cancel := h.withTimeout(r.Context())
+		lookupCtx, cancel := h.withTimeout(ctx)
 		defer cancel()
-		event, err := h.repo.GetEventByID(ctx, eventID)
+		event, err := h.repo.GetEventByID(lookupCtx, eventID)
 		if err == nil && !event.IsHidden {
 			if event.IsPrivate && (accessKey == "" || accessKey != event.AccessKey) {
 				event = models.Event{}
 			}
 		}
 		if event.ID > 0 {
-			text := buildEventCardText(event)
-			mediaURL := resolveEventMediaURL(ctx, h, eventID, accessKey)
-			var markup *integrations.ReplyMarkup
-			if webAppURL != "" {
-				markup = buildTelegramStartMenuMarkup(webAppURL, eventID, accessKey, "")
+			menu := buildTelegramStartMenuMarkup(webAppURL, eventID, accessKey, "")
+			var fallback *integrations.ReplyMarkup
+			if isPrivateChat {
+				fallback = buildTelegramStartMenuURLMarkup(webAppURL, eventID, accessKey, "")
+			} else {
+				menu = buildTelegramStartMenuURLMarkup(webAppURL, eventID, accessKey, "")
 			}
+			messageText := buildEventCardText(event)
+			mediaURL := resolveEventMediaURL(lookupCtx, h, eventID, accessKey)
 			if mediaURL != "" {
-				if err := h.telegram.SendPhotoWithMarkup(update.Message.Chat.ID, mediaURL, text, markup); err == nil {
-					writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+				if err := h.telegram.SendPhotoWithMarkup(message.Chat.ID, mediaURL, messageText, menu); err == nil {
 					return
 				} else {
 					logger.Warn("action", "action", "telegram_webhook", "status", "send_photo_failed", "error", err)
 				}
 			}
-			if err := h.telegram.SendMessageWithMarkup(update.Message.Chat.ID, text, markup); err != nil {
-				logger.Warn("action", "action", "telegram_webhook", "status", "send_failed", "error", err)
-			}
-			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			h.sendTelegramStartMessage(logger, message.Chat.ID, messageText, menu, fallback)
 			return
 		}
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -204,24 +234,65 @@ func (h *Handler) TelegramWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if webAppURL == "" {
-		logger.Warn("action", "action", "telegram_webhook", "status", "missing_base_url")
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
-	}
-
 	openURLOverride := ""
-	if h.hasTelegramManagerAccess(update.Message.From.ID) {
+	if h.hasTelegramManagerAccess(message.From.ID) {
 		openURLOverride = buildAdminPanelURL(webAppURL)
 	}
-	markup := buildTelegramStartMenuMarkup(webAppURL, 0, "", openURLOverride)
+	menu := buildTelegramStartMenuMarkup(webAppURL, 0, "", openURLOverride)
+	var fallback *integrations.ReplyMarkup
+	if isPrivateChat {
+		fallback = buildTelegramStartMenuURLMarkup(webAppURL, 0, "", openURLOverride)
+	} else {
+		menu = buildTelegramStartMenuURLMarkup(webAppURL, 0, "", openURLOverride)
+	}
+	h.sendTelegramStartMessage(logger, message.Chat.ID, telegramStartMenuText, menu, fallback)
+}
 
-	if err := h.telegram.SendMessageWithMarkup(update.Message.Chat.ID, telegramStartMenuText, markup); err != nil {
-		logger.Warn("action", "action", "telegram_webhook", "status", "send_failed", "error", err)
+// removeLegacyTelegramStartKeyboard hides the reply keyboard that opened an anonymous SimpleWebView.
+func (h *Handler) removeLegacyTelegramStartKeyboard(logger *slog.Logger, chatID int64) {
+	markup := &integrations.ReplyMarkup{RemoveKeyboard: true}
+	if err := h.telegram.SendMessageWithMarkup(chatID, telegramKeyboardMigrationText, markup); err != nil {
+		logger.Warn(
+			"action", "action", "telegram_webhook",
+			"status", "remove_legacy_keyboard_failed",
+			"chat_id", chatID,
+			"error", err,
+		)
+	}
+}
 
+// telegramStartPayload returns the optional deep-link payload following /start.
+func telegramStartPayload(text string) string {
+	trimmed := strings.TrimSpace(text)
+	fields := strings.Fields(trimmed)
+	if len(fields) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimPrefix(trimmed, fields[0]))
+}
+
+// sendTelegramStartMessage retries rejected WebApp markup with universal URL buttons and plain text.
+func (h *Handler) sendTelegramStartMessage(logger *slog.Logger, chatID int64, text string, primary *integrations.ReplyMarkup, fallback *integrations.ReplyMarkup) {
+	err := h.telegram.SendMessageWithMarkup(chatID, text, primary)
+	if err == nil {
+		return
+	}
+	logger.Warn("action", "action", "telegram_webhook", "status", "web_app_markup_failed", "error", err)
+
+	if fallback != nil {
+		if fallbackErr := h.telegram.SendMessageWithMarkup(chatID, text, fallback); fallbackErr == nil {
+			return
+		} else {
+			err = fallbackErr
+		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	if plainTextErr := h.telegram.SendMessage(chatID, text); plainTextErr == nil {
+		return
+	} else {
+		err = plainTextErr
+	}
+	logger.Warn("action", "action", "telegram_webhook", "status", "send_failed", "chat_id", chatID, "error", err)
 }
 
 // rememberTelegramContact persists Telegram sender data so QR delivery can work after a bot interaction even without app auth.
@@ -888,30 +959,44 @@ func encodeNonEmptyQuery(queryValues map[string]string) string {
 	return query.Encode()
 }
 
-// buildTelegramStartMenuMarkup returns the three WebApp buttons shown on /start.
-func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey string, openURLOverride string) *integrations.ReplyMarkup {
+// telegramStartMenuLinks stores the resolved destinations for the /start menu.
+type telegramStartMenuLinks struct {
+	Buy      string
+	Transfer string
+	Open     string
+}
+
+// resolveTelegramStartMenuLinks builds generic or event-specific /start links.
+func resolveTelegramStartMenuLinks(baseURL string, eventID int64, accessKey string, openURLOverride string) telegramStartMenuLinks {
 	if strings.TrimSpace(baseURL) == "" {
-		return nil
+		return telegramStartMenuLinks{}
 	}
 
-	buyURL := buildGenericPurchaseURL(baseURL)
-	transferURL := buildGenericTransferURL(baseURL)
-	openURL := normalizeWebAppBaseURL(baseURL)
+	links := telegramStartMenuLinks{
+		Buy:      buildGenericPurchaseURL(baseURL),
+		Transfer: buildGenericTransferURL(baseURL),
+		Open:     normalizeWebAppBaseURL(baseURL),
+	}
 	if strings.TrimSpace(openURLOverride) != "" {
-		openURL = strings.TrimSpace(openURLOverride)
+		links.Open = strings.TrimSpace(openURLOverride)
 	}
 	if eventID > 0 {
 		if url := buildEventPurchaseURL(baseURL, eventID, accessKey); url != "" {
-			buyURL = url
+			links.Buy = url
 		}
 		if url := buildEventTransferURL(baseURL, eventID, accessKey); url != "" {
-			transferURL = url
+			links.Transfer = url
 		}
 		if url := buildEventURL(baseURL, eventID, accessKey); url != "" {
-			openURL = url
+			links.Open = url
 		}
 	}
+	return links
+}
 
+// buildTelegramStartMenuMarkup returns inline WebApp buttons that receive signed user initData.
+func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey string, openURLOverride string) *integrations.ReplyMarkup {
+	links := resolveTelegramStartMenuLinks(baseURL, eventID, accessKey, openURLOverride)
 	rows := make([][]integrations.InlineKeyboardButton, 0, 3)
 	appendWebAppButton := func(text string, link string) {
 		if strings.TrimSpace(link) == "" {
@@ -922,9 +1007,28 @@ func buildTelegramStartMenuMarkup(baseURL string, eventID int64, accessKey strin
 			WebApp: &integrations.WebAppInfo{URL: link},
 		}})
 	}
-	appendWebAppButton("КУПИТЬ БИЛЕТ", buyURL)
-	appendWebAppButton("ТРАНСФЕР", transferURL)
-	appendWebAppButton("ОТКРЫТЬ SPACE APP", openURL)
+	appendWebAppButton("КУПИТЬ БИЛЕТ", links.Buy)
+	appendWebAppButton("ТРАНСФЕР", links.Transfer)
+	appendWebAppButton("ОТКРЫТЬ SPACE APP", links.Open)
+	if len(rows) == 0 {
+		return nil
+	}
+	return &integrations.ReplyMarkup{InlineKeyboard: rows}
+}
+
+// buildTelegramStartMenuURLMarkup returns URL buttons supported by every Telegram client.
+func buildTelegramStartMenuURLMarkup(baseURL string, eventID int64, accessKey string, openURLOverride string) *integrations.ReplyMarkup {
+	links := resolveTelegramStartMenuLinks(baseURL, eventID, accessKey, openURLOverride)
+	rows := make([][]integrations.InlineKeyboardButton, 0, 3)
+	appendURLButton := func(text string, link string) {
+		if strings.TrimSpace(link) == "" {
+			return
+		}
+		rows = append(rows, []integrations.InlineKeyboardButton{{Text: text, URL: link}})
+	}
+	appendURLButton("КУПИТЬ БИЛЕТ", links.Buy)
+	appendURLButton("ТРАНСФЕР", links.Transfer)
+	appendURLButton("ОТКРЫТЬ SPACE APP", links.Open)
 	if len(rows) == 0 {
 		return nil
 	}

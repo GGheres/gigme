@@ -126,12 +126,6 @@ class TransferProductModel {
     required this.isActive,
   });
 
-  /// landingKeySpace identifies regular SPACE transfer products.
-  static const String landingKeySpace = 'space';
-
-  /// landingKeyIskry identifies public ISKRY transfer products.
-  static const String landingKeyIskry = 'iskry';
-
   final String id;
   final int eventId;
   final String name;
@@ -156,18 +150,6 @@ class TransferProductModel {
         return 'Трансфер туда';
     }
   }
-
-  /// landingKey normalizes the transfer product landing bucket.
-  String get landingKey {
-    final raw = asString(info['landingKey']).trim().toLowerCase();
-    if (raw == landingKeyIskry) {
-      return landingKeyIskry;
-    }
-    return landingKeySpace;
-  }
-
-  /// landingLabel returns a compact admin-facing landing title.
-  String get landingLabel => landingKey == landingKeyIskry ? 'ISKRY' : 'SPACE';
 
   /// infoLabel handles info label.
 
